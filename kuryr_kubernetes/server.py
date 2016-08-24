@@ -10,34 +10,51 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import asyncio
 import sys
-import time
 
 from kuryr.lib._i18n import _LI
 from oslo_log import log as logging
 from oslo_service import service
 
 from kuryr_kubernetes import config
+from kuryr_kubernetes.watchers import pod
 
 
 LOG = logging.getLogger(__name__)
 
 
 class KuryrK8sService(service.Service):
+    """Kuryr-Kubernetes base service.
+
+    This class extends the oslo_service.service.Service class to provide an
+    asynchronous event loop. It assumes that all the elements of the
+    `_watchers` list has a method called `watch` (normally, implemented by the
+    class `kuryr_kubernetes.watchers.base.AbstractBaseWatcher`).
+
+    The event loop is the default used by asyncio (asyncio.SelectorEventLoop)
+    """
 
     def __init__(self):
         super(KuryrK8sService, self).__init__()
+        self._event_loop = asyncio.new_event_loop()
+        self._watchers = [
+            pod.PodWatcher
+        ]
 
     def start(self):
-        # TODO(devvesa): Remove this line as soon as it does anything
-        LOG.info(_LI("I am doing nothing"))
+        LOG.info(_LI("Service '%(class_name)s' started"),
+                 {'class_name': self.__class__.__name__})
+
+        for watcher in self._watchers:
+            instance = watcher(self._event_loop)
+            self._event_loop.create_task(instance.watch())
         try:
-            while(True):
-                time.sleep(5)
-                # TODO(devvesa): Remove this line as soon as does anything
-                LOG.info(_LI("Keep doing nothing"))
-        finally:
+            self._event_loop.run_forever()
+            self._event_loop.close()
+        except Exception:
             sys.exit(1)
+        sys.exit(0)
 
     def wait(self):
         """Waits for K8sController to complete."""
