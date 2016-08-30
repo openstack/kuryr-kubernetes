@@ -9,30 +9,33 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
-from kuryr.lib._i18n import _LI
-from oslo_log import log as logging
-
-from kuryr_kubernetes.watchers import base
-
-LOG = logging.getLogger(__name__)
+import abc
 
 
-class PodWatcher(base.AbstractBaseWatcher):
+class AbstractBaseTranslator(object):
+    """Abstract Translator class. """
 
-    ENDPOINT = "/api/v1/pods"
+    def __init__(self):
+        # TODO(devvesa) initialize neutron client
+        pass
 
-    def __init__(self, event_loop):
-        super().__init__(event_loop)
+    @abc.abstractmethod
+    def get_annotation(self):
+        """Kubernetes annotation to update.
 
-    def get_api_endpoint(self):
-        return self.ENDPOINT
+        Return the kubernetes annotation that we want to update once each
+        task is finished.
+        """
+        pass
 
+    @abc.abstractmethod
     async def on_add(self, event): # flake8: noqa
-        LOG.info(_LI('Received an ADDED event on a Pod'))
+        pass
 
-    async def on_modify(self, event):
-        LOG.info(_LI('Received a MODIFIED event on a Pod'))
-
+    @abc.abstractmethod
     async def on_delete(self, event):
-        LOG.info(_LI('Received a DELETED event on a Pod'))
+        pass
+
+    @abc.abstractmethod
+    async def on_modify(self, event):
+        pass

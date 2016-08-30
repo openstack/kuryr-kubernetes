@@ -13,12 +13,13 @@
 import asyncio
 import sys
 
-from kuryr.lib._i18n import _LI
+from kuryr.lib._i18n import _LI, _LE
 from oslo_log import log as logging
 from oslo_service import service
+from oslo_utils import excutils
+from oslo_utils import importutils
 
 from kuryr_kubernetes import config
-from kuryr_kubernetes.watchers import pod
 
 
 LOG = logging.getLogger(__name__)
@@ -38,20 +39,25 @@ class KuryrK8sService(service.Service):
     def __init__(self):
         super(KuryrK8sService, self).__init__()
         self._event_loop = asyncio.new_event_loop()
-        self._watchers = [
-            pod.PodWatcher
-        ]
 
     def start(self):
         LOG.info(_LI("Service '%(class_name)s' started"),
                  {'class_name': self.__class__.__name__})
-
-        for watcher in self._watchers:
-            instance = watcher(self._event_loop)
-            self._event_loop.create_task(instance.watch())
         try:
+            config_map = importutils.import_class(
+                config.CONF.kubernetes.config_map)
+
+            for watcher, translators in config_map.items():
+                instance = watcher(self._event_loop, translators)
+                self._event_loop.create_task(instance.watch())
+
             self._event_loop.run_forever()
             self._event_loop.close()
+
+        except ImportError:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE("Error loading config_map '%(map)s'"),
+                              {'map': config.CONF.kubernetes.config_map})
         except Exception:
             sys.exit(1)
         sys.exit(0)
