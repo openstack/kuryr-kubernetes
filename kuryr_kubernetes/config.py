@@ -16,8 +16,7 @@ from kuryr.lib._i18n import _, _LI
 from kuryr.lib import config as lib_config
 from oslo_config import cfg
 from oslo_log import log as logging
-
-from pbr import version as pbr_version
+import pbr.version
 
 LOG = logging.getLogger(__name__)
 
@@ -42,19 +41,18 @@ k8s_opts = [
 
 
 CONF = cfg.CONF
-
-CONF.register_opts(lib_config.core_opts)
-CONF.register_opts(lib_config.neutron_opts, group='neutron_client')
-CONF.register_opts(lib_config.keystone_opts, group='keystone_client')
-CONF.register_opts(lib_config.binding_opts, 'binding')
-
 CONF.register_opts(kuryr_k8s_opts)
 CONF.register_opts(k8s_opts, group='kubernetes')
+
+CONF.register_opts(lib_config.core_opts)
+CONF.register_opts(lib_config.binding_opts, 'binding')
+lib_config.register_neutron_opts(CONF)
+
 logging.register_options(CONF)
 
 
 def init(args, **kwargs):
-    version_k8s = pbr_version.VersionInfo('kuryr-kubernetes').version_string()
+    version_k8s = pbr.version.VersionInfo('kuryr-kubernetes').version_string()
     CONF(args=args, project='kuryr-k8s', version=version_k8s, **kwargs)
 
 
@@ -62,7 +60,7 @@ def setup_logging():
 
     logging.setup(CONF, 'kuryr-kubernetes')
     logging.set_defaults(default_log_levels=logging.get_default_log_levels())
-    version_k8s = pbr_version.VersionInfo('kuryr-kubernetes').version_string()
+    version_k8s = pbr.version.VersionInfo('kuryr-kubernetes').version_string()
     LOG.info(_LI("Logging enabled!"))
     LOG.info(_LI("%(prog)s version %(version)s"),
              {'prog': sys.argv[0],

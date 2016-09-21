@@ -11,6 +11,9 @@
 # under the License.
 import copy
 
+from oslo_log import _options
+
+from kuryr.lib import opts as lib_opts
 from kuryr_kubernetes import config
 
 _kuryr_k8s_opts = [
@@ -36,4 +39,5 @@ def list_kuryr_opts():
     :returns: a list of (group_name, opts) tuples
     """
 
-    return [(k, copy.deepcopy(o)) for k, o in _kuryr_k8s_opts]
+    return ([(k, copy.deepcopy(o)) for k, o in _kuryr_k8s_opts] +
+            lib_opts.list_kuryr_opts() + _options.list_opts())
