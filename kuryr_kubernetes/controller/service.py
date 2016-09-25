@@ -21,6 +21,8 @@ from oslo_service import service
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
+from kuryr_kubernetes import constants
+from kuryr_kubernetes import watcher
 
 LOG = logging.getLogger(__name__)
 
@@ -31,9 +33,16 @@ class KuryrK8sService(service.Service):
     def __init__(self):
         super(KuryrK8sService, self).__init__()
 
+        def dummy_handler(event):
+            LOG.debug("Event: %r", event)
+
+        self.watcher = watcher.Watcher(dummy_handler, self.tg)
+        self.watcher.add(constants.K8S_API_NAMESPACES)
+
     def start(self):
         LOG.info(_LI("Service '%s' starting"), self.__class__.__name__)
         super(KuryrK8sService, self).start()
+        self.watcher.start()
         LOG.info(_LI("Service '%s' started"), self.__class__.__name__)
 
     def wait(self):
@@ -42,6 +51,7 @@ class KuryrK8sService(service.Service):
 
     def stop(self, graceful=False):
         LOG.info(_LI("Service '%s' stopping"), self.__class__.__name__)
+        self.watcher.stop()
         super(KuryrK8sService, self).stop(graceful)
 
 
