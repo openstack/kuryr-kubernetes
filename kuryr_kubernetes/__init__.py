@@ -12,13 +12,6 @@
 
 import pbr.version
 
-from kuryr_kubernetes.translators import port
-from kuryr_kubernetes import watchers
-
 
 __version__ = pbr.version.VersionInfo(
     'kuryr_kubernetes').version_string()
-
-CONFIG_MAP = {
-    watchers.PodWatcher: [port.PortTranslator]
-}
