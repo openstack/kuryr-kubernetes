@@ -12,6 +12,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from kuryr_kubernetes import server
+from kuryr_kubernetes.cmd.eventlet import controller
 
-server.start()
+controller.start()
