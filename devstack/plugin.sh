@@ -353,7 +353,7 @@ if is_service_enabled kuryr-kubernetes; then
         # sure Kuryr can start before neutron-server, so Kuryr start in "extra"
         # phase.  Bug: https://bugs.launchpad.net/kuryr/+bug/1587522
         run_process kuryr-kubernetes \
-            "python3 ${KURYR_HOME}/scripts/run_server.py  \
+            "python ${KURYR_HOME}/scripts/run_server.py  \
                 --config-file $KURYR_CONFIG"
     fi
 

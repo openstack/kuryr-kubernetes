@@ -1,12 +1,5 @@
 [[local|localrc]]
 
-# At the moment kuryr-kubernetes only works with Python35, thus, you should
-# read https://wiki.openstack.org/wiki/Python3#Enable_Python_3_in_DevStack
-# This devstack plugin should work with Ubuntu 16.04+ and Fedora 24+
-# Make sure you have python3.5 and it's development package installed
-USE_PYTHON3=True
-PYTHON3_VERSION=3.5
-
 enable_plugin kuryr-kubernetes \
     https://git.openstack.org/openstack/kuryr-kubernetes
 
