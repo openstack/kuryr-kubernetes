@@ -22,6 +22,8 @@ from oslo_service import service
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
+from kuryr_kubernetes.handlers import dispatch as h_dis
+from kuryr_kubernetes.handlers import k8s_base as h_k8s
 from kuryr_kubernetes import watcher
 
 LOG = logging.getLogger(__name__)
@@ -33,10 +35,28 @@ class KuryrK8sService(service.Service):
     def __init__(self):
         super(KuryrK8sService, self).__init__()
 
-        def dummy_handler(event):
-            LOG.debug("Event: %r", event)
+        class DummyHandler(h_k8s.ResourceEventHandler):
+            OBJECT_KIND = constants.K8S_OBJ_NAMESPACE
 
-        self.watcher = watcher.Watcher(dummy_handler, self.tg)
+            def on_added(self, event):
+                LOG.debug("added: %s",
+                          event['object']['metadata']['selfLink'])
+
+            def on_deleted(self, event):
+                LOG.debug("deleted: %s",
+                          event['object']['metadata']['selfLink'])
+
+            def on_modified(self, event):
+                LOG.debug("modified: %s",
+                          event['object']['metadata']['selfLink'])
+
+            def on_present(self, event):
+                LOG.debug("present: %s",
+                          event['object']['metadata']['selfLink'])
+
+        pipeline = h_dis.EventPipeline()
+        pipeline.register(DummyHandler())
+        self.watcher = watcher.Watcher(pipeline, self.tg)
         self.watcher.add(constants.K8S_API_NAMESPACES)
 
     def start(self):

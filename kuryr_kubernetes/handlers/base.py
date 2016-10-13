@@ -13,10 +13,18 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-K8S_API_BASE = '/api/v1'
-K8S_API_NAMESPACES = K8S_API_BASE + '/namespaces'
+import abc
+import six
 
-K8S_OBJ_NAMESPACE = 'Namespace'
-K8S_OBJ_POD = 'Pod'
-K8S_OBJ_SERVICE = 'Service'
-K8S_OBJ_ENDPOINTS = 'Endpoints'
+
+@six.add_metaclass(abc.ABCMeta)
+class EventHandler(object):
+    """Base class for event handlers."""
+
+    @abc.abstractmethod
+    def __call__(self, event):
+        """Handle the event."""
+        raise NotImplementedError()
+
+    def __str__(self):
+        return self.__class__.__name__
