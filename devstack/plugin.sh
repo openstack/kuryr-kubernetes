@@ -11,10 +11,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-# Save trace setting
-XTRACE=$(set +o | grep xtrace)
-set +o xtrace
-
 function run_container {
     # Runs a detached container and uses devstack's run process to monitor
     # its logs
@@ -104,7 +100,7 @@ function get_container {
         return 0
     fi
 
-    image="${image}:${version}"
+    image="${image_name}:${version}"
     if [ -z "$(docker images -q "$image")" ]; then
         docker pull "$image"
     fi
@@ -132,19 +128,22 @@ function run_etcd {
             --listen-client-urls "$KURYR_ETCD_LISTEN_CLIENT_URL" \
             --advertise-client-urls "$KURYR_ETCD_ADVERTISE_CLIENT_URL" \
             --initial-cluster-token etcd-cluster-1 \
-            --initial-cluster "devstack=$KURYR_ETCD_PEER_URL" \
+            --initial-cluster "devstack=$KURYR_ETCD_ADVERTISE_PEER_URL" \
             --initial-cluster-state new
 }
 
 function prepare_docker {
-    curl http://get.docker.com | sudo bash
+    curl -L http://get.docker.com | sudo bash
 
     # After an ./unstack it will be stopped. So it is OK if it returns
     # exit-code == 1
-    sudo service docker stop || true
+    stop_service docker || true
 
     # Make sure there's no leftover Docker process and pidfile
-    sudo kill -s SIGTERM "$(cat /var/run/docker.pid)"
+    local DOCKER_PIDFILE=/var/run/docker.pid
+    if [ -f "$DOCKER_PIDFILE" ]; then
+        sudo kill -s SIGTERM "$(cat $DOCKER_PIDFILE)"
+    fi
 }
 
 function run_docker {
@@ -200,7 +199,7 @@ function wait_for {
 
 function run_k8s_api {
     # Runs Hyperkube's Kubernetes API Server
-    wait_for "etcd" "${KURYR_ETCD_CLIENT_URL}/v2/machines"
+    wait_for "etcd" "${KURYR_ETCD_ADVERTISE_CLIENT_URL}/v2/machines"
 
     run_container kubernetes-api \
         --net host \
@@ -210,7 +209,7 @@ function run_k8s_api {
                 --service-cluster-ip-range="${KURYR_K8S_CLUSTER_IP_RANGE}" \
                 --insecure-bind-address=0.0.0.0 \
                 --insecure-port="${KURYR_K8S_API_PORT}" \
-                --etcd-servers="${KURYR_ETCD_CLIENT_URL}" \
+                --etcd-servers="${KURYR_ETCD_ADVERTISE_CLIENT_URL}" \
                 --admission-control=NamespaceLifecycle,LimitRanger,ServiceAccount,ResourceQuota \
                 --client-ca-file=/srv/kubernetes/ca.crt \
                 --basic-auth-file=/srv/kubernetes/basic_auth.csv \
@@ -286,13 +285,16 @@ function run_k8s_kubelet {
     # adding Python and all our CNI/binding dependencies.
     local command
 
-    command="$KURYR_HYPERKUBE_BINARY kubelet\
+    mkdir -p "$DATA_DIR/kubelet" "$DATA_DIR/kubelet.cert"
+    command="sudo $KURYR_HYPERKUBE_BINARY kubelet\
         --allow-privileged=true \
         --api-servers=$KURYR_K8S_API_URL \
         --v=2 \
         --address='0.0.0.0' \
         --enable-server \
-        network-plugin=cni"
+        --network-plugin=cni \
+        --cert-dir=$DATA_DIR/kubelet.cert \
+        --root-dir=$DATA_DIR/kubelet"
     wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
     run_process kubelet "$command"
 }
@@ -387,6 +389,3 @@ if is_service_enabled kuryr-kubernetes; then
         fi
     fi
 fi
-
-# Restore xtrace
-$XTRACE
