@@ -23,6 +23,13 @@ def object_kind(event):
         return None
 
 
+def object_uid(event):
+    try:
+        return event['object']['metadata']['uid']
+    except KeyError:
+        return None
+
+
 class ResourceEventHandler(dispatch.EventConsumer):
     """Base class for K8s event handlers.
 
