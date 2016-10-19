@@ -15,7 +15,7 @@
 
 import sys
 
-from kuryr.lib._i18n import _LI
+from kuryr.lib._i18n import _LI, _LE
 from oslo_log import log as logging
 from oslo_service import service
 
@@ -24,6 +24,7 @@ from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.handlers import dispatch as h_dis
 from kuryr_kubernetes.handlers import k8s_base as h_k8s
+from kuryr_kubernetes.handlers import retry as h_retry
 from kuryr_kubernetes import watcher
 
 LOG = logging.getLogger(__name__)
@@ -37,6 +38,15 @@ class KuryrK8sService(service.Service):
 
         class DummyHandler(h_k8s.ResourceEventHandler):
             OBJECT_KIND = constants.K8S_OBJ_NAMESPACE
+
+            def __init__(self):
+                self.event_seq = 0
+
+            def __call__(self, event):
+                self.event_seq += 1
+                if self.event_seq % 4:
+                    raise Exception(_LE("Dummy exception %s") % self.event_seq)
+                super(DummyHandler, self).__call__(event)
 
             def on_added(self, event):
                 LOG.debug("added: %s",
@@ -54,7 +64,12 @@ class KuryrK8sService(service.Service):
                 LOG.debug("present: %s",
                           event['object']['metadata']['selfLink'])
 
-        pipeline = h_dis.EventPipeline()
+        class DummyPipeline(h_dis.EventPipeline):
+            def _wrap_consumer(self, consumer):
+                retry = h_retry.Retry(consumer)
+                return super(DummyPipeline, self)._wrap_consumer(retry)
+
+        pipeline = DummyPipeline()
         pipeline.register(DummyHandler())
         self.watcher = watcher.Watcher(pipeline, self.tg)
         self.watcher.add(constants.K8S_API_NAMESPACES)
