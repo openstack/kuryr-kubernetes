@@ -72,6 +72,8 @@ function configure_kuryr {
     # iniset -sudo ${KURYR_CONFIG} DEFAULT bindir \
     # "$(get_distutils_data_path)/libexec/kuryr"
 
+    iniset "$KURYR_CONFIG" kubernetes api_root "$KURYR_K8S_API_URL"
+
     create_kuryr_cache_dir
 
     # Neutron API server & Neutron plugin
