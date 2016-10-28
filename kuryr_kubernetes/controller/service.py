@@ -22,10 +22,8 @@ from oslo_service import service
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
-from kuryr_kubernetes.handlers import asynchronous as h_async
-from kuryr_kubernetes.handlers import dispatch as h_dis
+from kuryr_kubernetes.controller.handlers import pipeline as h_pipeline
 from kuryr_kubernetes.handlers import k8s_base as h_k8s
-from kuryr_kubernetes.handlers import retry as h_retry
 from kuryr_kubernetes import watcher
 
 LOG = logging.getLogger(__name__)
@@ -38,7 +36,7 @@ class KuryrK8sService(service.Service):
         super(KuryrK8sService, self).__init__()
 
         class DummyHandler(h_k8s.ResourceEventHandler):
-            OBJECT_KIND = constants.K8S_OBJ_NAMESPACE
+            # TODO(ivc): remove once real handlers are ready
 
             def __init__(self):
                 self.event_seq = 0
@@ -65,24 +63,23 @@ class KuryrK8sService(service.Service):
                 LOG.debug("present: %s",
                           event['object']['metadata']['selfLink'])
 
-        class DummyPipeline(h_dis.EventPipeline):
-            def __init__(self, thread_group):
-                self._tg = thread_group
-                super(DummyPipeline, self).__init__()
+        class DummyPodHandler(DummyHandler):
+            OBJECT_KIND = constants.K8S_OBJ_POD
 
-            def _wrap_consumer(self, consumer):
-                retry = h_retry.Retry(consumer)
-                return super(DummyPipeline, self)._wrap_consumer(retry)
+        class DummyServiceHandler(DummyHandler):
+            OBJECT_KIND = constants.K8S_OBJ_SERVICE
 
-            def _wrap_dispatcher(self, dispatcher):
-                handler = super(DummyPipeline, self)._wrap_dispatcher(
-                    dispatcher)
-                return h_async.Async(handler, self._tg, h_k8s.object_uid)
+        class DummyEndpointsHandler(DummyHandler):
+            OBJECT_KIND = constants.K8S_OBJ_ENDPOINTS
 
-        pipeline = DummyPipeline(self.tg)
-        pipeline.register(DummyHandler())
+        pipeline = h_pipeline.ControllerPipeline(self.tg)
         self.watcher = watcher.Watcher(pipeline, self.tg)
-        self.watcher.add(constants.K8S_API_NAMESPACES)
+        # TODO(ivc): pluggable resource/handler registration
+        for resource in ["pods", "services", "endpoints"]:
+            self.watcher.add("%s/%s" % (constants.K8S_API_BASE, resource))
+        pipeline.register(DummyPodHandler())
+        pipeline.register(DummyServiceHandler())
+        pipeline.register(DummyEndpointsHandler())
 
     def start(self):
         LOG.info(_LI("Service '%s' starting"), self.__class__.__name__)
