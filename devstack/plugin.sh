@@ -136,16 +136,6 @@ function run_etcd {
 
 function prepare_docker {
     curl -L http://get.docker.com | sudo bash
-
-    # After an ./unstack it will be stopped. So it is OK if it returns
-    # exit-code == 1
-    stop_service docker || true
-
-    # Make sure there's no leftover Docker process and pidfile
-    local DOCKER_PIDFILE=/var/run/docker.pid
-    if [ -f "$DOCKER_PIDFILE" ]; then
-        sudo kill -s SIGTERM "$(cat $DOCKER_PIDFILE)"
-    fi
 }
 
 function run_docker {
@@ -169,7 +159,11 @@ function stop_docker {
 
     # Stop process does not handle well Docker 1.12+ new multi process
     # split and doesn't kill them all. Let's leverage Docker's own pidfile
-    sudo kill -s SIGTERM "$(cat /var/run/docker.pid)"
+    local DOCKER_PIDFILE="/var/run/docker.pid"
+    if [ -f "$DOCKER_PIDFILE" ]; then
+        echo "Killing docker"
+        sudo kill -s SIGTERM "$(cat "$DOCKER_PIDFILE")"
+    fi
 }
 
 function prepare_kubernetes_files {
@@ -312,6 +306,7 @@ if is_service_enabled kuryr-kubernetes; then
 
         if is_service_enabled docker; then
             check_docker || prepare_docker
+            stop_docker
             run_docker
         fi
 
