@@ -35,13 +35,14 @@ class K8sClient(object):
             raise exc.K8sClientException(response.text)
         return response.json()
 
-    def annotate(self, path, annotations):
+    def annotate(self, path, annotations, resource_version=None):
         url = self._base_url + path
         data = jsonutils.dumps({
             "metadata": {
-                "annotations": annotations
+                "annotations": annotations,
+                "resourceVersion": resource_version,
             }
-        })
+        }, sort_keys=True)
         response = requests.patch(url, data=data, headers={
             'Content-Type': 'application/merge-patch+json',
             'Accept': 'application/json',

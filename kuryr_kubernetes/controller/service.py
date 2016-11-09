@@ -15,7 +15,7 @@
 
 import sys
 
-from kuryr.lib._i18n import _LI, _LE
+from kuryr.lib._i18n import _LI
 import os_vif
 from oslo_log import log as logging
 from oslo_service import service
@@ -24,7 +24,7 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.handlers import pipeline as h_pipeline
-from kuryr_kubernetes.handlers import k8s_base as h_k8s
+from kuryr_kubernetes.controller.handlers import vif as h_vif
 from kuryr_kubernetes import watcher
 
 LOG = logging.getLogger(__name__)
@@ -36,51 +36,12 @@ class KuryrK8sService(service.Service):
     def __init__(self):
         super(KuryrK8sService, self).__init__()
 
-        class DummyHandler(h_k8s.ResourceEventHandler):
-            # TODO(ivc): remove once real handlers are ready
-
-            def __init__(self):
-                self.event_seq = 0
-
-            def __call__(self, event):
-                self.event_seq += 1
-                if self.event_seq % 4:
-                    raise Exception(_LE("Dummy exception %s") % self.event_seq)
-                super(DummyHandler, self).__call__(event)
-
-            def on_added(self, event):
-                LOG.debug("added: %s",
-                          event['object']['metadata']['selfLink'])
-
-            def on_deleted(self, event):
-                LOG.debug("deleted: %s",
-                          event['object']['metadata']['selfLink'])
-
-            def on_modified(self, event):
-                LOG.debug("modified: %s",
-                          event['object']['metadata']['selfLink'])
-
-            def on_present(self, event):
-                LOG.debug("present: %s",
-                          event['object']['metadata']['selfLink'])
-
-        class DummyPodHandler(DummyHandler):
-            OBJECT_KIND = constants.K8S_OBJ_POD
-
-        class DummyServiceHandler(DummyHandler):
-            OBJECT_KIND = constants.K8S_OBJ_SERVICE
-
-        class DummyEndpointsHandler(DummyHandler):
-            OBJECT_KIND = constants.K8S_OBJ_ENDPOINTS
-
         pipeline = h_pipeline.ControllerPipeline(self.tg)
         self.watcher = watcher.Watcher(pipeline, self.tg)
         # TODO(ivc): pluggable resource/handler registration
         for resource in ["pods", "services", "endpoints"]:
             self.watcher.add("%s/%s" % (constants.K8S_API_BASE, resource))
-        pipeline.register(DummyPodHandler())
-        pipeline.register(DummyServiceHandler())
-        pipeline.register(DummyEndpointsHandler())
+        pipeline.register(h_vif.VIFHandler())
 
     def start(self):
         LOG.info(_LI("Service '%s' starting"), self.__class__.__name__)

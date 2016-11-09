@@ -15,6 +15,7 @@
 
 from oslo_log import log as logging
 
+from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.handlers import asynchronous as h_async
 from kuryr_kubernetes.handlers import dispatch as h_dis
 from kuryr_kubernetes.handlers import k8s_base as h_k8s
@@ -57,7 +58,8 @@ class ControllerPipeline(h_dis.EventPipeline):
 
     def _wrap_consumer(self, consumer):
         # TODO(ivc): tune retry interval/timeout
-        return h_log.LogExceptions(h_retry.Retry(consumer))
+        return h_log.LogExceptions(h_retry.Retry(
+            consumer, exceptions=exceptions.ResourceNotReady))
 
     def _wrap_dispatcher(self, dispatcher):
         return h_log.LogExceptions(h_async.Async(dispatcher, self._tg,

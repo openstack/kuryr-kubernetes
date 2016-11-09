@@ -56,7 +56,9 @@ class TestK8sClient(test_base.TestCase):
     def test_annotate(self, m_patch):
         path = '/test'
         annotations = {'a1': 'v1', 'a2': 'v2'}
-        ret = {'metadata': {'annotations': annotations}}
+        resource_version = "123"
+        ret = {'metadata': {'annotations': annotations,
+                            "resourceVersion": resource_version}}
         data = jsonutils.dumps(ret, sort_keys=True)
 
         m_resp = mock.MagicMock()
@@ -64,7 +66,8 @@ class TestK8sClient(test_base.TestCase):
         m_resp.json.return_value = ret
         m_patch.return_value = m_resp
 
-        self.assertEqual(annotations, self.client.annotate(path, annotations))
+        self.assertEqual(annotations, self.client.annotate(
+            path, annotations, resource_version=resource_version))
         m_patch.assert_called_once_with(self.base_url + path,
                                         data=data, headers=mock.ANY)
 
