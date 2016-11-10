@@ -254,21 +254,29 @@ function extract_hyperkube {
     local tmp_hyperkube_path
 
     tmp_hyperkube_path="/tmp/hyperkube"
+    tmp_loopback_cni_path="/tmp/loopback"
     hyperkube_container="$(docker ps -aq \
         -f ancestor="${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}" | \
         head -1)"
-    docker cp "$hyperkube_container:/hyperkube" /tmp/hyperkube
-    sudo install -o "$STACK_USER" -m 0555 "$tmp_hyperkube_path" \
+    docker cp "${hyperkube_container}:/hyperkube" "$tmp_hyperkube_path"
+    docker cp "${hyperkube_container}:/opt/cni/bin/loopback" \
+        "$tmp_loopback_cni_path"
+    sudo install -o "$STACK_USER" -m 0555 -D "$tmp_hyperkube_path" \
         "$KURYR_HYPERKUBE_BINARY"
+    sudo install -o "$STACK_USER" -m 0555 -D "$tmp_loopback_cni_path" \
+        "${CNI_BIN_DIR}/loopback"
 }
 
 function prepare_kubelet {
     local kubelet_plugin_dir
-    kubelet_plugin_dir="/usr/libexec/kubernetes/kubelet-plugins/net/exec"
+    kubelet_plugin_dir="/etc/cni/net.d/"
 
     sudo install -o "$STACK_USER" -m 0664 -D \
-        "${KURYR_HOME}${kubelet_plugin_dir}/kuryr.conf" \
-        "${kubelet_plugin_dir}/kuryr.conf"
+        "${KURYR_HOME}${kubelet_plugin_dir}/10-kuryr.conf" \
+        "${CNI_CONF_DIR}/10-kuryr.conf"
+    sudo install -o "$STACK_USER" -m 0664 -D \
+        "${KURYR_HOME}${kubelet_plugin_dir}/99-loopback.conf" \
+        "${CNI_CONF_DIR}/99-loopback.conf"
 }
 
 function run_k8s_kubelet {
@@ -289,6 +297,8 @@ function run_k8s_kubelet {
         --address='0.0.0.0' \
         --enable-server \
         --network-plugin=cni \
+        --cni-bin-dir=$CNI_BIN_DIR \
+        --cni-conf-dir=$CNI_CONF_DIR \
         --cert-dir=$DATA_DIR/kubelet.cert \
         --root-dir=$DATA_DIR/kubelet"
     wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
