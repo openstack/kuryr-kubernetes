@@ -93,3 +93,23 @@ class PodProjectDriver(DriverBase):
         """
 
         raise NotImplementedError()
+
+
+@six.add_metaclass(abc.ABCMeta)
+class PodSubnetsDriver(DriverBase):
+    """Provides subnets for Kubernetes Pods."""
+
+    ALIAS = 'pod_subnets'
+
+    @abc.abstractmethod
+    def get_subnets(self, pod, project_id):
+        """Get subnets for Pod.
+
+        :param pod: dict containing Kubernetes Pod object
+        :param project_id: OpenStack project ID
+        :return: dict containing the mapping 'subnet_id' -> 'network' for all
+                 the subnets we want to create ports on, where 'network' is an
+                 `os_vif.network.Network` object containing a single
+                 `os_vif.subnet.Subnet` object corresponding to the 'subnet_id'
+        """
+        raise NotImplementedError()

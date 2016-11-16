@@ -16,6 +16,7 @@
 import sys
 
 from kuryr.lib._i18n import _LI, _LE
+import os_vif
 from oslo_log import log as logging
 from oslo_service import service
 
@@ -101,5 +102,6 @@ def start():
     config.init(sys.argv[1:])
     config.setup_logging()
     clients.setup_clients()
+    os_vif.initialize()
     kuryrk8s_launcher = service.launch(config.CONF, KuryrK8sService())
     kuryrk8s_launcher.wait()
