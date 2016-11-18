@@ -113,3 +113,20 @@ class PodSubnetsDriver(DriverBase):
                  `os_vif.subnet.Subnet` object corresponding to the 'subnet_id'
         """
         raise NotImplementedError()
+
+
+@six.add_metaclass(abc.ABCMeta)
+class PodSecurityGroupsDriver(DriverBase):
+    """Provides security groups for Kubernetes Pods."""
+
+    ALIAS = 'pod_security_groups'
+
+    @abc.abstractmethod
+    def get_security_groups(self, pod, project_id):
+        """Get a list of security groups' IDs for Pod.
+
+        :param pod: dict containing Kubernetes Pod object
+        :param project_id: OpenStack project ID
+        :return: list containing security groups' IDs
+        """
+        raise NotImplementedError()
