@@ -51,6 +51,9 @@ neutron_defaults = [
         help=_("Default Neutron subnet ID for Kubernetes pods")),
     cfg.ListOpt('pod_security_groups',
         help=_("Default Neutron security groups' IDs for Kubernetes pods")),
+    cfg.StrOpt('ovs_bridge',
+        help=_("Default OpenVSwitch integration bridge"),
+        sample_default="br-int")
 ]
 
 CONF = cfg.CONF

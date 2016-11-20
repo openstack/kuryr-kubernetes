@@ -18,5 +18,9 @@ class K8sClientException(Exception):
     pass
 
 
+class IntegrityError(RuntimeError):
+    pass
+
+
 def format_msg(exception):
     return "%s: %s" % (exception.__class__.__name__, exception)
