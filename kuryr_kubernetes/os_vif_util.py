@@ -13,6 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import six
+
 from kuryr.lib._i18n import _LE
 from kuryr.lib.binding.drivers import utils as kl_utils
 from kuryr.lib import constants as kl_const
@@ -261,3 +263,31 @@ def neutron_to_osvif_vif(vif_plugin, neutron_port, subnets):
         _VIF_MANAGERS[vif_plugin] = mgr
 
     return mgr.driver(vif_plugin, neutron_port, subnets)
+
+
+def osvif_to_neutron_fixed_ips(subnets):
+    fixed_ips = []
+
+    for subnet_id, network in six.iteritems(subnets):
+        ips = []
+        if len(network.subnets.objects) > 1:
+            raise k_exc.IntegrityError(_LE(
+                "Network object for subnet %(subnet_id)s is invalid, "
+                "must contain a single subnet, but %(num_subnets)s found") % {
+                'subnet_id': subnet_id,
+                'num_subnets': len(network.subnets.objects)})
+
+        for subnet in network.subnets.objects:
+            if subnet.obj_attr_is_set('ips'):
+                ips.extend([str(ip.address) for ip in subnet.ips.objects])
+        if ips:
+            fixed_ips.extend([{'subnet_id': subnet_id, 'ip_address': ip}
+                              for ip in ips])
+        else:
+            fixed_ips.append({'subnet_id': subnet_id})
+
+    return fixed_ips
+
+
+def osvif_to_neutron_network_ids(subnets):
+    return list(set(net.id for net in six.itervalues(subnets)))
