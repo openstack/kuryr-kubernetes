@@ -25,3 +25,11 @@ class MockK8sClient(fixtures.Fixture):
         self.useFixture(fixtures.MockPatch(
             'kuryr_kubernetes.clients.get_kubernetes_client',
             lambda: self.client))
+
+
+class MockNeutronClient(fixtures.Fixture):
+    def _setUp(self):
+        self.client = mock.Mock()
+        self.useFixture(fixtures.MockPatch(
+            'kuryr_kubernetes.clients.get_neutron_client',
+            lambda: self.client))
