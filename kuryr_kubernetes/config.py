@@ -33,12 +33,20 @@ k8s_opts = [
     cfg.StrOpt('api_root',
         help=_("The root URL of the Kubernetes API"),
         default=os.environ.get('K8S_API', 'http://localhost:8080')),
+    cfg.StrOpt('pod_project_driver',
+        help=_("The driver to determine OpenStack project for pod ports"),
+        default='default'),
 ]
 
+neutron_defaults = [
+    cfg.StrOpt('project',
+        help=_("Default OpenStack project ID for Kubernetes resources")),
+]
 
 CONF = cfg.CONF
 CONF.register_opts(kuryr_k8s_opts)
 CONF.register_opts(k8s_opts, group='kubernetes')
+CONF.register_opts(neutron_defaults, group='neutron_defaults')
 
 CONF.register_opts(lib_config.core_opts)
 CONF.register_opts(lib_config.binding_opts, 'binding')
