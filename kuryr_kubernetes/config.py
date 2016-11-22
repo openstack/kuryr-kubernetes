@@ -39,6 +39,9 @@ k8s_opts = [
     cfg.StrOpt('pod_subnets_driver',
         help=_("The driver to determine Neutron subnets for pod ports"),
         default='default'),
+    cfg.StrOpt('pod_security_groups_driver',
+        help=_("The driver to determine Neutron security groups for pods"),
+        default='default'),
 ]
 
 neutron_defaults = [
@@ -46,6 +49,8 @@ neutron_defaults = [
         help=_("Default OpenStack project ID for Kubernetes resources")),
     cfg.StrOpt('pod_subnet',
         help=_("Default Neutron subnet ID for Kubernetes pods")),
+    cfg.ListOpt('pod_security_groups',
+        help=_("Default Neutron security groups' IDs for Kubernetes pods")),
 ]
 
 CONF = cfg.CONF
