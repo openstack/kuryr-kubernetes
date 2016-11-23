@@ -83,6 +83,22 @@ function configure_kuryr {
     fi
 }
 
+function configure_neutron_defaults {
+    local project_id=$(get_or_create_project \
+        "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
+    local pod_subnet_id=$(neutron subnet-show -c id -f value \
+        "$KURYR_NEUTRON_DEFAULT_POD_SUBNET")
+    local sg_ids=$(echo $(neutron security-group-list \
+        --project-id "$project_id" -c id -f value) | tr ' ' ',')
+
+    iniset "$KURYR_CONFIG" neutron_defaults project "$project_id"
+    iniset "$KURYR_CONFIG" neutron_defaults pod_subnet "$pod_subnet_id"
+    iniset "$KURYR_CONFIG" neutron_defaults pod_security_groups "$sg_ids"
+    if [ -n "$OVS_BRIDGE" ]; then
+        iniset "$KURYR_CONFIG" neutron_defaults ovs_bridge "$OVS_BRIDGE"
+    fi
+}
+
 function check_docker {
     if is_ubuntu; then
        dpkg -s docker-engine > /dev/null 2>&1
@@ -335,6 +351,7 @@ if is_service_enabled kuryr-kubernetes; then
     fi
 
     if [[ "$1" == "stack" && "$2" == "extra" ]]; then
+        configure_neutron_defaults
         # FIXME(limao): When Kuryr start up, it need to detect if neutron
         # support tag plugin.
         #
