@@ -271,6 +271,7 @@ function extract_hyperkube {
 
     tmp_hyperkube_path="/tmp/hyperkube"
     tmp_loopback_cni_path="/tmp/loopback"
+
     hyperkube_container="$(docker ps -aq \
         -f ancestor="${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}" | \
         head -1)"
@@ -281,6 +282,10 @@ function extract_hyperkube {
         "$KURYR_HYPERKUBE_BINARY"
     sudo install -o "$STACK_USER" -m 0555 -D "$tmp_loopback_cni_path" \
         "${CNI_BIN_DIR}/loopback"
+
+    # Convenience kubectl executable for development
+    sudo install -o "$STACK_USER" -m 555 -D "${KURYR_HOME}/devstack/kubectl" \
+        "$(dirname $KURYR_HYPERKUBE_BINARY)/kubectl"
 }
 
 function prepare_kubelet {
