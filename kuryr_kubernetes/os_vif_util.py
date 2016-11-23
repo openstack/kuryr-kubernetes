@@ -13,15 +13,38 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from kuryr.lib._i18n import _LE
+from kuryr.lib.binding.drivers import utils as kl_utils
+from kuryr.lib import constants as kl_const
+from os_vif.objects import fixed_ip as osv_fixed_ip
 from os_vif.objects import network as osv_network
 from os_vif.objects import route as osv_route
 from os_vif.objects import subnet as osv_subnet
+from os_vif.objects import vif as osv_vif
+from oslo_config import cfg as oslo_cfg
+from oslo_log import log as logging
+from stevedore import driver as stv_driver
+
+from kuryr_kubernetes import config
+from kuryr_kubernetes import exceptions as k_exc
+
+
+LOG = logging.getLogger(__name__)
 
 
 # REVISIT(ivc): consider making this module part of kuryr-lib
+_VIF_TRANSLATOR_NAMESPACE = "kuryr_kubernetes.vif_translators"
+_VIF_MANAGERS = {}
 
 
 def neutron_to_osvif_network(neutron_network):
+    """Converts Neutron network to os-vif Subnet.
+
+    :param neutron_network: dict containing network information as returned by
+                            neutron client's 'show_network'
+    :return: an os-vif Network object
+    """
+
     obj = osv_network.Network(id=neutron_network['id'])
 
     if neutron_network.get('name') is not None:
@@ -34,6 +57,13 @@ def neutron_to_osvif_network(neutron_network):
 
 
 def neutron_to_osvif_subnet(neutron_subnet):
+    """Converts Neutron subnet to os-vif Subnet.
+
+    :param neutron_subnet: dict containing subnet information as returned by
+                           neutron client's 'show_subnet'
+    :return: an os-vif Subnet object
+    """
+
     obj = osv_subnet.Subnet(
         cidr=neutron_subnet['cidr'],
         dns=neutron_subnet['dns_nameservers'],
@@ -46,8 +76,188 @@ def neutron_to_osvif_subnet(neutron_subnet):
 
 
 def _neutron_to_osvif_routes(neutron_routes):
+    """Converts Neutron host_routes to os-vif RouteList.
+
+    :param neutron_routes: list of routes as returned by neutron client's
+                           'show_subnet' in 'host_routes' attribute
+    :return: an os-vif RouteList object
+    """
+
     obj_list = [osv_route.Route(cidr=route['destination'],
                                 gateway=route['nexthop'])
                 for route in neutron_routes]
 
     return osv_route.RouteList(objects=obj_list)
+
+
+def _make_vif_subnet(subnets, subnet_id):
+    """Makes a copy of an os-vif Subnet from subnets mapping.
+
+    :param subnets: subnet mapping as returned by PodSubnetsDriver.get_subnets
+    :param subnet_id: ID of the subnet to extract from 'subnets' mapping
+    :return: a copy of an os-vif Subnet object matching 'subnet_id'
+    """
+
+    network = subnets[subnet_id]
+
+    if len(network.subnets.objects) != 1:
+        raise k_exc.IntegrityError(_LE(
+            "Network object for subnet %(subnet_id)s is invalid, "
+            "must contain a single subnet, but %(num_subnets)s found") % {
+            'subnet_id': subnet_id,
+            'num_subnets': len(network.subnets.objects)})
+
+    subnet = network.subnets.objects[0].obj_clone()
+    subnet.ips = osv_fixed_ip.FixedIPList(objects=[])
+    return subnet
+
+
+def _make_vif_subnets(neutron_port, subnets):
+    """Gets a list of os-vif Subnet objects for port.
+
+    :param neutron_port: dict containing port information as returned by
+                         neutron client's 'show_port'
+    :param subnets: subnet mapping as returned by PodSubnetsDriver.get_subnets
+    :return: list of os-vif Subnet object
+    """
+
+    vif_subnets = {}
+
+    for neutron_fixed_ip in neutron_port.get('fixed_ips', []):
+        subnet_id = neutron_fixed_ip['subnet_id']
+        ip_address = neutron_fixed_ip['ip_address']
+
+        if subnet_id not in subnets:
+            continue
+
+        try:
+            subnet = vif_subnets[subnet_id]
+        except KeyError:
+            subnet = _make_vif_subnet(subnets, subnet_id)
+            vif_subnets[subnet_id] = subnet
+
+        subnet.ips.objects.append(osv_fixed_ip.FixedIP(address=ip_address))
+
+    if not vif_subnets:
+        raise k_exc.IntegrityError(_LE(
+            "No valid subnets found for port %(port_id)s") % {
+            'port_id': neutron_port.get('id')})
+
+    return list(vif_subnets.values())
+
+
+def _make_vif_network(neutron_port, subnets):
+    """Gets a os-vif Network object for port.
+
+    :param neutron_port: dict containing port information as returned by
+                         neutron client's 'show_port'
+    :param subnets: subnet mapping as returned by PodSubnetsDriver.get_subnets
+    :return: os-vif Network object
+    """
+
+    try:
+        network = next(net.obj_clone() for net in subnets.values()
+                       if net.id == neutron_port.get('network_id'))
+    except StopIteration:
+        raise k_exc.IntegrityError(_LE(
+            "Port %(port_id)s belongs to network %(network_id)s, "
+            "but requested networks are: %(requested_networks)s") % {
+            'port_id': neutron_port.get('id'),
+            'network_id': neutron_port.get('network_id'),
+            'requested_networks': [net.id for net in subnets.values()]})
+
+    network.subnets = osv_subnet.SubnetList(
+        objects=_make_vif_subnets(neutron_port, subnets))
+
+    return network
+
+
+def _get_vif_name(neutron_port):
+    """Gets a VIF device name for port.
+
+    :param neutron_port: dict containing port information as returned by
+                         neutron client's 'show_port'
+    """
+
+    vif_name, _ = kl_utils.get_veth_pair_names(neutron_port['id'])
+    return vif_name
+
+
+def _get_ovs_hybrid_bridge_name(neutron_port):
+    """Gets a name of the Linux bridge name for hybrid OpenVSwitch port.
+
+    :param neutron_port: dict containing port information as returned by
+                         neutron client's 'show_port'
+    """
+    return ('qbr' + neutron_port['id'])[:kl_const.NIC_NAME_LEN]
+
+
+def _is_port_active(neutron_port):
+    """Checks if port is active.
+
+    :param neutron_port: dict containing port information as returned by
+                         neutron client's 'show_port'
+    """
+
+    return (neutron_port['status'] == kl_const.PORT_STATUS_ACTIVE)
+
+
+def neutron_to_osvif_vif_ovs(vif_plugin, neutron_port, subnets):
+    """Converts Neutron port to VIF object for os-vif 'ovs' plugin.
+
+    :param vif_plugin: name of the os-vif plugin to use (i.e. 'ovs')
+    :param neutron_port: dict containing port information as returned by
+                         neutron client's 'show_port'
+    :param subnets: subnet mapping as returned by PodSubnetsDriver.get_subnets
+    :return: os-vif VIF object
+    """
+
+    profile = osv_vif.VIFPortProfileOpenVSwitch(
+        interface_id=neutron_port['id'])
+
+    details = neutron_port.get('binding:vif_details', {})
+    ovs_bridge = details.get('bridge_name',
+                             config.CONF.neutron_defaults.ovs_bridge)
+    if not ovs_bridge:
+        raise oslo_cfg.RequiredOptError('ovs_bridge', 'neutron_defaults')
+
+    network = _make_vif_network(neutron_port, subnets)
+    network.bridge = ovs_bridge
+
+    if details.get('ovs_hybrid_plug'):
+        vif = osv_vif.VIFBridge(
+            id=neutron_port['id'],
+            address=neutron_port['mac_address'],
+            network=network,
+            has_traffic_filtering=details.get('port_filter', False),
+            preserve_on_delete=False,
+            active=_is_port_active(neutron_port),
+            port_profile=profile,
+            plugin=vif_plugin,
+            vif_name=_get_vif_name(neutron_port),
+            bridge_name=_get_ovs_hybrid_bridge_name(neutron_port))
+    else:
+        raise NotImplementedError(_LE(
+            "Non-hybrid OVS VIF is not supported yet"))
+
+    return vif
+
+
+def neutron_to_osvif_vif(vif_plugin, neutron_port, subnets):
+    """Converts Neutron port to os-vif VIF object.
+
+    :param vif_plugin: name of the os-vif plugin to use
+    :param neutron_port: dict containing port information as returned by
+                         neutron client
+    :param subnets: subnet mapping as returned by PodSubnetsDriver.get_subnets
+    :return: os-vif VIF object
+    """
+
+    try:
+        mgr = _VIF_MANAGERS[vif_plugin]
+    except KeyError:
+        mgr = stv_driver.DriverManager(namespace=_VIF_TRANSLATOR_NAMESPACE,
+                                       name=vif_plugin, invoke_on_load=False)
+        _VIF_MANAGERS[vif_plugin] = mgr
+
+    return mgr.driver(vif_plugin, neutron_port, subnets)
