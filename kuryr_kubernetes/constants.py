@@ -20,3 +20,8 @@ K8S_OBJ_NAMESPACE = 'Namespace'
 K8S_OBJ_POD = 'Pod'
 K8S_OBJ_SERVICE = 'Service'
 K8S_OBJ_ENDPOINTS = 'Endpoints'
+
+K8S_POD_STATUS_PENDING = 'Pending'
+
+K8S_ANNOTATION_PREFIX = 'openstack.org/kuryr'
+K8S_ANNOTATION_VIF = K8S_ANNOTATION_PREFIX + '-vif'
