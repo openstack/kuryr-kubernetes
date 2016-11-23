@@ -42,6 +42,9 @@ k8s_opts = [
     cfg.StrOpt('pod_security_groups_driver',
         help=_("The driver to determine Neutron security groups for pods"),
         default='default'),
+    cfg.StrOpt('pod_vif_driver',
+        help=_("The driver that provides VIFs for Kubernetes Pods."),
+        default='generic'),
 ]
 
 neutron_defaults = [

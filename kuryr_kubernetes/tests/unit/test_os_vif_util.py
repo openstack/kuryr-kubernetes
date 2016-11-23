@@ -15,7 +15,10 @@
 
 import mock
 
+from os_vif.objects import fixed_ip as osv_fixed_ip
+from os_vif.objects import network as osv_network
 from os_vif.objects import route as osv_route
+from os_vif.objects import subnet as osv_subnet
 from oslo_config import cfg as o_cfg
 from oslo_utils import uuidutils
 
@@ -352,3 +355,70 @@ class TestOSVIFUtils(test_base.TestCase):
 
         self.assertRaises(k_exc.IntegrityError, ovu._make_vif_subnet,
                           subnets, subnet_id)
+
+    def test_osvif_to_neutron_network_ids(self):
+        id_a = mock.sentinel.id_a
+        id_b = mock.sentinel.id_b
+        net1 = mock.Mock()
+        net1.id = id_a
+        net2 = mock.Mock()
+        net2.id = id_b
+        net3 = mock.Mock()
+        net3.id = id_a
+        subnets = {1: net1, 2: net2, 3: net3}
+
+        ret = ovu.osvif_to_neutron_network_ids(subnets)
+        self.assertEqual(2, len(ret))
+        self.assertIn(id_a, ret)
+        self.assertIn(id_b, ret)
+
+    def test_osvif_to_neutron_fixed_ips(self):
+        ip11 = '1.1.1.1'
+        ip12 = '2.2.2.2'
+        ip3 = '3.3.3.3'
+        subnet_id_1 = uuidutils.generate_uuid()
+        subnet_id_2 = uuidutils.generate_uuid()
+        subnet_id_3 = uuidutils.generate_uuid()
+
+        subnet_1 = osv_subnet.Subnet(ips=osv_fixed_ip.FixedIPList(
+            objects=[osv_fixed_ip.FixedIP(address=ip11),
+                     osv_fixed_ip.FixedIP(address=ip12)]))
+        subnet_2 = osv_subnet.Subnet()
+        subnet_3 = osv_subnet.Subnet(ips=osv_fixed_ip.FixedIPList(
+            objects=[osv_fixed_ip.FixedIP(address=ip3)]))
+
+        net1 = osv_network.Network(subnets=osv_subnet.SubnetList(
+            objects=[subnet_1]))
+        net2 = osv_network.Network(subnets=osv_subnet.SubnetList(
+            objects=[subnet_2]))
+        net3 = osv_network.Network(subnets=osv_subnet.SubnetList(
+            objects=[subnet_3]))
+
+        subnets = {subnet_id_1: net1, subnet_id_2: net2, subnet_id_3: net3}
+
+        expected = [{'subnet_id': subnet_id_1, 'ip_address': ip11},
+                    {'subnet_id': subnet_id_1, 'ip_address': ip12},
+                    {'subnet_id': subnet_id_2},
+                    {'subnet_id': subnet_id_3, 'ip_address': ip3}]
+
+        ret = ovu.osvif_to_neutron_fixed_ips(subnets)
+
+        def _sort_key(e):
+            return (e.get('subnet_id'), e.get('ip_address'))
+
+        self.assertEqual(sorted(expected, key=_sort_key),
+                         sorted(ret, key=_sort_key))
+
+    def test_osvif_to_neutron_fixed_ips_invalid(self):
+        subnet_id = uuidutils.generate_uuid()
+
+        subnet_1 = osv_subnet.Subnet()
+        subnet_2 = osv_subnet.Subnet()
+
+        net = osv_network.Network(subnets=osv_subnet.SubnetList(
+            objects=[subnet_1, subnet_2]))
+
+        subnets = {subnet_id: net}
+
+        self.assertRaises(k_exc.IntegrityError,
+                          ovu.osvif_to_neutron_fixed_ips, subnets)

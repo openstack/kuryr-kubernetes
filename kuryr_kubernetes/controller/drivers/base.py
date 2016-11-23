@@ -130,3 +130,73 @@ class PodSecurityGroupsDriver(DriverBase):
         :return: list containing security groups' IDs
         """
         raise NotImplementedError()
+
+
+@six.add_metaclass(abc.ABCMeta)
+class PodVIFDriver(DriverBase):
+    """Manages Neutron ports to provide VIFs for Kubernetes Pods."""
+
+    ALIAS = 'pod_vif'
+
+    @abc.abstractmethod
+    def request_vif(self, pod, project_id, subnets, security_groups):
+        """Links Neutron port to pod and returns it as VIF object.
+
+        Implementing drivers must ensure the Neutron port satisfying the
+        requested parameters is present and is valid for specified `pod`. It
+        is up to the implementing drivers to either create new ports on each
+        request or reuse available ports when possible.
+
+        Implementing drivers may return a VIF object with its `active` field
+        set to 'False' to indicate that Neutron port requires additional
+        actions to enable network connectivity after VIF is plugged (e.g.
+        setting up OpenFlow and/or iptables rules by OpenVSwitch agent). In
+        that case the Controller will call driver's `activate_vif` method
+        and the CNI plugin will block until it receives activation
+        confirmation from the Controller.
+
+        :param pod: dict containing Kubernetes Pod object
+        :param project_id: OpenStack project ID
+        :param subnets: dict containing subnet mapping as returned by
+                        `PodSubnetsDriver.get_subnets`. If multiple entries
+                        are present in that mapping, it is guaranteed that
+                        all entries have the same value of `Network.id`.
+        :param security_groups: list containing security groups' IDs as
+                                returned by
+                                `PodSecurityGroupsDriver.get_security_groups`
+        :return: VIF object
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def release_vif(self, pod, vif):
+        """Unlinks Neutron port corresponding to VIF object from pod.
+
+        Implementing drivers must ensure the port is either deleted or made
+        available for reuse by `PodVIFDriver.request_vif`.
+
+        :param pod: dict containing Kubernetes Pod object
+        :param vif: VIF object as returned by `PodVIFDriver.request_vif`
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def activate_vif(self, pod, vif):
+        """Updates VIF to become active.
+
+        Implementing drivers should update the specified `vif` object's
+        `active` field to 'True' but must ensure that the corresponding
+        Neutron port is fully configured (i.e. the container using the `vif`
+        can access the requested network resources).
+
+        Implementing drivers may raise `ResourceNotReady` exception to
+        indicate that port activation should be retried later which will
+        cause `activate_vif` to be called again with the same arguments.
+
+        This method may be called before, after or while the VIF is being
+        plugged by the CNI plugin.
+
+        :param pod: dict containing Kubernetes Pod object
+        :param vif: VIF object as returned by `PodVIFDriver.request_vif`
+        """
+        raise NotImplementedError()
