@@ -13,18 +13,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-K8S_API_BASE = '/api/v1'
-K8S_API_NAMESPACES = K8S_API_BASE + '/namespaces'
+from kuryr_kubernetes.cni import main
 
-K8S_OBJ_NAMESPACE = 'Namespace'
-K8S_OBJ_POD = 'Pod'
-K8S_OBJ_SERVICE = 'Service'
-K8S_OBJ_ENDPOINTS = 'Endpoints'
 
-K8S_POD_STATUS_PENDING = 'Pending'
+run = main.run
 
-K8S_ANNOTATION_PREFIX = 'openstack.org/kuryr'
-K8S_ANNOTATION_VIF = K8S_ANNOTATION_PREFIX + '-vif'
-
-CNI_EXCEPTION_CODE = 100
-CNI_TIMEOUT_CODE = 200
+if __name__ == '__main__':
+    run()

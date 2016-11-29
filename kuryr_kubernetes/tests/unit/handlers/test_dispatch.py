@@ -60,22 +60,30 @@ class TestDispatch(test_base.TestCase):
             handler.assert_called_once_with(events[key])
 
 
+class _TestEventPipeline(h_dis.EventPipeline):
+    def _wrap_dispatcher(self, dispatcher):
+        pass
+
+    def _wrap_consumer(self, consumer):
+        pass
+
+
 class TestEventPipeline(test_base.TestCase):
-    @mock.patch.object(h_dis.EventPipeline, '_wrap_dispatcher')
+    @mock.patch.object(_TestEventPipeline, '_wrap_dispatcher')
     @mock.patch('kuryr_kubernetes.handlers.dispatch.Dispatcher')
     def test_init(self, m_dispatcher_type, m_wrapper):
         m_dispatcher_type.return_value = mock.sentinel.dispatcher
         m_wrapper.return_value = mock.sentinel.handler
 
-        pipeline = h_dis.EventPipeline()
+        pipeline = _TestEventPipeline()
 
         m_dispatcher_type.assert_called_once()
         m_wrapper.assert_called_once_with(mock.sentinel.dispatcher)
         self.assertEqual(mock.sentinel.dispatcher, pipeline._dispatcher)
         self.assertEqual(mock.sentinel.handler, pipeline._handler)
 
-    @mock.patch.object(h_dis.EventPipeline, '_wrap_consumer')
-    @mock.patch.object(h_dis.EventPipeline, '__init__')
+    @mock.patch.object(_TestEventPipeline, '_wrap_consumer')
+    @mock.patch.object(_TestEventPipeline, '__init__')
     def test_register(self, m_init, m_wrap_consumer):
         consumes = {mock.sentinel.key_fn1: mock.sentinel.key1,
                     mock.sentinel.key_fn2: mock.sentinel.key2,
@@ -85,7 +93,7 @@ class TestEventPipeline(test_base.TestCase):
         m_consumer.consumes = consumes
         m_wrap_consumer.return_value = mock.sentinel.handler
         m_init.return_value = None
-        pipeline = h_dis.EventPipeline()
+        pipeline = _TestEventPipeline()
         pipeline._dispatcher = m_dispatcher
 
         pipeline.register(m_consumer)
@@ -95,11 +103,11 @@ class TestEventPipeline(test_base.TestCase):
             mock.call(key_fn, key, mock.sentinel.handler)
             for key_fn, key in consumes.items()], any_order=True)
 
-    @mock.patch.object(h_dis.EventPipeline, '__init__')
+    @mock.patch.object(_TestEventPipeline, '__init__')
     def test_call(self, m_init):
         m_init.return_value = None
         m_handler = mock.Mock()
-        pipeline = h_dis.EventPipeline()
+        pipeline = _TestEventPipeline()
         pipeline._handler = m_handler
 
         pipeline(mock.sentinel.event)

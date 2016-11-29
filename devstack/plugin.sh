@@ -73,6 +73,9 @@ function configure_kuryr {
     # "$(get_distutils_data_path)/libexec/kuryr"
 
     iniset "$KURYR_CONFIG" kubernetes api_root "$KURYR_K8S_API_URL"
+    # REVISIT(ivc): 'use_stderr' is required for current CNI driver. Once a
+    # daemon-based CNI driver is implemented, this could be removed.
+    iniset "$KURYR_CONFIG" DEFAULT use_stderr true
 
     create_kuryr_cache_dir
 
@@ -81,6 +84,12 @@ function configure_kuryr {
         configure_auth_token_middleware "$KURYR_CONFIG" kuryr \
         "$KURYR_AUTH_CACHE_DIR" neutron
     fi
+}
+
+function install_kuryr_cni {
+    local kuryr_cni_bin=$(which kuryr-cni)
+    sudo install -o "$STACK_USER" -m 0555 -D \
+        "$kuryr_cni_bin" "${CNI_BIN_DIR}/kuryr-cni"
 }
 
 function configure_neutron_defaults {
@@ -349,6 +358,9 @@ function run_k8s_kubelet {
 if is_service_enabled kuryr-kubernetes; then
     if [[ "$1" == "stack" && "$2" == "install" ]]; then
         setup_develop "$KURYR_HOME"
+        if is_service_enabled kubelet; then
+            install_kuryr_cni
+        fi
 
     elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
         create_kuryr_account

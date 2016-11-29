@@ -30,5 +30,9 @@ class ResourceNotReady(Exception):
                                                % resource)
 
 
+class CNIError(Exception):
+    pass
+
+
 def format_msg(exception):
     return "%s: %s" % (exception.__class__.__name__, exception)

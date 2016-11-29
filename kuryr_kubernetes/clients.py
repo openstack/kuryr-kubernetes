@@ -32,6 +32,14 @@ def get_kubernetes_client():
 
 
 def setup_clients():
+    setup_neutron_client()
+    setup_kubernetes_client()
+
+
+def setup_neutron_client():
     _clients[_NEUTRON_CLIENT] = utils.get_neutron_client()
+
+
+def setup_kubernetes_client():
     _clients[_KUBERNETES_CLIENT] = k8s_client.K8sClient(
         config.CONF.kubernetes.api_root)

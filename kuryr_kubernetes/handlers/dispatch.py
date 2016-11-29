@@ -19,8 +19,6 @@ import six
 from oslo_log import log as logging
 
 from kuryr_kubernetes.handlers import base as h_base
-from kuryr_kubernetes.handlers import logging as h_log
-
 
 LOG = logging.getLogger(__name__)
 
@@ -84,6 +82,7 @@ class EventConsumer(h_base.EventHandler):
         raise NotImplementedError()
 
 
+@six.add_metaclass(abc.ABCMeta)
 class EventPipeline(h_base.EventHandler):
     """Serves as an entry-point for event handling.
 
@@ -110,8 +109,10 @@ class EventPipeline(h_base.EventHandler):
     def __call__(self, event):
         self._handler(event)
 
+    @abc.abstractmethod
     def _wrap_dispatcher(self, dispatcher):
-        return h_log.LogExceptions(dispatcher)
+        raise NotImplementedError()
 
+    @abc.abstractmethod
     def _wrap_consumer(self, consumer):
-        return h_log.LogExceptions(consumer)
+        raise NotImplementedError()
