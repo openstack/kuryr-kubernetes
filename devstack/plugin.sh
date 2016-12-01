@@ -182,13 +182,23 @@ function stop_docker {
     fi
 }
 
+function get_hyperkube_container_cacert_setup_dir {
+    case "$1" in
+        1.[0-3].*) echo "/data";;
+        *) echo "/srv/kubernetes"
+    esac
+}
+
 function prepare_kubernetes_files {
     # Sets up the base configuration for the Kubernetes API Server and the
     # Controller Manager.
+    local mountpoint
+
+    mountpoint=$(get_hyperkube_container_cacert_setup_dir "$KURYR_HYPERKUBE_VERSION")
     docker run \
         --name devstack-k8s-setup-files \
         --detach \
-        --volume "$KURYR_HYPERKUBE_DATA_DIR:/data:rw" \
+        --volume "${KURYR_HYPERKUBE_DATA_DIR}:${mountpoint}:rw" \
         "${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}" \
             /setup-files.sh \
             "IP:${HOST_IP},DNS:kubernetes,DNS:kubernetes.default,DNS:kubernetes.default.svc,DNS:kubernetes.default.svc.cluster.local"
