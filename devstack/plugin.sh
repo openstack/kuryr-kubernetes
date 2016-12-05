@@ -103,7 +103,7 @@ function check_docker {
     if is_ubuntu; then
        dpkg -s docker-engine > /dev/null 2>&1
     else
-       rpm -q docker-engine > /dev/null 2>&1
+       rpm -q docker-engine > /dev/null 2>&1 || rpm -q docker > /dev/null 2>&1
     fi
 }
 
