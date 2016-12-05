@@ -202,6 +202,11 @@ function prepare_kubernetes_files {
         "${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}" \
             /setup-files.sh \
             "IP:${HOST_IP},DNS:kubernetes,DNS:kubernetes.default,DNS:kubernetes.default.svc,DNS:kubernetes.default.svc.cluster.local"
+
+    # FIXME(ivc): replace 'sleep' with a strict check (e.g. wait_for_files)
+    # 'kubernetes-api' fails if started before files are generated.
+    # this is a workaround to prevent races.
+    sleep 5
 }
 
 function wait_for {
@@ -281,6 +286,7 @@ function extract_hyperkube {
 
     tmp_hyperkube_path="/tmp/hyperkube"
     tmp_loopback_cni_path="/tmp/loopback"
+    tmp_nsenter_path="/tmp/nsenter"
 
     hyperkube_container="$(docker ps -aq \
         -f ancestor="${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}" | \
@@ -288,10 +294,13 @@ function extract_hyperkube {
     docker cp "${hyperkube_container}:/hyperkube" "$tmp_hyperkube_path"
     docker cp "${hyperkube_container}:/opt/cni/bin/loopback" \
         "$tmp_loopback_cni_path"
+    docker cp "${hyperkube_container}:/usr/bin/nsenter" "$tmp_nsenter_path"
     sudo install -o "$STACK_USER" -m 0555 -D "$tmp_hyperkube_path" \
         "$KURYR_HYPERKUBE_BINARY"
     sudo install -o "$STACK_USER" -m 0555 -D "$tmp_loopback_cni_path" \
         "${CNI_BIN_DIR}/loopback"
+    sudo install -o "root" -m 0555 -D "$tmp_nsenter_path" \
+        "/usr/local/bin/nsenter"
 
     # Convenience kubectl executable for development
     sudo install -o "$STACK_USER" -m 555 -D "${KURYR_HOME}/devstack/kubectl" \
