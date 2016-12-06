@@ -92,6 +92,76 @@ function install_kuryr_cni {
         "$kuryr_cni_bin" "${CNI_BIN_DIR}/kuryr-cni"
 }
 
+function _cidr_range {
+  python - <<EOF "$1"
+import sys
+from netaddr import IPAddress, IPNetwork
+n = IPNetwork(sys.argv[1])
+print("%s\\t%s" % (IPAddress(n.first + 1), IPAddress(n.last - 1)))
+EOF
+}
+
+function create_k8s_service_subnet {
+    # REVISIT(ivc): add support for IPv6
+    # REVISIT(apuimedo): Move this into a tool that can be used on deployments
+    #                    and make use of it here.
+    local project_id=$1
+    local subnet_params="--project $project_id "
+
+    if [ -z $SUBNETPOOL_V4_ID ]; then
+        local service_cidr=$KURYR_K8S_CLUSTER_IP_RANGE
+    fi
+
+    subnet_params+="--ip-version 4 "
+    subnet_params+="--no-dhcp --gateway none "
+    subnet_params+="${SUBNETPOOL_V4_ID:+--subnet-pool $SUBNETPOOL_V4_ID} "
+    subnet_params+="${service_cidr:+--subnet-range $service_cidr} "
+    subnet_params+="--network $NET_ID $KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET"
+
+    local subnet_id
+    subnet_id=$(openstack --os-cloud devstack-admin \
+                          --os-region "$REGION_NAME" \
+                          subnet create $subnet_params \
+                          | grep ' id ' | get_field 2)
+    die_if_not_set $LINENO subnet_id \
+        "Failure creating K8s service IPv4 subnet for $project_id"
+
+    service_cidr=$(openstack --os-cloud devstack-admin \
+                             --os-region "$REGION_NAME" \
+                             subnet show $subnet_id \
+                             | grep ' cidr ' | get_field 2)
+    die_if_not_set $LINENO service_cidr \
+        "Failure creating K8s service IPv4 subnet for $project_id"
+    # REVISIT(ivc): consider adding a note to 'settings'
+    # KURYR_K8S_CLUSTER_IP_RANGE from 'settings' is only used if no
+    # SUBNETPOOL_V4_ID is defined and otherwise it is rewritten with a
+    # generated CIDR from SUBNETPOOL_V4_ID.
+    KURYR_K8S_CLUSTER_IP_RANGE=$service_cidr
+
+    # REVISIT(ivc): look for a better solution to deal with K8s IPAM
+    # K8s has its own IPAM for services. It also allocates the first IP from
+    # service subnet CIDR to Kubernetes apiserver.
+    # To deal with it we set gateway's IP to the the last IP from subnet's
+    # IP range and Kuryr's K8s service handler will ignore services with
+    # gateway's IP.
+    # TODO(ivc): create a 'fake' service for router's IP
+    local router_ip=$(_cidr_range "$service_cidr" | cut -f2)
+    die_if_not_set $LINENO router_ip \
+        "Failed to determine K8s service subnet router IP"
+    openstack --os-cloud devstack-admin \
+              --os-region "$REGION_NAME" subnet set \
+              --gateway "$router_ip" \
+              --no-allocation-pool \
+              $subnet_id \
+              || die $LINENO "Failed to update K8s service subnet"
+    openstack --os-cloud devstack-admin \
+              --os-region "$REGION_NAME" \
+              router add subnet $ROUTER_ID $subnet_id \
+              || die $LINENO "Failed to enable routing for K8s service subnet"
+
+    KURYR_K8S_SERVICE_SUBNET_ID=$subnet_id
+}
+
 function configure_neutron_defaults {
     local project_id=$(get_or_create_project \
         "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
@@ -100,9 +170,13 @@ function configure_neutron_defaults {
     local sg_ids=$(echo $(neutron security-group-list \
         --project-id "$project_id" -c id -f value) | tr ' ' ',')
 
+    create_k8s_service_subnet $project_id
+    local service_subnet_id=$KURYR_K8S_SERVICE_SUBNET_ID
+
     iniset "$KURYR_CONFIG" neutron_defaults project "$project_id"
     iniset "$KURYR_CONFIG" neutron_defaults pod_subnet "$pod_subnet_id"
     iniset "$KURYR_CONFIG" neutron_defaults pod_security_groups "$sg_ids"
+    iniset "$KURYR_CONFIG" neutron_defaults service_subnet "$service_subnet_id"
     if [ -n "$OVS_BRIDGE" ]; then
         iniset "$KURYR_CONFIG" neutron_defaults ovs_bridge "$OVS_BRIDGE"
     fi
@@ -365,6 +439,26 @@ if is_service_enabled kuryr-kubernetes; then
     elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
         create_kuryr_account
         configure_kuryr
+    fi
+
+    if [[ "$1" == "stack" && "$2" == "extra" ]]; then
+        configure_neutron_defaults
+        # FIXME(limao): When Kuryr start up, it need to detect if neutron
+        # support tag plugin.
+        #
+        # Kuryr will call neutron extension API to verify if neutron support
+        # tag.  So Kuryr need to start after neutron-server finish load tag
+        # plugin.  The process of devstack is:
+        #     ...
+        #     run_phase "stack" "post-config"
+        #     ...
+        #     start neutron-server
+        #     ...
+        #     run_phase "stack" "extra"
+        #
+        # If Kuryr start up in "post-config" phase, there is no way to make
+        # sure Kuryr can start before neutron-server, so Kuryr start in "extra"
+        # phase.  Bug: https://bugs.launchpad.net/kuryr/+bug/1587522
 
         if is_service_enabled docker; then
             check_docker || prepare_docker
@@ -394,26 +488,7 @@ if is_service_enabled kuryr-kubernetes; then
             extract_hyperkube
             run_k8s_kubelet
         fi
-    fi
 
-    if [[ "$1" == "stack" && "$2" == "extra" ]]; then
-        configure_neutron_defaults
-        # FIXME(limao): When Kuryr start up, it need to detect if neutron
-        # support tag plugin.
-        #
-        # Kuryr will call neutron extension API to verify if neutron support
-        # tag.  So Kuryr need to start after neutron-server finish load tag
-        # plugin.  The process of devstack is:
-        #     ...
-        #     run_phase "stack" "post-config"
-        #     ...
-        #     start neutron-server
-        #     ...
-        #     run_phase "stack" "extra"
-        #
-        # If Kuryr start up in "post-config" phase, there is no way to make
-        # sure Kuryr can start before neutron-server, so Kuryr start in "extra"
-        # phase.  Bug: https://bugs.launchpad.net/kuryr/+bug/1587522
         run_process kuryr-kubernetes \
             "python ${KURYR_HOME}/scripts/run_server.py  \
                 --config-file $KURYR_CONFIG"
