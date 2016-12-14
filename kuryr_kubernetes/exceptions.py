@@ -36,3 +36,12 @@ class CNIError(Exception):
 
 def format_msg(exception):
     return "%s: %s" % (exception.__class__.__name__, exception)
+
+
+class K8sNodeTrunkPortFailure(Exception):
+    """Exception represents that error is related to K8s node trunk port
+
+    This exception is thrown when Neutron port for k8s node could
+    not be found using subnet ID and IP address OR neutron port is
+    not associated to a Neutron vlan trunk.
+    """

@@ -9,10 +9,14 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
+from kuryr_kubernetes import config
 from oslotest import base
 
 
 class TestCase(base.BaseTestCase):
 
     """Test case base class for all unit tests."""
+    def setUp(self):
+        super(TestCase, self).setUp()
+        args = []
+        config.init(args=args)
