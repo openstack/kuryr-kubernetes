@@ -215,16 +215,34 @@ class TestOSVIFUtils(test_base.TestCase):
             vif_name=vif_name,
             bridge_name=hybrid_bridge)
 
+    @mock.patch('kuryr_kubernetes.os_vif_util._get_vif_name')
+    @mock.patch('kuryr_kubernetes.os_vif_util._is_port_active')
     @mock.patch('kuryr_kubernetes.os_vif_util._make_vif_network')
+    @mock.patch('os_vif.objects.vif.VIFOpenVSwitch')
     @mock.patch('os_vif.objects.vif.VIFPortProfileOpenVSwitch')
     def test_neutron_to_osvif_vif_ovs_native(self,
                                              m_mk_profile,
-                                             m_make_vif_network):
+                                             m_mk_vif,
+                                             m_make_vif_network,
+                                             m_is_port_active,
+                                             m_get_vif_name):
         vif_plugin = 'ovs'
         port_id = mock.sentinel.port_id
         mac_address = mock.sentinel.mac_address
         ovs_bridge = mock.sentinel.ovs_bridge
         subnets = mock.sentinel.subnets
+        port_profile = mock.sentinel.port_profile
+        network = mock.sentinel.network
+        port_active = mock.sentinel.port_active
+        vif_name = mock.sentinel.vif_name
+        vif = mock.sentinel.vif
+
+        m_mk_profile.return_value = port_profile
+        m_make_vif_network.return_value = network
+        m_is_port_active.return_value = port_active
+        m_get_vif_name.return_value = vif_name
+        m_mk_vif.return_value = vif
+
         port = {'id': port_id,
                 'mac_address': mac_address,
                 'binding:vif_details': {
@@ -232,9 +250,13 @@ class TestOSVIFUtils(test_base.TestCase):
                     'bridge_name': ovs_bridge},
                 }
 
-        # TODO(ivc): implement proper tests once ovs-native VIFs are supported
-        self.assertRaises(NotImplementedError, ovu.neutron_to_osvif_vif_ovs,
-                          vif_plugin, port, subnets)
+        self.assertEqual(vif, ovu.neutron_to_osvif_vif_ovs(vif_plugin, port,
+                                                           subnets))
+        m_mk_profile.assert_called_once_with(interface_id=port_id)
+        m_make_vif_network.assert_called_once_with(port, subnets)
+        m_is_port_active.assert_called_once_with(port)
+        m_get_vif_name.assert_called_once_with(port)
+        self.assertEqual(ovs_bridge, network.bridge)
 
     def test_neutron_to_osvif_vif_ovs_no_bridge(self):
         vif_plugin = 'ovs'
