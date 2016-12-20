@@ -428,6 +428,14 @@ function run_k8s_kubelet {
     run_process kubelet "$command"
 }
 
+function run_kuryr_kubernetes {
+    wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
+    run_process kuryr-kubernetes \
+        "python ${KURYR_HOME}/scripts/run_server.py  \
+            --config-file $KURYR_CONFIG"
+}
+
+
 # main loop
 if is_service_enabled kuryr-kubernetes; then
     if [[ "$1" == "stack" && "$2" == "install" ]]; then
@@ -489,9 +497,7 @@ if is_service_enabled kuryr-kubernetes; then
             run_k8s_kubelet
         fi
 
-        run_process kuryr-kubernetes \
-            "python ${KURYR_HOME}/scripts/run_server.py  \
-                --config-file $KURYR_CONFIG"
+        run_kuryr_kubernetes
     fi
 
     if [[ "$1" == "unstack" ]]; then
