@@ -1,0 +1,26 @@
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
+# a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
+
+#
+# This script is executed in the install-dsvm-kuryr-kuryr-kubernetes
+# OpenStack CI job that runs DevStack + kuryr.  You can find the CI job
+# configuration here:
+#
+# http://git.openstack.org/cgit/openstack-infra/project-config/tree/jenkins/jobs/kuryr.yaml
+#
+
+export OVERRIDE_ENABLED_SERVICES=neutron,q-agt,q-dhcp,q-l3,q-svc,key,mysql,rabbit,docker,etcd,kubernetes-api,kubernetes-controller-manager,kubernetes-scheduler,kubelet,kuryr-kubernetes,q-lbaasv2
+
+export PROJECTS="openstack/kuryr-kubernetes $PROJECTS"
+export DEVSTACK_LOCAL_CONFIG="enable_plugin neutron-lbaas git://git.openstack.org/openstack/neutron-lbaas"
+export DEVSTACK_LOCAL_CONFIG+=$'\n'"enable_plugin kuryr-kubernetes http://git.openstack.org/openstack/kuryr-kubernetes"
+export DEVSTACK_LOCAL_CONFIG+=$'\n'"NEUTRON_LBAAS_SERVICE_PROVIDERV2=LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
