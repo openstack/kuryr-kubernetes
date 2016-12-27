@@ -47,6 +47,7 @@ class DefaultPodSubnetDriver(base.PodSubnetsDriver):
             # DefaultPodSubnetDriver and its subclasses, but it may be
             # optional for other drivers (e.g. when each namespace has own
             # subnet)
-            raise cfg.RequiredOptError('pod_subnet', 'neutron_defaults')
+            raise cfg.RequiredOptError('pod_subnet',
+                                       cfg.OptGroup('neutron_defaults'))
 
         return {subnet_id: _get_subnet(subnet_id)}

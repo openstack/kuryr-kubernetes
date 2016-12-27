@@ -40,6 +40,8 @@ class TestDefaultPodSecurityGroupsDriver(test_base.TestCase):
         project_id = mock.sentinel.project_id
         pod = mock.sentinel.pod
         driver = default_security_groups.DefaultPodSecurityGroupsDriver()
+        msg = ("value required for option pod_security_groups in group" +
+              " \[neutron_defaults\]")
 
-        self.assertRaises(cfg.RequiredOptError, driver.get_security_groups,
-                          pod, project_id)
+        self.assertRaisesRegex(cfg.RequiredOptError, msg,
+                               driver.get_security_groups, pod, project_id)

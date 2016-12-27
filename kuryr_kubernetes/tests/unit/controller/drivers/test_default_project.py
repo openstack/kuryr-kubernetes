@@ -35,5 +35,6 @@ class TestDefaultPodProjectDriver(test_base.TestCase):
     def test_get_project_not_set(self):
         pod = mock.sentinel.pod
         driver = default_project.DefaultPodProjectDriver()
-
-        self.assertRaises(cfg.RequiredOptError, driver.get_project, pod)
+        msg = "value required for option project in group \[neutron_defaults\]"
+        self.assertRaisesRegex(cfg.RequiredOptError, msg,
+                               driver.get_project, pod)
