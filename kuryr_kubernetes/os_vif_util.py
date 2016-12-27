@@ -239,8 +239,17 @@ def neutron_to_osvif_vif_ovs(vif_plugin, neutron_port, subnets):
             vif_name=_get_vif_name(neutron_port),
             bridge_name=_get_ovs_hybrid_bridge_name(neutron_port))
     else:
-        raise NotImplementedError(_LE(
-            "Non-hybrid OVS VIF is not supported yet"))
+        vif = osv_vif.VIFOpenVSwitch(
+            id=neutron_port['id'],
+            address=neutron_port['mac_address'],
+            network=network,
+            has_traffic_filtering=details.get('port_filter', False),
+            preserve_on_delete=False,
+            active=_is_port_active(neutron_port),
+            port_profile=profile,
+            plugin=vif_plugin,
+            vif_name=_get_vif_name(neutron_port),
+            bridge_name=network.bridge)
 
     return vif
 
