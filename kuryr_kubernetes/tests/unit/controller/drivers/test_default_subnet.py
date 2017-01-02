@@ -47,9 +47,11 @@ class TestDefaultPodSubnetDriver(test_base.TestCase):
         pod = mock.sentinel.pod
         project_id = mock.sentinel.project_id
         driver = default_subnet.DefaultPodSubnetDriver()
+        msg = ("value required for option pod_subnet in group" +
+              " \[neutron_defaults\]")
 
-        self.assertRaises(cfg.RequiredOptError, driver.get_subnets, pod,
-                          project_id)
+        self.assertRaisesRegex(cfg.RequiredOptError, msg, driver.get_subnets,
+                               pod, project_id)
         m_get_subnet.assert_not_called()
 
 

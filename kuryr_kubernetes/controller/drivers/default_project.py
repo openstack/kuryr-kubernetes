@@ -30,6 +30,7 @@ class DefaultPodProjectDriver(base.PodProjectDriver):
             # DefaultPodProjectDriver and its subclasses, but it may be
             # optional for other drivers (e.g. when each namespace has own
             # project)
-            raise cfg.RequiredOptError('project', 'neutron_defaults')
+            raise cfg.RequiredOptError('project',
+                                       cfg.OptGroup('neutron_defaults'))
 
         return project_id

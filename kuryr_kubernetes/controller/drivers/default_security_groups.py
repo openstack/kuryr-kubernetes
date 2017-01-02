@@ -31,6 +31,6 @@ class DefaultPodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
             # optional for other drivers (e.g. when each namespace has own
             # set of security groups)
             raise cfg.RequiredOptError('pod_security_groups',
-                                       'neutron_defaults')
+                                       cfg.OptGroup('neutron_defaults'))
 
         return sg_list[:]
