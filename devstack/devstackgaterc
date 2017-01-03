@@ -18,9 +18,24 @@
 # http://git.openstack.org/cgit/openstack-infra/project-config/tree/jenkins/jobs/kuryr.yaml
 #
 
-export OVERRIDE_ENABLED_SERVICES=neutron,q-agt,q-dhcp,q-l3,q-svc,key,mysql,rabbit,docker,etcd,kubernetes-api,kubernetes-controller-manager,kubernetes-scheduler,kubelet,kuryr-kubernetes,q-lbaasv2
-
+VARIANT=${1:-default}
 export PROJECTS="openstack/kuryr-kubernetes $PROJECTS"
 export DEVSTACK_LOCAL_CONFIG="enable_plugin neutron-lbaas git://git.openstack.org/openstack/neutron-lbaas"
 export DEVSTACK_LOCAL_CONFIG+=$'\n'"enable_plugin kuryr-kubernetes http://git.openstack.org/openstack/kuryr-kubernetes"
 export DEVSTACK_LOCAL_CONFIG+=$'\n'"NEUTRON_LBAAS_SERVICE_PROVIDERV2=LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
+export OVERRIDE_ENABLED_SERVICES=neutron,q-svc,key,mysql,rabbit,docker,etcd,kubernetes-api,kubernetes-controller-manager,kubernetes-scheduler,kubelet,kuryr-kubernetes,q-lbaasv2
+
+if [[ $VARIANT == 'default' ]]; then
+    export OVERRIDE_ENABLED_SERVICES+=q-agt,q-dhcp,q-l3
+elif [[ $VARIANT == 'dragonflow' ]]; then
+    export OVERRIDE_ENABLED_SERVICES+=df-redis,df-redis-server,df-controller,df-ext-services,df-zmq-publisher-service,df-l3-agent
+    export DEVSTACK_LOCAL_CONFIG+=$'\n'"enable_plugin dragonflow https://github.com/openstack/dragonflow"
+    export Q_ENABLE_DRAGONFLOW_LOCAL_CONTROLLER=True
+    export DF_RUNNING_IN_GATE=True
+    export TUNNEL_TYPE=vxlan
+    export DF_L2_RESPONDER="True"
+    export OVS_INSTALL_FROM_GIT=False
+    export OVS_BRANCH=master
+else
+    die $LINENO "Unsupported variant"
+fi
