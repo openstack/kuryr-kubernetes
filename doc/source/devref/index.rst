@@ -36,6 +36,7 @@ Design documents
     :maxdepth: 3
 
     kuryr_kubernetes_design
+    service_support
 
 
 Indices and tables
