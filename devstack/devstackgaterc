@@ -29,12 +29,12 @@ if [[ $VARIANT == 'default' ]]; then
 elif [[ $VARIANT == 'dragonflow' ]]; then
     export OVERRIDE_ENABLED_SERVICES+=,df-redis,df-redis-server,df-controller,df-ext-services,df-zmq-publisher-service,df-l3-agent
     export DEVSTACK_LOCAL_CONFIG+=$'\n'"enable_plugin dragonflow https://github.com/openstack/dragonflow"
-    export Q_ENABLE_DRAGONFLOW_LOCAL_CONTROLLER=True
-    export DF_RUNNING_IN_GATE=True
-    export TUNNEL_TYPE=vxlan
-    export DF_L2_RESPONDER="True"
-    export OVS_INSTALL_FROM_GIT=False
-    export OVS_BRANCH=master
+    export DEVSTACK_LOCAL_CONFIG+=$'\n'"Q_ENABLE_DRAGONFLOW_LOCAL_CONTROLLER=True"
+    export DEVSTACK_LOCAL_CONFIG+=$'\n'"DF_RUNNING_IN_GATE=True"
+    export DEVSTACK_LOCAL_CONFIG+=$'\n'"TUNNEL_TYPE=vxlan"
+    export DEVSTACK_LOCAL_CONFIG+=$'\n'"DF_L2_RESPONDER=\"True\""
+    export DEVSTACK_LOCAL_CONFIG+=$'\n'"OVS_INSTALL_FROM_GIT=False"
+    export DEVSTACK_LOCAL_CONFIG+=$'\n'"OVS_BRANCH=master"
 else
     die $LINENO "Unsupported variant"
 fi
