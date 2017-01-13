@@ -16,7 +16,7 @@
    version="1.1"
    inkscape:version="0.91 r13725"
    sodipodi:docname="pod_creation_flow.svg"
-   inkscape:export-filename="/home/celebdor/Pictures/pod_creation_flow_v2.png"
+   inkscape:export-filename="/home/celebdor/Pictures/pod_creation_flow_v4.png"
    inkscape:export-xdpi="175.23239"
    inkscape:export-ydpi="175.23239">
   <defs
@@ -119,9 +119,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.4142136"
-     inkscape:cx="482.66754"
-     inkscape:cy="102.8261"
+     inkscape:zoom="1"
+     inkscape:cx="462.52237"
+     inkscape:cy="251.77561"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -142,7 +142,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title />
+        <dc:title></dc:title>
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -166,7 +166,7 @@
          height="51.51778"
          width="93.43911"
          id="rect12028"
-         style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+         style="fill:#ffee58;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
       <text
          sodipodi:linespacing="125%"
          id="text12063"
@@ -190,11 +190,11 @@
       <rect
          ry="5.4253974"
          y="533.38898"
-         x="436.48694"
+         x="432.95142"
          height="51.517761"
-         width="116.92516"
+         width="124.70332"
          id="rect12028-6"
-         style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+         style="fill:#ffee58;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
       <text
          sodipodi:linespacing="125%"
          id="text12063-6"
@@ -219,11 +219,11 @@
       <rect
          ry="5.4253974"
          y="533.38898"
-         x="624.42584"
-         height="51.51778"
-         width="93.43911"
+         x="620.89032"
+         height="51.517761"
+         width="101.33856"
          id="rect12028-1-4"
-         style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+         style="fill:#ffee58;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
       <text
          sodipodi:linespacing="125%"
          id="text12063-7-5"
@@ -242,11 +242,11 @@
       <rect
          ry="5.4253974"
          y="533.38898"
-         x="800.49542"
-         height="51.51778"
-         width="93.43911"
+         x="797.49542"
+         height="51.517761"
+         width="98.939087"
          id="rect12028-5"
-         style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+         style="fill:#ffee58;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
       <text
          xml:space="preserve"
          style="font-style:normal;font-weight:normal;font-size:27.5px;line-height:125%;font-family:sans-serif;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
@@ -269,7 +269,7 @@
          height="51.51778"
          width="93.43911"
          id="rect12028-54"
-         style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+         style="fill:#ffee58;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
       <text
          xml:space="preserve"
          style="font-style:normal;font-weight:normal;font-size:27.5px;line-height:125%;font-family:sans-serif;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
@@ -319,7 +319,7 @@
        id="path12219-0"
        inkscape:connector-curvature="0" />
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890"
        width="12.142858"
        height="18.214285"
@@ -327,7 +327,7 @@
        y="607.36218"
        ry="2.3897007" />
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8"
        width="12.142858"
        height="18.214285"
@@ -378,7 +378,7 @@
            id="tspan12123-7-2">watch pod ev()</tspan></text>
     </g>
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-6"
        width="12.142858"
        height="18.214285"
@@ -386,21 +386,21 @@
        y="607.36218"
        ry="2.3897007" />
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-1"
-       width="14.544205"
-       height="38.491066"
+       width="12.069336"
+       height="19.399128"
        x="122.86516"
-       y="625.30139"
+       y="636.54926"
        ry="2.3897007" />
     <path
        sodipodi:nodetypes="ccccccc"
        inkscape:connector-curvature="0"
        id="path7655-6-0"
-       d="m 137.13981,646.41186 519.39968,0 1.53992,0 0,5.39588 5.95691,-5.39588 -5.95691,-5.58483 0,5.58483"
+       d="m 135.13981,646.41186 521.39968,0 1.53992,0 0,5.39588 5.95691,-5.39588 -5.95691,-5.58483 0,5.58483"
        style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.99999976;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-61"
        width="12.142883"
        height="17.347107"
@@ -442,7 +442,7 @@
            id="tspan12123-7-91">ADD ev(pod)</tspan></text>
     </g>
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-6-7"
        width="12.142883"
        height="319.64282"
@@ -468,7 +468,7 @@
          x="600.62146"
          sodipodi:role="line">ADD ev(pod)</tspan></text>
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-9"
        width="11.142853"
        height="235.54723"
@@ -476,7 +476,7 @@
        y="707.54077"
        ry="2.3897007" />
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-7"
        width="12.142858"
        height="18.214285"
@@ -515,7 +515,7 @@
          height="53.569633"
          width="12.142883"
          id="rect12890-8-7-9"
-         style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+         style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
       <g
          id="g13604-6"
          transform="translate(-7.7150797,182.51166)">
@@ -562,7 +562,7 @@
            id="tspan12123-7-3-5">annotate pod(vif)</tspan></text>
     </g>
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-7-9-6"
        width="12.142883"
        height="50.741207"
@@ -570,7 +570,7 @@
        y="924.02118"
        ry="2.3897007" />
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-6-7-1"
        width="12.142883"
        height="262.67126"
@@ -622,7 +622,7 @@
            id="tspan12123-7-2-0">watch pod ev()</tspan></text>
     </g>
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-7-9-3"
        width="12.142858"
        height="18.214285"
@@ -657,7 +657,7 @@
            id="tspan14236">with vif annotation</tspan></text>
     </g>
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#90a4ae;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-7-9-3-7"
        width="12.142858"
        height="18.214285"
@@ -670,7 +670,7 @@
       <g
          id="g14290">
         <rect
-           style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           style="fill:#90a4ae;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
            id="rect12890-8-6-6"
            width="12.142858"
            height="18.214285"
@@ -709,7 +709,7 @@
       <g
          id="g14290-8">
         <rect
-           style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           style="fill:#90a4ae;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
            id="rect12890-8-6-6-5"
            width="12.142858"
            height="18.214285"
@@ -776,7 +776,7 @@
          height="18.214285"
          width="12.142858"
          id="rect12890-8-7-93-9"
-         style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+         style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
       <path
          sodipodi:nodetypes="ccccccc"
          inkscape:connector-curvature="0"
@@ -809,7 +809,7 @@
          x="405.12915"
          sodipodi:role="line">while port.status ≠ active</tspan></text>
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-7-93-9-3"
        width="12.142858"
        height="18.214285"
@@ -817,7 +817,7 @@
        y="862.64581"
        ry="2.3897007" />
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-7-93-9-1"
        width="12.142858"
        height="18.214285"
@@ -825,7 +825,7 @@
        y="887.06842"
        ry="2.3897007" />
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-7-93-9-8"
        width="12.142858"
        height="18.214285"
@@ -865,7 +865,7 @@
            id="tspan14565">annotation</tspan></text>
     </g>
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#90a4ae;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-7-9-3-7-3"
        width="12.142858"
        height="18.214285"
@@ -884,7 +884,7 @@
       <g
          id="g14290-8-4">
         <rect
-           style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           style="fill:#90a4ae;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
            id="rect12890-8-6-6-5-8"
            width="12.142858"
            height="18.214285"
@@ -929,7 +929,7 @@
       <g
          id="g14290-8-4-4">
         <rect
-           style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           style="fill:#90a4ae;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
            id="rect12890-8-6-6-5-8-3"
            width="12.142858"
            height="18.214285"
@@ -978,7 +978,7 @@
        transform="translate(117.65879,0)">
       <path
          style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.99999976;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
-         d="m 20.188128,690.32659 519.819092,0 1.53992,0 0,5.39588 5.95691,-5.39588 -5.95691,-5.58483 0,5.58483"
+         d="m 18.188128,690.32659 521.819092,0 1.53992,0 0,5.39588 5.95691,-5.39588 -5.95691,-5.58483 0,5.58483"
          id="path7655-6-0-3"
          inkscape:connector-curvature="0"
          sodipodi:nodetypes="ccccccc" />
@@ -996,12 +996,12 @@
            sodipodi:role="line">watch for pod running()</tspan></text>
     </g>
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-1-5"
-       width="14.544205"
-       height="367.29575"
-       x="122.86516"
-       y="673.93805"
+       width="11.715797"
+       height="358.54572"
+       x="123.07868"
+       y="685.26703"
        ry="2.3897007" />
     <text
        xml:space="preserve"
@@ -1021,7 +1021,7 @@
          style="font-weight:bold;font-size:12.5px;text-align:end;text-anchor:end"
          id="tspan14236-6">running</tspan></text>
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-7-93-9-3-2"
        width="12.142858"
        height="18.214285"
@@ -1029,7 +1029,7 @@
        y="838.22327"
        ry="2.3897007" />
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-7-93-9-3-1"
        width="12.142858"
        height="18.214285"
@@ -1037,7 +1037,7 @@
        y="681.25726"
        ry="2.3897007" />
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-7-93-9-3-27"
        width="12.142858"
        height="18.214285"
@@ -1045,7 +1045,7 @@
        y="708.94647"
        ry="2.3897007" />
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#cfd8dc;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-7-9-6-0"
        width="12.142883"
        height="41.548763"
@@ -1053,7 +1053,7 @@
        y="1001.0024"
        ry="2.3897007" />
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#90a4ae;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-7-9-3-7-3-9"
        width="12.142858"
        height="18.214285"
@@ -1073,7 +1073,7 @@
          style="font-weight:bold;font-size:12.5px;text-align:start;text-anchor:start"
          id="tspan14675-0">pod running()</tspan></text>
     <rect
-       style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="fill:#90a4ae;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect12890-8-7-9-3-7-36"
        width="12.142858"
        height="18.214285"
@@ -1081,7 +1081,7 @@
        y="799.75726"
        ry="2.3897007" />
     <path
-       style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.99999976;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       style="fill:#212121;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.99999976;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
        d="m 658.28248,808.44568 -149.47069,0 -1.53992,0 0,-5.39588 -5.95691,5.39588 5.95691,5.58483 0,-5.58483"
        id="path7655-6-9-4-5"
        inkscape:connector-curvature="0"
