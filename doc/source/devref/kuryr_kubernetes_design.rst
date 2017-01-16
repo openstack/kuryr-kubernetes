@@ -42,9 +42,10 @@ CNI driver is responsible for binding kubernetess pods on worker nodes into
 Neutron ports ensuring requested level of isolation.
 Please see below the component view of the integrated system:
 
-.. image:: https://raw.githubusercontent.com/openstack/kuryr-kubernetes/master/doc/images/kuryr_k8s_components.png
+.. image:: ../../images/kuryr_k8s_components.png
     :alt: integration components
     :align: center
+    :width: 100%
 
 Design Principles
 -----------------
@@ -118,9 +119,10 @@ affecting other Handlers (of the current and other events).
 Events of the same group (same K8s object) are handled sequentially in the
 order arrival. Events of different K8s objects are handled concurenlty.
 
-.. image:: https://raw.githubusercontent.com/openstack/kuryr-kubernetes/master/doc/images/controller_pipeline.png
+.. image:: ../..//images/controller_pipeline.png
     :alt: controller pipeline
     :align: center
+    :width: 100%
 
 ResourceEventHandler
 ~~~~~~~~~~~~~~~~~~~~
@@ -182,7 +184,7 @@ In the cases when Neutron initially creates port in ‘Down’ state, CNI driver
 will plug the Pod, but will have to watch the Pod annotations for vif state
 change to ‘Active’ before returning the control to the caller.
 
-.. image:: https://raw.githubusercontent.com/openstack/kuryr-kubernetes/master/doc/images/pod_creation_flow.png
+.. image:: ../../images/pod_creation_flow.png
     :alt: Controller-CNI interaction
     :align: center
-
+    :width: 100%
