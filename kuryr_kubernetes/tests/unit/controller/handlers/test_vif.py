@@ -99,7 +99,9 @@ class TestVIFHandler(test_base.TestCase):
         self.assertFalse(h_vif.VIFHandler._is_host_network(self._pod))
 
     def test_unset_host_network(self):
-        self.assertFalse(h_vif.VIFHandler._is_host_network({}))
+        pod = self._pod.copy()
+        del pod['spec']['hostNetwork']
+        self.assertFalse(h_vif.VIFHandler._is_host_network(pod))
 
     def test_is_pending(self):
         self.assertTrue(h_vif.VIFHandler._is_pending(self._pod))
