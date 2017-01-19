@@ -67,13 +67,14 @@ class TestAsyncHandler(test_base.TestCase):
         event = mock.sentinel.event
         group = mock.sentinel.group
         m_queue = mock.Mock()
+        m_queue.empty.return_value = True
         m_queue.get.return_value = event
         m_handler = mock.Mock()
         m_count.return_value = [1]
         async_handler = h_async.Async(m_handler, mock.Mock(), mock.Mock(),
                                       queue_depth=1)
 
-        with mock.patch('time.time', return_value=0):
+        with mock.patch('time.sleep'):
             async_handler._run(group, m_queue)
 
         m_handler.assert_called_once_with(event)
@@ -83,14 +84,33 @@ class TestAsyncHandler(test_base.TestCase):
         events = [mock.sentinel.event1, mock.sentinel.event2]
         group = mock.sentinel.group
         m_queue = mock.Mock()
+        m_queue.empty.return_value = True
         m_queue.get.side_effect = events + [six_queue.Empty()]
         m_handler = mock.Mock()
         m_count.return_value = list(range(5))
         async_handler = h_async.Async(m_handler, mock.Mock(), mock.Mock())
 
-        async_handler._run(group, m_queue)
+        with mock.patch('time.sleep'):
+            async_handler._run(group, m_queue)
 
         m_handler.assert_has_calls([mock.call(event) for event in events])
+        self.assertEqual(len(events), m_handler.call_count)
+
+    @mock.patch('itertools.count')
+    def test_run_stale(self, m_count):
+        events = [mock.sentinel.event1, mock.sentinel.event2]
+        group = mock.sentinel.group
+        m_queue = mock.Mock()
+        m_queue.empty.side_effect = [False, True, True]
+        m_queue.get.side_effect = events + [six_queue.Empty()]
+        m_handler = mock.Mock()
+        m_count.return_value = list(range(5))
+        async_handler = h_async.Async(m_handler, mock.Mock(), mock.Mock())
+
+        with mock.patch('time.sleep'):
+            async_handler._run(group, m_queue)
+
+        m_handler.assert_called_once_with(mock.sentinel.event2)
 
     def test_done(self):
         group = mock.sentinel.group
