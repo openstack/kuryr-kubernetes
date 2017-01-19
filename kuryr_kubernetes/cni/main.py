@@ -25,6 +25,7 @@ from kuryr_kubernetes.cni import api as cni_api
 from kuryr_kubernetes.cni import handlers as h_cni
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as k_const
+from kuryr_kubernetes import objects
 from kuryr_kubernetes import watcher as k_watcher
 
 LOG = logging.getLogger(__name__)
@@ -75,6 +76,10 @@ def run():
     # REVISIT(ivc): current CNI implementation provided by this package is
     # experimental and its primary purpose is to enable development of other
     # components (e.g. functional tests, service/LBaaSv2 support)
+
+    # TODO(vikasc): Should be done using dynamically loadable OVO types plugin.
+    objects.register_locally_defined_vifs()
+
     runner = cni_api.CNIRunner(K8sCNIPlugin())
 
     def _timeout(signum, frame):

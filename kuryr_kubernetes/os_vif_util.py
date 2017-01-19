@@ -29,6 +29,7 @@ from stevedore import driver as stv_driver
 
 from kuryr_kubernetes import config
 from kuryr_kubernetes import exceptions as k_exc
+from kuryr_kubernetes.objects import vif as k_vif
 
 
 LOG = logging.getLogger(__name__)
@@ -250,6 +251,32 @@ def neutron_to_osvif_vif_ovs(vif_plugin, neutron_port, subnets):
             plugin=vif_plugin,
             vif_name=_get_vif_name(neutron_port),
             bridge_name=network.bridge)
+
+    return vif
+
+
+def neutron_to_osvif_vif_nested(vif_plugin, neutron_port, subnets):
+    """Converts Neutron port to VIF object for nested containers.
+
+    :param vif_plugin: name of the os-vif plugin to use (i.e. 'noop')
+    :param neutron_port: dict containing port information as returned by
+                         neutron client's 'show_port'
+    :param subnets: subnet mapping as returned by PodSubnetsDriver.get_subnets
+    :return: kuryr-k8s native VIF object (eg. VIFVlanNested)
+    """
+
+    details = neutron_port.get('binding:vif_details', {})
+    network = _make_vif_network(neutron_port, subnets)
+
+    vif = k_vif.VIFVlanNested(
+        id=neutron_port['id'],
+        address=neutron_port['mac_address'],
+        network=network,
+        has_traffic_filtering=details.get('port_filter', False),
+        preserve_on_delete=False,
+        active=_is_port_active(neutron_port),
+        plugin=vif_plugin,
+        vif_name=_get_vif_name(neutron_port))
 
     return vif
 

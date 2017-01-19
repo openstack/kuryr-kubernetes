@@ -25,6 +25,7 @@ from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.handlers import pipeline as h_pipeline
 from kuryr_kubernetes.controller.handlers import vif as h_vif
+from kuryr_kubernetes import objects
 from kuryr_kubernetes import watcher
 
 LOG = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ class KuryrK8sService(service.Service):
     def __init__(self):
         super(KuryrK8sService, self).__init__()
 
+        objects.register_locally_defined_vifs()
         pipeline = h_pipeline.ControllerPipeline(self.tg)
         self.watcher = watcher.Watcher(pipeline, self.tg)
         # TODO(ivc): pluggable resource/handler registration

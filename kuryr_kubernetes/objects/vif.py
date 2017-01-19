@@ -1,6 +1,3 @@
-# Copyright (c) 2016 Mirantis, Inc.
-# All Rights Reserved.
-#
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
 #    a copy of the License at
@@ -13,20 +10,21 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-K8S_API_BASE = '/api/v1'
-K8S_API_NAMESPACES = K8S_API_BASE + '/namespaces'
+from oslo_versionedobjects import base as obj_base
+from oslo_versionedobjects import fields as obj_fields
 
-K8S_OBJ_NAMESPACE = 'Namespace'
-K8S_OBJ_POD = 'Pod'
-K8S_OBJ_SERVICE = 'Service'
-K8S_OBJ_ENDPOINTS = 'Endpoints'
+from os_vif.objects import vif as obj_osvif
 
-K8S_POD_STATUS_PENDING = 'Pending'
 
-K8S_ANNOTATION_PREFIX = 'openstack.org/kuryr'
-K8S_ANNOTATION_VIF = K8S_ANNOTATION_PREFIX + '-vif'
+@obj_base.VersionedObjectRegistry.register
+class VIFVlanNested(obj_osvif.VIFBase):
+    # This is OVO based vlan vif.
 
-K8S_OS_VIF_NOOP_PLUGIN = "noop"
+    VERSION = '1.0'
 
-CNI_EXCEPTION_CODE = 100
-CNI_TIMEOUT_CODE = 200
+    fields = {
+        # Name of the device to create
+        'vif_name': obj_fields.StringField(),
+        # vlan ID allocated to this vif
+        'vlan_id': obj_fields.IntegerField()
+    }

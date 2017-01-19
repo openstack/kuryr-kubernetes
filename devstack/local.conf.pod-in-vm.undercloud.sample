@@ -1,0 +1,32 @@
+[[local|localrc]]
+
+# If you do not want stacking to clone new versions of the enabled services,
+# like for example when you did local modifications and need to ./unstack.sh
+# and ./stack.sh again, uncomment the following
+# RECLONE="no"
+
+# Log settings for better readability
+LOGFILE=devstack.log
+LOG_COLOR=False
+# If you want the screen tabs logged in a specific location, you can use:
+# SCREEN_LOGDIR="${HOME}/devstack_logs"
+
+# Credentials
+ADMIN_PASSWORD=pass
+DATABASE_PASSWORD=pass
+RABBIT_PASSWORD=pass
+SERVICE_PASSWORD=pass
+SERVICE_TOKEN=pass
+TUNNEL_TYPE=vxlan
+# Enable Keystone v3
+IDENTITY_API_VERSION=3
+
+# LBaaSv2 service and Haproxy agent
+enable_plugin neutron-lbaas \
+    git://git.openstack.org/openstack/neutron-lbaas
+enable_service q-lbaasv2
+NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
+
+[[post-config|/$Q_PLUGIN_CONF_FILE]]
+[securitygroup]
+firewall_driver = openvswitch

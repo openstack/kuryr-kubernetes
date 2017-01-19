@@ -1,0 +1,28 @@
+[[local|localrc]]
+
+RECLONE="no"
+
+enable_plugin kuryr-kubernetes \
+    https://git.openstack.org/openstack/kuryr-kubernetes
+
+OFFLINE="no"
+LOGFILE=devstack.log
+LOG_COLOR=False
+ADMIN_PASSWORD=pass
+DATABASE_PASSWORD=pass
+RABBIT_PASSWORD=pass
+SERVICE_PASSWORD=pass
+SERVICE_TOKEN=pass
+IDENTITY_API_VERSION=3
+ENABLED_SERVICES=""
+
+enable_service key
+enable_service mysql
+
+enable_service docker
+enable_service etcd
+enable_service kubernetes-api
+enable_service kubernetes-controller-manager
+enable_service kubernetes-scheduler
+enable_service kubelet
+enable_service kuryr-kubernetes
