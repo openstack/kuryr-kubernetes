@@ -90,6 +90,12 @@ How to try out nested-pods locally:
        [kubernetes]
        pod_vif_driver = nested-vlan
 
+    - Configure binding section::
+
+       [binding]
+       driver = kuryr.lib.binding.drivers.vlan
+       link_iface = <VM interface name eg. eth0>
+
     - Restart kuryr-k8s-controller from within devstack screen.
 
 Now launch pods using kubectl, Undercloud Neutron will serve the networking.
