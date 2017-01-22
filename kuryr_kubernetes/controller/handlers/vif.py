@@ -83,10 +83,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
 
     @staticmethod
     def _is_host_network(pod):
-        try:
-            return pod['spec']['hostNetwork']
-        except KeyError:
-            return False
+        return pod['spec'].get('hostNetwork', False)
 
     @staticmethod
     def _is_pending(pod):
