@@ -73,12 +73,12 @@ class Async(base.EventHandler):
             self._handler(event)
 
     def _done(self, thread, group):
-        LOG.debug("Asynchronous handler stopped processing group %s", group)
+        LOG.debug("Asynchronous handler stopped processing %s", group)
         queue = self._queues.pop(group)
 
         if not queue.empty():
             LOG.critical(_LC("Asynchronous handler terminated abnormally; "
-                             "%(count)s events dropped for group %(group)s"),
+                             "%(count)s events dropped for %(group)s"),
                          {'count': queue.qsize(), 'group': group})
 
         if not self._queues:
