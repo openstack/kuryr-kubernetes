@@ -58,6 +58,10 @@ vif binding executables. For example, if you installed it on Debian or Ubuntu::
 How to try out nested-pods locally:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Following are the instructions for an all-in-one setup where K8s will also be
+running inside the same Nova VM in which Kuryr-controller and Kuryr-cni will be
+running. 4GB memory and 2 vCPUs, is the minimum resource requirement for the VM:
+
 1. To install OpenStack services run devstack with ``devstack/local.conf.pod-in-vm.undercloud.sample``.
    Ensure that "trunk" service plugin is enabled in ``/etc/neutron/neutron.conf``::
 
