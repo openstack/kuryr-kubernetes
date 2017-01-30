@@ -63,4 +63,4 @@ class ControllerPipeline(h_dis.EventPipeline):
 
     def _wrap_dispatcher(self, dispatcher):
         return h_log.LogExceptions(h_async.Async(dispatcher, self._tg,
-                                                 h_k8s.object_uid))
+                                                 h_k8s.object_link))

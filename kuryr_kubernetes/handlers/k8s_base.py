@@ -30,6 +30,13 @@ def object_uid(event):
         return None
 
 
+def object_link(event):
+    try:
+        return event['object']['metadata']['selfLink']
+    except KeyError:
+        return None
+
+
 class ResourceEventHandler(dispatch.EventConsumer):
     """Base class for K8s event handlers.
 
