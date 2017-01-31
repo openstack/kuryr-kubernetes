@@ -20,10 +20,12 @@ from oslo_versionedobjects import base as obj_base
 
 
 @six.add_metaclass(abc.ABCMeta)
-class KuryrK8sObjectBase(obj_base.VersionedObject):
+class KuryrK8sObjectBase(obj_base.VersionedObject,
+                         obj_base.ComparableVersionedObject):
 
     OBJ_PROJECT_NAMESPACE = 'kuryr_kubernetes'
 
     def __init__(self, context=None, **kwargs):
         super(KuryrK8sObjectBase, self).__init__(context, **kwargs)
         self.obj_set_defaults()
+        self.obj_reset_changes()

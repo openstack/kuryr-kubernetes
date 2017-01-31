@@ -34,3 +34,20 @@ class DefaultPodProjectDriver(base.PodProjectDriver):
                                        cfg.OptGroup('neutron_defaults'))
 
         return project_id
+
+
+class DefaultServiceProjectDriver(base.ServiceProjectDriver):
+    """Provides project ID for Service based on a configuration option."""
+
+    def get_project(self, service):
+        project_id = config.CONF.neutron_defaults.project
+
+        if not project_id:
+            # NOTE(ivc): this option is only required for
+            # DefaultServiceProjectDriver and its subclasses, but it may be
+            # optional for other drivers (e.g. when each namespace has own
+            # project)
+            raise cfg.RequiredOptError('project',
+                                       cfg.OptGroup('neutron_defaults'))
+
+        return project_id

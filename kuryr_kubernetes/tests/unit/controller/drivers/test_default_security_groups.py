@@ -40,8 +40,30 @@ class TestDefaultPodSecurityGroupsDriver(test_base.TestCase):
         project_id = mock.sentinel.project_id
         pod = mock.sentinel.pod
         driver = default_security_groups.DefaultPodSecurityGroupsDriver()
-        msg = ("value required for option pod_security_groups in group" +
-              " \[neutron_defaults\]")
 
-        self.assertRaisesRegex(cfg.RequiredOptError, msg,
-                               driver.get_security_groups, pod, project_id)
+        self.assertRaises(cfg.RequiredOptError, driver.get_security_groups,
+                          pod, project_id)
+
+
+class TestDefaultServiceSecurityGroupsDriver(test_base.TestCase):
+
+    @mock.patch('kuryr_kubernetes.config.CONF')
+    def test_get_security_groups(self, m_cfg):
+        sg_list = [mock.sentinel.sg_id]
+        project_id = mock.sentinel.project_id
+        service = mock.sentinel.service
+        m_cfg.neutron_defaults.pod_security_groups = sg_list
+        driver = default_security_groups.DefaultServiceSecurityGroupsDriver()
+
+        ret = driver.get_security_groups(service, project_id)
+
+        self.assertEqual(sg_list, ret)
+        self.assertIsNot(sg_list, ret)
+
+    def test_get_security_groups_not_set(self):
+        project_id = mock.sentinel.project_id
+        service = mock.sentinel.service
+        driver = default_security_groups.DefaultServiceSecurityGroupsDriver()
+
+        self.assertRaises(cfg.RequiredOptError, driver.get_security_groups,
+                          service, project_id)

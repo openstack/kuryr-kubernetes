@@ -51,3 +51,20 @@ class DefaultPodSubnetDriver(base.PodSubnetsDriver):
                                        cfg.OptGroup('neutron_defaults'))
 
         return {subnet_id: _get_subnet(subnet_id)}
+
+
+class DefaultServiceSubnetDriver(base.ServiceSubnetsDriver):
+    """Provides subnet for Service's LBaaS based on a configuration option."""
+
+    def get_subnets(self, service, project_id):
+        subnet_id = config.CONF.neutron_defaults.service_subnet
+
+        if not subnet_id:
+            # NOTE(ivc): this option is only required for
+            # DefaultServiceSubnetDriver and its subclasses, but it may be
+            # optional for other drivers (e.g. when each namespace has own
+            # subnet)
+            raise cfg.RequiredOptError('service_subnet',
+                                       cfg.OptGroup('neutron_defaults'))
+
+        return {subnet_id: _get_subnet(subnet_id)}

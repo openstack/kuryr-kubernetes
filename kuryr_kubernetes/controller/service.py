@@ -23,6 +23,7 @@ from oslo_service import service
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
+from kuryr_kubernetes.controller.handlers import lbaas as h_lbaas
 from kuryr_kubernetes.controller.handlers import pipeline as h_pipeline
 from kuryr_kubernetes.controller.handlers import vif as h_vif
 from kuryr_kubernetes import objects
@@ -44,6 +45,7 @@ class KuryrK8sService(service.Service):
         for resource in ["pods", "services", "endpoints"]:
             self.watcher.add("%s/%s" % (constants.K8S_API_BASE, resource))
         pipeline.register(h_vif.VIFHandler())
+        pipeline.register(h_lbaas.LBaaSSpecHandler())
 
     def start(self):
         LOG.info(_LI("Service '%s' starting"), self.__class__.__name__)

@@ -35,6 +35,21 @@ class TestDefaultPodProjectDriver(test_base.TestCase):
     def test_get_project_not_set(self):
         pod = mock.sentinel.pod
         driver = default_project.DefaultPodProjectDriver()
-        msg = "value required for option project in group \[neutron_defaults\]"
-        self.assertRaisesRegex(cfg.RequiredOptError, msg,
-                               driver.get_project, pod)
+        self.assertRaises(cfg.RequiredOptError, driver.get_project, pod)
+
+
+class TestDefaultServiceProjectDriver(test_base.TestCase):
+
+    @mock.patch('kuryr_kubernetes.config.CONF')
+    def test_get_project(self, m_cfg):
+        project_id = mock.sentinel.project_id
+        service = mock.sentinel.service
+        m_cfg.neutron_defaults.project = project_id
+        driver = default_project.DefaultServiceProjectDriver()
+
+        self.assertEqual(project_id, driver.get_project(service))
+
+    def test_get_project_not_set(self):
+        service = mock.sentinel.service
+        driver = default_project.DefaultServiceProjectDriver()
+        self.assertRaises(cfg.RequiredOptError, driver.get_project, service)
