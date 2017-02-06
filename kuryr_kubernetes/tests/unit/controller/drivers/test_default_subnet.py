@@ -47,11 +47,39 @@ class TestDefaultPodSubnetDriver(test_base.TestCase):
         pod = mock.sentinel.pod
         project_id = mock.sentinel.project_id
         driver = default_subnet.DefaultPodSubnetDriver()
-        msg = ("value required for option pod_subnet in group" +
-              " \[neutron_defaults\]")
 
-        self.assertRaisesRegex(cfg.RequiredOptError, msg, driver.get_subnets,
-                               pod, project_id)
+        self.assertRaises(cfg.RequiredOptError, driver.get_subnets,
+                          pod, project_id)
+        m_get_subnet.assert_not_called()
+
+
+class TestDefaultServiceSubnetDriver(test_base.TestCase):
+
+    @mock.patch('kuryr_kubernetes.controller.drivers'
+                '.default_subnet._get_subnet')
+    @mock.patch('kuryr_kubernetes.config.CONF')
+    def test_get_subnets(self, m_cfg, m_get_subnet):
+        subnet_id = mock.sentinel.subnet_id
+        subnet = mock.sentinel.subnet
+        service = mock.sentinel.service
+        project_id = mock.sentinel.project_id
+        m_cfg.neutron_defaults.service_subnet = subnet_id
+        m_get_subnet.return_value = subnet
+        driver = default_subnet.DefaultServiceSubnetDriver()
+
+        subnets = driver.get_subnets(service, project_id)
+
+        self.assertEqual({subnet_id: subnet}, subnets)
+        m_get_subnet.assert_called_once_with(subnet_id)
+
+    @mock.patch('kuryr_kubernetes.controller.drivers'
+                '.default_subnet._get_subnet')
+    def test_get_subnets_not_set(self, m_get_subnet):
+        service = mock.sentinel.service
+        project_id = mock.sentinel.project_id
+        driver = default_subnet.DefaultPodSubnetDriver()
+        self.assertRaises(cfg.RequiredOptError, driver.get_subnets,
+                          service, project_id)
         m_get_subnet.assert_not_called()
 
 

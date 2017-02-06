@@ -27,9 +27,27 @@ class DefaultPodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
 
         if not sg_list:
             # NOTE(ivc): this option is only required for
-            # DefaultPodSecurityGroupsDriver and its subclasses, but it may be
-            # optional for other drivers (e.g. when each namespace has own
-            # set of security groups)
+            # Default{Pod,Service}SecurityGroupsDriver and its subclasses,
+            # but it may be optional for other drivers (e.g. when each
+            # namespace has own set of security groups)
+            raise cfg.RequiredOptError('pod_security_groups',
+                                       cfg.OptGroup('neutron_defaults'))
+
+        return sg_list[:]
+
+
+class DefaultServiceSecurityGroupsDriver(base.ServiceSecurityGroupsDriver):
+    """Provides security groups for Service based on a configuration option."""
+
+    def get_security_groups(self, service, project_id):
+        # NOTE(ivc): use the same option as DefaultPodSecurityGroupsDriver
+        sg_list = config.CONF.neutron_defaults.pod_security_groups
+
+        if not sg_list:
+            # NOTE(ivc): this option is only required for
+            # Default{Pod,Service}SecurityGroupsDriver and its subclasses,
+            # but it may be optional for other drivers (e.g. when each
+            # namespace has own set of security groups)
             raise cfg.RequiredOptError('pod_security_groups',
                                        cfg.OptGroup('neutron_defaults'))
 

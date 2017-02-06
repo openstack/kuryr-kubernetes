@@ -96,6 +96,23 @@ class PodProjectDriver(DriverBase):
 
 
 @six.add_metaclass(abc.ABCMeta)
+class ServiceProjectDriver(DriverBase):
+    """Provides an OpenStack project ID for Kubernetes Services."""
+
+    ALIAS = 'service_project'
+
+    @abc.abstractmethod
+    def get_project(self, service):
+        """Get an OpenStack project ID for Kubernetes Service.
+
+        :param service: dict containing Kubernetes Service object
+        :return: project ID
+        """
+
+        raise NotImplementedError()
+
+
+@six.add_metaclass(abc.ABCMeta)
 class PodSubnetsDriver(DriverBase):
     """Provides subnets for Kubernetes Pods."""
 
@@ -116,6 +133,26 @@ class PodSubnetsDriver(DriverBase):
 
 
 @six.add_metaclass(abc.ABCMeta)
+class ServiceSubnetsDriver(DriverBase):
+    """Provides subnets for Kubernetes Services."""
+
+    ALIAS = 'service_subnets'
+
+    @abc.abstractmethod
+    def get_subnets(self, service, project_id):
+        """Get subnets for Service.
+
+        :param service: dict containing Kubernetes Pod object
+        :param project_id: OpenStack project ID
+        :return: dict containing the mapping 'subnet_id' -> 'network' for all
+                 the subnets we want to create ports on, where 'network' is an
+                 `os_vif.network.Network` object containing a single
+                 `os_vif.subnet.Subnet` object corresponding to the 'subnet_id'
+        """
+        raise NotImplementedError()
+
+
+@six.add_metaclass(abc.ABCMeta)
 class PodSecurityGroupsDriver(DriverBase):
     """Provides security groups for Kubernetes Pods."""
 
@@ -126,6 +163,23 @@ class PodSecurityGroupsDriver(DriverBase):
         """Get a list of security groups' IDs for Pod.
 
         :param pod: dict containing Kubernetes Pod object
+        :param project_id: OpenStack project ID
+        :return: list containing security groups' IDs
+        """
+        raise NotImplementedError()
+
+
+@six.add_metaclass(abc.ABCMeta)
+class ServiceSecurityGroupsDriver(DriverBase):
+    """Provides security groups for Kubernetes Services."""
+
+    ALIAS = 'service_security_groups'
+
+    @abc.abstractmethod
+    def get_security_groups(self, service, project_id):
+        """Get a list of security groups' IDs for Service.
+
+        :param service: dict containing Kubernetes Service object
         :param project_id: OpenStack project ID
         :return: list containing security groups' IDs
         """
