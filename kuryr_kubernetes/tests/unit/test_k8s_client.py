@@ -17,6 +17,7 @@ import itertools
 import mock
 
 from oslo_serialization import jsonutils
+import requests
 
 from kuryr_kubernetes import exceptions as exc
 from kuryr_kubernetes import k8s_client
@@ -52,8 +53,10 @@ class TestK8sClient(test_base.TestCase):
 
         self.assertRaises(exc.K8sClientException, self.client.get, path)
 
+    @mock.patch('itertools.count')
     @mock.patch('requests.patch')
-    def test_annotate(self, m_patch):
+    def test_annotate(self, m_patch, m_count):
+        m_count.return_value = list(range(1, 5))
         path = '/test'
         annotations = {'a1': 'v1', 'a2': 'v2'}
         resource_version = "123"
@@ -71,8 +74,10 @@ class TestK8sClient(test_base.TestCase):
         m_patch.assert_called_once_with(self.base_url + path,
                                         data=data, headers=mock.ANY)
 
+    @mock.patch('itertools.count')
     @mock.patch('requests.patch')
-    def test_annotate_exception(self, m_patch):
+    def test_annotate_exception(self, m_patch, m_count):
+        m_count.return_value = list(range(1, 5))
         path = '/test'
 
         m_resp = mock.MagicMock()
@@ -81,6 +86,117 @@ class TestK8sClient(test_base.TestCase):
 
         self.assertRaises(exc.K8sClientException, self.client.annotate,
                           path, {})
+
+    @mock.patch('itertools.count')
+    @mock.patch('requests.patch')
+    def test_annotate_diff_resource_vers_no_conflict(self, m_patch, m_count):
+        m_count.return_value = list(range(1, 5))
+        path = '/test'
+        annotations = {'a1': 'v1', 'a2': 'v2'}
+        resource_version = "123"
+        new_resource_version = "456"
+        conflicting_obj = {'metadata': {
+            'annotations': annotations,
+            'resourceVersion': resource_version}}
+        good_obj = {'metadata': {
+            'annotations': annotations,
+            'resourceVersion': new_resource_version}}
+        conflicting_data = jsonutils.dumps(conflicting_obj, sort_keys=True)
+        good_data = jsonutils.dumps(good_obj, sort_keys=True)
+
+        m_resp_conflict = mock.MagicMock()
+        m_resp_conflict.ok = False
+        m_resp_conflict.status_code = requests.codes.conflict
+        m_resp_good = mock.MagicMock()
+        m_resp_good.ok = True
+        m_resp_good.json.return_value = conflicting_obj
+        m_patch.side_effect = [m_resp_conflict, m_resp_good]
+
+        with mock.patch.object(self.client, 'get') as m_get:
+            m_get.return_value = good_obj
+            self.assertEqual(annotations, self.client.annotate(
+                path, annotations, resource_version=resource_version))
+
+        m_patch.assert_has_calls([
+            mock.call(self.base_url + path,
+                      data=conflicting_data,
+                      headers=mock.ANY),
+            mock.call(self.base_url + path,
+                      data=good_data,
+                      headers=mock.ANY)])
+
+    @mock.patch('itertools.count')
+    @mock.patch('requests.patch')
+    def test_annotate_diff_resource_vers_no_annotation(self, m_patch, m_count):
+        m_count.return_value = list(range(1, 5))
+        path = '/test'
+        annotations = {'a1': 'v1', 'a2': 'v2'}
+        annotating_resource_version = '123'
+        annotating_obj = {'metadata': {
+            'annotations': annotations,
+            'resourceVersion': annotating_resource_version}}
+        annotating_data = jsonutils.dumps(annotating_obj, sort_keys=True)
+
+        new_resource_version = '456'
+        new_obj = {'metadata': {
+            'resourceVersion': new_resource_version}}
+
+        resolution_obj = annotating_obj.copy()
+        resolution_obj['metadata']['resourceVersion'] = new_resource_version
+        resolution_data = jsonutils.dumps(resolution_obj, sort_keys=True)
+
+        m_resp_conflict = mock.MagicMock()
+        m_resp_conflict.ok = False
+        m_resp_conflict.status_code = requests.codes.conflict
+        m_resp_good = mock.MagicMock()
+        m_resp_good.ok = True
+        m_resp_good.json.return_value = resolution_obj
+        m_patch.side_effect = (m_resp_conflict, m_resp_good)
+
+        with mock.patch.object(self.client, 'get') as m_get:
+            m_get.return_value = new_obj
+            self.assertEqual(annotations, self.client.annotate(
+                path, annotations,
+                resource_version=annotating_resource_version))
+
+        m_patch.assert_has_calls([
+            mock.call(self.base_url + path,
+                      data=annotating_data,
+                      headers=mock.ANY),
+            mock.call(self.base_url + path,
+                      data=resolution_data,
+                      headers=mock.ANY)])
+
+    @mock.patch('itertools.count')
+    @mock.patch('requests.patch')
+    def test_annotate_diff_resource_vers_conflict(self, m_patch, m_count):
+        m_count.return_value = list(range(1, 5))
+        path = '/test'
+        annotations = {'a1': 'v1', 'a2': 'v2'}
+        resource_version = "123"
+        new_resource_version = "456"
+        conflicting_obj = {'metadata': {
+            'annotations': annotations,
+            'resourceVersion': resource_version}}
+        actual_obj = {'metadata': {
+            'annotations': {'a1': 'v2'},
+            'resourceVersion': new_resource_version}}
+        conflicting_data = jsonutils.dumps(conflicting_obj, sort_keys=True)
+
+        m_resp_conflict = mock.MagicMock()
+        m_resp_conflict.ok = False
+        m_resp_conflict.status_code = requests.codes.conflict
+        m_patch.return_value = m_resp_conflict
+
+        with mock.patch.object(self.client, 'get') as m_get:
+            m_get.return_value = actual_obj
+            self.assertRaises(exc.K8sClientException,
+                              self.client.annotate,
+                              path, annotations,
+                              resource_version=resource_version)
+        m_patch.assert_called_once_with(self.base_url + path,
+                                        data=conflicting_data,
+                                        headers=mock.ANY)
 
     @mock.patch('requests.get')
     def test_watch(self, m_get):
