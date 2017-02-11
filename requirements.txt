@@ -4,7 +4,7 @@
 
 kuryr-lib>=0.1.0 # Apache-2.0
 pbr>=1.8 # Apache-2.0
-requests!=2.12.2,>=2.10.0 # Apache-2.0
+requests!=2.12.2,!=2.13.0,>=2.10.0 # Apache-2.0
 eventlet!=0.18.3,>=0.18.2 # MIT
 oslo.config!=3.18.0,>=3.14.0 # Apache-2.0
 oslo.log>=3.11.0 # Apache-2.0
