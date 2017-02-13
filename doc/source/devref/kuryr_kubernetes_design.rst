@@ -188,3 +188,8 @@ change to ‘Active’ before returning the control to the caller.
     :alt: Controller-CNI interaction
     :align: center
     :width: 100%
+
+Kubernetes Documentation
+------------------------
+The `Kubernetes reference documentation <https://kubernetes.io/docs/reference/>`_
+is a great source for finding more details about Kubernetes API, CLIs, and tools.
