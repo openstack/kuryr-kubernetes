@@ -251,3 +251,112 @@ class PodVIFDriver(DriverBase):
         :param vif: VIF object as returned by `PodVIFDriver.request_vif`
         """
         raise NotImplementedError()
+
+
+@six.add_metaclass(abc.ABCMeta)
+class LBaaSDriver(DriverBase):
+    """Manages Neutron/Octavia load balancer to support Kubernetes Services."""
+
+    ALIAS = 'lbaas'
+
+    @abc.abstractmethod
+    def ensure_loadbalancer(self, endpoints, project_id, subnet_id, ip,
+                            security_groups_ids):
+        """Get or create load balancer.
+
+        :param endpoints: dict containing K8s Endpoints object
+        :param project_id: OpenStack project ID
+        :param subnet_id: Neutron subnet ID to host load balancer
+        :param ip: IP of the load balancer
+        :param security_groups_ids: security groups that should be allowed
+                                    access to the load balancer
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def release_loadbalancer(self, endpoints, loadbalancer):
+        """Release load balancer.
+
+        Should return without errors if load balancer does not exist (e.g.
+        already deleted).
+
+        :param endpoints: dict containing K8s Endpoints object
+        :param loadbalancer: `LBaaSLoadBalancer` object
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def ensure_listener(self, endpoints, loadbalancer, protocol, port):
+        """Get or create listener.
+
+        :param endpoints: dict containing K8s Endpoints object
+        :param loadbalancer: `LBaaSLoadBalancer` object
+        :param protocol: listener's protocol (only TCP is supported for now)
+        :param port: listener's port
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def release_listener(self, endpoints, loadbalancer, listener):
+        """Release listener.
+
+        Should return without errors if listener or load balancer does not
+        exist (e.g. already deleted).
+
+        :param endpoints: dict containing K8s Endpoints object
+        :param loadbalancer: `LBaaSLoadBalancer` object
+        :param listener: `LBaaSListener` object
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def ensure_pool(self, endpoints, loadbalancer, listener):
+        """Get or create pool.
+
+        :param endpoints: dict containing K8s Endpoints object
+        :param loadbalancer: `LBaaSLoadBalancer` object
+        :param listener: `LBaaSListener` object
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def release_pool(self, endpoints, loadbalancer, pool):
+        """Release pool.
+
+        Should return without errors if pool or load balancer does not exist
+        (e.g. already deleted).
+
+        :param endpoints: dict containing K8s Endpoints object
+        :param loadbalancer: `LBaaSLoadBalancer` object
+        :param pool: `LBaaSPool` object
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def ensure_member(self, endpoints, loadbalancer, pool,
+                      subnet_id, ip, port, target_ref):
+        """Get or create member.
+
+        :param endpoints: dict containing K8s Endpoints object
+        :param loadbalancer: `LBaaSLoadBalancer` object
+        :param pool: `LBaaSPool` object
+        :param subnet_id: Neutron subnet ID of the target
+        :param ip: target's IP (e.g. Pod's IP)
+        :param port: target port
+        :param target_ref: Kubernetes ObjectReference of the target (e.g.
+                           Pod reference)
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def release_member(self, endpoints, loadbalancer, member):
+        """Release member.
+
+        Should return without errors if memberor load balancer does not exist
+        (e.g. already deleted).
+
+        :param endpoints: dict containing K8s Endpoints object
+        :param loadbalancer: `LBaaSLoadBalancer` object
+        :param member: `LBaaSMember` object
+        """
+        raise NotImplementedError()
