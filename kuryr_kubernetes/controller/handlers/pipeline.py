@@ -13,16 +13,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo_log import log as logging
-
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.handlers import asynchronous as h_async
 from kuryr_kubernetes.handlers import dispatch as h_dis
 from kuryr_kubernetes.handlers import k8s_base as h_k8s
 from kuryr_kubernetes.handlers import logging as h_log
 from kuryr_kubernetes.handlers import retry as h_retry
-
-LOG = logging.getLogger(__name__)
 
 
 class ControllerPipeline(h_dis.EventPipeline):

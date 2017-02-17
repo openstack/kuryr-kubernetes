@@ -17,12 +17,9 @@ import abc
 import six
 
 from kuryr.lib._i18n import _LE
-from oslo_log import log as logging
 from stevedore import driver as stv_driver
 
 from kuryr_kubernetes import config
-
-LOG = logging.getLogger(__name__)
 
 _DRIVER_NAMESPACE_BASE = 'kuryr_kubernetes.controller.drivers'
 _DRIVER_MANAGERS = {}

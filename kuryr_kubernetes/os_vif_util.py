@@ -24,15 +24,11 @@ from os_vif.objects import route as osv_route
 from os_vif.objects import subnet as osv_subnet
 from os_vif.objects import vif as osv_vif
 from oslo_config import cfg as oslo_cfg
-from oslo_log import log as logging
 from stevedore import driver as stv_driver
 
 from kuryr_kubernetes import config
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.objects import vif as k_vif
-
-
-LOG = logging.getLogger(__name__)
 
 
 # REVISIT(ivc): consider making this module part of kuryr-lib
