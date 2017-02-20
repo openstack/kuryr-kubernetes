@@ -14,14 +14,11 @@
 #    under the License.
 
 import os_vif
-from oslo_log import log as logging
 import pyroute2
 from stevedore import driver as stv_driver
 
 _BINDING_NAMESPACE = 'kuryr_kubernetes.cni.binding'
 _IPDB = {}
-
-LOG = logging.getLogger(__name__)
 
 
 def _get_binding_driver(vif):
