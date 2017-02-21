@@ -135,7 +135,7 @@ class GenericPodVIFDriver(test_base.TestCase):
         project_id = mock.sentinel.project_id
         subnets = mock.sentinel.subnets
         port_name = mock.sentinel.port_name
-        network_id = mock.sentinel.project_id
+        network_id = mock.sentinel.network_id
         fixed_ips = mock.sentinel.fixed_ips
         device_id = mock.sentinel.device_id
         host_id = mock.sentinel.host_id
