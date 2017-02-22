@@ -55,6 +55,67 @@ class NeutronPodVIFDriver(test_base.TestCase):
         m_driver._get_vif_plugin.assert_called_once_with(port)
         m_to_vif.assert_called_once_with(vif_plugin, port, subnets)
 
+    @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif')
+    def test_request_vifs(self, m_to_vif):
+        cls = neutron_vif.NeutronPodVIFDriver
+        m_driver = mock.Mock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        pod = mock.sentinel.pod
+        project_id = mock.sentinel.project_id
+        subnets = mock.sentinel.subnets
+        security_groups = mock.sentinel.security_groups
+        num_ports = 2
+
+        port_request = mock.sentinel.port_request
+        m_driver._get_port_request.return_value = port_request
+        port = mock.sentinel.port
+        vif_plugin = mock.sentinel.vif_plugin
+        vif = mock.sentinel.vif
+        bulk_rq = {'ports': [port_request for _ in range(num_ports)]}
+
+        neutron.create_port.return_value = {'ports': [port, port]}
+        m_driver._get_vif_plugin.return_value = vif_plugin
+        m_to_vif.return_value = vif
+
+        self.assertEqual([vif, vif], cls.request_vifs(
+            m_driver, pod, project_id, subnets, security_groups, num_ports))
+
+        m_driver._get_port_request.assert_called_once_with(
+            pod, project_id, subnets, security_groups, unbound=True)
+        neutron.create_port.assert_called_once_with(bulk_rq)
+        m_driver._get_vif_plugin.assert_called_once_with(port)
+        calls = [mock.call(vif_plugin, port, subnets),
+                 mock.call(vif_plugin, port, subnets)]
+        m_to_vif.assert_has_calls(calls)
+
+    @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif')
+    def test_request_vifs_exception(self, m_to_vif):
+        cls = neutron_vif.NeutronPodVIFDriver
+        m_driver = mock.Mock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        pod = mock.sentinel.pod
+        project_id = mock.sentinel.project_id
+        subnets = mock.sentinel.subnets
+        security_groups = mock.sentinel.security_groups
+        num_ports = 2
+
+        port_request = mock.sentinel.port_request
+        m_driver._get_port_request.return_value = port_request
+        bulk_rq = {'ports': [port_request for _ in range(num_ports)]}
+
+        neutron.create_port.side_effect = n_exc.NeutronClientException
+
+        self.assertRaises(n_exc.NeutronClientException, cls.request_vifs,
+            m_driver, pod, project_id, subnets, security_groups, num_ports)
+
+        m_driver._get_port_request.assert_called_once_with(
+            pod, project_id, subnets, security_groups, unbound=True)
+        neutron.create_port.assert_called_once_with(bulk_rq)
+        m_driver._get_vif_plugin.assert_not_called()
+        m_to_vif.assert_not_called()
+
     def test_release_vif(self):
         cls = neutron_vif.NeutronPodVIFDriver
         m_driver = mock.Mock(spec=cls)
@@ -127,7 +188,8 @@ class NeutronPodVIFDriver(test_base.TestCase):
         self.assertRaises(k_exc.ResourceNotReady, cls.activate_vif,
                           m_driver, pod, vif)
 
-    def _test_get_port_request(self, m_to_fips, security_groups):
+    def _test_get_port_request(self, m_to_fips, security_groups,
+                               unbound=False):
         cls = neutron_vif.NeutronPodVIFDriver
         m_driver = mock.Mock(spec=cls)
 
@@ -158,8 +220,12 @@ class NeutronPodVIFDriver(test_base.TestCase):
         if security_groups:
             expected['port']['security_groups'] = security_groups
 
+        if unbound:
+            expected['port']['name'] = 'available-port'
+            expected['port']['device_id'] = ''
+
         ret = cls._get_port_request(m_driver, pod, project_id, subnets,
-                                    security_groups)
+                                    security_groups, unbound)
 
         self.assertEqual(expected, ret)
         m_driver._get_port_name.assert_called_once_with(pod)
@@ -177,6 +243,11 @@ class NeutronPodVIFDriver(test_base.TestCase):
     def test_get_port_request_no_sg(self, m_to_fips):
         security_groups = []
         self._test_get_port_request(m_to_fips, security_groups)
+
+    @mock.patch('kuryr_kubernetes.os_vif_util.osvif_to_neutron_fixed_ips')
+    def test_get_port_request_unbound(self, m_to_fips):
+        security_groups = mock.sentinel.security_groups
+        self._test_get_port_request(m_to_fips, security_groups, unbound=True)
 
     def test_get_vif_plugin(self):
         cls = neutron_vif.NeutronPodVIFDriver

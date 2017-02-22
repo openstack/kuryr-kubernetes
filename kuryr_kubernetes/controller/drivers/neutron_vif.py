@@ -38,6 +38,37 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
 
         return ovu.neutron_to_osvif_vif(vif_plugin, port, subnets)
 
+    def request_vifs(self, pod, project_id, subnets, security_groups,
+                     num_ports):
+        neutron = clients.get_neutron_client()
+
+        rq = self._get_port_request(pod, project_id, subnets, security_groups,
+                                    unbound=True)
+
+        bulk_port_rq = {'ports': [rq for _ in range(num_ports)]}
+        try:
+            ports = neutron.create_port(bulk_port_rq).get('ports')
+        except n_exc.NeutronClientException as ex:
+            LOG.error("Error creating bulk ports: %s", bulk_port_rq)
+            raise ex
+
+        vif_plugin = self._get_vif_plugin(ports[0])
+
+        # NOTE(ltomasbo): Due to the bug (1696051) on neutron bulk port
+        # creation request returning the port objects without binding
+        # information, an additional (non-bulk) port creation is performed to
+        # get the right vif binding information
+        if vif_plugin == 'unbound':
+            single_port = neutron.create_port(rq).get('port')
+            vif_plugin = self._get_vif_plugin(single_port)
+            ports.append(single_port)
+
+        vifs = []
+        for port in ports:
+            vif = ovu.neutron_to_osvif_vif(vif_plugin, port, subnets)
+            vifs.append(vif)
+        return vifs
+
     def release_vif(self, pod, vif):
         neutron = clients.get_neutron_client()
 
@@ -59,7 +90,8 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
 
         vif.active = True
 
-    def _get_port_request(self, pod, project_id, subnets, security_groups):
+    def _get_port_request(self, pod, project_id, subnets, security_groups,
+                          unbound=False):
         port_req_body = {'project_id': project_id,
                          'name': self._get_port_name(pod),
                          'network_id': self._get_network_id(subnets),
@@ -68,6 +100,13 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
                          'device_id': self._get_device_id(pod),
                          'admin_state_up': True,
                          'binding:host_id': self._get_host_id(pod)}
+
+        # if unbound argument is set to true, it means the port requested
+        # should not be bound and not associated to the pod. Thus the port dict
+        # is filled with a generic name (available-port) and without device_id
+        if unbound:
+            port_req_body['name'] = 'available-port'
+            port_req_body['device_id'] = ''
 
         if security_groups:
             port_req_body['security_groups'] = security_groups

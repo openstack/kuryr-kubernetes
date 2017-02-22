@@ -219,6 +219,31 @@ class PodVIFDriver(DriverBase):
         """
         raise NotImplementedError()
 
+    def request_vifs(self, pod, project_id, subnets, security_groups,
+                     num_ports):
+        """Creates Neutron ports for pods and returns them as VIF objects list.
+
+        It follows the same pattern as request_vif but creating the specified
+        amount of ports and vif objects at num_ports parameter.
+
+        The port creation request is generic as it not going to be used by the
+        pod -- at least not all of them. Additionally, in order to save Neutron
+        calls, the ports creation is handled in a bulk request.
+
+        :param pod: dict containing Kubernetes Pod object
+        :param project_id: OpenStack project ID
+        :param subnets: dict containing subnet mapping as returned by
+                        `PodSubnetsDriver.get_subnets`. If multiple entries
+                        are present in that mapping, it is guaranteed that
+                        all entries have the same value of `Network.id`.
+        :param security_groups: list containing security groups' IDs as
+                                returned by
+                                `PodSecurityGroupsDriver.get_security_groups`
+        :param num_ports: number of ports to be created
+        :return: VIF objects list
+        """
+        raise NotImplementedError()
+
     @abc.abstractmethod
     def release_vif(self, pod, vif, project_id=None, security_groups=None):
         """Unlinks Neutron port corresponding to VIF object from pod.
@@ -230,6 +255,22 @@ class PodVIFDriver(DriverBase):
         :param vif: VIF object as returned by `PodVIFDriver.request_vif`
         :param project_id: OpenStack project ID
         :param security_groups: list containing security groups'
+                                IDs as returned by
+                                `PodSecurityGroupsDriver.get_security_groups`
+        """
+        raise NotImplementedError()
+
+    def release_vifs(self, pods, vifs, project_id=None, security_groups=None):
+        """Unlinks Neutron ports corresponding to VIF objects.
+
+         It follows the same pattern as release_vif but releasing num_ports
+         ports. Ideally it will also make use of bulk request to save Neutron
+         calls in the release/recycle process.
+        :param pods: list of dict containing Kubernetes Pod objects
+        :param vifs: list of VIF objects as returned by
+                     `PodVIFDriver.request_vif`
+        :param project_id: (optional) OpenStack project ID
+        :param security_groups: (optional) list containing security groups'
                                 IDs as returned by
                                 `PodSecurityGroupsDriver.get_security_groups`
         """
@@ -257,7 +298,6 @@ class PodVIFDriver(DriverBase):
         raise NotImplementedError()
 
 
-@six.add_metaclass(abc.ABCMeta)
 class LBaaSDriver(DriverBase):
     """Manages Neutron/Octavia load balancer to support Kubernetes Services."""
 
