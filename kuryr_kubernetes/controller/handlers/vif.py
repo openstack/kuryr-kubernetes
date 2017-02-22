@@ -73,7 +73,8 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                 LOG.debug("Failed to set annotation: %s", ex)
                 # FIXME(ivc): improve granularity of K8sClient exceptions:
                 # only resourceVersion conflict should be ignored
-                self._drv_vif_pool.release_vif(pod, vif)
+                self._drv_vif_pool.release_vif(pod, vif, project_id,
+                                               security_groups)
         elif not vif.active:
             self._drv_vif_pool.activate_vif(pod, vif)
             self._set_vif(pod, vif)
@@ -85,7 +86,10 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         vif = self._get_vif(pod)
 
         if vif:
-            self._drv_vif_pool.release_vif(pod, vif)
+            project_id = self._drv_project.get_project(pod)
+            security_groups = self._drv_sg.get_security_groups(pod, project_id)
+            self._drv_vif_pool.release_vif(pod, vif, project_id,
+                                           security_groups)
 
     @staticmethod
     def _is_host_network(pod):

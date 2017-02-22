@@ -182,14 +182,18 @@ class TestVIFHandler(test_base.TestCase):
         self._request_vif.assert_called_once_with(
             self._pod, self._project_id, self._subnets, self._security_groups)
         self._set_vif.assert_called_once_with(self._pod, self._vif)
-        self._release_vif.assert_called_once_with(self._pod, self._vif)
+        self._release_vif.assert_called_once_with(self._pod, self._vif,
+                                                  self._project_id,
+                                                  self._security_groups)
         self._activate_vif.assert_not_called()
 
     def test_on_deleted(self):
         h_vif.VIFHandler.on_deleted(self._handler, self._pod)
 
         self._get_vif.assert_called_once_with(self._pod)
-        self._release_vif.assert_called_once_with(self._pod, self._vif)
+        self._release_vif.assert_called_once_with(self._pod, self._vif,
+                                                  self._project_id,
+                                                  self._security_groups)
 
     def test_on_deleted_host_network(self):
         self._is_host_network.return_value = True
