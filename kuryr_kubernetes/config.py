@@ -68,6 +68,9 @@ k8s_opts = [
         help=_("The driver that provides LoadBalancers for Kubernetes "
                "Endpoints"),
         default='lbaasv2'),
+    cfg.StrOpt('vif_pool_driver',
+        help=_("The driver that manages VIFs pools for Kubernetes Pods."),
+        default='noop'),
 ]
 
 neutron_defaults = [
