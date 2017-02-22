@@ -77,6 +77,9 @@ class BaseVIFPool(base.VIFPoolDriver):
     are the 'port_id' and the values are the vif objects.
     _recyclable_ports is a dictionary with the Neutron ports to be
     recycled. The keys are the 'port_id' and their values are the 'pool_key'.
+    _last_update is a dictionary with the timestamp of the last population
+    action for each pool. The keys are the pool_keys and the values are the
+    timestamps.
 
     The following driver configuration options exist:
     - ports_pool_max: it specifies how many ports can be kept at each pool.
@@ -95,6 +98,11 @@ class BaseVIFPool(base.VIFPoolDriver):
     _recyclable_ports = collections.defaultdict(collections.defaultdict)
     _last_update = collections.defaultdict(collections.defaultdict)
 
+    def __init__(self):
+        # Note(ltomasbo) Execute the port recycling periodic actions in a
+        # background thread
+        eventlet.spawn(self._return_ports_to_pool)
+
     def set_vif_driver(self, driver):
         self._drv_vif = driver
 
@@ -103,15 +111,6 @@ class BaseVIFPool(base.VIFPoolDriver):
 
     def _get_pool_size(self, pool_key=None):
         return len(self._available_ports_pools.get(pool_key, []))
-
-
-class GenericVIFPool(BaseVIFPool):
-    """Manages VIFs for Bare Metal Kubernetes Pods."""
-
-    def __init__(self):
-        # Note(ltomasbo) Execute the port recycling periodic actions in a
-        # background thread
-        eventlet.spawn(self._return_ports_to_pool)
 
     def request_vif(self, pod, project_id, subnets, security_groups):
         try:
@@ -153,9 +152,21 @@ class GenericVIFPool(BaseVIFPool):
                 self._available_ports_pools.setdefault(pool_key,
                                                        []).append(vif.id)
 
+    def release_vif(self, pod, vif, project_id, security_groups):
+        host_addr = pod['status']['hostIP']
+        pool_key = (host_addr, project_id, tuple(security_groups))
+
+        if not self._existing_vifs.get(vif.id):
+            self._existing_vifs[vif.id] = vif
+        self._recyclable_ports[vif.id] = pool_key
+
+
+class GenericVIFPool(BaseVIFPool):
+    """Manages VIFs for Bare Metal Kubernetes Pods."""
+
     def _get_port_from_pool(self, pool_key, pod, subnets):
         try:
-            port_id = self._available_ports_pools[pool_key].popleft()
+            port_id = self._available_ports_pools[pool_key].pop()
         except IndexError:
             raise exceptions.ResourceNotReady(pod)
         neutron = clients.get_neutron_client()
@@ -171,12 +182,6 @@ class GenericVIFPool(BaseVIFPool):
                 oslo_cfg.CONF.vif_pool.ports_pool_min):
             eventlet.spawn(self._populate_pool, pool_key, pod, subnets)
         return self._existing_vifs[port_id]
-
-    def release_vif(self, pod, vif, project_id, security_groups):
-        host_addr = pod['status']['hostIP']
-        pool_key = (host_addr, project_id, tuple(security_groups))
-
-        self._recyclable_ports[vif.id] = pool_key
 
     def _return_ports_to_pool(self):
         """Recycle ports to be reused by future pods.
@@ -231,30 +236,11 @@ class NestedVIFPool(BaseVIFPool):
     _known_trunk_ids is a dictionary that keeps the trunk port ids associated
     to each pool_key to skip calls to neutron to get the trunk information.
     """
-    _known_trunk_ids = collections.defaultdict(collections.defaultdict)
+    _known_trunk_ids = collections.defaultdict(str)
 
-    def request_vif(self, pod, project_id, subnets, security_groups):
+    def _get_port_from_pool(self, pool_key, pod, subnets):
         try:
-            host_addr = pod['status']['hostIP']
-        except KeyError:
-            LOG.warning("Pod has not been scheduled yet.")
-            raise
-        pool_key = (host_addr, project_id, tuple(security_groups))
-
-        try:
-            return self._get_port_from_pool(pool_key, pod)
-        except exceptions.ResourceNotReady:
-            LOG.warning("Ports pool does not have available ports!")
-            # TODO(ltomasbo): This is to be removed in the next patch when the
-            # pre-creation of several ports in a bulk request is included.
-            vif = self._drv_vif.request_vif(pod, project_id, subnets,
-                                            security_groups)
-            self._existing_vifs[vif.id] = vif
-            return vif
-
-    def _get_port_from_pool(self, pool_key, pod):
-        try:
-            port_id = self._available_ports_pools[pool_key].popleft()
+            port_id = self._available_ports_pools[pool_key].pop()
         except IndexError:
             raise exceptions.ResourceNotReady(pod)
         neutron = clients.get_neutron_client()
@@ -264,15 +250,11 @@ class NestedVIFPool(BaseVIFPool):
                     'name': pod['metadata']['name'],
                 }
             })
+        # check if the pool needs to be populated
+        if (self._get_pool_size(pool_key) <
+                oslo_cfg.CONF.vif_pool.ports_pool_min):
+            eventlet.spawn(self._populate_pool, pool_key, pod, subnets)
         return self._existing_vifs[port_id]
-
-    def release_vif(self, pod, vif, project_id, security_groups):
-        host_addr = pod['status']['hostIP']
-        pool_key = (host_addr, project_id, tuple(security_groups))
-
-        self._recyclable_ports[vif.id] = pool_key
-        # TODO(ltomasbo) Make the port update in another thread
-        self._return_ports_to_pool()
 
     def _return_ports_to_pool(self):
         """Recycle ports to be reused by future pods.
@@ -286,41 +268,46 @@ class NestedVIFPool(BaseVIFPool):
         deleted if the maximun has been already reached.
         """
         neutron = clients.get_neutron_client()
-        for port_id, pool_key in self._recyclable_ports.copy().items():
-            if (not oslo_cfg.CONF.vif_pool.ports_pool_max or
-                self._get_pool_size(pool_key) <
-                    oslo_cfg.CONF.vif_pool.ports_pool_max):
-                try:
-                    neutron.update_port(port_id,
-                        {
-                            "port": {
-                                'name': 'available-port',
-                                'security_groups': list(pool_key[2])
-                            }
-                        })
-                except n_exc.NeutronClientException:
-                    LOG.warning("Error preparing port %s to be reused, put"
-                                " back on the cleanable pool.", port_id)
-                    continue
-                self._available_ports_pools.setdefault(pool_key, []).append(
-                    port_id)
-            else:
-                trunk_id = self._known_trunk_ids.get(pool_key, None)
-                if not trunk_id:
-                    parent_port = self._drv_vif._get_parent_port_by_host_ip(
-                        neutron, pool_key[0])
-                    trunk_id = self._drv_vif._get_trunk_id(parent_port)
-                    self._known_trunk_ids.setdefault(pool_key, []).append(
-                        port_id)
-                self._drv_vif._remove_subport(neutron, trunk_id, port_id)
-                try:
-                    self._drv_vif._release_vlan_id(
-                        self._existing_vifs[port_id]['vlan_id'])
-                    del self._existing_vifs[port_id]
-                    neutron.delete_port(port_id)
-                except n_exc.PortNotFoundClient:
-                    LOG.debug('Unable to release port %s as it no longer '
-                              'exists.', port_id)
-                except KeyError:
-                    LOG.debug('Port %s is not in the ports list.', port_id)
-            del self._recyclable_ports[port_id]
+        while True:
+            for port_id, pool_key in self._recyclable_ports.copy().items():
+                if (not oslo_cfg.CONF.vif_pool.ports_pool_max or
+                    self._get_pool_size(pool_key) <
+                        oslo_cfg.CONF.vif_pool.ports_pool_max):
+                    try:
+                        neutron.update_port(port_id,
+                            {
+                                "port": {
+                                    'name': 'available-port',
+                                    'security_groups': list(pool_key[2])
+                                }
+                            })
+                    except n_exc.NeutronClientException:
+                        LOG.warning("Error preparing port %s to be reused, put"
+                                    " back on the cleanable pool.", port_id)
+                        continue
+                    self._available_ports_pools.setdefault(
+                        pool_key, []).append(port_id)
+                else:
+                    trunk_id = self._known_trunk_ids.get(pool_key, None)
+                    if not trunk_id:
+                        p_port = self._drv_vif._get_parent_port_by_host_ip(
+                            neutron, pool_key[0])
+                        trunk_id = self._drv_vif._get_trunk_id(p_port)
+                        self._known_trunk_ids[pool_key] = trunk_id
+                    try:
+                        self._drv_vif._remove_subport(neutron, trunk_id,
+                                                      port_id)
+                        self._drv_vif._release_vlan_id(
+                            self._existing_vifs[port_id].vlan_id)
+                        del self._existing_vifs[port_id]
+                        neutron.delete_port(port_id)
+                    except n_exc.PortNotFoundClient:
+                        LOG.debug('Unable to release port %s as it no longer '
+                                  'exists.', port_id)
+                    except KeyError:
+                        LOG.debug('Port %s is not in the ports list.', port_id)
+                    except n_exc.NeutronClientException:
+                        LOG.warning('Error removing the subport %s', port_id)
+                        continue
+                del self._recyclable_ports[port_id]
+            eventlet.sleep(oslo_cfg.CONF.vif_pool.ports_pool_update_frequency)
