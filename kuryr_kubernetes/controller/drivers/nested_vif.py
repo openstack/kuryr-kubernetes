@@ -40,22 +40,11 @@ oslo_cfg.CONF.register_opts(nested_vif_driver_opts, "pod_vif_nested")
 class NestedPodVIFDriver(neutron_vif.NeutronPodVIFDriver):
     """Skeletal handler driver for VIFs for Nested Pods."""
 
-    def _get_parent_port(self, neutron, pod):
+    def _get_parent_port_by_host_ip(self, neutron, node_fixed_ip):
         node_subnet_id = oslo_cfg.CONF.pod_vif_nested.worker_nodes_subnet
         if not node_subnet_id:
             raise oslo_cfg.RequiredOptError('worker_nodes_subnet',
                 oslo_cfg.OptGroup('pod_vif_nested'))
-
-        try:
-            # REVISIT(vikasc): Assumption is being made that hostIP is the IP
-            #               of trunk interface on the node(vm).
-            node_fixed_ip = pod['status']['hostIP']
-        except KeyError:
-            if pod['status']['conditions'][0]['type'] != "Initialized":
-                LOG.debug("Pod condition type is not 'Initialized'")
-
-            LOG.error("Failed to get parent vm port ip")
-            raise
 
         try:
             fixed_ips = ['subnet_id=%s' % str(node_subnet_id),
@@ -72,3 +61,16 @@ class NestedPodVIFDriver(neutron_vif.NeutronPodVIFDriver):
             LOG.error("Neutron port for vm port with fixed ips %s"
                       " not found!", fixed_ips)
             raise kl_exc.NoResourceException
+
+    def _get_parent_port(self, neutron, pod):
+        try:
+            # REVISIT(vikasc): Assumption is being made that hostIP is the IP
+            #              of trunk interface on the node(vm).
+            node_fixed_ip = pod['status']['hostIP']
+        except KeyError:
+            if pod['status']['conditions'][0]['type'] != "Initialized":
+                LOG.debug("Pod condition type is not 'Initialized'")
+
+            LOG.error("Failed to get parent vm port ip")
+            raise
+        return self._get_parent_port_by_host_ip(neutron, node_fixed_ip)
