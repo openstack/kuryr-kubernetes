@@ -100,6 +100,9 @@ resource (each Pod, Service, etc.). Async can be used to ‘wrap’ another
 EventHandler. Queues per thread group are added dynamically once relevant
 events arrive and removed once queue is empty.
 
+**LogExceptions** Event Handler suppresses exceptions and sends them to log
+facility.
+
 **Dispatcher** is an Event Handler that distributes events to registered
 handlers based on event content and handler predicate provided during event
 handler registration.
