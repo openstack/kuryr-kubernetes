@@ -27,6 +27,7 @@ from oslo_config import cfg as oslo_cfg
 from stevedore import driver as stv_driver
 
 from kuryr_kubernetes import config
+from kuryr_kubernetes import constants as const
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.objects import vif as k_vif
 
@@ -251,36 +252,54 @@ def neutron_to_osvif_vif_ovs(vif_plugin, neutron_port, subnets):
     return vif
 
 
-def neutron_to_osvif_vif_nested(vif_plugin, neutron_port, subnets):
-    """Converts Neutron port to VIF object for nested containers.
+def neutron_to_osvif_vif_nested_vlan(neutron_port, subnets, vlan_id):
+    """Converts Neutron port to VIF object for VLAN nested containers.
 
-    :param vif_plugin: name of the os-vif plugin to use (i.e. 'noop')
     :param neutron_port: dict containing port information as returned by
                          neutron client's 'show_port'
     :param subnets: subnet mapping as returned by PodSubnetsDriver.get_subnets
-    :return: kuryr-k8s native VIF object (eg. VIFVlanNested)
+    :param vlan_id: VLAN id associated to the VIF object for the pod
+    :return: kuryr-k8s native VIF object for VLAN nested
     """
-
     details = neutron_port.get('binding:vif_details', {})
-    network = _make_vif_network(neutron_port, subnets)
 
-    vif = k_vif.VIFVlanNested(
+    return k_vif.VIFVlanNested(
         id=neutron_port['id'],
         address=neutron_port['mac_address'],
-        network=network,
+        network=_make_vif_network(neutron_port, subnets),
         has_traffic_filtering=details.get('port_filter', False),
         preserve_on_delete=False,
         active=_is_port_active(neutron_port),
-        plugin=vif_plugin,
+        plugin=const.K8S_OS_VIF_NOOP_PLUGIN,
+        vif_name=_get_vif_name(neutron_port),
+        vlan_id=vlan_id)
+
+
+def neutron_to_osvif_vif_nested_macvlan(neutron_port, subnets):
+    """Converts Neutron port to VIF object for MACVLAN nested containers.
+
+    :param neutron_port: dict containing port information as returned by
+                         neutron client's 'show_port'
+    :param subnets: subnet mapping as returned by PodSubnetsDriver.get_subnets
+    :return: kuryr-k8s native VIF object for MACVLAN nested
+    """
+    details = neutron_port.get('binding:vif_details', {})
+
+    return k_vif.VIFMacvlanNested(
+        id=neutron_port['id'],
+        address=neutron_port['mac_address'],
+        network=_make_vif_network(neutron_port, subnets),
+        has_traffic_filtering=details.get('port_filter', False),
+        preserve_on_delete=False,
+        active=_is_port_active(neutron_port),
+        plugin=const.K8S_OS_VIF_NOOP_PLUGIN,
         vif_name=_get_vif_name(neutron_port))
 
-    return vif
 
-
-def neutron_to_osvif_vif(vif_plugin, neutron_port, subnets):
+def neutron_to_osvif_vif(vif_translator, neutron_port, subnets):
     """Converts Neutron port to os-vif VIF object.
 
-    :param vif_plugin: name of the os-vif plugin to use
+    :param vif_translator: name of the traslator for the os-vif plugin to use
     :param neutron_port: dict containing port information as returned by
                          neutron client
     :param subnets: subnet mapping as returned by PodSubnetsDriver.get_subnets
@@ -288,13 +307,13 @@ def neutron_to_osvif_vif(vif_plugin, neutron_port, subnets):
     """
 
     try:
-        mgr = _VIF_MANAGERS[vif_plugin]
+        mgr = _VIF_MANAGERS[vif_translator]
     except KeyError:
         mgr = stv_driver.DriverManager(namespace=_VIF_TRANSLATOR_NAMESPACE,
-                                       name=vif_plugin, invoke_on_load=False)
-        _VIF_MANAGERS[vif_plugin] = mgr
+                                    name=vif_translator, invoke_on_load=False)
+        _VIF_MANAGERS[vif_translator] = mgr
 
-    return mgr.driver(vif_plugin, neutron_port, subnets)
+    return mgr.driver(vif_translator, neutron_port, subnets)
 
 
 def osvif_to_neutron_fixed_ips(subnets):

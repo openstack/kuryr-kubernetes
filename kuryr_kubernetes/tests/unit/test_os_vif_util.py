@@ -22,6 +22,7 @@ from os_vif.objects import subnet as osv_subnet
 from oslo_config import cfg as o_cfg
 from oslo_utils import uuidutils
 
+from kuryr_kubernetes import constants as const
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes import os_vif_util as ovu
 from kuryr_kubernetes.tests import base as test_base
@@ -262,9 +263,54 @@ class TestOSVIFUtils(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.os_vif_util._is_port_active')
     @mock.patch('kuryr_kubernetes.os_vif_util._make_vif_network')
     @mock.patch('kuryr_kubernetes.objects.vif.VIFVlanNested')
-    def test_neutron_to_osvif_nested(self, m_mk_vif, m_make_vif_network,
-                                     m_is_port_active, m_get_vif_name):
-        vif_plugin = 'noop'
+    def test_neutron_to_osvif_nested_vlan(self, m_mk_vif, m_make_vif_network,
+                               m_is_port_active, m_get_vif_name):
+        vif_plugin = const.K8S_OS_VIF_NOOP_PLUGIN
+        port_id = mock.sentinel.port_id
+        mac_address = mock.sentinel.mac_address
+        port_filter = mock.sentinel.port_filter
+        subnets = mock.sentinel.subnets
+        network = mock.sentinel.network
+        port_active = mock.sentinel.port_active
+        vif_name = mock.sentinel.vif_name
+        vif = mock.sentinel.vif
+        vlan_id = mock.sentinel.vlan_id
+
+        m_make_vif_network.return_value = network
+        m_is_port_active.return_value = port_active
+        m_get_vif_name.return_value = vif_name
+        m_mk_vif.return_value = vif
+
+        port = {'id': port_id,
+                'mac_address': mac_address,
+                'binding:vif_details': {
+                    'port_filter': port_filter},
+                }
+
+        self.assertEqual(vif, ovu.neutron_to_osvif_vif_nested_vlan(port,
+                         subnets, vlan_id))
+
+        m_make_vif_network.assert_called_once_with(port, subnets)
+        m_is_port_active.assert_called_once_with(port)
+        m_get_vif_name.assert_called_once_with(port)
+        m_mk_vif.assert_called_once_with(
+            id=port_id,
+            address=mac_address,
+            network=network,
+            has_traffic_filtering=port_filter,
+            preserve_on_delete=False,
+            active=port_active,
+            plugin=vif_plugin,
+            vif_name=vif_name,
+            vlan_id=vlan_id)
+
+    @mock.patch('kuryr_kubernetes.os_vif_util._get_vif_name')
+    @mock.patch('kuryr_kubernetes.os_vif_util._is_port_active')
+    @mock.patch('kuryr_kubernetes.os_vif_util._make_vif_network')
+    @mock.patch('kuryr_kubernetes.objects.vif.VIFMacvlanNested')
+    def test_neutron_to_osvif_nested_macvlan(self, m_mk_vif,
+                        m_make_vif_network, m_is_port_active, m_get_vif_name):
+        vif_plugin = const.K8S_OS_VIF_NOOP_PLUGIN
         port_id = mock.sentinel.port_id
         mac_address = mock.sentinel.mac_address
         port_filter = mock.sentinel.port_filter
@@ -285,8 +331,8 @@ class TestOSVIFUtils(test_base.TestCase):
                     'port_filter': port_filter},
                 }
 
-        self.assertEqual(vif, ovu.neutron_to_osvif_vif_nested(vif_plugin, port,
-                                                           subnets))
+        self.assertEqual(vif, ovu.neutron_to_osvif_vif_nested_macvlan(port,
+                                                                      subnets))
 
         m_make_vif_network.assert_called_once_with(port, subnets)
         m_is_port_active.assert_called_once_with(port)

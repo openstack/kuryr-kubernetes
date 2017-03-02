@@ -57,8 +57,8 @@ vif binding executables. For example, if you installed it on Debian or Ubuntu::
     bindir = /usr/local/libexec/kuryr
 
 
-How to try out nested-pods locally
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+How to try out nested-pods locally (VLAN + trunk)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Following are the instructions for an all-in-one setup where K8s will also be
 running inside the same Nova VM in which Kuryr-controller and Kuryr-cni will be
@@ -110,6 +110,52 @@ running. 4GB memory and 2 vCPUs, is the minimum resource requirement for the VM:
 
 Now launch pods using kubectl, Undercloud Neutron will serve the networking.
 
+How to try out nested-pods locally (MACVLAN)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Following are the instructions for an all-in-one setup, as above, but using the
+nested MACVLAN driver rather than VLAN and trunk ports.
+
+1. To install OpenStack services run devstack with ``devstack/local.conf.pod-in-vm.undercloud.sample``.
+2. Launch a Nova VM with MACVLAN support
+3. Log into the VM and set up Kubernetes along with Kuryr using devstack:
+    - Since undercloud Neutron will be used by pods, Neutron services should be
+      disabled in localrc.
+    - Run devstack with ``devstack/local.conf.pod-in-vm.overcloud.sample``.
+      With this config devstack will not configure Neutron resources for the
+      local cloud. These variables have to be added manually
+      to ``/etc/kuryr/kuryr.conf``.
+
+4. Once devstack is done and all services are up inside VM:
+    - Configure ``/etc/kuryr/kuryr.conf`` with the following content, replacing
+      the values with correct UUIDs of Neutron resources from the undercloud::
+
+       [neutron_defaults]
+       pod_security_groups = <UNDERCLOUD_DEFAULT_SG_UUID>
+       pod_subnet = <UNDERCLOUD_SUBNET_FOR_PODS_UUID>
+       project = <UNDERCLOUD_DEFAULT_PROJECT_UUID>
+       service_subnet = <UNDERCLOUD_SUBNET_FOR_SERVICES_UUID>
+
+    - Configure worker VMs subnet::
+
+       [pod_vif_nested]
+       worker_nodes_subnet = <UNDERCLOUD_SUBNET_WORKER_NODES_UUID>
+
+    - Configure “pod_vif_driver” as “nested-macvlan”::
+
+       [kubernetes]
+       pod_vif_driver = nested-macvlan
+
+    - Configure binding section::
+
+       [binding]
+       link_iface = <VM interface name eg. eth0>
+
+    - Restart kuryr-k8s-controller::
+
+       sudo systemctl restart devstack@kuryr-kubernetes.service
+
+Now launch pods using kubectl, Undercloud Neutron will serve the networking.
 
 How to watch K8S api-server over HTTPS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

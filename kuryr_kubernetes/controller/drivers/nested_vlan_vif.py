@@ -20,7 +20,6 @@ from neutronclient.common import exceptions as n_exc
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
-from kuryr_kubernetes import constants as const
 from kuryr_kubernetes.controller.drivers import nested_vif
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes import os_vif_util as ovu
@@ -35,8 +34,6 @@ DEFAULT_RETRY_INTERVAL = 1
 class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
     """Manages ports for nested-containers using VLANs to provide VIFs."""
 
-    _vif_plugin = const.K8S_OS_VIF_NOOP_PLUGIN
-
     def request_vif(self, pod, project_id, subnets, security_groups):
         neutron = clients.get_neutron_client()
         parent_port = self._get_parent_port(neutron, pod)
@@ -44,12 +41,9 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
 
         rq = self._get_port_request(pod, project_id, subnets, security_groups)
         port = neutron.create_port(rq).get('port')
-
         vlan_id = self._add_subport(neutron, trunk_id, port['id'])
 
-        vif = ovu.neutron_to_osvif_vif(self._vif_plugin, port, subnets)
-        vif.vlan_id = vlan_id
-        return vif
+        return ovu.neutron_to_osvif_vif_nested_vlan(port, subnets, vlan_id)
 
     def request_vifs(self, pod, project_id, subnets, security_groups,
                      num_ports):
@@ -101,8 +95,8 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
 
         vifs = []
         for index, port in enumerate(ports):
-            vif = ovu.neutron_to_osvif_vif(self._vif_plugin, port, subnets)
-            vif.vlan_id = subports_info[index]['segmentation_id']
+            vlan_id = subports_info[index]['segmentation_id']
+            vif = ovu.neutron_to_osvif_vif_nested_vlan(port, subnets, vlan_id)
             vifs.append(vif)
         return vifs
 

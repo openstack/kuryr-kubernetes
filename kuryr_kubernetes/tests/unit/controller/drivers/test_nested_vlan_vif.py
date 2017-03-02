@@ -16,7 +16,6 @@ from kuryr.lib import constants as kl_const
 from kuryr.lib import exceptions as kl_exc
 from neutronclient.common import exceptions as n_exc
 
-from kuryr_kubernetes import constants as const
 from kuryr_kubernetes.controller.drivers import nested_vlan_vif
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.tests import base as test_base
@@ -25,7 +24,8 @@ from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
 
 class TestNestedVlanPodVIFDriver(test_base.TestCase):
 
-    @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif')
+    @mock.patch(
+        'kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif_nested_vlan')
     def test_request_vif(self, m_to_vif):
         cls = nested_vlan_vif.NestedVlanPodVIFDriver
         m_driver = mock.Mock(spec=cls)
@@ -47,7 +47,6 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         vif = mock.Mock()
 
         m_to_vif.return_value = vif
-        m_driver._vif_plugin = const.K8S_OS_VIF_NOOP_PLUGIN
         m_driver._get_parent_port.return_value = parent_port
         m_driver._get_trunk_id.return_value = trunk_id
         m_driver._get_port_request.return_value = port_request
@@ -66,11 +65,10 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         m_driver._add_subport.assert_called_once_with(neutron,
                                                       trunk_id,
                                                       port_id)
-        m_to_vif.assert_called_once_with(const.K8S_OS_VIF_NOOP_PLUGIN, port,
-                                         subnets)
-        self.assertEqual(vif.vlan_id, vlan_id)
+        m_to_vif.assert_called_once_with(port, subnets, vlan_id)
 
-    @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif')
+    @mock.patch(
+        'kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif_nested_vlan')
     def test_request_vifs(self, m_to_vif):
         cls = nested_vlan_vif.NestedVlanPodVIFDriver
         m_driver = mock.Mock(spec=cls)
@@ -102,7 +100,6 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
                                                        subports_info)
         neutron.create_port.return_value = {'ports': [port, port]}
         m_to_vif.return_value = vif
-        m_driver._vif_plugin = const.K8S_OS_VIF_NOOP_PLUGIN
 
         self.assertEqual([vif, vif], cls.request_vifs(
             m_driver, pod, project_id, subnets, security_groups, num_ports))
@@ -117,8 +114,8 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
             {'sub_ports': subports_info})
         neutron.delete_port.assert_not_called()
 
-        calls = [mock.call(const.K8S_OS_VIF_NOOP_PLUGIN, port, subnets)
-                 for _ in range(len(subports_info))]
+        calls = [mock.call(port, subnets, info['segmentation_id'])
+                 for info in subports_info]
         m_to_vif.assert_has_calls(calls)
 
     def test_request_vifs_no_vlans(self):

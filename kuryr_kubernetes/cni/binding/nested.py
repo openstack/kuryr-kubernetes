@@ -12,13 +12,24 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-# from kuryr.lib import constants
-# from kuryr.lib import utils
+import abc
+import six
+
 from kuryr_kubernetes.cni.binding import base as b_base
 from kuryr_kubernetes import config
 
+VLAN_KIND = 'vlan'
+MACVLAN_KIND = 'macvlan'
+MACVLAN_MODE_BRIDGE = 'bridge'
 
-class VlanDriver(object):
+
+@six.add_metaclass(abc.ABCMeta)
+class NestedDriver(object):
+
+    @abc.abstractmethod
+    def _get_iface_create_args(self, vif):
+        raise NotImplementedError()
+
     def connect(self, vif, ifname, netns):
         h_ipdb = b_base.get_ipdb()
         c_ipdb = b_base.get_ipdb(netns)
@@ -33,11 +44,11 @@ class VlanDriver(object):
         # TODO(vikasc): evaluate whether we should have stevedore
         #               driver for getting the link device.
         vm_iface_name = config.CONF.binding.link_iface
-        vlan_id = vif.vlan_id
 
+        args = self._get_iface_create_args(vif)
         with h_ipdb.create(ifname=temp_name,
                            link=h_ipdb.interfaces[vm_iface_name],
-                           kind='vlan', vlan_id=vlan_id) as iface:
+                           **args) as iface:
             iface.net_ns_fd = netns
 
         with c_ipdb.interfaces[temp_name] as iface:
@@ -50,3 +61,13 @@ class VlanDriver(object):
         # NOTE(vikasc): device will get deleted with container namespace, so
         # nothing to be done here.
         pass
+
+
+class VlanDriver(NestedDriver):
+    def _get_iface_create_args(self, vif):
+        return {'kind': VLAN_KIND, 'vlan_id': vif.vlan_id}
+
+
+class MacvlanDriver(NestedDriver):
+    def _get_iface_create_args(self, vif):
+        return {'kind': MACVLAN_KIND, 'macvlan_mode': MACVLAN_MODE_BRIDGE}

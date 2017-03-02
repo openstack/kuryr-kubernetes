@@ -28,3 +28,15 @@ class VIFVlanNested(obj_osvif.VIFBase):
         # vlan ID allocated to this vif
         'vlan_id': obj_fields.IntegerField()
     }
+
+
+@obj_base.VersionedObjectRegistry.register
+class VIFMacvlanNested(obj_osvif.VIFBase):
+    # This is OVO based macvlan vif.
+
+    VERSION = '1.0'
+
+    fields = {
+        # Name of the device to create
+        'vif_name': obj_fields.StringField(),
+    }

@@ -42,3 +42,12 @@ class K8sNodeTrunkPortFailure(Exception):
     This exception is thrown when Neutron port is not associated to a Neutron
     vlan trunk.
     """
+
+
+class AllowedAddressAlreadyPresent(Exception):
+    """Exception indicates an already present 'allowed address pair' on port
+
+    This exception is raised when an attempt to add an already inserted
+    'allowed address pair' on a port is made. Such a condition likely indicates
+    a bad program state or a programming bug.
+    """
