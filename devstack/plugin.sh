@@ -412,18 +412,18 @@ function run_k8s_kubelet {
     # adding Python and all our CNI/binding dependencies.
     local command
 
-    mkdir -p "$DATA_DIR/kubelet" "$DATA_DIR/kubelet.cert"
+    sudo mkdir -p "${KURYR_HYPERKUBE_DATA_DIR}/"{kubelet,kubelet.cert}
     command="sudo $KURYR_HYPERKUBE_BINARY kubelet\
         --allow-privileged=true \
         --api-servers=$KURYR_K8S_API_URL \
         --v=2 \
-        --address='0.0.0.0' \
+        --address=0.0.0.0 \
         --enable-server \
         --network-plugin=cni \
         --cni-bin-dir=$CNI_BIN_DIR \
         --cni-conf-dir=$CNI_CONF_DIR \
-        --cert-dir=$DATA_DIR/kubelet.cert \
-        --root-dir=$DATA_DIR/kubelet"
+        --cert-dir=${KURYR_HYPERKUBE_DATA_DIR}/kubelet.cert \
+        --root-dir=${KURYR_HYPERKUBE_DATA_DIR}/kubelet"
     wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
     run_process kubelet "$command"
 }
