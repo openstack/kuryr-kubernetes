@@ -108,3 +108,7 @@ Features
 --------
 
 * TODO
+
+Contribution guidelines
+-----------------------
+For the process of new feature addition, refer to the `Kuryr Policy <https://wiki.openstack.org/wiki/Kuryr#Kuryr_Policies>`_
