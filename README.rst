@@ -13,14 +13,16 @@ kuryr-kubernetes
 
 Kubernetes integration with OpenStack networking
 
-Please fill here a long description which must be at least 3 lines wrapped on
-80 cols, so that distribution package maintainers can use it in their packages.
-Note that this is a hard requirement.
+The OpenStack Kuryr project enables native Neutron-based networking in
+Kubernetes. With Kuryr-Kubernetes it's now possible to choose to run both
+OpenStack VMs and Kubernetes Pods on the same Neutron network if your workloads
+require it or to use different segments and, for example, route between them.
 
 * Free software: Apache license
 * Documentation: http://docs.openstack.org/developer/kuryr-kubernetes
 * Source: http://git.openstack.org/cgit/openstack/kuryr-kubernetes
 * Bugs: http://bugs.launchpad.net/kuryr-kubernetes
+* Overview and demo: http://superuser.openstack.org/articles/networking-kubernetes-kuryr
 
 
 Configuring Kuryr
