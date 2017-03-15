@@ -29,6 +29,38 @@ class TestK8sClient(test_base.TestCase):
         super(TestK8sClient, self).setUp()
         self.base_url = 'http://127.0.0.1:12345'
         self.client = k8s_client.K8sClient(self.base_url)
+        default_cert = (None, None)
+        self.assertEqual(default_cert, self.client.cert)
+        self.assertEqual(False, self.client.verify_server)
+
+    @mock.patch('os.path.exists')
+    @mock.patch('kuryr_kubernetes.config.CONF')
+    def test_https_client_init(self, m_cfg, m_exist):
+        m_cfg.kubernetes.ssl_client_crt_file = 'dummy_crt_file_path'
+        m_cfg.kubernetes.ssl_client_key_file = 'dummy_key_file_path'
+        m_cfg.kubernetes.ssl_ca_crt_file = 'dummy_ca_file_path'
+        m_cfg.kubernetes.ssl_verify_server_crt = True
+        m_exist.return_value = True
+        test_client = k8s_client.K8sClient(self.base_url)
+        cert = ('dummy_crt_file_path', 'dummy_key_file_path')
+        self.assertEqual(cert, test_client.cert)
+        self.assertEqual('dummy_ca_file_path', test_client.verify_server)
+
+    @mock.patch('kuryr_kubernetes.config.CONF')
+    def test_https_client_init_invalid_client_crt_path(self, m_cfg):
+        m_cfg.kubernetes.ssl_client_crt_file = 'dummy_crt_file_path'
+        m_cfg.kubernetes.ssl_client_key_file = 'dummy_key_file_path'
+        self.assertRaises(RuntimeError, k8s_client.K8sClient, self.base_url)
+
+    @mock.patch('os.path.exists')
+    @mock.patch('kuryr_kubernetes.config.CONF')
+    def test_https_client_init_invalid_ca_path(self, m_cfg, m_exist):
+        m_cfg.kubernetes.ssl_client_crt_file = 'dummy_crt_file_path'
+        m_cfg.kubernetes.ssl_client_key_file = 'dummy_key_file_path'
+        m_cfg.kubernetes.ssl_ca_crt_file = None
+        m_cfg.kubernetes.ssl_verify_server_crt = True
+        m_exist.return_value = True
+        self.assertRaises(RuntimeError, k8s_client.K8sClient, self.base_url)
 
     @mock.patch('requests.get')
     def test_get(self, m_get):
@@ -41,7 +73,8 @@ class TestK8sClient(test_base.TestCase):
         m_get.return_value = m_resp
 
         self.assertEqual(ret, self.client.get(path))
-        m_get.assert_called_once_with(self.base_url + path)
+        m_get.assert_called_once_with(self.base_url + path,
+                                      cert=(None, None), verify=False)
 
     @mock.patch('requests.get')
     def test_get_exception(self, m_get):
@@ -72,7 +105,8 @@ class TestK8sClient(test_base.TestCase):
         self.assertEqual(annotations, self.client.annotate(
             path, annotations, resource_version=resource_version))
         m_patch.assert_called_once_with(self.base_url + path,
-                                        data=data, headers=mock.ANY)
+                                        data=data, headers=mock.ANY,
+                                        cert=(None, None), verify=False)
 
     @mock.patch('itertools.count')
     @mock.patch('requests.patch')
@@ -120,10 +154,12 @@ class TestK8sClient(test_base.TestCase):
         m_patch.assert_has_calls([
             mock.call(self.base_url + path,
                       data=conflicting_data,
-                      headers=mock.ANY),
+                      headers=mock.ANY,
+                      cert=(None, None), verify=False),
             mock.call(self.base_url + path,
                       data=good_data,
-                      headers=mock.ANY)])
+                      headers=mock.ANY,
+                      cert=(None, None), verify=False)])
 
     @mock.patch('itertools.count')
     @mock.patch('requests.patch')
@@ -162,10 +198,12 @@ class TestK8sClient(test_base.TestCase):
         m_patch.assert_has_calls([
             mock.call(self.base_url + path,
                       data=annotating_data,
-                      headers=mock.ANY),
+                      headers=mock.ANY,
+                      cert=(None, None), verify=False),
             mock.call(self.base_url + path,
                       data=resolution_data,
-                      headers=mock.ANY)])
+                      headers=mock.ANY,
+                      cert=(None, None), verify=False)])
 
     @mock.patch('itertools.count')
     @mock.patch('requests.patch')
@@ -196,7 +234,8 @@ class TestK8sClient(test_base.TestCase):
                               resource_version=resource_version)
         m_patch.assert_called_once_with(self.base_url + path,
                                         data=conflicting_data,
-                                        headers=mock.ANY)
+                                        headers=mock.ANY,
+                                        cert=(None, None), verify=False)
 
     @mock.patch('requests.get')
     def test_watch(self, m_get):
@@ -218,7 +257,8 @@ class TestK8sClient(test_base.TestCase):
         self.assertEqual(cycles, m_get.call_count)
         self.assertEqual(cycles, m_resp.close.call_count)
         m_get.assert_called_with(self.base_url + path, stream=True,
-                                 params={'watch': 'true'})
+                                 params={'watch': 'true'}, cert=(None, None),
+                                 verify=False)
 
     @mock.patch('requests.get')
     def test_watch_exception(self, m_get):
