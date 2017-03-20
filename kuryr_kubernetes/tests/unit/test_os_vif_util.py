@@ -69,7 +69,7 @@ class TestOSVIFUtils(test_base.TestCase):
 
         network = ovu.neutron_to_osvif_network(neutron_network)
 
-        self.assertEqual(None, network.mtu)
+        self.assertIsNone(network.mtu)
 
     @mock.patch('kuryr_kubernetes.os_vif_util._neutron_to_osvif_routes')
     def test_neutron_to_osvif_subnet(self, m_conv_routes):

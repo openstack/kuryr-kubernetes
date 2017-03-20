@@ -91,7 +91,7 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
 
         ret = h_lbaas.LBaaSSpecHandler._get_service_ip(m_handler, svc_body)
-        self.assertEqual(None, ret)
+        self.assertIsNone(ret)
 
     def _make_test_net_obj(self, cidr_list):
         subnets = [osv_subnet.Subnet(cidr=cidr) for cidr in cidr_list]

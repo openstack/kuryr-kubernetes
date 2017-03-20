@@ -278,7 +278,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
             tenant_id=loadbalancer.project_id,
             vip_address=str(loadbalancer.ip),
             vip_subnet_id=loadbalancer.subnet_id)
-        self.assertEqual(None, ret)
+        self.assertIsNone(ret)
 
     def test_create_listener(self):
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -347,7 +347,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
             loadbalancer_id=listener.loadbalancer_id,
             protocol=listener.protocol,
             protocol_port=listener.port)
-        self.assertEqual(None, ret)
+        self.assertIsNone(ret)
 
     def test_create_pool(self):
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -449,7 +449,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
             tenant_id=pool.project_id,
             loadbalancer_id=pool.loadbalancer_id,
             protocol=pool.protocol)
-        self.assertEqual(None, ret)
+        self.assertIsNone(ret)
 
     def test_create_member(self):
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -524,7 +524,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
             subnet_id=member.subnet_id,
             address=member.ip,
             protocol_port=member.port)
-        self.assertEqual(None, ret)
+        self.assertIsNone(ret)
 
     def test_ensure(self):
         cls = d_lbaasv2.LBaaSv2Driver
