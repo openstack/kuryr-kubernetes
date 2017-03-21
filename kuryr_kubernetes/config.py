@@ -16,7 +16,8 @@ from kuryr.lib._i18n import _
 from kuryr.lib import config as lib_config
 from oslo_config import cfg
 from oslo_log import log as logging
-import pbr.version
+
+from kuryr_kubernetes import version
 
 LOG = logging.getLogger(__name__)
 
@@ -95,7 +96,7 @@ logging.register_options(CONF)
 
 
 def init(args, **kwargs):
-    version_k8s = pbr.version.VersionInfo('kuryr-kubernetes').version_string()
+    version_k8s = version.version_info.version_string()
     CONF(args=args, project='kuryr-k8s', version=version_k8s, **kwargs)
 
 
@@ -103,7 +104,7 @@ def setup_logging():
 
     logging.setup(CONF, 'kuryr-kubernetes')
     logging.set_defaults(default_log_levels=logging.get_default_log_levels())
-    version_k8s = pbr.version.VersionInfo('kuryr-kubernetes').version_string()
+    version_k8s = version.version_info.version_string()
     LOG.info("Logging enabled!")
     LOG.info("%(prog)s version %(version)s",
              {'prog': sys.argv[0], 'version': version_k8s})
