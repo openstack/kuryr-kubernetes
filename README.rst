@@ -113,6 +113,7 @@ How to watch K8S api-server over HTTPS :
 Add absolute path of client side cert file and key file for K8S server in kuryr.conf::
 
     [kubernetes]
+    api_root = https://your_server_address:server_ssl_port
     ssl_client_crt_file = <absolute file path eg. /etc/kubernetes/admin.crt>
     ssl_client_key_file = <absolute file path eg. /etc/kubernetes/admin.key>
 
