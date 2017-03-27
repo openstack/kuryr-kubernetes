@@ -1,5 +1,4 @@
-export SERVICE_USER=admin
-export SERVICE_PASSWORD=pass
-export SERVICE_TENANT_NAME=admin
-export SERVICE_TOKEN=pass
-export IDENTITY_URL=http://127.0.0.1:5000/v2.0
+export OS_USERNAME=admin
+export OS_PASSWORD=pass
+export OS_PROJECT_NAME=admin
+export OS_AUTH_URL=http://127.0.0.1:5000/v2.0
