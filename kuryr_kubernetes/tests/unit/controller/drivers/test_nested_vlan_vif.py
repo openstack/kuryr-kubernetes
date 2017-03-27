@@ -179,8 +179,9 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
         node_subnet_id = mock.sentinel.node_subnet_id
-        nested_vlan_vif.config.CONF.neutron_defaults.worker_nodes_subnet =\
-            node_subnet_id
+        oslo_cfg.CONF.set_override('worker_nodes_subnet',
+                                   node_subnet_id,
+                                   group='pod_vif_nested')
 
         node_fixed_ip = mock.sentinel.node_fixed_ip
         pod_status = mock.MagicMock()
@@ -202,7 +203,9 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         cls = nested_vlan_vif.NestedVlanPodVIFDriver
         m_driver = mock.Mock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
-        nested_vlan_vif.config.CONF.neutron_defaults.worker_nodes_subnet = ''
+        oslo_cfg.CONF.set_override('worker_nodes_subnet',
+                                   '',
+                                   group='pod_vif_nested')
         pod = mock.MagicMock()
         self.assertRaises(oslo_cfg.RequiredOptError,
             cls._get_parent_port, m_driver, neutron, pod)
@@ -213,8 +216,10 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
         node_subnet_id = mock.sentinel.node_subnet_id
-        nested_vlan_vif.config.CONF.neutron_defaults.worker_nodes_subnet =\
-            node_subnet_id
+
+        oslo_cfg.CONF.set_override('worker_nodes_subnet',
+                                   node_subnet_id,
+                                   group='pod_vif_nested')
 
         node_fixed_ip = mock.sentinel.node_fixed_ip
         pod_status = mock.MagicMock()
