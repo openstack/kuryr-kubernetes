@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from kuryr.lib._i18n import _LI
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
@@ -135,7 +134,7 @@ class Watcher(object):
 
     def _watch(self, path):
         try:
-            LOG.info(_LI("Started watching '%s'"), path)
+            LOG.info("Started watching '%s'", path)
             for event in self._client.watch(path):
                 self._idle[path] = False
                 self._handler(event)
@@ -145,4 +144,4 @@ class Watcher(object):
         finally:
             self._watching.pop(path)
             self._idle.pop(path)
-            LOG.info(_LI("Stopped watching '%s'"), path)
+            LOG.info("Stopped watching '%s'", path)

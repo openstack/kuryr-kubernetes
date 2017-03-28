@@ -19,7 +19,6 @@
 
 """ Implements linux net utils"""
 
-from kuryr.lib._i18n import _LE
 from oslo_concurrency import processutils
 from oslo_log import log as logging
 
@@ -34,7 +33,7 @@ def _ovs_vsctl(args, timeout=None):
     try:
         return processutils.execute(*full_args, run_as_root=True)
     except Exception as e:
-        LOG.error(_LE("Unable to execute %(cmd)s. Exception: %(exception)s"),
+        LOG.error("Unable to execute %(cmd)s. Exception: %(exception)s",
                   {'cmd': full_args, 'exception': e})
         raise
 

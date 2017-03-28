@@ -17,7 +17,6 @@ import itertools
 from six.moves import queue as six_queue
 import time
 
-from kuryr.lib._i18n import _LC
 from oslo_log import log as logging
 
 
@@ -104,8 +103,8 @@ class Async(base.EventHandler):
         queue = self._queues.pop(group)
 
         if not queue.empty():
-            LOG.critical(_LC("Asynchronous handler terminated abnormally; "
-                             "%(count)s events dropped for %(group)s"),
+            LOG.critical("Asynchronous handler terminated abnormally; "
+                         "%(count)s events dropped for %(group)s",
                          {'count': queue.qsize(), 'group': group})
 
         if not self._queues:

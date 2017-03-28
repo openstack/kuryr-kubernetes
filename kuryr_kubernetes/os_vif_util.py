@@ -15,7 +15,7 @@
 
 import six
 
-from kuryr.lib._i18n import _LE
+from kuryr.lib._i18n import _
 from kuryr.lib.binding.drivers import utils as kl_utils
 from kuryr.lib import constants as kl_const
 from os_vif.objects import fixed_ip as osv_fixed_ip
@@ -100,7 +100,7 @@ def _make_vif_subnet(subnets, subnet_id):
     network = subnets[subnet_id]
 
     if len(network.subnets.objects) != 1:
-        raise k_exc.IntegrityError(_LE(
+        raise k_exc.IntegrityError(_(
             "Network object for subnet %(subnet_id)s is invalid, "
             "must contain a single subnet, but %(num_subnets)s found") % {
             'subnet_id': subnet_id,
@@ -138,7 +138,7 @@ def _make_vif_subnets(neutron_port, subnets):
         subnet.ips.objects.append(osv_fixed_ip.FixedIP(address=ip_address))
 
     if not vif_subnets:
-        raise k_exc.IntegrityError(_LE(
+        raise k_exc.IntegrityError(_(
             "No valid subnets found for port %(port_id)s") % {
             'port_id': neutron_port.get('id')})
 
@@ -158,7 +158,7 @@ def _make_vif_network(neutron_port, subnets):
         network = next(net.obj_clone() for net in subnets.values()
                        if net.id == neutron_port.get('network_id'))
     except StopIteration:
-        raise k_exc.IntegrityError(_LE(
+        raise k_exc.IntegrityError(_(
             "Port %(port_id)s belongs to network %(network_id)s, "
             "but requested networks are: %(requested_networks)s") % {
             'port_id': neutron_port.get('id'),
@@ -303,7 +303,7 @@ def osvif_to_neutron_fixed_ips(subnets):
     for subnet_id, network in six.iteritems(subnets):
         ips = []
         if len(network.subnets.objects) > 1:
-            raise k_exc.IntegrityError(_LE(
+            raise k_exc.IntegrityError(_(
                 "Network object for subnet %(subnet_id)s is invalid, "
                 "must contain a single subnet, but %(num_subnets)s found") % {
                 'subnet_id': subnet_id,

@@ -13,7 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from kuryr.lib._i18n import _LE
+from kuryr.lib._i18n import _
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 import six
@@ -64,7 +64,7 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
             if ip in subnet.cidr}
 
         if len(subnet_ids) != 1:
-            raise k_exc.IntegrityError(_LE(
+            raise k_exc.IntegrityError(_(
                 "Found %(num)s subnets for service %(link)s IP %(ip)s") % {
                 'link': service['metadata']['selfLink'],
                 'ip': ip,
@@ -138,7 +138,7 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
         link_parts = svc_link.split('/')
 
         if link_parts[-2] != 'services':
-            raise k_exc.IntegrityError(_LE(
+            raise k_exc.IntegrityError(_(
                 "Unsupported service link: %(link)s") % {
                 'link': svc_link})
         link_parts[-2] = 'endpoints'

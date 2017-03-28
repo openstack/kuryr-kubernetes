@@ -15,7 +15,6 @@
 
 import sys
 
-from kuryr.lib._i18n import _LI
 import os_vif
 from oslo_log import log as logging
 from oslo_service import service
@@ -48,17 +47,17 @@ class KuryrK8sService(service.Service):
         pipeline.register(h_lbaas.LBaaSSpecHandler())
 
     def start(self):
-        LOG.info(_LI("Service '%s' starting"), self.__class__.__name__)
+        LOG.info("Service '%s' starting", self.__class__.__name__)
         super(KuryrK8sService, self).start()
         self.watcher.start()
-        LOG.info(_LI("Service '%s' started"), self.__class__.__name__)
+        LOG.info("Service '%s' started", self.__class__.__name__)
 
     def wait(self):
         super(KuryrK8sService, self).wait()
-        LOG.info(_LI("Service '%s' stopped"), self.__class__.__name__)
+        LOG.info("Service '%s' stopped", self.__class__.__name__)
 
     def stop(self, graceful=False):
-        LOG.info(_LI("Service '%s' stopping"), self.__class__.__name__)
+        LOG.info("Service '%s' stopping", self.__class__.__name__)
         self.watcher.stop()
         super(KuryrK8sService, self).stop(graceful)
 

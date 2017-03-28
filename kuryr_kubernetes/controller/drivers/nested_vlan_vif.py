@@ -13,7 +13,6 @@
 #    under the License.
 from time import sleep
 
-from kuryr.lib._i18n import _LE
 from kuryr.lib import constants as kl_const
 from kuryr.lib import segmentation_type_drivers as seg_driver
 from neutronclient.common import exceptions as n_exc
@@ -81,9 +80,9 @@ class NestedVlanPodVIFDriver(generic_vif.GenericPodVIFDriver):
         try:
             return port['trunk_details']['trunk_id']
         except KeyError:
-            LOG.error(_LE("Neutron port is missing trunk details. "
-                          "Please ensure that k8s node port is associated "
-                          "with a Neutron vlan trunk"))
+            LOG.error("Neutron port is missing trunk details. "
+                      "Please ensure that k8s node port is associated "
+                      "with a Neutron vlan trunk")
             raise k_exc.K8sNodeTrunkPortFailure
 
     def _get_parent_port(self, neutron, pod):
@@ -100,7 +99,7 @@ class NestedVlanPodVIFDriver(generic_vif.GenericPodVIFDriver):
             if pod['status']['conditions'][0]['type'] != "Initialized":
                 LOG.debug("Pod condition type is not 'Initialized'")
 
-            LOG.error(_LE("Failed to get parent vm port ip"))
+            LOG.error("Failed to get parent vm port ip")
             raise
 
         try:
@@ -108,15 +107,15 @@ class NestedVlanPodVIFDriver(generic_vif.GenericPodVIFDriver):
                          'ip_address=%s' % str(node_fixed_ip)]
             ports = neutron.list_ports(fixed_ips=fixed_ips)
         except n_exc.NeutronClientException as ex:
-            LOG.error(_LE("Parent vm port with fixed ips %s not found!"),
-                fixed_ips)
+            LOG.error("Parent vm port with fixed ips %s not found!",
+                      fixed_ips)
             raise ex
 
         if ports['ports']:
             return ports['ports'][0]
         else:
-            LOG.error(_LE("Neutron port for vm port with fixed ips %s"
-                " not found!"), fixed_ips)
+            LOG.error("Neutron port for vm port with fixed ips %s"
+                      " not found!", fixed_ips)
             raise k_exc.K8sNodeTrunkPortFailure
 
     def _add_subport(self, neutron, trunk_id, subport):
@@ -135,8 +134,8 @@ class NestedVlanPodVIFDriver(generic_vif.GenericPodVIFDriver):
             try:
                 vlan_id = self._get_vlan_id(trunk_id)
             except n_exc.NeutronClientException as ex:
-                LOG.error(_LE("Getting VlanID for subport on "
-                    "trunk %s failed!!"), trunk_id)
+                LOG.error("Getting VlanID for subport on "
+                          "trunk %s failed!!", trunk_id)
                 raise ex
             subport = [{'segmentation_id': vlan_id,
                         'port_id': subport,
@@ -146,19 +145,19 @@ class NestedVlanPodVIFDriver(generic_vif.GenericPodVIFDriver):
                                            {'sub_ports': subport})
             except n_exc.Conflict as ex:
                 if retry_count < DEFAULT_MAX_RETRY_COUNT:
-                    LOG.error(_LE("vlanid already in use on trunk, "
-                        "%s. Retrying..."), trunk_id)
+                    LOG.error("vlanid already in use on trunk, "
+                              "%s. Retrying...", trunk_id)
                     retry_count += 1
                     sleep(DEFAULT_RETRY_INTERVAL)
                     continue
                 else:
-                    LOG.error(_LE(
-                        "MAX retry count reached. Failed to add subport"))
+                    LOG.error(
+                        "MAX retry count reached. Failed to add subport")
                     raise ex
 
             except n_exc.NeutronClientException as ex:
-                LOG.error(_LE("Error happened during subport"
-                              "addition to trunk, %s"), trunk_id)
+                LOG.error("Error happened during subport"
+                          "addition to trunk, %s", trunk_id)
                 raise ex
             return vlan_id
 
@@ -168,9 +167,9 @@ class NestedVlanPodVIFDriver(generic_vif.GenericPodVIFDriver):
             neutron.trunk_remove_subports(trunk_id,
                                        {'sub_ports': subport_id})
         except n_exc.NeutronClientException as ex:
-            LOG.error(_LE(
-                "Error happened during subport removal from trunk,"
-                "%s"), trunk_id)
+            LOG.error(
+                "Error happened during subport removal from "
+                "trunk, %s", trunk_id)
             raise ex
 
     def _get_vlan_id(self, trunk_id):
