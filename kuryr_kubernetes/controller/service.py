@@ -45,6 +45,7 @@ class KuryrK8sService(service.Service):
             self.watcher.add("%s/%s" % (constants.K8S_API_BASE, resource))
         pipeline.register(h_vif.VIFHandler())
         pipeline.register(h_lbaas.LBaaSSpecHandler())
+        pipeline.register(h_lbaas.LoadBalancerHandler())
 
     def start(self):
         LOG.info("Service '%s' starting", self.__class__.__name__)

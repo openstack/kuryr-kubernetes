@@ -257,7 +257,7 @@ class PodVIFDriver(DriverBase):
 class LBaaSDriver(DriverBase):
     """Manages Neutron/Octavia load balancer to support Kubernetes Services."""
 
-    ALIAS = 'lbaas'
+    ALIAS = 'endpoints_lbaas'
 
     @abc.abstractmethod
     def ensure_loadbalancer(self, endpoints, project_id, subnet_id, ip,

@@ -53,7 +53,6 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
         spec = service['spec']
         if spec.get('type') == 'ClusterIP':
             return spec.get('clusterIP')
-        return None
 
     def _get_subnet_id(self, service, project_id, ip):
         subnets_mapping = self._drv_subnets.get_subnets(service, project_id)
@@ -180,4 +179,316 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
         obj_dict = jsonutils.loads(annotation)
         obj = obj_lbaas.LBaaSServiceSpec.obj_from_primitive(obj_dict)
         LOG.debug("Got LBaaSServiceSpec from annotation: %r", obj)
+        return obj
+
+
+class LoadBalancerHandler(k8s_base.ResourceEventHandler):
+    """LoadBalancerHandler handles K8s Endpoints events.
+
+    LoadBalancerHandler handles K8s Endpoints events and tracks changes in
+    LBaaSServiceSpec to update Neutron LBaaS accordingly and to reflect its'
+    actual state in LBaaSState.
+    """
+
+    OBJECT_KIND = k_const.K8S_OBJ_ENDPOINTS
+
+    def __init__(self):
+        self._drv_lbaas = drv_base.LBaaSDriver.get_instance()
+        self._drv_pod_project = drv_base.PodProjectDriver.get_instance()
+        self._drv_pod_subnets = drv_base.PodSubnetsDriver.get_instance()
+
+    def on_present(self, endpoints):
+        lbaas_spec = self._get_lbaas_spec(endpoints)
+        if self._should_ignore(endpoints, lbaas_spec):
+            return
+
+        lbaas_state = self._get_lbaas_state(endpoints)
+        if not lbaas_state:
+            lbaas_state = obj_lbaas.LBaaSState()
+
+        if self._sync_lbaas_members(endpoints, lbaas_state, lbaas_spec):
+            # REVISIT(ivc): since _sync_lbaas_members is responsible for
+            # creating all lbaas components (i.e. load balancer, listeners,
+            # pools, members), it is currently possible for it to fail (due
+            # to invalid Kuryr/K8s/Neutron configuration, e.g. Members' IPs
+            # not belonging to configured Neutron subnet or Service IP being
+            # in use by gateway or VMs) leaving some Neutron entities without
+            # properly updating annotation. Some sort of failsafe mechanism is
+            # required to deal with such situations (e.g. cleanup, or skip
+            # failing items, or validate configuration) to prevent annotation
+            # being out of sync with the actual Neutron state.
+            self._set_lbaas_state(endpoints, lbaas_state)
+
+    def on_deleted(self, endpoints):
+        lbaas_state = self._get_lbaas_state(endpoints)
+        if not lbaas_state:
+            return
+        # NOTE(ivc): deleting pool deletes its members
+        lbaas_state.members = []
+        self._sync_lbaas_members(endpoints, lbaas_state,
+                                 obj_lbaas.LBaaSServiceSpec())
+
+    def _should_ignore(self, endpoints, lbaas_spec):
+        return not(lbaas_spec and
+                   self._has_pods(endpoints) and
+                   self._is_lbaas_spec_in_sync(endpoints, lbaas_spec))
+
+    def _is_lbaas_spec_in_sync(self, endpoints, lbaas_spec):
+        # REVISIT(ivc): consider other options instead of using 'name'
+        ep_ports = list(set(port.get('name')
+                            for subset in endpoints.get('subsets', [])
+                            for port in subset.get('ports', [])))
+        spec_ports = [port.name for port in lbaas_spec.ports]
+
+        return sorted(ep_ports) == sorted(spec_ports)
+
+    def _has_pods(self, endpoints):
+        return any(True
+                   for subset in endpoints.get('subsets', [])
+                   for address in subset.get('addresses', [])
+                   if address.get('targetRef', {}).get('kind') == 'Pod')
+
+    def _sync_lbaas_members(self, endpoints, lbaas_state, lbaas_spec):
+        changed = False
+
+        if self._remove_unused_members(endpoints, lbaas_state, lbaas_spec):
+            changed = True
+
+        if self._sync_lbaas_pools(endpoints, lbaas_state, lbaas_spec):
+            changed = True
+
+        if self._add_new_members(endpoints, lbaas_state, lbaas_spec):
+            changed = True
+
+        return changed
+
+    def _add_new_members(self, endpoints, lbaas_state, lbaas_spec):
+        changed = False
+
+        lsnr_by_id = {l.id: l for l in lbaas_state.listeners}
+        pool_by_lsnr_port = {(lsnr_by_id[p.listener_id].protocol,
+                              lsnr_by_id[p.listener_id].port): p
+                             for p in lbaas_state.pools}
+        pool_by_tgt_name = {p.name: pool_by_lsnr_port[p.protocol, p.port]
+                            for p in lbaas_spec.ports}
+        current_targets = {(str(m.ip), m.port) for m in lbaas_state.members}
+
+        for subset in endpoints.get('subsets', []):
+            subset_ports = subset.get('ports', [])
+            for subset_address in subset.get('addresses', []):
+                try:
+                    target_ip = subset_address['ip']
+                    target_ref = subset_address['targetRef']
+                    if target_ref['kind'] != k_const.K8S_OBJ_POD:
+                        continue
+                except KeyError:
+                    continue
+
+                for subset_port in subset_ports:
+                    target_port = subset_port['port']
+                    if (target_ip, target_port) in current_targets:
+                        continue
+                    port_name = subset_port.get('name')
+                    pool = pool_by_tgt_name[port_name]
+                    target_subnet_id = self._get_pod_subnet(target_ref,
+                                                            target_ip)
+                    member = self._drv_lbaas.ensure_member(
+                        endpoints=endpoints,
+                        loadbalancer=lbaas_state.loadbalancer,
+                        pool=pool,
+                        subnet_id=target_subnet_id,
+                        ip=target_ip,
+                        port=target_port,
+                        target_ref=target_ref)
+                    lbaas_state.members.append(member)
+                    changed = True
+
+        return changed
+
+    def _get_pod_subnet(self, target_ref, ip):
+        # REVISIT(ivc): consider using true pod object instead
+        pod = {'kind': target_ref['kind'],
+               'metadata': {'name': target_ref['name'],
+                            'namespace': target_ref['namespace']}}
+        project_id = self._drv_pod_project.get_project(pod)
+        subnets_map = self._drv_pod_subnets.get_subnets(pod, project_id)
+        # FIXME(ivc): potentially unsafe [0] index
+        return [subnet_id for subnet_id, network in six.iteritems(subnets_map)
+                for subnet in network.subnets.objects
+                if ip in subnet.cidr][0]
+
+    def _remove_unused_members(self, endpoints, lbaas_state, lbaas_spec):
+        spec_port_names = {p.name for p in lbaas_spec.ports}
+        current_targets = {(a['ip'], p['port'])
+                           for s in endpoints['subsets']
+                           for a in s['addresses']
+                           for p in s['ports']
+                           if p.get('name') in spec_port_names}
+        removed_ids = set()
+        for member in lbaas_state.members:
+            if (str(member.ip), member.port) in current_targets:
+                continue
+            self._drv_lbaas.release_member(endpoints,
+                                           lbaas_state.loadbalancer,
+                                           member)
+            removed_ids.add(member.id)
+        if removed_ids:
+            lbaas_state.members = [m for m in lbaas_state.members
+                                   if m.id not in removed_ids]
+        return bool(removed_ids)
+
+    def _sync_lbaas_pools(self, endpoints, lbaas_state, lbaas_spec):
+        changed = False
+
+        if self._remove_unused_pools(endpoints, lbaas_state, lbaas_spec):
+            changed = True
+
+        if self._sync_lbaas_listeners(endpoints, lbaas_state, lbaas_spec):
+            changed = True
+
+        if self._add_new_pools(endpoints, lbaas_state, lbaas_spec):
+            changed = True
+
+        return changed
+
+    def _add_new_pools(self, endpoints, lbaas_state, lbaas_spec):
+        changed = False
+
+        current_listeners_ids = {pool.listener_id
+                                 for pool in lbaas_state.pools}
+        for listener in lbaas_state.listeners:
+            if listener.id in current_listeners_ids:
+                continue
+            pool = self._drv_lbaas.ensure_pool(endpoints,
+                                               lbaas_state.loadbalancer,
+                                               listener)
+            lbaas_state.pools.append(pool)
+            changed = True
+
+        return changed
+
+    def _remove_unused_pools(self, endpoints, lbaas_state, lbaas_spec):
+        current_pools = {m.pool_id for m in lbaas_state.members}
+        removed_ids = set()
+        for pool in lbaas_state.pools:
+            if pool.id in current_pools:
+                continue
+            self._drv_lbaas.release_pool(endpoints,
+                                         lbaas_state.loadbalancer,
+                                         pool)
+            removed_ids.add(pool.id)
+        if removed_ids:
+            lbaas_state.pools = [p for p in lbaas_state.pools
+                                 if p.id not in removed_ids]
+        return bool(removed_ids)
+
+    def _sync_lbaas_listeners(self, endpoints, lbaas_state, lbaas_spec):
+        changed = False
+
+        if self._remove_unused_listeners(endpoints, lbaas_state, lbaas_spec):
+            changed = True
+
+        if self._sync_lbaas_loadbalancer(endpoints, lbaas_state, lbaas_spec):
+            changed = True
+
+        if self._add_new_listeners(endpoints, lbaas_spec, lbaas_state):
+            changed = True
+
+        return changed
+
+    def _add_new_listeners(self, endpoints, lbaas_spec, lbaas_state):
+        changed = False
+        current_port_tuples = {(listener.protocol, listener.port)
+                               for listener in lbaas_state.listeners}
+        for port_spec in lbaas_spec.ports:
+            protocol = port_spec.protocol
+            port = port_spec.port
+            if (protocol, port) in current_port_tuples:
+                continue
+
+            listener = self._drv_lbaas.ensure_listener(
+                endpoints=endpoints,
+                loadbalancer=lbaas_state.loadbalancer,
+                protocol=protocol,
+                port=port)
+            lbaas_state.listeners.append(listener)
+            changed = True
+        return changed
+
+    def _remove_unused_listeners(self, endpoints, lbaas_state, lbaas_spec):
+        current_listeners = {p.listener_id for p in lbaas_state.pools}
+
+        removed_ids = set()
+        for listener in lbaas_state.listeners:
+            if listener.id in current_listeners:
+                continue
+            self._drv_lbaas.release_listener(endpoints,
+                                             lbaas_state.loadbalancer,
+                                             listener)
+            removed_ids.add(listener.id)
+        if removed_ids:
+            lbaas_state.listeners = [l for l in lbaas_state.listeners
+                                     if l.id not in removed_ids]
+        return bool(removed_ids)
+
+    def _sync_lbaas_loadbalancer(self, endpoints, lbaas_state, lbaas_spec):
+        changed = False
+        lb = lbaas_state.loadbalancer
+
+        if lb and lb.ip != lbaas_spec.ip:
+            self._drv_lbaas.release_loadbalancer(
+                endpoints=endpoints,
+                loadbalancer=lb)
+            lb = None
+            changed = True
+
+        if not lb and lbaas_spec.ip:
+            lb = self._drv_lbaas.ensure_loadbalancer(
+                endpoints=endpoints,
+                project_id=lbaas_spec.project_id,
+                subnet_id=lbaas_spec.subnet_id,
+                ip=lbaas_spec.ip,
+                security_groups_ids=lbaas_spec.security_groups_ids)
+            changed = True
+
+        lbaas_state.loadbalancer = lb
+        return changed
+
+    def _get_lbaas_spec(self, endpoints):
+        # TODO(ivc): same as '_get_lbaas_state'
+        try:
+            annotations = endpoints['metadata']['annotations']
+            annotation = annotations[k_const.K8S_ANNOTATION_LBAAS_SPEC]
+        except KeyError:
+            return None
+        obj_dict = jsonutils.loads(annotation)
+        obj = obj_lbaas.LBaaSServiceSpec.obj_from_primitive(obj_dict)
+        LOG.debug("Got LBaaSServiceSpec from annotation: %r", obj)
+        return obj
+
+    def _set_lbaas_state(self, endpoints, lbaas_state):
+        # TODO(ivc): extract annotation interactions
+        if lbaas_state is None:
+            LOG.debug("Removing LBaaSState annotation: %r", lbaas_state)
+            annotation = None
+        else:
+            lbaas_state.obj_reset_changes(recursive=True)
+            LOG.debug("Setting LBaaSState annotation: %r", lbaas_state)
+            annotation = jsonutils.dumps(lbaas_state.obj_to_primitive(),
+                                         sort_keys=True)
+        k8s = clients.get_kubernetes_client()
+        k8s.annotate(endpoints['metadata']['selfLink'],
+                     {k_const.K8S_ANNOTATION_LBAAS_STATE: annotation},
+                     resource_version=endpoints['metadata']['resourceVersion'])
+
+    def _get_lbaas_state(self, endpoints):
+        # TODO(ivc): same as '_set_lbaas_state'
+        try:
+            annotations = endpoints['metadata']['annotations']
+            annotation = annotations[k_const.K8S_ANNOTATION_LBAAS_STATE]
+        except KeyError:
+            return None
+        obj_dict = jsonutils.loads(annotation)
+        obj = obj_lbaas.LBaaSState.obj_from_primitive(obj_dict)
+        LOG.debug("Got LBaaSState from annotation: %r", obj)
         return obj
