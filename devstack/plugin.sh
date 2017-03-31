@@ -263,6 +263,11 @@ function stop_docker {
         echo "Killing docker"
         sudo kill -s SIGTERM "$(cat "$DOCKER_PIDFILE")"
     fi
+    while [ -e "$DOCKER_PIDFILE" ]; do
+        echo -n "."
+        sleep 1
+    done
+    sudo rm "$KURYR_DOCKER_ENGINE_SOCKET_FILE"
 }
 
 function get_hyperkube_container_cacert_setup_dir {
