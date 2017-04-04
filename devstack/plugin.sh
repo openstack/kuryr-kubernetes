@@ -73,6 +73,15 @@ function configure_kuryr {
     # "$(get_distutils_data_path)/libexec/kuryr"
 
     iniset "$KURYR_CONFIG" kubernetes api_root "$KURYR_K8S_API_URL"
+    if [ "$KURYR_K8S_API_CERT" ]; then
+        iniset "$KURYR_CONFIG" kubernetes ssl_client_crt_file "$KURYR_K8S_API_CERT"
+    fi
+    if [ "$KURYR_K8S_API_KEY" ]; then
+        iniset "$KURYR_CONFIG" kubernetes ssl_client_key_file "$KURYR_K8S_API_KEY"
+    fi
+    if [ "$KURYR_K8S_API_CACERT" ]; then
+        iniset "$KURYR_CONFIG" kubernetes ssl_ca_crt_file "$KURYR_K8S_API_CACERT"
+    fi
     # REVISIT(ivc): 'use_stderr' is required for current CNI driver. Once a
     # daemon-based CNI driver is implemented, this could be removed.
     iniset "$KURYR_CONFIG" DEFAULT use_stderr true
