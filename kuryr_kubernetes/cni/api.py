@@ -131,6 +131,6 @@ class CNIRunner(object):
                     for route in subnet.routes.objects]
 
         if nameservers:
-            result['dns']['nameservers'] = nameservers
+            result['dns'] = {'nameservers': nameservers}
 
         self._write_dict(fout, result)
