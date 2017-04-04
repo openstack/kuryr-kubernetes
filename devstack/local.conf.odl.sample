@@ -1,0 +1,144 @@
+[[local|localrc]]
+
+enable_plugin kuryr-kubernetes \
+    https://git.openstack.org/openstack/kuryr-kubernetes
+
+# If you do not want stacking to clone new versions of the enabled services,
+# like for example when you did local modifications and need to ./unstack.sh
+# and ./stack.sh again, uncomment the following
+# RECLONE="no"
+
+# Log settings for better readability
+LOGFILE=devstack.log
+LOG_COLOR=False
+# If you want the screen tabs logged in a specific location, you can use:
+# SCREEN_LOGDIR="${HOME}/devstack_logs"
+
+
+# Credentials
+ADMIN_PASSWORD=pass
+DATABASE_PASSWORD=pass
+RABBIT_PASSWORD=pass
+SERVICE_PASSWORD=pass
+SERVICE_TOKEN=pass
+# Enable Keystone v3
+IDENTITY_API_VERSION=3
+
+# In pro of speed and being lightweight, we will be explicit in regards to
+# which services we enable
+ENABLED_SERVICES=""
+
+# Neutron services
+enable_service neutron
+enable_service q-dhcp
+enable_service q-svc
+
+# LBaaSv2 service and Haproxy agent
+enable_plugin neutron-lbaas \
+    git://git.openstack.org/openstack/neutron-lbaas
+enable_service q-lbaasv2
+NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:opendaylight:networking_odl.lbaas.driver_v2.OpenDaylightLbaasDriverV2:default"
+
+ODL_MODE=allinone
+ODL_RELEASE=carbon-snapshot-0.6
+Q_USE_PUBLIC_VETH=False
+PUBLIC_BRIDGE=br-ex
+PUBLIC_PHYSICAL_NETWORK=public
+ODL_PROVIDER_MAPPINGS=public:br-ex
+ODL_L3=True
+ODL_NETVIRT_KARAF_FEATURE=odl-neutron-service,odl-restconf-all,odl-aaa-authn,odl-dlux-core,odl-mdsal-apidocs,odl-netvirt-openstack,odl-neutron-logger,odl-neutron-hostconfig-ovs
+ODL_PORT_BINDING_CONTROLLER=pseudo-agentdb-binding
+ODL_TIMEOUT=60
+ODL_V2DRIVER=True
+ODL_NETVIRT_DEBUG_LOGS=True
+EBTABLES_RACE_FIX=True
+enable_plugin networking-odl http://git.openstack.org/openstack/networking-odl
+
+# Keystone
+enable_service key
+
+# dependencies
+enable_service mysql
+enable_service rabbit
+
+# By default use all the services from the kuryr-kubernetes plugin
+
+# Docker
+# ======
+# If you already have docker configured, running and with its socket writable
+# by the stack user, you can omit the following line.
+enable_plugin devstack-plugin-container https://git.openstack.org/openstack/devstack-plugin-container
+
+
+# Etcd
+# ====
+# The default is for devstack to run etcd for you. You can select the image and
+# version of it by uncommenting and modifying the following defaults.
+# KURYR_ETCD_IMAGE="quay.io/coreos/etcd"
+# KURYR_ETCD_VERSION="v3.0.8"
+#
+# You can select the listening and advertising client and peering Etcd
+# addresses by uncommenting and changing from the following defaults:
+# KURYR_ETCD_ADVERTISE_CLIENT_URL=http://my_host_ip:2379}
+# KURYR_ETCD_ADVERTISE_PEER_URL=http://my_host_ip:2380}
+# KURYR_ETCD_LISTEN_CLIENT_URL=http://0.0.0.0:2379}
+# KURYR_ETCD_LISTEN_PEER_URL=http://0.0.0.0:2380}
+#
+# If you already have etcd configured and running, you can just comment out
+enable_service etcd3
+# then uncomment and set the following line:
+# KURYR_ETCD_CLIENT_URL="http://etcd_ip:etcd_client_port"
+
+# Kubernetes
+# ==========
+#
+# Kubernetes is run from the hyperkube docker image
+# If you already have a Kubernetes deployment, you can use it instead and omit
+# enabling the Kubernetes service (except Kubelet, which must be run by
+# devstack so that it uses our development CNI driver.
+#
+# The default is, again, for devstack to run the Kubernetes services:
+enable_service kubernetes-api
+enable_service kubernetes-controller-manager
+enable_service kubernetes-scheduler
+
+# We use hyperkube to run the services. You can select the hyperkube image and/
+# or version by uncommenting and setting the following ENV vars different
+# to the following defaults:
+# KURYR_HYPERKUBE_IMAGE="gcr.io/google_containers/hyperkube-amd64"
+# KURYR_HYPERKUBE_VERSION="v1.3.7"
+#
+# If you have the 8080 port already bound to another service, you will need to
+# have kubernetes API server bind to another port. In order to do that,
+# uncomment and set a different port number in:
+# KURYR_K8S_API_PORT="8080"
+#
+# If you want to test with a different range for the Cluster IPs uncomment and
+# set the following ENV var to a different CIDR
+# KURYR_K8S_CLUSTER_IP_RANGE="10.0.0.0/24"
+#
+# If, however, you are reusing an existing deployment, you should uncomment and
+# set an ENV var so that the Kubelet devstack runs can find the API server:
+# KURYR_K8S_API_URL="http://k8s_api_ip:k8s_api_port"
+#
+
+# Kubelet
+# =======
+#
+# Kubelet should almost invariably be run by devstack
+enable_service kubelet
+
+# You can specify a different location for the hyperkube binary that will be
+# extracted from the hyperkube container into the Host filesystem:
+# KURYR_HYPERKUBE_BINARY=/usr/local/bin/hyperkube
+#
+# NOTE: KURYR_HYPERKUBE_IMAGE, KURYR_HYPERKUBE_VERSION also affect which
+# the selected binary for the Kubelet.
+
+# Kuryr watcher
+# =============
+#
+# Just like the Kubelet, you'll want to have the watcher enabled. It is the
+# part of the codebase that connects to the Kubernetes API server to read the
+# resource events and convert them to Neutron actions
+enable_service kuryr-kubernetes
