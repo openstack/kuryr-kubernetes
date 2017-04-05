@@ -105,8 +105,12 @@ enable_service kubernetes-scheduler
 #
 # If, however, you are reusing an existing deployment, you should uncomment and
 # set an ENV var so that the Kubelet devstack runs can find the API server:
-# KURYR_K8S_API_URL="http://k8s_api_ip:k8s_api_port"
+# KURYR_K8S_API_URL="http (or https, if K8S is SSL/TLS enabled)://k8s_api_ip:k8s_api_port"
 #
+# If kubernetes API server is 'https' enabled, set path of the ssl cert files
+# KURYR_K8S_API_CERT="/etc/kubernetes/certs/kubecfg.crt"
+# KURYR_K8S_API_KEY="/etc/kubernetes/certs/kubecfg.key"
+# KURYR_K8S_API_CACERT="/etc/kubernetes/certs/ca.crt"
 
 # Kubelet
 # =======
