@@ -13,8 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from kuryr.lib._i18n import _LE
-
 
 class K8sClientException(Exception):
     pass
@@ -26,7 +24,7 @@ class IntegrityError(RuntimeError):
 
 class ResourceNotReady(Exception):
     def __init__(self, resource):
-        super(ResourceNotReady, self).__init__(_LE("Resource not ready: %r")
+        super(ResourceNotReady, self).__init__("Resource not ready: %r"
                                                % resource)
 
 

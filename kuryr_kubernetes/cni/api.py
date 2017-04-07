@@ -17,7 +17,7 @@ import abc
 import six
 import traceback
 
-from kuryr.lib._i18n import _LE
+from kuryr.lib._i18n import _
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
@@ -88,7 +88,7 @@ class CNIRunner(object):
             elif params.CNI_COMMAND == 'VERSION':
                 self._write_version(fout)
             else:
-                raise k_exc.CNIError(_LE("unknown CNI_COMMAND: %s")
+                raise k_exc.CNIError(_("unknown CNI_COMMAND: %s")
                                      % params.CNI_COMMAND)
         except Exception as ex:
             # LOG.exception

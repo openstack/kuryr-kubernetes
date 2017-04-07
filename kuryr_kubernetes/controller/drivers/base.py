@@ -16,7 +16,7 @@
 import abc
 import six
 
-from kuryr.lib._i18n import _LE
+from kuryr.lib._i18n import _
 from stevedore import driver as stv_driver
 
 from kuryr_kubernetes import config
@@ -67,11 +67,11 @@ class DriverBase(object):
 
         driver = manager.driver
         if not isinstance(driver, cls):
-            raise TypeError(_LE("Invalid %(alias)r driver type: %(driver)s, "
-                                "must be a subclass of %(type)s") % {
-                'alias': alias,
-                'driver': driver.__class__.__name__,
-                'type': cls})
+            raise TypeError(_("Invalid %(alias)r driver type: %(driver)s, "
+                              "must be a subclass of %(type)s") % {
+                                'alias': alias,
+                                'driver': driver.__class__.__name__,
+                                'type': cls})
         return driver
 
 

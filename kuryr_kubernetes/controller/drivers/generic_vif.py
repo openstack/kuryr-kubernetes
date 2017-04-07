@@ -13,7 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from kuryr.lib._i18n import _LE
+from kuryr.lib._i18n import _
 from kuryr.lib import constants as kl_const
 from neutronclient.common import exceptions as n_exc
 from oslo_log import log as logging
@@ -82,7 +82,7 @@ class GenericPodVIFDriver(base.PodVIFDriver):
         ids = ovu.osvif_to_neutron_network_ids(subnets)
 
         if len(ids) != 1:
-            raise k_exc.IntegrityError(_LE(
+            raise k_exc.IntegrityError(_(
                 "Subnet mapping %(subnets)s is not valid: %(num_networks)s "
                 "unique networks found") % {
                 'subnets': subnets,

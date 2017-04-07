@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from kuryr.lib._i18n import _LE
 from oslo_log import log as logging
 
 from kuryr_kubernetes.handlers import base
@@ -37,4 +36,4 @@ class LogExceptions(base.EventHandler):
         try:
             self._handler(event)
         except self._exceptions:
-            LOG.exception(_LE("Failed to handle event %s"), event)
+            LOG.exception("Failed to handle event %s", event)
