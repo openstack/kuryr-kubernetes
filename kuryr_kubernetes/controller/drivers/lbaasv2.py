@@ -281,7 +281,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 try:
                     delete(*args, **kwargs)
                     return
-                except n_exc.StateInvalidClient:
+                except (n_exc.Conflict, n_exc.StateInvalidClient):
                     self._wait_for_provisioning(loadbalancer, remaining)
             except n_exc.NotFound:
                 return
