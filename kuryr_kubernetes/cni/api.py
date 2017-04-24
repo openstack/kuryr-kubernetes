@@ -32,7 +32,7 @@ class CNIConfig(dict):
     def __init__(self, cfg):
         super(CNIConfig, self).__init__(cfg)
 
-        for k, v in six.iteritems(self):
+        for k, v in self.items():
             if not k.startswith('_'):
                 setattr(self, k, v)
 
@@ -47,7 +47,7 @@ class CNIArgs(object):
 
 class CNIParameters(object):
     def __init__(self, env, cfg):
-        for k, v in six.iteritems(env):
+        for k, v in env.items():
             if k.startswith('CNI_'):
                 setattr(self, k, v)
         self.config = CNIConfig(cfg)

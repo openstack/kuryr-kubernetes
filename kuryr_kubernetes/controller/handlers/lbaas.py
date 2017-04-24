@@ -16,7 +16,6 @@
 from kuryr.lib._i18n import _
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
-import six
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants as k_const
@@ -58,7 +57,7 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
         subnets_mapping = self._drv_subnets.get_subnets(service, project_id)
         subnet_ids = {
             subnet_id
-            for subnet_id, network in six.iteritems(subnets_mapping)
+            for subnet_id, network in subnets_mapping.items()
             for subnet in network.subnets.objects
             if ip in subnet.cidr}
 
@@ -313,7 +312,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         project_id = self._drv_pod_project.get_project(pod)
         subnets_map = self._drv_pod_subnets.get_subnets(pod, project_id)
         # FIXME(ivc): potentially unsafe [0] index
-        return [subnet_id for subnet_id, network in six.iteritems(subnets_map)
+        return [subnet_id for subnet_id, network in subnets_map.items()
                 for subnet in network.subnets.objects
                 if ip in subnet.cidr][0]
 

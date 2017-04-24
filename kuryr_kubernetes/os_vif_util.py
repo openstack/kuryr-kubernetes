@@ -300,7 +300,7 @@ def neutron_to_osvif_vif(vif_plugin, neutron_port, subnets):
 def osvif_to_neutron_fixed_ips(subnets):
     fixed_ips = []
 
-    for subnet_id, network in six.iteritems(subnets):
+    for subnet_id, network in subnets.items():
         ips = []
         if len(network.subnets.objects) > 1:
             raise k_exc.IntegrityError(_(
