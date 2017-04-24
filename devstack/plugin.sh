@@ -276,7 +276,9 @@ function stop_docker {
         echo -n "."
         sleep 1
     done
-    sudo rm "$KURYR_DOCKER_ENGINE_SOCKET_FILE"
+    if [ -e "$KURYR_DOCKER_ENGINE_SOCKET_FILE" ]; then
+        sudo rm "$KURYR_DOCKER_ENGINE_SOCKET_FILE"
+    fi
 }
 
 function get_hyperkube_container_cacert_setup_dir {
