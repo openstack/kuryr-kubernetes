@@ -24,6 +24,15 @@ Developer Docs
 
    devref/index
 
+Design Specs
+============
+
+.. toctree::
+   :maxdepth: 1
+
+   specs/pike/contrail_support
+   specs/pike/fuxi_kubernetes
+
 Indices and tables
 ==================
 
