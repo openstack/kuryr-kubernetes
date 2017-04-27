@@ -57,8 +57,8 @@ vif binding executables. For example, if you installed it on Debian or Ubuntu::
     bindir = /usr/local/libexec/kuryr
 
 
-How to try out nested-pods locally:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+How to try out nested-pods locally
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Following are the instructions for an all-in-one setup where K8s will also be
 running inside the same Nova VM in which Kuryr-controller and Kuryr-cni will be
@@ -107,8 +107,8 @@ running. 4GB memory and 2 vCPUs, is the minimum resource requirement for the VM:
 Now launch pods using kubectl, Undercloud Neutron will serve the networking.
 
 
-How to watch K8S api-server over HTTPS :
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+How to watch K8S api-server over HTTPS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Add absolute path of client side cert file and key file for K8S server in kuryr.conf::
 
