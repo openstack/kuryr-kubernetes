@@ -15,14 +15,15 @@ function run_container {
     # Runs a detached container and uses devstack's run process to monitor
     # its logs
     local name
+    local docker_bin=$(which docker)
 
     name="$1"
     shift
 
-    docker run --name "$name" --detach "$@"
+    "$docker_bin" run --name "$name" --detach "$@"
 
     run_process "$name" \
-        "docker logs -f $name"
+        "$docker_bin logs -f $name"
 }
 
 function stop_container {
@@ -247,10 +248,10 @@ function prepare_docker {
 }
 
 function run_docker {
+    local dockerd_bin=$(which dockerd)
     run_process docker \
-        "sudo /usr/bin/docker daemon --debug=true \
-            -H unix://$KURYR_DOCKER_ENGINE_SOCKET_FILE"
-
+        "$dockerd_bin --debug=true \
+            -H unix://$KURYR_DOCKER_ENGINE_SOCKET_FILE" "root" "root"
     # We put the stack user as owner of the socket so we do not need to
     # run the Docker commands with sudo when developing.
     echo -n "Waiting for Docker to create its socket file"
@@ -427,7 +428,7 @@ function run_k8s_kubelet {
     local command
 
     sudo mkdir -p "${KURYR_HYPERKUBE_DATA_DIR}/"{kubelet,kubelet.cert}
-    command="sudo $KURYR_HYPERKUBE_BINARY kubelet\
+    command="$KURYR_HYPERKUBE_BINARY kubelet\
         --allow-privileged=true \
         --api-servers=$KURYR_K8S_API_URL \
         --v=2 \
@@ -439,13 +440,14 @@ function run_k8s_kubelet {
         --cert-dir=${KURYR_HYPERKUBE_DATA_DIR}/kubelet.cert \
         --root-dir=${KURYR_HYPERKUBE_DATA_DIR}/kubelet"
     wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
-    run_process kubelet "$command"
+    run_process kubelet "$command" root root
 }
 
 function run_kuryr_kubernetes {
+    local python_bin=$(which python)
     wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
     run_process kuryr-kubernetes \
-        "python ${KURYR_HOME}/scripts/run_server.py  \
+        "$python_bin ${KURYR_HOME}/scripts/run_server.py  \
             --config-file $KURYR_CONFIG"
 }
 
