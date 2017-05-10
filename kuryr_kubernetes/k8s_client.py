@@ -37,12 +37,24 @@ class K8sClient(object):
         key_file = config.CONF.kubernetes.ssl_client_key_file
         ca_crt_file = config.CONF.kubernetes.ssl_ca_crt_file
         self.verify_server = config.CONF.kubernetes.ssl_verify_server_crt
-        if cert_file and not os.path.exists(cert_file):
-            raise RuntimeError(
-                _("Unable to find ssl cert_file  : %s") % cert_file)
-        if key_file and not os.path.exists(key_file):
-            raise RuntimeError(
-                _("Unable to find ssl key_file : %s") % key_file)
+        token_file = config.CONF.kubernetes.token_file
+        self.token = None
+        self.cert = (None, None)
+        if token_file:
+            if os.path.exists(token_file):
+                with open(token_file, 'r') as f:
+                    self.token = f.readline().rstrip('\n')
+            else:
+                raise RuntimeError(
+                    _("Unable to find token_file  : %s") % token_file)
+        else:
+            if cert_file and not os.path.exists(cert_file):
+                raise RuntimeError(
+                    _("Unable to find ssl cert_file  : %s") % cert_file)
+            if key_file and not os.path.exists(key_file):
+                raise RuntimeError(
+                    _("Unable to find ssl key_file : %s") % key_file)
+            self.cert = (cert_file, key_file)
         if self.verify_server:
             if not ca_crt_file:
                 raise RuntimeError(
@@ -53,13 +65,15 @@ class K8sClient(object):
             else:
                 self.verify_server = ca_crt_file
 
-        self.cert = (cert_file, key_file)
-
     def get(self, path):
         LOG.debug("Get %(path)s", {'path': path})
         url = self._base_url + path
+        header = {}
+        if self.token:
+            header.update({'Authorization': 'Bearer %s' % self.token})
         response = requests.get(url, cert=self.cert,
-                                verify=self.verify_server)
+            verify=self.verify_server,
+            headers=header)
         if not response.ok:
             raise exc.K8sClientException(response.text)
         return response.json()
@@ -75,6 +89,10 @@ class K8sClient(object):
         LOG.debug("Annotate %(path)s: %(names)s", {
             'path': path, 'names': list(annotations)})
         url = self._base_url + path
+        header = {'Content-Type': 'application/merge-patch+json',
+                  'Accept': 'application/json'}
+        if self.token:
+            header.update({'Authorization': 'Bearer %s' % self.token})
         while itertools.count(1):
             data = jsonutils.dumps({
                 "metadata": {
@@ -82,10 +100,8 @@ class K8sClient(object):
                     "resourceVersion": resource_version,
                 }
             }, sort_keys=True)
-            response = requests.patch(url, data=data, headers={
-                'Content-Type': 'application/merge-patch+json',
-                'Accept': 'application/json',
-            }, cert=self.cert, verify=self.verify_server)
+            response = requests.patch(url, data=data, headers=header,
+                cert=self.cert, verify=self.verify_server)
             if response.ok:
                 return response.json()['metadata']['annotations']
             if response.status_code == requests.codes.conflict:
@@ -109,12 +125,16 @@ class K8sClient(object):
     def watch(self, path):
         params = {'watch': 'true'}
         url = self._base_url + path
+        header = {}
+        if self.token:
+            header.update({'Authorization': 'Bearer %s' % self.token})
 
         # TODO(ivc): handle connection errors and retry on failure
         while True:
             with contextlib.closing(
                     requests.get(url, params=params, stream=True,
-                    cert=self.cert, verify=self.verify_server)) as response:
+                    cert=self.cert, verify=self.verify_server,
+                    headers=header)) as response:
                 if not response.ok:
                     raise exc.K8sClientException(response.text)
                 for line in response.iter_lines(delimiter='\n'):
