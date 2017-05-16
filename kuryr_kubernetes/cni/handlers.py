@@ -67,6 +67,7 @@ class CNIHandlerBase(k8s_base.ResourceEventHandler):
 class AddHandler(CNIHandlerBase):
 
     def __init__(self, cni, on_done):
+        LOG.debug("AddHandler called with CNI env: %r", cni)
         super(AddHandler, self).__init__(cni, on_done)
         self._vif = None
 
