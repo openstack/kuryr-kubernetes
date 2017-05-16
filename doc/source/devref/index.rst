@@ -37,6 +37,7 @@ Design documents
 
     kuryr_kubernetes_design
     service_support
+    port_manager
 
 
 Indices and tables
