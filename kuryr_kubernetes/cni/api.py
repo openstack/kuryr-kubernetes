@@ -90,6 +90,7 @@ class CNIRunner(object):
             else:
                 raise k_exc.CNIError(_("unknown CNI_COMMAND: %s")
                                      % params.CNI_COMMAND)
+            return 0
         except Exception as ex:
             # LOG.exception
             self._write_exception(fout, str(ex))
