@@ -53,6 +53,10 @@ class CNIParameters(object):
         self.config = CNIConfig(cfg)
         self.args = CNIArgs(self.CNI_ARGS)
 
+    def __repr__(self):
+        return repr({key: value for key, value in self.__dict__.items() if
+                     key.startswith('CNI_')})
+
 
 @six.add_metaclass(abc.ABCMeta)
 class CNIPlugin(object):
