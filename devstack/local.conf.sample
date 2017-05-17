@@ -92,7 +92,7 @@ enable_service kubernetes-scheduler
 # or version by uncommenting and setting the following ENV vars different
 # to the following defaults:
 # KURYR_HYPERKUBE_IMAGE="gcr.io/google_containers/hyperkube-amd64"
-# KURYR_HYPERKUBE_VERSION="v1.3.7"
+# KURYR_HYPERKUBE_VERSION="v1.6.2"
 #
 # If you have the 8080 port already bound to another service, you will need to
 # have kubernetes API server bind to another port. In order to do that,
