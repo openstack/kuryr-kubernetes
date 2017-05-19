@@ -1,0 +1,11 @@
+parameters:
+  image: centos7
+  flavor: m1.medium
+  public_net: public
+  vm_net_cidr: 10.11.0.0/24
+  vm_net_gateway: 10.11.0.1
+  node_num: 1
+
+resource_registry:
+  OS::Kuryr::DevstackNetworking: networking_deployment.yaml
+  OS::Kuryr::DevstackNode: node.yaml

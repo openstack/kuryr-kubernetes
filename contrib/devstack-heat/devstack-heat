@@ -1,0 +1,125 @@
+#!/bin/bash
+
+function sub_stack() {
+    local latest_commit
+    local deployment=${1:-master_}
+    local tmpdir
+
+    if [[ "${deployment}" == "master_" ]]; then
+        if [[ "$DEVSTACK_HEAT_GH_TOKEN" == "" ]]; then
+            set -e
+            echo "Didn't find a Github token in ENV var DEVSTACK_HEAT_GH_TOKEN. Falling back to cloning repo..."
+            tmpdir=$(mktemp -d)
+            git clone https://github.com/openstack/kuryr-kubernetes "${tmpdir}/kuryr-kubernetes"
+            pushd "${tmpdir}/kuryr-kubernetes"
+            latest_commit=$(git rev-parse HEAD)
+            popd
+            rm -fr "${tmpdir}"
+            set +e
+        else
+            latest_commit=$(curl -s -H "Authorization: token $DEVSTACK_HEAT_GH_TOKEN" https://api.github.com/repos/openstack/kuryr-kubernetes/commits/master | jq -r '.sha')
+        fi
+        if [[ "$latest_commit" == "null" ]]; then
+            echo "Couldn't get a valid master commit"
+            exit 1
+        fi
+        deployment="${deployment}${latest_commit}"
+    else
+        deployment="gerrit_${deployment}"
+    fi
+
+    # create stack
+    read -p "Deploying the stack ${deployment}[y/N]?" -n 1 -r
+    echo
+    if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
+    echo "Starting..."
+
+    openstack stack create -e hot/parameters.yml -t hot/devstack_heat_template.yml "$deployment"
+
+    sub_show "$deployment"
+}
+
+function sub_unstack()
+{
+    local deployment
+    deployment=${1:-master_}
+    if [[ "${deployment}" == "master_" ]]; then
+        echo "You must put the whole stack name for unstacking"
+        exit 1
+    fi
+    openstack stack delete "$deployment"
+
+}
+
+function sub_show() {
+    local deployment
+
+    deployment=${1:-master_}
+    if [[ "${deployment}" == "master_" ]]; then
+        echo "You must put the whole stack name for showing the stack resources"
+        exit 1
+    fi
+    echo "VM subnet:     $(openstack stack output show "${deployment}" vm_subnet -f json | jq -r '.output_value')"
+    echo "Nodes FIPs:    $(openstack stack output show "${deployment}" node_fips -f json | jq -r '.output_value' | jq -r '.[]?' | xargs echo)"
+    printf "\n"
+}
+
+function sub_getkey() {
+    local deployment
+    deployment=${1:-master_}
+    if [[ "${deployment}" == "master_" ]]; then
+        echo "You must put the whole stack name for getting the key"
+        exit 1
+    fi
+
+    openstack stack output show "${deployment}" master_key_priv -f json | jq -r '.output_value'
+}
+
+function sub_ssh() {
+    local deployment
+    local key
+    local fip
+
+    deployment=${1:-master_}
+    if [[ "${deployment}" == "master_" ]]; then
+        echo "You must put the whole stack name for getting the key"
+        exit 1
+    fi
+    key="${deployment}.pem"
+    fip=$(openstack stack output show "${deployment}" node_fips -f json | jq -r '.output_value' | jq -r '.[]?' | xargs echo)
+    sub_getkey "${deployment}" > "${key}"
+    chmod 0600 "${key}"
+    ssh -i "${deployment}.pem"  -o "StrictHostKeyChecking no" "stack@${fip}"
+    exit $?
+}
+
+
+function sub_help() {
+    local myname
+    myname=$(basename "$0")
+    printf "Usage: %s <subcommand> [options]\n" "$myname"
+    printf "Subcommands:\n"
+    printf "    stack gerrit_change_number     Create Heat stack\n"
+    printf "    unstack my_stack_name   Delete Heat stack\n"
+    printf "    show my_stack_name      Show important info about the deployed Heat stack\n"
+    printf "    getkey my_stack_name    Output the Heat stack instances privkey to stdout\n"
+    printf "    ssh my_stack_name       gets the key and sshs into the stack user of the Stack\n"
+}
+
+command=$1
+case $command in
+    "" | "-h" | "--help")
+        sub_help
+        ;;
+    *)
+        shift
+        "sub_${command}" "$@"
+        if [ $? = 127 ]; then
+            echo "Error: '$command' is not a known $(basename "$0") command." >&2
+            echo "       Run \'$(basename "$0")  --help\' for a list of known subcommands." >&2
+            exit 1
+        fi
+        ;;
+esac
