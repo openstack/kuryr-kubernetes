@@ -19,6 +19,7 @@ from kuryr_kubernetes import config
 _kuryr_k8s_opts = [
     ('kubernetes', config.k8s_opts),
     ('kuryr-kubernetes', config.kuryr_k8s_opts),
+    ('neutron_defaults', config.neutron_defaults),
 ]
 
 
