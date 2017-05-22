@@ -1,0 +1,14 @@
+#!/bin/bash -ex
+
+BUILDER_TAG="kuryr/cni-builder"
+CNI_TAG="kuryr/cni"
+
+# build the cni image
+docker build -t "$BUILDER_TAG" -f cni_builder.Dockerfile .
+docker run \
+    --rm \
+    -v $(pwd):/opt/kuryr-kubernetes \
+    "$BUILDER_TAG":latest
+
+# create cni daemonset image
+docker build -t "$CNI_TAG" -f cni.Dockerfile .

@@ -61,3 +61,7 @@ contrib/vagrant/user_local.conf
 
 # Log files
 *.log
+
+# Binaries from docker images builds
+kuryr-cni-bin
+kuryr-cni

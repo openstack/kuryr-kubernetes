@@ -38,3 +38,4 @@ This section describes how you can install and configure kuryr-kubernetes
     trunk_ports
     testing_connectivity
     testing_nested_connectivity
+    containerized
