@@ -111,6 +111,87 @@ print("%s\\t%s" % (IPAddress(n.first + 1), IPAddress(n.last - 1)))
 EOF
 }
 
+function create_k8s_router_fake_service {
+    local service_cidr
+    local router_ip
+    local existing_svc_ip
+    local fake_svc_name
+
+    fake_svc_name='kuryr-svc-router'
+    service_cidr=$(openstack --os-cloud devstack-admin \
+                             --os-region "$REGION_NAME" \
+                             subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
+                             -c cidr -f value)
+    router_ip=$(_cidr_range "$service_cidr" | cut -f2)
+    existing_svc_ip=$(/usr/local/bin/kubectl get svc --namespace kube-system -o jsonpath='{.items[?(@.metadata.name=='"\"${fake_svc_name}\""')].spec.clusterIP}')
+
+    if [[ "$existing_svc_ip" == "" ]]; then
+        # Create fake router service so the router clusterIP can't be reassigned
+        cat <<EOF | /usr/local/bin/kubectl create -f -
+kind: Service
+apiVersion: v1
+metadata:
+  name: "${fake_svc_name}"
+  namespace: kube-system
+spec:
+  type: ClusterIP
+  clusterIP: "${router_ip}"
+  ports:
+    - protocol: TCP
+      port: 80
+EOF
+    fi
+}
+
+function _lb_state {
+    # Checks Neutron lbaas for the Load balancer state
+    neutron lbaas-loadbalancer-show "$1" | awk '/provisioning_status/ {print $4}'
+}
+
+function create_k8s_api_service {
+    # This allows pods that need access to kubernetes API (like the
+    # containerized kuryr controller or kube-dns) to talk to the K8s API
+    # service
+    local service_cidr
+    local router_ip
+    local lb_name
+
+    lb_name='default/kubernetes'
+    service_cidr=$(openstack --os-cloud devstack-admin \
+                             --os-region "$REGION_NAME" \
+                             subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
+                             -c cidr -f value)
+
+    k8s_api_clusterip=$(_cidr_range "$service_cidr" | cut -f1)
+
+    neutron lbaas-loadbalancer-create --name "$lb_name" \
+        --vip-address "$k8s_api_clusterip" \
+        "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET"
+    neutron lbaas-listener-create --loadbalancer "$lb_name" \
+        --name default/kubernetes:443 \
+        --protocol HTTPS \
+        --protocol-port 443
+
+    # We must wait for the LB to be active before we can put a Pool for it
+    while [[ "$(_lb_state $lb_name)" != "ACTIVE" ]]; do
+        sleep 1
+    done
+
+    neutron lbaas-pool-create --loadbalancer "$lb_name" \
+        --name default/kubernetes:443 \
+        --listener default/kubernetes:443 \
+        --protocol HTTPS \
+        --lb-algorithm ROUND_ROBIN
+    # We must wait for the pending pool creation update
+    while [[ "$(_lb_state $lb_name)" != "ACTIVE" ]]; do
+        sleep 1
+    done
+    neutron lbaas-member-create  --subnet public-subnet \
+        --address "${HOST_IP}" \
+        --protocol-port 6443 \
+        default/kubernetes:443
+}
+
 function create_k8s_service_subnet {
     # REVISIT(ivc): add support for IPv6
     # REVISIT(apuimedo): Move this into a tool that can be used on deployments
@@ -154,7 +235,6 @@ function create_k8s_service_subnet {
     # To deal with it we set gateway's IP to the the last IP from subnet's
     # IP range and Kuryr's K8s service handler will ignore services with
     # gateway's IP.
-    # TODO(ivc): create a 'fake' service for router's IP
     local router_ip=$(_cidr_range "$service_cidr" | cut -f2)
     die_if_not_set $LINENO router_ip \
         "Failed to determine K8s service subnet router IP"
@@ -293,15 +373,23 @@ function prepare_kubernetes_files {
     # Sets up the base configuration for the Kubernetes API Server and the
     # Controller Manager.
     local mountpoint
+    local service_cidr
+    local k8s_api_clusterip
 
+    service_cidr=$(openstack --os-cloud devstack-admin \
+                             --os-region "$REGION_NAME" \
+                             subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET"\
+                             -c cidr -f value)
+    k8s_api_clusterip=$(_cidr_range "$service_cidr" | cut -f1)
     mountpoint=$(get_hyperkube_container_cacert_setup_dir "$KURYR_HYPERKUBE_VERSION")
+
     docker run \
         --name devstack-k8s-setup-files \
         --detach \
         --volume "${KURYR_HYPERKUBE_DATA_DIR}:${mountpoint}:rw" \
         "${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}" \
             /setup-files.sh \
-            "IP:${HOST_IP},DNS:kubernetes,DNS:kubernetes.default,DNS:kubernetes.default.svc,DNS:kubernetes.default.svc.cluster.local"
+            "IP:${HOST_IP},IP:${k8s_api_clusterip},DNS:kubernetes,DNS:kubernetes.default,DNS:kubernetes.default.svc,DNS:kubernetes.default.svc.cluster.local"
 
     # FIXME(ivc): replace 'sleep' with a strict check (e.g. wait_for_files)
     # 'kubernetes-api' fails if started before files are generated.
@@ -534,6 +622,10 @@ if is_service_enabled kuryr-kubernetes; then
         fi
 
         run_kuryr_kubernetes
+
+    elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
+        create_k8s_router_fake_service
+        create_k8s_api_service
     fi
 
     if [[ "$1" == "unstack" ]]; then
