@@ -72,15 +72,12 @@ running. 4GB memory and 2 vCPUs, is the minimum resource requirement for the VM:
 
 2. Launch a VM with `Neutron trunk port. <https://wiki.openstack.org/wiki/Neutron/TrunkPort>`_
 3. Inside VM, install and setup Kubernetes along with Kuryr using devstack:
-    - Since undercloud Neutron will be used by pods, neutron services should be
+    - Since undercloud Neutron will be used by pods, Neutron services should be
       disabled in localrc.
-    - git clone kuryr-kubernetes at ``/opt/stack/``.
-    - In the ``devstack/plugin.sh``, comment out `configure_neutron_defaults <https://github.com/openstack/kuryr-kubernetes/blob/master/devstack/plugin.sh#L453>`_.
-      This method is getting UUID of default Neutron resources project, pod_subnet etc. using local neutron client
-      and setting those values in ``/etc/kuryr/kuryr.conf``.
-      This will not work at the moment because Neutron is running remotely. Thats why this is being commented out
-      and manually these variables will be configured in ``/etc/kuryr/kuryr.conf``
     - Run devstack with ``devstack/local.conf.pod-in-vm.overcloud.sample``.
+      With this config devstack will not configure Neutron resources for the
+      local cloud. These variables have to be added manually
+      to ``/etc/kuryr/kuryr.conf``.
 4. Once devstack is done and all services are up inside VM:
     - Configure ``/etc/kuryr/kuryr.conf`` to set UUID of Neutron resources from undercloud Neutron::
 
@@ -102,7 +99,9 @@ running. 4GB memory and 2 vCPUs, is the minimum resource requirement for the VM:
        driver = kuryr.lib.binding.drivers.vlan
        link_iface = <VM interface name eg. eth0>
 
-    - Restart kuryr-k8s-controller from within devstack screen.
+    - Restart kuryr-k8s-controller::
+
+       sudo systemctl restart devstack@kuryr-kubernetes.service
 
 Now launch pods using kubectl, Undercloud Neutron will serve the networking.
 
