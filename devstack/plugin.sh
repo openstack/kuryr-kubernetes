@@ -327,9 +327,21 @@ function prepare_docker {
 
 function run_docker {
     local dockerd_bin=$(which dockerd)
-    run_process docker \
-        "$dockerd_bin --debug=true \
-            -H unix://$KURYR_DOCKER_ENGINE_SOCKET_FILE" "" "root"
+
+    if [[ "$USE_SYSTEMD" = "True" ]]; then
+        # If systemd is being used, proceed as normal
+        run_process docker \
+            "$dockerd_bin --debug=true \
+                -H unix://$KURYR_DOCKER_ENGINE_SOCKET_FILE" "root" "root"
+    else
+        # If screen is being used, there is a possibility that the devstack
+        # environment is on a stable branch. Older versions of run_process have
+        # a different signature. Sudo is used as a workaround that works in
+        # both older and newer versions of devstack.
+        run_process docker \
+           "sudo $dockerd_bin --debug=true \
+               -H unix://$KURYR_DOCKER_ENGINE_SOCKET_FILE"
+    fi
 
     # We put the stack user as owner of the socket so we do not need to
     # run the Docker commands with sudo when developing.
@@ -537,7 +549,16 @@ function run_k8s_kubelet {
         --cert-dir=${KURYR_HYPERKUBE_DATA_DIR}/kubelet.cert \
         --root-dir=${KURYR_HYPERKUBE_DATA_DIR}/kubelet"
     wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
-    run_process kubelet "$command" "" "root"
+    if [[ "$USE_SYSTEMD" = "True" ]]; then
+        # If systemd is being used, proceed as normal
+        run_process kubelet "$command" root root
+    else
+        # If screen is being used, there is a possibility that the devstack
+        # environment is on a stable branch. Older versions of run_process have
+        # a different signature. Sudo is used as a workaround that works in
+        # both older and newer versions of devstack.
+        run_process kubelet "sudo $command"
+    fi
 }
 
 function run_kuryr_kubernetes {
