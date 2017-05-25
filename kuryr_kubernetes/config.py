@@ -80,8 +80,6 @@ neutron_defaults = [
     cfg.StrOpt('ovs_bridge',
         help=_("Default OpenVSwitch integration bridge"),
         sample_default="br-int"),
-    cfg.StrOpt('worker_nodes_subnet',
-        help=_("Neutron subnet ID for k8s worker node vms.")),
     cfg.StrOpt('service_subnet',
         help=_("Default Neutron subnet ID for Kubernetes services")),
 ]

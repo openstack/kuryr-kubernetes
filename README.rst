@@ -86,8 +86,12 @@ running. 4GB memory and 2 vCPUs, is the minimum resource requirement for the VM:
        pod_security_groups = <UNDERCLOUD_DEFAULT_SG_UUID>
        pod_subnet = <UNDERCLOUD_SUBNET_FOR_PODS_UUID>
        project = <UNDERCLOUD_DEFAULT_PROJECT_UUID>
-       worker_nodes_subnet = <UNDERCLOUD_SUBNET_WORKER_NODES_UUID>
        service_subnet = <UNDERCLOUD_SUBNET_FOR_SERVICES_UUID>
+
+    - Configure worker VMs subnet::
+
+       [pod_vif_nested]
+       worker_nodes_subnet = <UNDERCLOUD_SUBNET_WORKER_NODES_UUID>
 
     - Configure “pod_vif_driver” as “nested-vlan”::
 

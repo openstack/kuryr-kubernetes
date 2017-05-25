@@ -14,12 +14,14 @@ import copy
 from oslo_log import _options
 
 from kuryr.lib import opts as lib_opts
+from kuryr_kuberentes.controller.drivers import nested_vlan_vif
 from kuryr_kubernetes import config
 
 _kuryr_k8s_opts = [
     ('kubernetes', config.k8s_opts),
     ('kuryr-kubernetes', config.kuryr_k8s_opts),
     ('neutron_defaults', config.neutron_defaults),
+    ('pod_vif_nested', nested_vlan_vif.nested_vif_driver_opts),
 ]
 
 

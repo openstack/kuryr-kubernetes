@@ -13,6 +13,7 @@
 #    under the License.
 from time import sleep
 
+from kuryr.lib._i18n import _
 from kuryr.lib import constants as kl_const
 from kuryr.lib import segmentation_type_drivers as seg_driver
 from neutronclient.common import exceptions as n_exc
@@ -20,7 +21,6 @@ from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
-from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as const
 from kuryr_kubernetes.controller.drivers import generic_vif
 from kuryr_kubernetes import exceptions as k_exc
@@ -31,6 +31,16 @@ LOG = logging.getLogger(__name__)
 
 DEFAULT_MAX_RETRY_COUNT = 3
 DEFAULT_RETRY_INTERVAL = 1
+
+
+# Moved out from neutron_defaults group
+nested_vif_driver_opts = [
+    oslo_cfg.StrOpt('worker_nodes_subnet',
+        help=_("Neutron subnet ID for k8s worker node vms.")),
+]
+
+
+oslo_cfg.CONF.register_opts(nested_vif_driver_opts, "pod_vif_nested")
 
 
 class NestedVlanPodVIFDriver(generic_vif.GenericPodVIFDriver):
@@ -86,10 +96,10 @@ class NestedVlanPodVIFDriver(generic_vif.GenericPodVIFDriver):
             raise k_exc.K8sNodeTrunkPortFailure
 
     def _get_parent_port(self, neutron, pod):
-        node_subnet_id = config.CONF.neutron_defaults.worker_nodes_subnet
+        node_subnet_id = oslo_cfg.CONF.pod_vif_nested.worker_nodes_subnet
         if not node_subnet_id:
             raise oslo_cfg.RequiredOptError('worker_nodes_subnet',
-                    'neutron_defaults')
+                    'pod_vif_nested')
 
         try:
             # REVISIT(vikasc): Assumption is being made that hostIP is the IP
