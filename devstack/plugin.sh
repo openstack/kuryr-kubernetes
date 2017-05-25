@@ -468,7 +468,10 @@ if is_service_enabled kuryr-kubernetes; then
     fi
 
     if [[ "$1" == "stack" && "$2" == "extra" ]]; then
-        configure_neutron_defaults
+        KURYR_CONFIGURE_NEUTRON_DEFAULTS=$(trueorfalse True KURYR_CONFIGURE_NEUTRON_DEFAULTS)
+        if [ "$KURYR_CONFIGURE_NEUTRON_DEFAULTS" == "True" ]; then
+            configure_neutron_defaults
+        fi
         # FIXME(limao): When Kuryr start up, it need to detect if neutron
         # support tag plugin.
         #
