@@ -211,14 +211,14 @@ function create_k8s_service_subnet {
     subnet_id=$(openstack --os-cloud devstack-admin \
                           --os-region "$REGION_NAME" \
                           subnet create $subnet_params \
-                          | grep ' id ' | get_field 2)
+                          -c id -f value)
     die_if_not_set $LINENO subnet_id \
         "Failure creating K8s service IPv4 subnet for $project_id"
 
     service_cidr=$(openstack --os-cloud devstack-admin \
                              --os-region "$REGION_NAME" \
                              subnet show $subnet_id \
-                             | grep ' cidr ' | get_field 2)
+                             -c cidr -f value)
     die_if_not_set $LINENO service_cidr \
         "Failure creating K8s service IPv4 subnet for $project_id"
     # REVISIT(ivc): consider adding a note to 'settings'
