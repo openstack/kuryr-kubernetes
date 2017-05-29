@@ -49,13 +49,16 @@ class TestVIFHandler(test_base.TestCase):
         self._handler._drv_subnets = mock.Mock(spec=drivers.PodSubnetsDriver)
         self._handler._drv_sg = mock.Mock(spec=drivers.PodSecurityGroupsDriver)
         self._handler._drv_vif = mock.Mock(spec=drivers.PodVIFDriver)
+        self._handler._drv_vif_pool = mock.MagicMock(
+            spec=drivers.VIFPoolDriver)
 
         self._get_project = self._handler._drv_project.get_project
         self._get_subnets = self._handler._drv_subnets.get_subnets
         self._get_security_groups = self._handler._drv_sg.get_security_groups
-        self._request_vif = self._handler._drv_vif.request_vif
-        self._release_vif = self._handler._drv_vif.release_vif
-        self._activate_vif = self._handler._drv_vif.activate_vif
+        self._set_vif_driver = self._handler._drv_vif_pool.set_vif_driver
+        self._request_vif = self._handler._drv_vif_pool.request_vif
+        self._release_vif = self._handler._drv_vif_pool.release_vif
+        self._activate_vif = self._handler._drv_vif_pool.activate_vif
         self._get_vif = self._handler._get_vif
         self._set_vif = self._handler._set_vif
         self._is_host_network = self._handler._is_host_network
@@ -68,28 +71,35 @@ class TestVIFHandler(test_base.TestCase):
         self._get_project.return_value = self._project_id
         self._get_subnets.return_value = self._subnets
         self._get_security_groups.return_value = self._security_groups
+        self._set_vif_driver.return_value = mock.Mock(
+            spec=drivers.PodVIFDriver)
 
+    @mock.patch.object(drivers.VIFPoolDriver, 'set_vif_driver')
+    @mock.patch.object(drivers.VIFPoolDriver, 'get_instance')
     @mock.patch.object(drivers.PodVIFDriver, 'get_instance')
     @mock.patch.object(drivers.PodSecurityGroupsDriver, 'get_instance')
     @mock.patch.object(drivers.PodSubnetsDriver, 'get_instance')
     @mock.patch.object(drivers.PodProjectDriver, 'get_instance')
     def test_init(self, m_get_project_driver, m_get_subnets_driver,
-                  m_get_sg_driver, m_get_vif_driver):
+                  m_get_sg_driver, m_get_vif_driver, m_get_vif_pool_driver,
+                  m_set_vif_driver):
         project_driver = mock.sentinel.project_driver
         subnets_driver = mock.sentinel.subnets_driver
         sg_driver = mock.sentinel.sg_driver
         vif_driver = mock.sentinel.vif_driver
+        vif_pool_driver = mock.Mock(spec=drivers.VIFPoolDriver)
         m_get_project_driver.return_value = project_driver
         m_get_subnets_driver.return_value = subnets_driver
         m_get_sg_driver.return_value = sg_driver
         m_get_vif_driver.return_value = vif_driver
+        m_get_vif_pool_driver.return_value = vif_pool_driver
 
         handler = h_vif.VIFHandler()
 
         self.assertEqual(project_driver, handler._drv_project)
         self.assertEqual(subnets_driver, handler._drv_subnets)
         self.assertEqual(sg_driver, handler._drv_sg)
-        self.assertEqual(vif_driver, handler._drv_vif)
+        self.assertEqual(vif_pool_driver, handler._drv_vif_pool)
 
     def test_is_host_network(self):
         self._pod['spec']['hostNetwork'] = True

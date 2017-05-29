@@ -360,3 +360,19 @@ class LBaaSDriver(DriverBase):
         :param member: `LBaaSMember` object
         """
         raise NotImplementedError()
+
+
+@six.add_metaclass(abc.ABCMeta)
+class VIFPoolDriver(PodVIFDriver):
+    """Manages Pool of Neutron ports to provide VIFs for Kubernetes Pods."""
+
+    ALIAS = 'vif_pool'
+
+    @abc.abstractmethod
+    def set_vif_driver(self, driver):
+        """Sets the driver the Pool should use to manage resources
+
+        The driver will be used for acquiring, releasing and updating the
+        vif resources.
+        """
+        raise NotImplementedError()
