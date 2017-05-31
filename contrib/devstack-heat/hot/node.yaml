@@ -1,0 +1,152 @@
+heat_template_version: 2015-10-15
+
+description: template to deploy devstack nodes
+
+parameters:
+  public_net:
+    type: string
+    label: public net ID
+    description: Public network for the node FIPs
+  image:
+    type: string
+    label: Image name or ID
+    description: Image to be used for the kuryr nodes
+  flavor:
+    type: string
+    label: Flavor
+    description: Flavor to be used for the image
+    default: m1.small
+  key:
+    type: string
+    label: key name
+    description: Keypair to be used for the instance
+  public_key:
+    type: string
+    label: key content for stack user authorized_keys
+    description: private key to configure all nodes
+  private_key:
+    type: string
+    label: key content to access other nodes
+    description: private key to configure all nodes
+  vm_net:
+    type: string
+    label: VM Network
+    description: Neutron network for VMs
+  vm_subnet:
+    type: string
+    label: VM Subnet
+    description: Neutron subnet for VMs
+  k8s_api_sg:
+    type: string
+    label: kubernetes API sg
+    description: Security Group for Kubernetes API
+  name:
+    type: string
+    label: Instance name
+    description: devstack node instance name
+  change_number:
+    type: string
+    label: Gerrit change number
+    description: Either the gerrit change number or master-sha_of_the_commit
+
+resources:
+  instance_port:
+    type: OS::Neutron::Port
+    properties:
+      network: { get_param: vm_net }
+      security_groups:
+        - default
+        - { get_param: k8s_api_sg }
+      fixed_ips:
+        - subnet: { get_param: vm_subnet }
+
+  instance_fip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: { get_param: public_net }
+      port_id: { get_resource: instance_port }
+
+  instance:
+    type: OS::Nova::Server
+    properties:
+      name: { get_param: name }
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_param: key }
+      networks:
+        - port: { get_resource: instance_port }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          params:
+            __distro_deps__: { get_file: distro_deps.sh }
+            __change_number__: { get_param: change_number }
+            __pubkey__: { get_param: public_key }
+          template: |
+            #!/bin/bash
+            set -ex
+
+            # Wait a bit for connectivity
+            sleep 10
+
+            # Deps for devstack
+            __distro_deps__
+
+            # Stack user config
+            useradd -s /bin/bash -d /opt/stack -m stack
+            mkdir /opt/stack/.ssh
+            cat > /opt/stack/.ssh/authorized_keys << EOF
+            __pubkey__
+            EOF
+            echo "stack ALL=(ALL) NOPASSWD: ALL" | tee /etc/sudoers.d/stack
+
+            # Stacking
+            sudo -i -u stack /bin/bash - <<"EOF"
+            function get_from_gerrit() {
+                local stackname
+                local change_number
+                local ref
+
+                stackname="__change_number__"
+                change_number=${stackname#*_}
+                echo "Finding latest ref for change ${change_number}"
+                ref=$(curl -s "https://review.openstack.org/changes/${change_number}?o=CURRENT_REVISION" | tail -n +2 | jq -r '.revisions[].ref')
+                echo "Fetching ref ${ref}"
+                git fetch https://git.openstack.org/openstack/kuryr-kubernetes "${ref}" && git checkout FETCH_HEAD
+            }
+
+            function get_from_sha() {
+                local commit_sha
+
+                commit_sha=$(echo "__change_number__" | cut -d'_' -f2)
+                echo "Sha to fetch: ${commit_sha}"
+                git checkout "$commit_sha"
+            }
+
+            cd /opt/stack
+            git clone https://git.openstack.org/openstack-dev/devstack
+            git clone https://github.com/openstack/kuryr-kubernetes
+            pushd kuryr-kubernetes
+
+            if [[ "__change_number__" =~ ^master.* ]]; then
+                get_from_sha
+            elif [[ "__change_number__" =~ ^gerrit.* ]]; then
+                get_from_gerrit
+            else
+                echo "Unrecognized stack name. Quitting..."
+                exit 1
+            fi
+            popd
+            pushd devstack
+
+            # The change is already downloaded, do not reclone
+            sed -e 's/# RECLONE=/RECLONE=/' /opt/stack/kuryr-kubernetes/devstack/local.conf.sample > /opt/stack/devstack/local.conf
+            ./stack.sh
+            popd
+            touch ready
+            EOF
+
+outputs:
+  node_fip:
+    description: FIP address of the node
+    value: { get_attr: [instance_fip, floating_ip_address] }
