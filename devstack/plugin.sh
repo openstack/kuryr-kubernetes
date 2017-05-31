@@ -454,6 +454,8 @@ function run_kuryr_kubernetes {
 }
 
 
+source $DEST/kuryr-kubernetes/devstack/lib/kuryr_kubernetes
+
 # main loop
 if is_service_enabled kuryr-kubernetes; then
     if [[ "$1" == "stack" && "$2" == "install" ]]; then
@@ -516,6 +518,10 @@ if is_service_enabled kuryr-kubernetes; then
             prepare_kubelet
             extract_hyperkube
             run_k8s_kubelet
+            KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE=$(trueorfalse True KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE)
+            if [[ "$KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE" == "True" ]]; then
+                ovs_bind_for_kubelet "$KURYR_NEUTRON_DEFAULT_PROJECT"
+            fi
         fi
 
         run_kuryr_kubernetes
@@ -541,6 +547,7 @@ if is_service_enabled kuryr-kubernetes; then
         if is_service_enabled etcd; then
             stop_container etcd
         fi
+
         stop_docker
     fi
 

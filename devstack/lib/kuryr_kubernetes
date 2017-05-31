@@ -1,0 +1,59 @@
+#!/bin/bash
+#
+# lib/kuryr
+# Utilities for kuryr-kubernetes devstack
+# bind_for_kubelet
+#   Description: Creates an OVS internal port so that baremetal kubelet will be
+#                able to make both liveness and readiness http/tcp probes.
+#   Params:
+#      project - Id or name of the project used for kuryr devstack
+
+# Dependencies:
+# (none)
+
+function ovs_bind_for_kubelet() {
+    local port_id
+    local port_mac
+    local port_ips
+    local port_subnets
+    local prefix
+    local project_id
+    local security_group
+    local ifname
+
+    project_id="$1"
+    security_group=$(openstack security group list \
+        --project "$project_id" -f value | \
+        awk '/default/ {print $1}')
+    port_id=$(openstack port create \
+        --device-owner compute:kuryr \
+        --project "$project_id" \
+        --security-group "$security_group" \
+        --host "${HOSTNAME}" \
+        --network private \
+        -f value -c id \
+        kubelet-"${HOSTNAME}")
+    ifname="kubelet${port_id}"
+    ifname="${ifname:0:14}"
+
+    port_mac=$(openstack port show "$port_id" -c mac_address -f value)
+    port_ips=($(openstack port show "$port_id" -f value -c fixed_ips | \
+        awk -F"'" '{print $2}'))
+    port_subnets=($(openstack port show "$port_id" -f value -c fixed_ips | \
+        awk -F"'" '{print $4}'))
+
+    sudo ovs-vsctl -- --may-exist add-port br-int "$ifname" \
+        -- set Interface "$ifname" type=internal \
+        -- set Interface "$ifname" external-ids:iface-status=active \
+        -- set Interface "$ifname" external-ids:attached-mac="$port_mac" \
+        -- set Interface "$ifname" external-ids:iface-id="$port_id"
+
+    sudo ip link set dev "$ifname" address "$port_mac"
+    sudo ip link set dev "$ifname" up
+    for ((i=0; i < ${#port_ips[@]}; i++)); do
+        prefix=$(openstack subnet show "${port_subnets[$i]}" \
+            -c cidr -f value | \
+            cut -f2 -d/)
+        sudo ip addr add "${port_ips[$i]}/${prefix}" dev "$ifname"
+    done
+}
