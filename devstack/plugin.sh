@@ -67,11 +67,9 @@ EOF
 
 function configure_kuryr {
     sudo install -d -o "$STACK_USER" "$KURYR_CONFIG_DIR"
-    # TODO(apuimedo): remove when we have config generation
-    # (cd "$KURYR_HOME" && exec ./tools/generate_config_file_samples.sh)
-    # cp "$KURYR_HOME/etc/kuryr.conf.sample" "$KURYR_CONFIG"
-    # iniset -sudo ${KURYR_CONFIG} DEFAULT bindir \
-    # "$(get_distutils_data_path)/libexec/kuryr"
+    "${KURYR_HOME}/tools/generate_config_file_samples.sh"
+    sudo install -o "$STACK_USER" -m 640 -D "${KURYR_HOME}/etc/kuryr.conf.sample" \
+        "$KURYR_CONFIG"
 
     iniset "$KURYR_CONFIG" kubernetes api_root "$KURYR_K8S_API_URL"
     if [ "$KURYR_K8S_API_CERT" ]; then
