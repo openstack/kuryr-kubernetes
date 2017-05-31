@@ -13,16 +13,14 @@
 #    under the License.
 from time import sleep
 
-from kuryr.lib._i18n import _
 from kuryr.lib import constants as kl_const
 from kuryr.lib import segmentation_type_drivers as seg_driver
 from neutronclient.common import exceptions as n_exc
-from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants as const
-from kuryr_kubernetes.controller.drivers import generic_vif
+from kuryr_kubernetes.controller.drivers import nested_vif
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes import os_vif_util as ovu
 
@@ -33,18 +31,8 @@ DEFAULT_MAX_RETRY_COUNT = 3
 DEFAULT_RETRY_INTERVAL = 1
 
 
-# Moved out from neutron_defaults group
-nested_vif_driver_opts = [
-    oslo_cfg.StrOpt('worker_nodes_subnet',
-        help=_("Neutron subnet ID for k8s worker node vms.")),
-]
-
-
-oslo_cfg.CONF.register_opts(nested_vif_driver_opts, "pod_vif_nested")
-
-
-class NestedVlanPodVIFDriver(generic_vif.GenericPodVIFDriver):
-    """Manages ports for nested-containers to provide VIFs."""
+class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
+    """Manages ports for nested-containers using VLANs to provide VIFs."""
 
     def request_vif(self, pod, project_id, subnets, security_groups):
         neutron = clients.get_neutron_client()
@@ -93,39 +81,6 @@ class NestedVlanPodVIFDriver(generic_vif.GenericPodVIFDriver):
             LOG.error("Neutron port is missing trunk details. "
                       "Please ensure that k8s node port is associated "
                       "with a Neutron vlan trunk")
-            raise k_exc.K8sNodeTrunkPortFailure
-
-    def _get_parent_port(self, neutron, pod):
-        node_subnet_id = oslo_cfg.CONF.pod_vif_nested.worker_nodes_subnet
-        if not node_subnet_id:
-            raise oslo_cfg.RequiredOptError('worker_nodes_subnet',
-                    'pod_vif_nested')
-
-        try:
-            # REVISIT(vikasc): Assumption is being made that hostIP is the IP
-            #		       of trunk interface on the node(vm).
-            node_fixed_ip = pod['status']['hostIP']
-        except KeyError:
-            if pod['status']['conditions'][0]['type'] != "Initialized":
-                LOG.debug("Pod condition type is not 'Initialized'")
-
-            LOG.error("Failed to get parent vm port ip")
-            raise
-
-        try:
-            fixed_ips = ['subnet_id=%s' % str(node_subnet_id),
-                         'ip_address=%s' % str(node_fixed_ip)]
-            ports = neutron.list_ports(fixed_ips=fixed_ips)
-        except n_exc.NeutronClientException as ex:
-            LOG.error("Parent vm port with fixed ips %s not found!",
-                      fixed_ips)
-            raise ex
-
-        if ports['ports']:
-            return ports['ports'][0]
-        else:
-            LOG.error("Neutron port for vm port with fixed ips %s"
-                      " not found!", fixed_ips)
             raise k_exc.K8sNodeTrunkPortFailure
 
     def _add_subport(self, neutron, trunk_id, subport):

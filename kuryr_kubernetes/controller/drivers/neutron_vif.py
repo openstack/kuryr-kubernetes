@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from kuryr.lib._i18n import _
 from kuryr.lib import constants as kl_const
 from neutronclient.common import exceptions as n_exc
 from oslo_log import log as logging
@@ -27,7 +26,7 @@ from kuryr_kubernetes import os_vif_util as ovu
 LOG = logging.getLogger(__name__)
 
 
-class GenericPodVIFDriver(base.PodVIFDriver):
+class NeutronPodVIFDriver(base.PodVIFDriver):
     """Manages normal Neutron ports to provide VIFs for Kubernetes Pods."""
 
     def request_vif(self, pod, project_id, subnets, security_groups):
@@ -82,11 +81,9 @@ class GenericPodVIFDriver(base.PodVIFDriver):
         ids = ovu.osvif_to_neutron_network_ids(subnets)
 
         if len(ids) != 1:
-            raise k_exc.IntegrityError(_(
-                "Subnet mapping %(subnets)s is not valid: %(num_networks)s "
-                "unique networks found") % {
-                'subnets': subnets,
-                'num_networks': len(ids)})
+            raise k_exc.IntegrityError("Subnet mapping %(subnets)s is not "
+                "valid: %(num_networks)s unique networks found" %
+                {'subnets': subnets, 'num_networks': len(ids)})
 
         return ids[0]
 
