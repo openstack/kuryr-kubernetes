@@ -380,6 +380,14 @@ function run_k8s_scheduler {
                 --logtostderr=true
 }
 
+function prepare_kubeconfig {
+    $KURYR_HYPERKUBE_BINARY kubectl config set-cluster devstack-cluster \
+        --server=http://localhost:8080
+    $KURYR_HYPERKUBE_BINARY kubectl config set-context devstack \
+        --cluster=devstack-cluster
+    $KURYR_HYPERKUBE_BINARY kubectl config use-context devstack
+}
+
 function extract_hyperkube {
     local hyperkube_container
     local tmp_hyperkube_path
@@ -517,6 +525,7 @@ if is_service_enabled kuryr-kubernetes; then
         if is_service_enabled kubelet; then
             prepare_kubelet
             extract_hyperkube
+            prepare_kubeconfig
             run_k8s_kubelet
             KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE=$(trueorfalse True KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE)
             if [[ "$KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE" == "True" ]]; then

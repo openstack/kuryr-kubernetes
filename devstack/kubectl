@@ -1,3 +1,3 @@
 #!/bin/sh
 
-hyperkube kubectl "$@"
+hyperkube kubectl "--kubeconfig=${HOME}/.kube/config" "$@"
