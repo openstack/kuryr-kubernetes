@@ -22,6 +22,7 @@ from oslo_log import log as logging
 
 from kuryr_kubernetes.cni.binding import base as b_base
 from kuryr_kubernetes.cni.plugins import base as base_cni
+from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes import exceptions
 
 LOG = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
             'name': params.args.K8S_POD_NAME}
 
     def add(self, params):
-        vif = self._do_work(params, b_base.connect)
+        vifs = self._do_work(params, b_base.connect)
 
         pod_name = self._get_pod_name(params)
 
@@ -62,21 +63,26 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
             LOG.debug('Saved containerid = %s for pod %s',
                       params.CNI_CONTAINERID, pod_name)
 
-        # Wait for VIF to become active.
+        # Wait for VIFs to become active.
         timeout = CONF.cni_daemon.vif_annotation_timeout
 
-        # Wait for timeout sec, 1 sec between tries, retry when vif not active.
+        # Wait for timeout sec, 1 sec between tries, retry when even one
+        # vif is not active.
         @retrying.retry(stop_max_delay=timeout * 1000, wait_fixed=RETRY_DELAY,
-                        retry_on_result=lambda x: not x.active)
+                        retry_on_result=lambda x: any(
+                            map(lambda y: not y[1].active, x.items())))
         def wait_for_active(pod_name):
-            return base.VersionedObject.obj_from_primitive(
-                self.registry[pod_name]['vif'])
+            return {
+                ifname: base.VersionedObject.obj_from_primitive(vif_obj) for
+                ifname, vif_obj in self.registry[pod_name]['vifs'].items()
+            }
 
-        vif = wait_for_active(pod_name)
-        if not vif.active:
-            raise exceptions.ResourceNotReady(pod_name)
+        vifs = wait_for_active(pod_name)
+        for vif in vifs.values():
+            if not vif.active:
+                raise exceptions.ResourceNotReady(pod_name)
 
-        return vif
+        return vifs[k_const.DEFAULT_IFNAME]
 
     def delete(self, params):
         pod_name = self._get_pod_name(params)
@@ -114,13 +120,19 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
         try:
             d = find()
             pod = d['pod']
-            vif = base.VersionedObject.obj_from_primitive(d['vif'])
+            vifs = {
+                ifname: base.VersionedObject.obj_from_primitive(vif_obj) for
+                ifname, vif_obj in d['vifs'].items()
+            }
         except KeyError:
             raise exceptions.ResourceNotReady(pod_name)
 
-        fn(vif, self._get_inst(pod), params.CNI_IFNAME, params.CNI_NETNS,
-           self.report_drivers_health)
-        return vif
+        for ifname, vif in vifs.items():
+            is_default_gateway = (ifname == params.CNI_IFNAME)
+            fn(vif, self._get_inst(pod), ifname, params.CNI_NETNS,
+                report_health=self.report_drivers_health,
+                is_default_gateway=is_default_gateway)
+        return vifs
 
     def _get_inst(self, pod):
         return obj_vif.instance_info.InstanceInfo(

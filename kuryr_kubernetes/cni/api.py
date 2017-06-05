@@ -100,7 +100,7 @@ class CNIRunner(object):
             cni_ip = result.setdefault("ip%s" % ip.version, {})
             cni_ip['ip'] = "%s/%s" % (ip, subnet.cidr.prefixlen)
 
-            if subnet.gateway:
+            if hasattr(subnet, 'gateway'):
                 cni_ip['gateway'] = str(subnet.gateway)
 
             if subnet.routes.objects:

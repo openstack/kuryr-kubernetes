@@ -33,7 +33,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
     the CNI driver (that runs on 'kubelet' nodes) is responsible for providing
     networking to Kubernetes pods. `VIFHandler` relies on a set of drivers
     (which are responsible for managing Neutron resources) to define the VIF
-    object and pass it to the CNI driver in form of the Kubernetes pod
+    objects and pass them to the CNI driver in form of the Kubernetes pod
     annotation.
     """
 
@@ -60,38 +60,54 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             # where certain pods/namespaces/nodes can be managed by other
             # networking solutions/CNI drivers.
             return
+        vifs = self._get_vifs(pod)
 
-        vif = self._get_vif(pod)
+        if not vifs:
+            vifs = {}
 
-        if not vif:
             project_id = self._drv_project.get_project(pod)
             security_groups = self._drv_sg.get_security_groups(pod, project_id)
             subnets = self._drv_subnets.get_subnets(pod, project_id)
-            vif = self._drv_vif_pool.request_vif(pod, project_id, subnets,
-                                                 security_groups)
+
+            # NOTE(danil): There is currently no way to actually request
+            # multiple VIFs. However we're packing the main_vif 'eth0' in a
+            # dict here to facilitate future work in this area
+            main_vif = self._drv_vif_pool.request_vif(
+                pod, project_id, subnets, security_groups)
+            vifs[constants.DEFAULT_IFNAME] = main_vif
+
             try:
-                self._set_vif(pod, vif)
+                self._set_vifs(pod, vifs)
             except k_exc.K8sClientException as ex:
                 LOG.debug("Failed to set annotation: %s", ex)
                 # FIXME(ivc): improve granularity of K8sClient exceptions:
                 # only resourceVersion conflict should be ignored
-                self._drv_vif_pool.release_vif(pod, vif, project_id,
-                                               security_groups)
-        elif not vif.active:
-            self._drv_vif_pool.activate_vif(pod, vif)
-            self._set_vif(pod, vif)
+                for ifname, vif in vifs.items():
+                    self._drv_for_vif(vif).release_vif(pod, vif, project_id,
+                                                       security_groups)
+        else:
+            changed = False
+            for ifname, vif in vifs.items():
+                if not vif.active:
+                    self._drv_for_vif(vif).activate_vif(pod, vif)
+                    changed = True
+            if changed:
+                self._set_vifs(pod, vifs)
 
     def on_deleted(self, pod):
         if self._is_host_network(pod):
             return
+        project_id = self._drv_project.get_project(pod)
+        security_groups = self._drv_sg.get_security_groups(pod, project_id)
 
-        vif = self._get_vif(pod)
+        vifs = self._get_vifs(pod)
+        for ifname, vif in vifs.items():
+            self._drv_for_vif(vif).release_vif(pod, vif, project_id,
+                                               security_groups)
 
-        if vif:
-            project_id = self._drv_project.get_project(pod)
-            security_groups = self._drv_sg.get_security_groups(pod, project_id)
-            self._drv_vif_pool.release_vif(pod, vif, project_id,
-                                           security_groups)
+    def _drv_for_vif(self, vif):
+        # TODO(danil): a better polymorphism is required here
+        return self._drv_vif_pool
 
     @staticmethod
     def _is_host_network(pod):
@@ -106,29 +122,36 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         except KeyError:
             return False
 
-    def _set_vif(self, pod, vif):
+    def _set_vifs(self, pod, vifs):
         # TODO(ivc): extract annotation interactions
-        if vif is None:
-            LOG.debug("Removing VIF annotation: %r", vif)
+        if not vifs:
+            LOG.debug("Removing VIFs annotation: %r", vifs)
             annotation = None
         else:
-            vif.obj_reset_changes(recursive=True)
-            LOG.debug("Setting VIF annotation: %r", vif)
-            annotation = jsonutils.dumps(vif.obj_to_primitive(),
+            vifs_dict = {}
+            for ifname, vif in vifs.items():
+                vif.obj_reset_changes(recursive=True)
+                vifs_dict[ifname] = vif.obj_to_primitive()
+
+            annotation = jsonutils.dumps(vifs_dict,
                                          sort_keys=True)
+            LOG.debug("Setting VIFs annotation: %r", annotation)
         k8s = clients.get_kubernetes_client()
         k8s.annotate(pod['metadata']['selfLink'],
                      {constants.K8S_ANNOTATION_VIF: annotation},
                      resource_version=pod['metadata']['resourceVersion'])
 
-    def _get_vif(self, pod):
+    def _get_vifs(self, pod):
         # TODO(ivc): same as '_set_vif'
         try:
             annotations = pod['metadata']['annotations']
             vif_annotation = annotations[constants.K8S_ANNOTATION_VIF]
         except KeyError:
-            return None
-        vif_dict = jsonutils.loads(vif_annotation)
-        vif = obj_vif.vif.VIFBase.obj_from_primitive(vif_dict)
-        LOG.debug("Got VIF from annotation: %r", vif)
-        return vif
+            return {}
+        vif_annotation = jsonutils.loads(vif_annotation)
+        vifs = {
+            ifname: obj_vif.vif.VIFBase.obj_from_primitive(vif_obj) for
+            ifname, vif_obj in vif_annotation.items()
+        }
+        LOG.debug("Got VIFs from annotation: %r", vifs)
+        return vifs

@@ -55,7 +55,7 @@ def _enable_ipv6(netns):
         pyroute2.netns.setns(self_ns_fd)
 
 
-def _configure_l3(vif, ifname, netns):
+def _configure_l3(vif, ifname, netns, is_default_gateway):
     with get_ipdb(netns) as ipdb:
         with ipdb.interfaces[ifname] as iface:
             for subnet in vif.network.subnets.objects:
@@ -70,21 +70,23 @@ def _configure_l3(vif, ifname, netns):
             for route in subnet.routes.objects:
                 routes.add(gateway=str(route.gateway),
                            dst=str(route.cidr)).commit()
-            if subnet.gateway:
+            if is_default_gateway and hasattr(subnet, 'gateway'):
                 routes.add(gateway=str(subnet.gateway),
                            dst='default').commit()
 
 
-def connect(vif, instance_info, ifname, netns=None, report_health=None):
+def connect(vif, instance_info, ifname, netns=None, report_health=None,
+            is_default_gateway=True):
     driver = _get_binding_driver(vif)
     if report_health:
         report_health(driver.is_healthy())
     os_vif.plug(vif, instance_info)
     driver.connect(vif, ifname, netns)
-    _configure_l3(vif, ifname, netns)
+    _configure_l3(vif, ifname, netns, is_default_gateway)
 
 
-def disconnect(vif, instance_info, ifname, netns=None, report_health=None):
+def disconnect(vif, instance_info, ifname, netns=None, report_health=None,
+               **kwargs):
     driver = _get_binding_driver(vif)
     if report_health:
         report_health(driver.is_healthy())
