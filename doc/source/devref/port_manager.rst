@@ -118,9 +118,9 @@ corresponding pool is empty, a ResourceNotReady exception will be triggered and
 the pool will be repopulated.
 
 In addition to the handler modification and the new pool drivers there are
-changes related to the VIF drivers. The VIF drivers (generic and nested) will
-be extended to support bulk ports creation of Neutron ports and similarly for
-the VIF objects requests.
+changes related to the VIF drivers. The VIF drivers (neutron-vif and nested)
+will be extended to support bulk ports creation of Neutron ports and similarly
+for the VIF objects requests.
 
 Future enhancement
 ''''''''''''''''''

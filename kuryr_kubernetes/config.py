@@ -63,7 +63,7 @@ k8s_opts = [
         default='default'),
     cfg.StrOpt('pod_vif_driver',
         help=_("The driver that provides VIFs for Kubernetes Pods."),
-        default='generic'),
+        default='neutron-vif'),
     cfg.StrOpt('endpoints_lbaas_driver',
         help=_("The driver that provides LoadBalancers for Kubernetes "
                "Endpoints"),

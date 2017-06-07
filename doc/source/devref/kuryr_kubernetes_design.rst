@@ -156,13 +156,13 @@ drivers. There are drivers that handle the Pod based on the project, subnet
 and security groups specified via configuration settings during cluster
 deployment phase.
 
-GenericPodVifDriver
+NeutronPodVifDriver
 ~~~~~~~~~~~~~~~~~~~
 PodVifDriver subclass should implement request_vif, release_vif and
 activate_vif methods. In case request_vif returns Vif object in down state,
 Controller will invoke activate_vif.  Vif ‘active’ state is required by the
 CNI driver to complete pod handling.
-The GenericPodVifDriver is the default driver that creates neutron port upon
+The NeutronPodVifDriver is the default driver that creates neutron port upon
 Pod addition and deletes port upon Pod removal.
 
 CNI Driver
