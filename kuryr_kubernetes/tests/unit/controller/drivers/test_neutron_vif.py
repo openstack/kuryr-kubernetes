@@ -18,17 +18,17 @@ import mock
 from kuryr.lib import constants as kl_const
 from neutronclient.common import exceptions as n_exc
 
-from kuryr_kubernetes.controller.drivers import generic_vif
+from kuryr_kubernetes.controller.drivers import neutron_vif
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
 
 
-class GenericPodVIFDriver(test_base.TestCase):
+class NeutronPodVIFDriver(test_base.TestCase):
 
     @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif')
     def test_request_vif(self, m_to_vif):
-        cls = generic_vif.GenericPodVIFDriver
+        cls = neutron_vif.NeutronPodVIFDriver
         m_driver = mock.Mock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
@@ -56,7 +56,7 @@ class GenericPodVIFDriver(test_base.TestCase):
         m_to_vif.assert_called_once_with(vif_plugin, port, subnets)
 
     def test_release_vif(self):
-        cls = generic_vif.GenericPodVIFDriver
+        cls = neutron_vif.NeutronPodVIFDriver
         m_driver = mock.Mock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
@@ -68,7 +68,7 @@ class GenericPodVIFDriver(test_base.TestCase):
         neutron.delete_port.assert_called_once_with(vif.id)
 
     def test_release_vif_not_found(self):
-        cls = generic_vif.GenericPodVIFDriver
+        cls = neutron_vif.NeutronPodVIFDriver
         m_driver = mock.Mock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
@@ -81,7 +81,7 @@ class GenericPodVIFDriver(test_base.TestCase):
         neutron.delete_port.assert_called_once_with(vif.id)
 
     def test_activate_vif(self):
-        cls = generic_vif.GenericPodVIFDriver
+        cls = neutron_vif.NeutronPodVIFDriver
         m_driver = mock.Mock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
@@ -99,7 +99,7 @@ class GenericPodVIFDriver(test_base.TestCase):
         self.assertTrue(vif.active)
 
     def test_activate_vif_active(self):
-        cls = generic_vif.GenericPodVIFDriver
+        cls = neutron_vif.NeutronPodVIFDriver
         m_driver = mock.Mock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
@@ -112,7 +112,7 @@ class GenericPodVIFDriver(test_base.TestCase):
         neutron.show_port.assert_not_called()
 
     def test_activate_vif_not_ready(self):
-        cls = generic_vif.GenericPodVIFDriver
+        cls = neutron_vif.NeutronPodVIFDriver
         m_driver = mock.Mock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
@@ -128,7 +128,7 @@ class GenericPodVIFDriver(test_base.TestCase):
                           m_driver, pod, vif)
 
     def _test_get_port_request(self, m_to_fips, security_groups):
-        cls = generic_vif.GenericPodVIFDriver
+        cls = neutron_vif.NeutronPodVIFDriver
         m_driver = mock.Mock(spec=cls)
 
         pod = mock.sentinel.pod
@@ -179,7 +179,7 @@ class GenericPodVIFDriver(test_base.TestCase):
         self._test_get_port_request(m_to_fips, security_groups)
 
     def test_get_vif_plugin(self):
-        cls = generic_vif.GenericPodVIFDriver
+        cls = neutron_vif.NeutronPodVIFDriver
         m_driver = mock.Mock(spec=cls)
         vif_plugin = mock.sentinel.vif_plugin
         port = {'binding:vif_type': vif_plugin}
@@ -188,7 +188,7 @@ class GenericPodVIFDriver(test_base.TestCase):
 
     @mock.patch('kuryr_kubernetes.os_vif_util.osvif_to_neutron_network_ids')
     def test_get_network_id(self, m_to_net_ids):
-        cls = generic_vif.GenericPodVIFDriver
+        cls = neutron_vif.NeutronPodVIFDriver
         m_driver = mock.Mock(spec=cls)
         subnets = mock.sentinel.subnets
         network_id = mock.sentinel.network_id
@@ -199,7 +199,7 @@ class GenericPodVIFDriver(test_base.TestCase):
 
     @mock.patch('kuryr_kubernetes.os_vif_util.osvif_to_neutron_network_ids')
     def test_get_network_id_invalid(self, m_to_net_ids):
-        cls = generic_vif.GenericPodVIFDriver
+        cls = neutron_vif.NeutronPodVIFDriver
         m_driver = mock.Mock(spec=cls)
         subnets = mock.sentinel.subnets
         m_to_net_ids.return_value = []
@@ -208,7 +208,7 @@ class GenericPodVIFDriver(test_base.TestCase):
                           subnets)
 
     def test_get_port_name(self):
-        cls = generic_vif.GenericPodVIFDriver
+        cls = neutron_vif.NeutronPodVIFDriver
         m_driver = mock.Mock(spec=cls)
         pod_name = mock.sentinel.pod_name
         pod = {'metadata': {'name': pod_name}}
@@ -216,7 +216,7 @@ class GenericPodVIFDriver(test_base.TestCase):
         self.assertEqual(pod_name, cls._get_port_name(m_driver, pod))
 
     def test_get_device_id(self):
-        cls = generic_vif.GenericPodVIFDriver
+        cls = neutron_vif.NeutronPodVIFDriver
         m_driver = mock.Mock(spec=cls)
         pod_uid = mock.sentinel.pod_uid
         pod = {'metadata': {'uid': pod_uid}}
@@ -224,7 +224,7 @@ class GenericPodVIFDriver(test_base.TestCase):
         self.assertEqual(pod_uid, cls._get_device_id(m_driver, pod))
 
     def test_get_host_id(self):
-        cls = generic_vif.GenericPodVIFDriver
+        cls = neutron_vif.NeutronPodVIFDriver
         m_driver = mock.Mock(spec=cls)
         node = mock.sentinel.pod_uid
         pod = {'spec': {'nodeName': node}}
