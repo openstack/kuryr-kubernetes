@@ -36,15 +36,15 @@ class LinuxNetworkUtilsTestCase(test_base.TestCase):
 
     def test_create_ovs_vif_port(self):
         calls = [
-                mock.call('ovs-vsctl', '--', '--if-exists',
-                          'del-port', 'fake-dev', '--', 'add-port',
-                          'fake-bridge', 'fake-dev',
-                          '--', 'set', 'Interface', 'fake-dev',
-                          'external-ids:iface-id=fake-iface-id',
-                          'external-ids:iface-status=active',
-                          'external-ids:attached-mac=fake-mac',
-                          'external-ids:vm-uuid=fake-instance-uuid',
-                          run_as_root=True)]
+            mock.call('ovs-vsctl', '--', '--if-exists',
+                      'del-port', 'fake-dev', '--', 'add-port',
+                      'fake-bridge', 'fake-dev',
+                      '--', 'set', 'Interface', 'fake-dev',
+                      'external-ids:iface-id=fake-iface-id',
+                      'external-ids:iface-status=active',
+                      'external-ids:attached-mac=fake-mac',
+                      'external-ids:vm-uuid=fake-instance-uuid',
+                      run_as_root=True)]
         with mock.patch.object(utils, 'execute', return_value=('', '')) as ex:
             linux_net.create_ovs_vif_port('fake-bridge', 'fake-dev',
                                           'fake-iface-id', 'fake-mac',
@@ -53,9 +53,9 @@ class LinuxNetworkUtilsTestCase(test_base.TestCase):
 
     def test_delete_ovs_vif_port(self):
         calls = [
-                mock.call('ovs-vsctl', '--', '--if-exists',
-                          'del-port', 'fake-bridge', 'fake-dev',
-                          run_as_root=True)]
+            mock.call('ovs-vsctl', '--', '--if-exists',
+                      'del-port', 'fake-bridge', 'fake-dev',
+                      run_as_root=True)]
         with mock.patch.object(utils, 'execute', return_value=('', '')) as ex:
             linux_net.delete_ovs_vif_port('fake-bridge', 'fake-dev')
             ex.assert_has_calls(calls)

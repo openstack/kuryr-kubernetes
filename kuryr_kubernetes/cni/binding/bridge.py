@@ -64,7 +64,7 @@ class BridgeDriver(BaseBridgeDriver):
 class VIFOpenVSwitchDriver(BaseBridgeDriver):
     def connect(self, vif, ifname, netns):
         super(VIFOpenVSwitchDriver, self).connect(vif, ifname, netns)
-        #FIXME(irenab) use pod_id (neutron port device_id)
+        # FIXME(irenab) use pod_id (neutron port device_id)
         instance_id = 'kuryr'
         net_utils.create_ovs_vif_port(vif.bridge_name, vif.vif_name,
                                       vif.port_profile.interface_id,
