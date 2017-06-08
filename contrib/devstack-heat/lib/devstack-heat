@@ -1,0 +1,88 @@
+#!/bin/bash
+
+function sub_getkey() {
+    local deployment
+    deployment=${1:-master_}
+    if [[ "${deployment}" == "master_" ]]; then
+        (>&2 echo "You must put the whole stack name for getting the key")
+        exit 1
+    fi
+
+    openstack stack output show "${deployment}" master_key_priv -f json | jq -r '.output_value'
+}
+
+function _wait_for_after_in_progress() {
+    local deployment
+    local status
+    deployment="$1"
+
+    while true; do
+        status=$(openstack stack show "${deployment}" -c stack_status -f value)
+        if [[ ! "$status" =~ IN_PROGRESS$ ]]; then
+            break
+        fi
+    done
+}
+
+
+function sub_ssh() {
+    local deployment
+    local key
+    local fip
+
+    deployment=${1:-master_}
+    if [[ "${deployment}" == "master_" ]]; then
+        (>&2 echo "You must put the whole stack name for logging into the node")
+        exit 1
+    fi
+    key="${deployment}.pem"
+    fip=$(openstack stack output show "${deployment}" node_fips -f json | jq -r '.output_value' | jq -r '.[]?' | xargs echo)
+    sub_getkey "${deployment}" > "${key}"
+    chmod 0600 "${key}"
+
+    # shellcheck disable=SC2029
+    ssh -i "${deployment}.pem"  -o "StrictHostKeyChecking no" "stack@${fip}"
+    exit $?
+}
+
+function _generate_deployment_name() {
+    local latest_commit
+    local deployment=${1:-master_}
+    local tmpdir
+
+    if [[ "${deployment}" == "master_" ]]; then
+        if [[ "$DEVSTACK_HEAT_GH_TOKEN" == "" ]]; then
+            set -e
+            (>&2 echo "Didn't find a Github token in ENV var DEVSTACK_HEAT_GH_TOKEN. Falling back to cloning repo...")
+            tmpdir=$(mktemp -d)
+            git clone https://git.openstack.org/openstack/kuryr-kubernetes "${tmpdir}/kuryr-kubernetes" > /dev/null
+            pushd "${tmpdir}/kuryr-kubernetes" > /dev/null
+            latest_commit=$(git rev-parse HEAD)
+            popd > /dev/null
+            rm -fr "${tmpdir}"
+            set +e
+        else
+            latest_commit=$(curl -s -H "Authorization: token $DEVSTACK_HEAT_GH_TOKEN" https://api.github.com/repos/openstack/kuryr-kubernetes/commits/master | jq -r '.sha')
+        fi
+        if [[ "$latest_commit" == "null" ]]; then
+            (>&2 echo "Couldn't get a valid master commit")
+            exit 1
+        fi
+        deployment="${deployment}${latest_commit}"
+    else
+        deployment="gerrit_${deployment}"
+    fi
+
+    echo "${deployment}"
+}
+
+function _confirm_or_exit() {
+    local question
+    question="$1"
+
+    read -p "${question}[y/N]?" -n 1 -r
+    echo
+    if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
+}
