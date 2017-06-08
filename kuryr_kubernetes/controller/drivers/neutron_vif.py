@@ -120,8 +120,9 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
         ids = ovu.osvif_to_neutron_network_ids(subnets)
 
         if len(ids) != 1:
-            raise k_exc.IntegrityError("Subnet mapping %(subnets)s is not "
-                "valid: %(num_networks)s unique networks found" %
+            raise k_exc.IntegrityError(
+                "Subnet mapping %(subnets)s is not valid: "
+                "%(num_networks)s unique networks found" %
                 {'subnets': subnets, 'num_networks': len(ids)})
 
         return ids[0]

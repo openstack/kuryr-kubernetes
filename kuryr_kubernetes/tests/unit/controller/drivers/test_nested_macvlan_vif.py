@@ -40,7 +40,7 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
         container_mac = mock.sentinel.mac_address
         container_ip = mock.sentinel.ip_address
         container_port = self._get_fake_port(mac_address=container_mac,
-                                       ip_address=container_ip)
+                                             ip_address=container_ip)
 
         vif = mock.Mock()
         port_request = mock.sentinel.port_request
@@ -55,8 +55,8 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
         self.assertEqual(vif, cls.request_vif(m_driver, pod, project_id,
                                               subnets, security_groups))
 
-        m_driver._get_port_request.assert_called_once_with(pod, project_id,
-                                                    subnets, security_groups)
+        m_driver._get_port_request.assert_called_once_with(
+            pod, project_id, subnets, security_groups)
         neutron.create_port.assert_called_once_with(port_request)
         m_driver._get_parent_port.assert_called_once_with(neutron, pod)
         m_driver._add_to_allowed_address_pairs.assert_called_once_with(
@@ -81,8 +81,8 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
 
         self.assertRaises(n_exc.NeutronClientException, cls.request_vif,
                           m_driver, pod, project_id, subnets, security_groups)
-        m_driver._get_port_request.assert_called_once_with(pod, project_id,
-                                                      subnets, security_groups)
+        m_driver._get_port_request.assert_called_once_with(
+            pod, project_id, subnets, security_groups)
         neutron.create_port.assert_called_once_with(port_request)
         m_driver._add_to_allowed_address_pairs.assert_not_called()
         m_to_vif.assert_not_called()
@@ -101,7 +101,7 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
         container_mac = mock.sentinel.mac_address
         container_ip = mock.sentinel.ip_address
         container_port = self._get_fake_port(mac_address=container_mac,
-                                       ip_address=container_ip)
+                                             ip_address=container_ip)
 
         port_request = mock.sentinel.port_request
         m_driver._get_port_request.return_value = port_request
@@ -111,8 +111,8 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
 
         self.assertRaises(n_exc.NeutronClientException, cls.request_vif,
                           m_driver, pod, project_id, subnets, security_groups)
-        m_driver._get_port_request.assert_called_once_with(pod, project_id,
-                                                      subnets, security_groups)
+        m_driver._get_port_request.assert_called_once_with(
+            pod, project_id, subnets, security_groups)
         neutron.create_port.assert_called_once_with(port_request)
         m_driver._get_parent_port.assert_called_once_with(neutron, pod)
         m_driver._add_to_allowed_address_pairs.assert_not_called()
@@ -256,8 +256,8 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
         cls._add_to_allowed_address_pairs(m_driver, neutron, vm_port,
                                           frozenset([ip_addr]), m_mac)
 
-        m_driver._update_port_address_pairs.assert_called_once_with(neutron,
-                                          port_id, address_pairs)
+        m_driver._update_port_address_pairs.assert_called_once_with(
+            neutron, port_id, address_pairs)
 
     def test_add_to_allowed_address_pairs_no_ip_addresses(self):
         cls = nested_macvlan_vif.NestedMacvlanPodVIFDriver
@@ -293,8 +293,8 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
         cls._add_to_allowed_address_pairs(m_driver, neutron, vm_port,
                                           frozenset([ip_addr]), mac_addr)
 
-        m_driver._update_port_address_pairs.assert_called_once_with(neutron,
-                                          port_id, address_pairs)
+        m_driver._update_port_address_pairs.assert_called_once_with(
+            neutron, port_id, address_pairs)
 
     def test_add_to_allowed_address_pairs_already_present(self):
         cls = nested_macvlan_vif.NestedMacvlanPodVIFDriver
@@ -342,11 +342,11 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
              'mac_address': m_mac if m_mac else vm_port['mac_address']}
         )
 
-        cls._remove_from_allowed_address_pairs(m_driver, neutron,
-                            vm_port, frozenset([ip_addr]), m_mac)
+        cls._remove_from_allowed_address_pairs(
+            m_driver, neutron, vm_port, frozenset([ip_addr]), m_mac)
 
-        m_driver._update_port_address_pairs.assert_called_once_with(neutron,
-                                          port_id, address_pairs)
+        m_driver._update_port_address_pairs.assert_called_once_with(
+            neutron, port_id, address_pairs)
 
     def test_remove_from_allowed_address_pairs_no_ip_addresses(self):
         cls = nested_macvlan_vif.NestedMacvlanPodVIFDriver
@@ -382,11 +382,11 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
                                                  'mac_address': mac_addr})
         ip_addr = ['10.0.0.29', '10.0.0.28']
 
-        cls._remove_from_allowed_address_pairs(m_driver, neutron,
-                            vm_port, frozenset(ip_addr), m_mac)
+        cls._remove_from_allowed_address_pairs(
+            m_driver, neutron, vm_port, frozenset(ip_addr), m_mac)
 
-        m_driver._update_port_address_pairs.assert_called_once_with(neutron,
-                                          port_id, address_pairs)
+        m_driver._update_port_address_pairs.assert_called_once_with(
+            neutron, port_id, address_pairs)
 
     @ddt.data((None), ('fa:16:3e:71:cb:80'))
     def test_remove_from_allowed_address_pairs_no_update(self, m_mac):
@@ -408,8 +408,8 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
 
         ip_addr = ['10.0.0.29']
 
-        cls._remove_from_allowed_address_pairs(m_driver, neutron,
-                            vm_port, frozenset(ip_addr), m_mac)
+        cls._remove_from_allowed_address_pairs(
+            m_driver, neutron, vm_port, frozenset(ip_addr), m_mac)
 
         m_driver._update_port_address_pairs.assert_not_called()
 
@@ -423,7 +423,8 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
 
         cls._update_port_address_pairs(m_driver, neutron, port_id, pairs)
 
-        neutron.update_port.assert_called_with(port_id,
+        neutron.update_port.assert_called_with(
+            port_id,
             {'port': {'allowed_address_pairs': pairs}})
 
     def test_update_port_address_pairs_failure(self):
@@ -439,7 +440,8 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
                           cls._update_port_address_pairs, m_driver, neutron,
                           port_id, pairs)
 
-        neutron.update_port.assert_called_with(port_id,
+        neutron.update_port.assert_called_with(
+            port_id,
             {'port': {'allowed_address_pairs': pairs}})
 
     # TODO(garyloug) consider exending and moving to a parent class

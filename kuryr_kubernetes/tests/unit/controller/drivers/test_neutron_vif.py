@@ -108,7 +108,8 @@ class NeutronPodVIFDriver(test_base.TestCase):
         neutron.create_port.side_effect = n_exc.NeutronClientException
 
         self.assertRaises(n_exc.NeutronClientException, cls.request_vifs,
-            m_driver, pod, project_id, subnets, security_groups, num_ports)
+                          m_driver, pod, project_id, subnets,
+                          security_groups, num_ports)
 
         m_driver._get_port_request.assert_called_once_with(
             pod, project_id, subnets, security_groups, unbound=True)
