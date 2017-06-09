@@ -55,10 +55,10 @@ def get_pod_obj():
 
 
 @ddt.ddt
-class GenericVIFPool(test_base.TestCase):
+class NeutronVIFPool(test_base.TestCase):
 
     def test_request_vif(self):
-        cls = vif_pool.GenericVIFPool
+        cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
         pod = get_pod_obj()
@@ -79,7 +79,7 @@ class GenericVIFPool(test_base.TestCase):
 
     @mock.patch('eventlet.spawn')
     def test_request_vif_empty_pool(self, m_eventlet):
-        cls = vif_pool.GenericVIFPool
+        cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
         host_addr = mock.sentinel.host_addr
@@ -98,7 +98,7 @@ class GenericVIFPool(test_base.TestCase):
         m_eventlet.assert_called_once()
 
     def test_request_vif_pod_without_host_id(self):
-        cls = vif_pool.GenericVIFPool
+        cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
         pod = get_pod_obj()
@@ -112,7 +112,7 @@ class GenericVIFPool(test_base.TestCase):
 
     @mock.patch('time.time', return_value=50)
     def test__populate_pool(self, m_time):
-        cls = vif_pool.GenericVIFPool
+        cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
         cls_vif_driver = neutron_vif.NeutronPodVIFDriver
@@ -147,7 +147,7 @@ class GenericVIFPool(test_base.TestCase):
 
     @mock.patch('time.time', return_value=0)
     def test__populate_pool_no_update(self, m_time):
-        cls = vif_pool.GenericVIFPool
+        cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
         pod = mock.sentinel.pod
@@ -167,7 +167,7 @@ class GenericVIFPool(test_base.TestCase):
 
     @mock.patch('time.time', return_value=50)
     def test__populate_pool_large_pool(self, m_time):
-        cls = vif_pool.GenericVIFPool
+        cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
         cls_vif_driver = neutron_vif.NeutronPodVIFDriver
@@ -196,7 +196,7 @@ class GenericVIFPool(test_base.TestCase):
 
     @mock.patch('eventlet.spawn')
     def test__get_port_from_pool(self, m_eventlet):
-        cls = vif_pool.GenericVIFPool
+        cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
@@ -231,7 +231,7 @@ class GenericVIFPool(test_base.TestCase):
 
     @mock.patch('eventlet.spawn')
     def test__get_port_from_pool_pool_populate(self, m_eventlet):
-        cls = vif_pool.GenericVIFPool
+        cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
@@ -265,7 +265,7 @@ class GenericVIFPool(test_base.TestCase):
         m_eventlet.assert_called_once()
 
     def test__get_port_from_pool_empty_pool(self):
-        cls = vif_pool.GenericVIFPool
+        cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
@@ -281,7 +281,7 @@ class GenericVIFPool(test_base.TestCase):
         neutron.update_port.assert_not_called()
 
     def test_release_vif(self):
-        cls = vif_pool.GenericVIFPool
+        cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         m_driver._recyclable_ports = {}
 
@@ -299,7 +299,7 @@ class GenericVIFPool(test_base.TestCase):
     @mock.patch('eventlet.sleep', side_effect=SystemExit)
     @ddt.data((0), (10))
     def test__return_ports_to_pool(self, max_pool, m_sleep):
-        cls = vif_pool.GenericVIFPool
+        cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
@@ -328,7 +328,7 @@ class GenericVIFPool(test_base.TestCase):
 
     @mock.patch('eventlet.sleep', side_effect=SystemExit)
     def test__return_ports_to_pool_delete_port(self, m_sleep):
-        cls = vif_pool.GenericVIFPool
+        cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
@@ -352,7 +352,7 @@ class GenericVIFPool(test_base.TestCase):
 
     @mock.patch('eventlet.sleep', side_effect=SystemExit)
     def test__return_ports_to_pool_update_exception(self, m_sleep):
-        cls = vif_pool.GenericVIFPool
+        cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
@@ -382,7 +382,7 @@ class GenericVIFPool(test_base.TestCase):
 
     @mock.patch('eventlet.sleep', side_effect=SystemExit)
     def test__return_ports_to_pool_delete_exception(self, m_sleep):
-        cls = vif_pool.GenericVIFPool
+        cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
@@ -407,7 +407,7 @@ class GenericVIFPool(test_base.TestCase):
 
     @mock.patch('eventlet.sleep', side_effect=SystemExit)
     def test__return_ports_to_pool_delete_key_error(self, m_sleep):
-        cls = vif_pool.GenericVIFPool
+        cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
