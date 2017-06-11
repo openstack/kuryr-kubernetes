@@ -69,9 +69,9 @@ class DriverBase(object):
         if not isinstance(driver, cls):
             raise TypeError(_("Invalid %(alias)r driver type: %(driver)s, "
                               "must be a subclass of %(type)s") % {
-                                'alias': alias,
-                                'driver': driver.__class__.__name__,
-                                'type': cls})
+                            'alias': alias,
+                            'driver': driver.__class__.__name__,
+                            'type': cls})
         return driver
 
 

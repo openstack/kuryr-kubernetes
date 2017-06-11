@@ -77,9 +77,9 @@ class TestNoOpPlugin(base.TestCase):
         expected = objects.host_info.HostPluginInfo(
             plugin_name='noop',
             vif_info=[
-                  objects.host_info.HostVIFInfo(
-                      vif_object_name=k_vif.VIFVlanNested.__name__,
-                      min_version="1.0",
-                      max_version="1.0"),
+                objects.host_info.HostVIFInfo(
+                    vif_object_name=k_vif.VIFVlanNested.__name__,
+                    min_version="1.0",
+                    max_version="1.0"),
             ])
         self.assertEqual(expected, result)
