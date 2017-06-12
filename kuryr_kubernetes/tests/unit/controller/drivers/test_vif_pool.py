@@ -21,6 +21,7 @@ from oslo_config import cfg as oslo_cfg
 
 from os_vif.objects import vif as osv_vif
 
+from kuryr_kubernetes.controller.drivers import nested_vlan_vif
 from kuryr_kubernetes.controller.drivers import neutron_vif
 from kuryr_kubernetes.controller.drivers import vif_pool
 from kuryr_kubernetes import exceptions
@@ -28,38 +29,39 @@ from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
 
 
+def get_pod_obj():
+    return {
+        'status': {
+            'qosClass': 'BestEffort',
+            'hostIP': '192.168.1.2',
+        },
+        'kind': 'Pod',
+        'spec': {
+            'schedulerName': 'default-scheduler',
+            'containers': [{
+                'name': 'busybox',
+                'image': 'busybox',
+                'resources': {}
+            }],
+            'nodeName': 'kuryr-devstack'
+        },
+        'metadata': {
+            'name': 'busybox-sleep1',
+            'namespace': 'default',
+            'resourceVersion': '53808',
+            'selfLink': '/api/v1/namespaces/default/pods/busybox-sleep1',
+            'uid': '452176db-4a85-11e7-80bd-fa163e29dbbb'
+        }}
+
+
 @ddt.ddt
 class GenericVIFPool(test_base.TestCase):
-
-    def _get_pod_obj(self):
-        return {
-            'status': {
-                'qosClass': 'BestEffort',
-                'hostIP': '192.168.1.2',
-            },
-            'kind': 'Pod',
-            'spec': {
-                'schedulerName': 'default-scheduler',
-                'containers': [{
-                    'name': 'busybox',
-                    'image': 'busybox',
-                    'resources': {}
-                }],
-                'nodeName': 'kuryr-devstack'
-            },
-            'metadata': {
-                'name': 'busybox-sleep1',
-                'namespace': 'default',
-                'resourceVersion': '53808',
-                'selfLink': '/api/v1/namespaces/default/pods/busybox-sleep1',
-                'uid': '452176db-4a85-11e7-80bd-fa163e29dbbb'
-            }}
 
     def test_request_vif(self):
         cls = vif_pool.GenericVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
-        pod = self._get_pod_obj()
+        pod = get_pod_obj()
         project_id = mock.sentinel.project_id
         subnets = mock.sentinel.subnets
         security_groups = [mock.sentinel.security_groups]
@@ -99,7 +101,7 @@ class GenericVIFPool(test_base.TestCase):
         cls = vif_pool.GenericVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
-        pod = self._get_pod_obj()
+        pod = get_pod_obj()
         del pod['status']['hostIP']
         project_id = mock.sentinel.project_id
         subnets = mock.sentinel.subnets
@@ -203,7 +205,7 @@ class GenericVIFPool(test_base.TestCase):
         port = mock.sentinel.port
         subnets = mock.sentinel.subnets
 
-        pod = self._get_pod_obj()
+        pod = get_pod_obj()
 
         m_driver._available_ports_pools = {
             pool_key: collections.deque([port_id])}
@@ -238,7 +240,7 @@ class GenericVIFPool(test_base.TestCase):
         port = mock.sentinel.port
         subnets = mock.sentinel.subnets
 
-        pod = self._get_pod_obj()
+        pod = get_pod_obj()
 
         m_driver._available_ports_pools = {
             pool_key: collections.deque([port_id])}
@@ -267,7 +269,7 @@ class GenericVIFPool(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
-        pod = self._get_pod_obj()
+        pod = get_pod_obj()
         pool_key = mock.sentinel.pool_key
         subnets = mock.sentinel.subnets
 
@@ -283,7 +285,7 @@ class GenericVIFPool(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
         m_driver._recyclable_ports = {}
 
-        pod = self._get_pod_obj()
+        pod = get_pod_obj()
         project_id = mock.sentinel.project_id
         security_groups = [mock.sentinel.security_groups]
         vif = osv_vif.VIFOpenVSwitch(id='0fa0e837-d34e-4580-a6c4-04f5f607d93e')
@@ -424,4 +426,280 @@ class GenericVIFPool(test_base.TestCase):
         self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
 
         neutron.update_port.assert_not_called()
+        neutron.delete_port.assert_not_called()
+
+
+@ddt.ddt
+class NestedVIFPool(test_base.TestCase):
+
+    def test_request_vif(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+
+        pod = get_pod_obj()
+        project_id = mock.sentinel.project_id
+        subnets = mock.sentinel.subnets
+        security_groups = [mock.sentinel.security_groups]
+        vif = mock.sentinel.vif
+
+        m_driver._get_port_from_pool.return_value = vif
+
+        self.assertEqual(vif, cls.request_vif(m_driver, pod, project_id,
+                                              subnets, security_groups))
+
+    def test_request_vif_empty_pool(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+
+        m_driver._existing_vifs = {}
+        cls_vif_driver = nested_vlan_vif.NestedVlanPodVIFDriver
+        vif_driver = mock.MagicMock(spec=cls_vif_driver)
+        m_driver._drv_vif = vif_driver
+
+        pod = get_pod_obj()
+        project_id = mock.sentinel.project_id
+        subnets = mock.sentinel.subnets
+        security_groups = [mock.sentinel.security_groups]
+        vif = osv_vif.VIFOpenVSwitch(id='0fa0e837-d34e-4580-a6c4-04f5f607d93e')
+
+        m_driver._get_port_from_pool.side_effect = exceptions.ResourceNotReady(
+            pod)
+        m_driver._drv_vif.request_vif.return_value = vif
+
+        self.assertEqual(vif, cls.request_vif(m_driver, pod, project_id,
+                                              subnets, security_groups))
+        m_driver._drv_vif.request_vif.assert_called_with(
+            pod, project_id, subnets, security_groups)
+
+    def test_request_vif_pod_without_host_id(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+
+        pod = get_pod_obj()
+        del pod['status']['hostIP']
+        project_id = mock.sentinel.project_id
+        subnets = mock.sentinel.subnets
+        security_groups = [mock.sentinel.security_groups]
+
+        self.assertRaises(KeyError, cls.request_vif, m_driver, pod, project_id,
+                          subnets, security_groups)
+
+    def test__get_port_from_pool(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        pool_key = mock.sentinel.pool_key
+        port_id = mock.sentinel.port_id
+        port = mock.sentinel.port
+
+        pod = get_pod_obj()
+
+        m_driver._available_ports_pools = {
+            pool_key: collections.deque([port_id])}
+        m_driver._existing_vifs = {port_id: port}
+
+        self.assertEqual(port, cls._get_port_from_pool(
+            m_driver, pool_key, pod))
+
+        neutron.update_port.assert_called_once_with(port_id,
+            {
+                "port": {
+                    'name': pod['metadata']['name'],
+                }
+            })
+
+    def test__get_port_from_pool_empty_pool(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        pod = mock.sentinel.pod
+        pool_key = mock.sentinel.pool_key
+
+        m_driver._available_ports_pools = {pool_key: collections.deque([])}
+
+        self.assertRaises(exceptions.ResourceNotReady, cls._get_port_from_pool,
+                          m_driver, pool_key, pod)
+
+        neutron.update_port.assert_not_called()
+
+    def test_release_vif(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        m_driver._recyclable_ports = {}
+
+        pod = get_pod_obj()
+        project_id = mock.sentinel.project_id
+        security_groups = [mock.sentinel.security_groups]
+        vif = osv_vif.VIFOpenVSwitch(id='0fa0e837-d34e-4580-a6c4-04f5f607d93e')
+
+        m_driver._return_ports_to_pool.return_value = None
+
+        cls.release_vif(m_driver, pod, vif, project_id, security_groups)
+
+        m_driver._return_ports_to_pool.assert_called_once()
+
+    @ddt.data((0), (10))
+    def test__return_ports_to_pool(self, max_pool):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        port_id = mock.sentinel.port_id
+        pool_length = 5
+
+        m_driver._recyclable_ports = {port_id: pool_key}
+        m_driver._available_ports_pools = {}
+        oslo_cfg.CONF.set_override('ports_pool_max',
+                                   max_pool,
+                                   group='vif_pool')
+        m_driver._get_pool_size.return_value = pool_length
+
+        cls._return_ports_to_pool(m_driver)
+
+        neutron.update_port.assert_called_once_with(port_id,
+            {
+                "port": {
+                    'name': 'available-port',
+                    'security_groups': ['security_group']
+                }
+            })
+        neutron.delete_port.assert_not_called()
+
+    def test__return_ports_to_pool_delete_port(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        cls_vif_driver = nested_vlan_vif.NestedVlanPodVIFDriver
+        vif_driver = mock.MagicMock(spec=cls_vif_driver)
+        m_driver._drv_vif = vif_driver
+
+        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        port_id = mock.sentinel.port_id
+        pool_length = 10
+        vif = {'vlan_id': mock.sentinel.vlan_id}
+        p_port = mock.sentinel.p_port
+        trunk_id = mock.sentinel.trunk_id
+
+        m_driver._recyclable_ports = {port_id: pool_key}
+        m_driver._available_ports_pools = {}
+        m_driver._existing_vifs = {port_id: vif}
+        oslo_cfg.CONF.set_override('ports_pool_max',
+                                   10,
+                                   group='vif_pool')
+        m_driver._get_pool_size.return_value = pool_length
+        m_driver._known_trunk_ids = {}
+        m_driver._drv_vif._get_parent_port_by_host_ip.return_value = p_port
+        m_driver._drv_vif._get_trunk_id.return_value = trunk_id
+
+        cls._return_ports_to_pool(m_driver)
+
+        neutron.update_port.assert_not_called()
+        neutron.delete_port.assert_called_once_with(port_id)
+        m_driver._drv_vif._get_parent_port_by_host_ip.assert_called_once()
+        m_driver._drv_vif._get_trunk_id.assert_called_once_with(p_port)
+        m_driver._drv_vif._remove_subport.assert_called_once_with(neutron,
+                                                                  trunk_id,
+                                                                  port_id)
+
+    def test__return_ports_to_pool_update_exception(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        port_id = mock.sentinel.port_id
+        pool_length = 5
+
+        m_driver._recyclable_ports = {port_id: pool_key}
+        m_driver._available_ports_pools = {}
+        oslo_cfg.CONF.set_override('ports_pool_max',
+                                   0,
+                                   group='vif_pool')
+        m_driver._get_pool_size.return_value = pool_length
+        neutron.update_port.side_effect = n_exc.NeutronClientException
+
+        cls._return_ports_to_pool(m_driver)
+
+        neutron.update_port.assert_called_once_with(port_id,
+            {
+                "port": {
+                    'name': 'available-port',
+                    'security_groups': ['security_group']
+                }
+            })
+        neutron.delete_port.assert_not_called()
+
+    def test__return_ports_to_pool_delete_exception(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        cls_vif_driver = nested_vlan_vif.NestedVlanPodVIFDriver
+        vif_driver = mock.MagicMock(spec=cls_vif_driver)
+        m_driver._drv_vif = vif_driver
+
+        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        port_id = mock.sentinel.port_id
+        pool_length = 10
+        vif = {'vlan_id': mock.sentinel.vlan_id}
+        p_port = mock.sentinel.p_port
+        trunk_id = mock.sentinel.trunk_id
+
+        m_driver._recyclable_ports = {port_id: pool_key}
+        m_driver._available_ports_pools = {}
+        m_driver._existing_vifs = {port_id: vif}
+        oslo_cfg.CONF.set_override('ports_pool_max',
+                                   5,
+                                   group='vif_pool')
+        m_driver._get_pool_size.return_value = pool_length
+        neutron.delete_port.side_effect = n_exc.PortNotFoundClient
+        m_driver._known_trunk_ids = {}
+        m_driver._drv_vif._get_parent_port_by_host_ip.return_value = p_port
+        m_driver._drv_vif._get_trunk_id.return_value = trunk_id
+
+        cls._return_ports_to_pool(m_driver)
+
+        neutron.update_port.assert_not_called()
+        m_driver._drv_vif._get_parent_port_by_host_ip.assert_called_once()
+        m_driver._drv_vif._get_trunk_id.assert_called_once_with(p_port)
+        m_driver._drv_vif._remove_subport.assert_called_once_with(neutron,
+                                                                  trunk_id,
+                                                                  port_id)
+        neutron.delete_port.assert_called_once_with(port_id)
+
+    def test__return_ports_to_pool_delete_key_error(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        cls_vif_driver = nested_vlan_vif.NestedVlanPodVIFDriver
+        vif_driver = mock.MagicMock(spec=cls_vif_driver)
+        m_driver._drv_vif = vif_driver
+
+        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        port_id = mock.sentinel.port_id
+        pool_length = 10
+        p_port = mock.sentinel.p_port
+        trunk_id = mock.sentinel.trunk_id
+
+        m_driver._recyclable_ports = {port_id: pool_key}
+        m_driver._available_ports_pools = {}
+        m_driver._existing_vifs = {}
+        oslo_cfg.CONF.set_override('ports_pool_max',
+                                   5,
+                                   group='vif_pool')
+        m_driver._get_pool_size.return_value = pool_length
+        m_driver._known_trunk_ids = {}
+        m_driver._drv_vif._get_parent_port_by_host_ip.return_value = p_port
+        m_driver._drv_vif._get_trunk_id.return_value = trunk_id
+
+        cls._return_ports_to_pool(m_driver)
+
+        neutron.update_port.assert_not_called()
+        m_driver._drv_vif._get_parent_port_by_host_ip.assert_called_once()
+        m_driver._drv_vif._get_trunk_id.assert_called_once_with(p_port)
+        m_driver._drv_vif._remove_subport.assert_called_once_with(neutron,
+                                                                  trunk_id,
+                                                                  port_id)
         neutron.delete_port.assert_not_called()

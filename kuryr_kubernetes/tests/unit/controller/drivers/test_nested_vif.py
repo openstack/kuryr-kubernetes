@@ -27,39 +27,53 @@ class TestNestedPodVIFDriver(test_base.TestCase):
         m_driver = mock.Mock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
-        node_subnet_id = mock.sentinel.node_subnet_id
-        oslo_cfg.CONF.set_override('worker_nodes_subnet',
-                                   node_subnet_id,
-                                   group='pod_vif_nested')
-
         node_fixed_ip = mock.sentinel.node_fixed_ip
         pod_status = mock.MagicMock()
         pod_status.__getitem__.return_value = node_fixed_ip
 
         pod = mock.MagicMock()
         pod.__getitem__.return_value = pod_status
+        parent_port = mock.sentinel.parent_port
+
+        m_driver._get_parent_port_by_host_ip.return_value = parent_port
+
+        cls._get_parent_port(m_driver, neutron, pod)
+        m_driver._get_parent_port_by_host_ip.assert_called_once()
+
+    def test_get_parent_port_by_host_ip(self):
+        cls = nested_vif.NestedPodVIFDriver
+        m_driver = mock.Mock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        node_subnet_id = mock.sentinel.node_subnet_id
+        oslo_cfg.CONF.set_override('worker_nodes_subnet',
+                                   node_subnet_id,
+                                   group='pod_vif_nested')
+
+        node_fixed_ip = mock.sentinel.node_fixed_ip
 
         port = mock.sentinel.port
         ports = {'ports': [port]}
         neutron.list_ports.return_value = ports
 
-        self.assertEqual(port, cls._get_parent_port(m_driver, neutron, pod))
+        self.assertEqual(port, cls._get_parent_port_by_host_ip(
+            m_driver, neutron, node_fixed_ip))
         fixed_ips = ['subnet_id=%s' % str(node_subnet_id),
                      'ip_address=%s' % str(node_fixed_ip)]
         neutron.list_ports.assert_called_once_with(fixed_ips=fixed_ips)
 
-    def test_get_parent_port_subnet_id_not_configured(self):
+    def test_get_parent_port_by_host_ip_subnet_id_not_configured(self):
         cls = nested_vif.NestedPodVIFDriver
         m_driver = mock.Mock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
         oslo_cfg.CONF.set_override('worker_nodes_subnet',
                                    '',
                                    group='pod_vif_nested')
-        pod = mock.MagicMock()
+        node_fixed_ip = mock.sentinel.node_fixed_ip
         self.assertRaises(oslo_cfg.RequiredOptError,
-            cls._get_parent_port, m_driver, neutron, pod)
+            cls._get_parent_port_by_host_ip, m_driver, neutron, node_fixed_ip)
 
-    def test_get_parent_port_trunk_not_found(self):
+    def test_get_parent_port_by_host_ip_trunk_not_found(self):
         cls = nested_vif.NestedPodVIFDriver
         m_driver = mock.Mock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -71,17 +85,13 @@ class TestNestedPodVIFDriver(test_base.TestCase):
                                    group='pod_vif_nested')
 
         node_fixed_ip = mock.sentinel.node_fixed_ip
-        pod_status = mock.MagicMock()
-        pod_status.__getitem__.return_value = node_fixed_ip
-
-        pod = mock.MagicMock()
-        pod.__getitem__.return_value = pod_status
 
         ports = {'ports': []}
         neutron.list_ports.return_value = ports
 
         self.assertRaises(kl_exc.NoResourceException,
-            cls._get_parent_port, m_driver, neutron, pod)
+            cls._get_parent_port_by_host_ip, m_driver, neutron,
+            node_fixed_ip)
         fixed_ips = ['subnet_id=%s' % str(node_subnet_id),
                      'ip_address=%s' % str(node_fixed_ip)]
         neutron.list_ports.assert_called_once_with(fixed_ips=fixed_ips)
