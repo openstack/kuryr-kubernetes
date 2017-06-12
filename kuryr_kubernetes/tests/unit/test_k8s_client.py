@@ -12,9 +12,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 import itertools
 import mock
+import os
+import tempfile
 
 from oslo_serialization import jsonutils
 import requests
@@ -30,8 +31,10 @@ class TestK8sClient(test_base.TestCase):
         self.base_url = 'http://127.0.0.1:12345'
         self.client = k8s_client.K8sClient(self.base_url)
         default_cert = (None, None)
+        default_token = None
         self.assertEqual(default_cert, self.client.cert)
         self.assertEqual(False, self.client.verify_server)
+        self.assertEqual(default_token, self.client.token)
 
     @mock.patch('os.path.exists')
     @mock.patch('kuryr_kubernetes.config.CONF')
@@ -39,6 +42,7 @@ class TestK8sClient(test_base.TestCase):
         m_cfg.kubernetes.ssl_client_crt_file = 'dummy_crt_file_path'
         m_cfg.kubernetes.ssl_client_key_file = 'dummy_key_file_path'
         m_cfg.kubernetes.ssl_ca_crt_file = 'dummy_ca_file_path'
+        m_cfg.kubernetes.token_file = None
         m_cfg.kubernetes.ssl_verify_server_crt = True
         m_exist.return_value = True
         test_client = k8s_client.K8sClient(self.base_url)
@@ -50,6 +54,7 @@ class TestK8sClient(test_base.TestCase):
     def test_https_client_init_invalid_client_crt_path(self, m_cfg):
         m_cfg.kubernetes.ssl_client_crt_file = 'dummy_crt_file_path'
         m_cfg.kubernetes.ssl_client_key_file = 'dummy_key_file_path'
+        m_cfg.kubernetes.token_file = None
         self.assertRaises(RuntimeError, k8s_client.K8sClient, self.base_url)
 
     @mock.patch('os.path.exists')
@@ -59,8 +64,45 @@ class TestK8sClient(test_base.TestCase):
         m_cfg.kubernetes.ssl_client_key_file = 'dummy_key_file_path'
         m_cfg.kubernetes.ssl_ca_crt_file = None
         m_cfg.kubernetes.ssl_verify_server_crt = True
+        m_cfg.kubernetes.token_file = None
         m_exist.return_value = True
         self.assertRaises(RuntimeError, k8s_client.K8sClient, self.base_url)
+
+    @mock.patch('requests.get')
+    @mock.patch('kuryr_kubernetes.config.CONF')
+    def test_bearer_token(self, m_cfg, m_get):
+        token_content = (
+            "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3Nl"
+            "cnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc"
+            "3BhY2UiOiJrdWJlLXN5c3RlbSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bn"
+            "Qvc2VjcmV0Lm5hbWUiOiJkZWZhdWx0LXRva2VuLWh4M3QxIiwia3ViZXJuZXRlcy5"
+            "pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6ImRlZmF1bHQi"
+            "LCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51a"
+            "WQiOiIxYTkyM2ZmNi00MDkyLTExZTctOTMwYi1mYTE2M2VkY2ViMDUiLCJzdWIiOi"
+            "JzeXN0ZW06c2VydmljZWFjY291bnQ6a3ViZS1zeXN0ZW06ZGVmYXVsdCJ9.lzcPef"
+            "DQ-uzF5cD-5pLwTKpRvtvvxKB4LX8TLymrPLMTth8WGr1vT6jteJPmLiDZM2C5dZI"
+            "iFJpOw4LL1XLullik-ls-CmnTWq97NvlW1cZolC0mNyRz6JcL7gkH8WfUSjLA7x80"
+            "ORalanUxtl9-ghMGKCtKIACAgvr5gGT4iznGYQQRx_hKURs4O6Js5vhwNM6UuOKeW"
+            "GDDAlhgHMG0u59z3bhiBLl6jbQktZsu8c3diXniQb3sYqYQcGKUm1IQFujyA_ByDb"
+            "5GUtCv1BOPL_-IjYtvdJD8ZzQ_UnPFoYQklpDyJLB7_7qCGcfVEQbnSCh907NdKo4"
+            "w_8Wkn2y-Tg")
+        token_file = tempfile.NamedTemporaryFile(mode="w+t", delete=False)
+        try:
+            m_cfg.kubernetes.token_file = token_file.name
+            token_file.write(token_content)
+            token_file.close()
+            m_cfg.kubernetes.ssl_verify_server_crt = False
+
+            path = '/test'
+            client = k8s_client.K8sClient(self.base_url)
+            client.get(path)
+            headers = {
+                'Authorization': 'Bearer {}'.format(token_content)}
+            m_get.assert_called_once_with(
+                self.base_url + path, cert=(None, None), headers=headers,
+                verify=False)
+        finally:
+            os.unlink(m_cfg.kubernetes.token_file)
 
     @mock.patch('requests.get')
     def test_get(self, m_get):
@@ -74,7 +116,7 @@ class TestK8sClient(test_base.TestCase):
 
         self.assertEqual(ret, self.client.get(path))
         m_get.assert_called_once_with(self.base_url + path,
-                                      cert=(None, None), verify=False)
+            cert=(None, None), headers={}, verify=False)
 
     @mock.patch('requests.get')
     def test_get_exception(self, m_get):
@@ -256,7 +298,7 @@ class TestK8sClient(test_base.TestCase):
 
         self.assertEqual(cycles, m_get.call_count)
         self.assertEqual(cycles, m_resp.close.call_count)
-        m_get.assert_called_with(self.base_url + path, stream=True,
+        m_get.assert_called_with(self.base_url + path, headers={}, stream=True,
                                  params={'watch': 'true'}, cert=(None, None),
                                  verify=False)
 
