@@ -32,6 +32,7 @@ Design Specs
 
    specs/pike/contrail_support
    specs/pike/fuxi_kubernetes
+   specs/pike/sriov
 
 Indices and tables
 ==================
