@@ -161,7 +161,7 @@ class BaseVIFPool(base.VIFPoolDriver):
         self._recyclable_ports[vif.id] = pool_key
 
 
-class GenericVIFPool(BaseVIFPool):
+class NeutronVIFPool(BaseVIFPool):
     """Manages VIFs for Bare Metal Kubernetes Pods."""
 
     def _get_port_from_pool(self, pool_key, pod, subnets):
