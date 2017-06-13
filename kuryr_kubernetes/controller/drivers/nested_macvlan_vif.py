@@ -42,7 +42,6 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                                   container_port['fixed_ips'])
 
         with self.lock:
-            self.lock.acquire()
             vm_port = self._get_parent_port(neutron, pod)
             self._add_to_allowed_address_pairs(neutron, vm_port,
                 container_ips, container_mac)
@@ -63,7 +62,6 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                                   container_port['fixed_ips'])
 
         with self.lock:
-            self.lock.acquire()
             vm_port = self._get_parent_port(neutron, pod)
             self._remove_from_allowed_address_pairs(neutron, vm_port,
                 container_ips, container_mac)
