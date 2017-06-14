@@ -26,7 +26,7 @@ KURYR_CONFIGURE_NEUTRON_DEFAULTS=False
 KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE=False
 
 enable_service docker
-enable_service etcd
+enable_service etcd3
 enable_service kubernetes-api
 enable_service kubernetes-controller-manager
 enable_service kubernetes-scheduler

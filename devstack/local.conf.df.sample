@@ -76,8 +76,15 @@ enable_service docker
 
 # Etcd
 # ====
-# The default is for devstack to run etcd for you. You can select the image and
-# version of it by uncommenting and modifying the following defaults.
+# The default is for devstack to run etcd for you.
+enable_service etcd3
+
+# You can also run the deprecated etcd containerized and select the image and
+# version of it by commenting the etcd3 service enablement and uncommenting
+#
+# enable legacy_etcd
+#
+# You can also modify the following defaults.
 # KURYR_ETCD_IMAGE="quay.io/coreos/etcd"
 # KURYR_ETCD_VERSION="v3.0.8"
 #
@@ -88,8 +95,8 @@ enable_service docker
 # KURYR_ETCD_LISTEN_CLIENT_URL=http://0.0.0.0:2379}
 # KURYR_ETCD_LISTEN_PEER_URL=http://0.0.0.0:2380}
 #
-# If you already have etcd configured and running, you can just comment out
-enable_service etcd
+# If you already have an etcd cluster configured and running, you can just
+# comment out the lines enabling legacy_etcd and etcd3
 # then uncomment and set the following line:
 # KURYR_ETCD_CLIENT_URL="http://etcd_ip:etcd_client_port"
 

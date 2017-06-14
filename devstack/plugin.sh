@@ -11,31 +11,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-function run_container {
-    # Runs a detached container and uses devstack's run process to monitor
-    # its logs
-    local name
-    local docker_bin=$(which docker)
-
-    name="$1"
-    shift
-
-    "$docker_bin" run --name "$name" --detach "$@"
-
-    run_process "$name" \
-        "$docker_bin logs -f $name"
-}
-
-function stop_container {
-    local name
-
-    name="$1"
-
-    docker kill "$name"
-    docker rm "$name"
-    stop_process "$name"
-}
-
 function create_kuryr_account {
     if is_service_enabled kuryr-kubernetes; then
         create_service_user "kuryr" "admin"
@@ -276,49 +251,6 @@ function check_docker {
     else
        rpm -q docker-engine > /dev/null 2>&1 || rpm -q docker > /dev/null 2>&1
     fi
-}
-
-function get_container {
-    local image
-    local image_name
-    local version
-    image_name="$1"
-    version="${2:-latest}"
-
-    if [ "$image_name" == "" ]; then
-        return 0
-    fi
-
-    image="${image_name}:${version}"
-    if [ -z "$(docker images -q "$image")" ]; then
-        docker pull "$image"
-    fi
-}
-
-
-function prepare_etcd {
-    # Make Etcd data directory
-    sudo install -d -o "$STACK_USER" "$KURYR_ETCD_DATA_DIR"
-
-    # Get Etcd container
-    get_container "$KURYR_ETCD_IMAGE" "$KURYR_ETCD_VERSION"
-}
-
-function run_etcd {
-    run_container etcd \
-        --net host \
-        --volume="${KURYR_ETCD_DATA_DIR}:/var/etcd:rw" \
-        "${KURYR_ETCD_IMAGE}:${KURYR_ETCD_VERSION}" \
-            /usr/local/bin/etcd \
-            --name devstack \
-            --data-dir /var/etcd/data \
-            --initial-advertise-peer-urls "$KURYR_ETCD_ADVERTISE_PEER_URL" \
-            --listen-peer-urls "$KURYR_ETCD_LISTEN_PEER_URL" \
-            --listen-client-urls "$KURYR_ETCD_LISTEN_CLIENT_URL" \
-            --advertise-client-urls "$KURYR_ETCD_ADVERTISE_CLIENT_URL" \
-            --initial-cluster-token etcd-cluster-1 \
-            --initial-cluster "devstack=$KURYR_ETCD_ADVERTISE_PEER_URL" \
-            --initial-cluster-state new
 }
 
 function prepare_docker {
@@ -613,9 +545,9 @@ if is_service_enabled kuryr-kubernetes; then
             run_docker
         fi
 
-        if is_service_enabled etcd; then
-            prepare_etcd
-            run_etcd
+        if is_service_enabled legacy_etcd; then
+            prepare_etcd_legacy
+            run_etcd_legacy
         fi
 
         get_container "$KURYR_HYPERKUBE_IMAGE" "$KURYR_HYPERKUBE_VERSION"
@@ -665,7 +597,7 @@ if is_service_enabled kuryr-kubernetes; then
         if is_service_enabled kubernetes-api; then
             stop_container kubernetes-api
         fi
-        if is_service_enabled etcd; then
+        if is_service_enabled legacy_etcd; then
             stop_container etcd
         fi
 
@@ -673,7 +605,7 @@ if is_service_enabled kuryr-kubernetes; then
     fi
 
     if [[ "$1" == "clean" ]]; then
-        if is_service_enabled etcd; then
+        if is_service_enabled legacy_etcd; then
             # Cleanup Etcd for the next stacking
             sudo rm -rf "$KURYR_ETCD_DATA_DIR"
         fi

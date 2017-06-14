@@ -22,7 +22,7 @@ VARIANT=${1:-default}
 export DEVSTACK_LOCAL_CONFIG="enable_plugin neutron-lbaas git://git.openstack.org/openstack/neutron-lbaas"
 export DEVSTACK_LOCAL_CONFIG+=$'\n'"enable_plugin kuryr-kubernetes https://git.openstack.org/openstack/kuryr-kubernetes"
 export DEVSTACK_LOCAL_CONFIG+=$'\n'"NEUTRON_LBAAS_SERVICE_PROVIDERV2=LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
-export OVERRIDE_ENABLED_SERVICES=neutron,q-svc,key,mysql,rabbit,docker,etcd,kubernetes-api,kubernetes-controller-manager,kubernetes-scheduler,kubelet,kuryr-kubernetes,q-lbaasv2
+export OVERRIDE_ENABLED_SERVICES=neutron,q-svc,key,mysql,rabbit,docker,legacy_etcd,kubernetes-api,kubernetes-controller-manager,kubernetes-scheduler,kubelet,kuryr-kubernetes,q-lbaasv2
 
 if [[ $VARIANT == 'default' ]]; then
     export OVERRIDE_ENABLED_SERVICES+=,q-agt,q-dhcp,q-l3

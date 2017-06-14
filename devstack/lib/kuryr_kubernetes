@@ -57,3 +57,90 @@ function ovs_bind_for_kubelet() {
         sudo ip addr add "${port_ips[$i]}/${prefix}" dev "$ifname"
     done
 }
+
+# get_container
+#   Description: Pulls a container from Dockerhub
+#   Params:
+#      image_name - the name of the image in docker hub
+#      version    - The version of the image to pull. Defaults to 'latest'
+function get_container {
+    local image
+    local image_name
+    local version
+    image_name="$1"
+    version="${2:-latest}"
+
+    if [ "$image_name" == "" ]; then
+        return 0
+    fi
+
+    image="${image_name}:${version}"
+    if [ -z "$(docker images -q "$image")" ]; then
+        docker pull "$image"
+    fi
+}
+
+# run_container
+#   Description: Runs a container and attaches devstack's logging to it
+#   Params:
+#      name - Name of the container to run
+#      args - arguments to run the container with
+function run_container {
+    # Runs a detached container and uses devstack's run process to monitor
+    # its logs
+    local name
+    local docker_bin
+
+    docker_bin=$(which docker)
+    name="$1"
+    shift
+
+    "$docker_bin" run --name "$name" --detach "$@"
+
+    run_process "$name" \
+        "$docker_bin logs -f $name"
+}
+
+# stop_container
+#   Description: stops a container and its devstack logging
+#   Params:
+#      name - Name of the container to stop
+function stop_container {
+    local name
+    name="$1"
+
+    docker kill "$name"
+    docker rm "$name"
+    stop_process "$name"
+}
+
+
+# prepare_etcd_legacy
+#   Description: Creates datadir for etcd and fetches its container image
+function prepare_etcd_legacy {
+    # Make Etcd data directory
+    sudo install -d -o "$STACK_USER" "$KURYR_ETCD_DATA_DIR"
+
+    # Get Etcd container
+    get_container "$KURYR_ETCD_IMAGE" "$KURYR_ETCD_VERSION"
+}
+
+# run_etcd_legacy
+#   Description: Deprecated way of running etcd for Kubernetes (based on
+#                coreos upstream image.
+function run_etcd_legacy {
+    run_container etcd \
+        --net host \
+        --volume="${KURYR_ETCD_DATA_DIR}:/var/etcd:rw" \
+        "${KURYR_ETCD_IMAGE}:${KURYR_ETCD_VERSION}" \
+            /usr/local/bin/etcd \
+            --name devstack \
+            --data-dir /var/etcd/data \
+            --initial-advertise-peer-urls "$KURYR_ETCD_ADVERTISE_PEER_URL" \
+            --listen-peer-urls "$KURYR_ETCD_LISTEN_PEER_URL" \
+            --listen-client-urls "$KURYR_ETCD_LISTEN_CLIENT_URL" \
+            --advertise-client-urls "$KURYR_ETCD_ADVERTISE_CLIENT_URL" \
+            --initial-cluster-token etcd-cluster-1 \
+            --initial-cluster "devstack=$KURYR_ETCD_ADVERTISE_PEER_URL" \
+            --initial-cluster-state new
+}
