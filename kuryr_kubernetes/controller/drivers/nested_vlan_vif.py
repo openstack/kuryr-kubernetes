@@ -64,8 +64,9 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         parent_port = self._get_parent_port(neutron, pod)
         trunk_id = self._get_trunk_id(parent_port)
 
-        port_rq, subports_info = self._create_subports_info(pod, project_id,
-            subnets, security_groups, trunk_id, num_ports, unbound=True)
+        port_rq, subports_info = self._create_subports_info(
+            pod, project_id, subnets, security_groups,
+            trunk_id, num_ports, unbound=True)
 
         if not subports_info:
             LOG.error("There are no vlan ids available to create subports")
@@ -136,7 +137,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
 
         in_use_vlan_ids = self._get_in_use_vlan_ids_set(trunk_id)
         port_rq = self._get_port_request(pod, project_id, subnets,
-                                      security_groups, unbound)['port']
+                                         security_groups, unbound)['port']
         for i in range(num_ports):
             try:
                 vlan_id = seg_driver.allocate_segmentation_id(in_use_vlan_ids)
@@ -207,7 +208,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         subport_id = [{'port_id': subport_id}]
         try:
             neutron.trunk_remove_subports(trunk_id,
-                                       {'sub_ports': subport_id})
+                                          {'sub_ports': subport_id})
         except n_exc.NeutronClientException as ex:
             LOG.error(
                 "Error happened during subport removal from "

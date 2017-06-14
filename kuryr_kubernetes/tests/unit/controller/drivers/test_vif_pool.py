@@ -220,7 +220,8 @@ class NeutronVIFPool(test_base.TestCase):
         self.assertEqual(port, cls._get_port_from_pool(
             m_driver, pool_key, pod, subnets))
 
-        neutron.update_port.assert_called_once_with(port_id,
+        neutron.update_port.assert_called_once_with(
+            port_id,
             {
                 "port": {
                     'name': pod['metadata']['name'],
@@ -255,7 +256,8 @@ class NeutronVIFPool(test_base.TestCase):
         self.assertEqual(port, cls._get_port_from_pool(
             m_driver, pool_key, pod, subnets))
 
-        neutron.update_port.assert_called_once_with(port_id,
+        neutron.update_port.assert_called_once_with(
+            port_id,
             {
                 "port": {
                     'name': pod['metadata']['name'],
@@ -316,7 +318,8 @@ class NeutronVIFPool(test_base.TestCase):
 
         self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
 
-        neutron.update_port.assert_called_once_with(port_id,
+        neutron.update_port.assert_called_once_with(
+            port_id,
             {
                 "port": {
                     'name': 'available-port',
@@ -370,7 +373,8 @@ class NeutronVIFPool(test_base.TestCase):
 
         self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
 
-        neutron.update_port.assert_called_once_with(port_id,
+        neutron.update_port.assert_called_once_with(
+            port_id,
             {
                 "port": {
                     'name': 'available-port',
@@ -592,7 +596,8 @@ class NestedVIFPool(test_base.TestCase):
         self.assertEqual(port, cls._get_port_from_pool(
             m_driver, pool_key, pod, subnets))
 
-        neutron.update_port.assert_called_once_with(port_id,
+        neutron.update_port.assert_called_once_with(
+            port_id,
             {
                 "port": {
                     'name': pod['metadata']['name'],
@@ -626,7 +631,8 @@ class NestedVIFPool(test_base.TestCase):
         self.assertEqual(port, cls._get_port_from_pool(
             m_driver, pool_key, pod, subnets))
 
-        neutron.update_port.assert_called_once_with(port_id,
+        neutron.update_port.assert_called_once_with(
+            port_id,
             {
                 "port": {
                     'name': pod['metadata']['name'],
@@ -686,7 +692,8 @@ class NestedVIFPool(test_base.TestCase):
 
         self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
 
-        neutron.update_port.assert_called_once_with(port_id,
+        neutron.update_port.assert_called_once_with(
+            port_id,
             {
                 "port": {
                     'name': 'available-port',
@@ -753,7 +760,8 @@ class NestedVIFPool(test_base.TestCase):
 
         self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
 
-        neutron.update_port.assert_called_once_with(port_id,
+        neutron.update_port.assert_called_once_with(
+            port_id,
             {
                 "port": {
                     'name': 'available-port',

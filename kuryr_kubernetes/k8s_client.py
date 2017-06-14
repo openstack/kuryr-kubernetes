@@ -72,8 +72,8 @@ class K8sClient(object):
         if self.token:
             header.update({'Authorization': 'Bearer %s' % self.token})
         response = requests.get(url, cert=self.cert,
-            verify=self.verify_server,
-            headers=header)
+                                verify=self.verify_server,
+                                headers=header)
         if not response.ok:
             raise exc.K8sClientException(response.text)
         return response.json()
@@ -100,8 +100,9 @@ class K8sClient(object):
                     "resourceVersion": resource_version,
                 }
             }, sort_keys=True)
-            response = requests.patch(url, data=data, headers=header,
-                cert=self.cert, verify=self.verify_server)
+            response = requests.patch(url, data=data,
+                                      headers=header, cert=self.cert,
+                                      verify=self.verify_server)
             if response.ok:
                 return response.json()['metadata']['annotations']
             if response.status_code == requests.codes.conflict:
@@ -133,8 +134,8 @@ class K8sClient(object):
         while True:
             with contextlib.closing(
                     requests.get(url, params=params, stream=True,
-                    cert=self.cert, verify=self.verify_server,
-                    headers=header)) as response:
+                                 cert=self.cert, verify=self.verify_server,
+                                 headers=header)) as response:
                 if not response.ok:
                     raise exc.K8sClientException(response.text)
                 for line in response.iter_lines(delimiter='\n'):

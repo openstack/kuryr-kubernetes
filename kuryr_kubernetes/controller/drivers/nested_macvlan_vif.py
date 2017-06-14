@@ -44,7 +44,7 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         with self.lock:
             vm_port = self._get_parent_port(neutron, pod)
             self._add_to_allowed_address_pairs(neutron, vm_port,
-                container_ips, container_mac)
+                                               container_ips, container_mac)
 
         return ovu.neutron_to_osvif_vif_nested_macvlan(container_port, subnets)
 
@@ -64,7 +64,8 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         with self.lock:
             vm_port = self._get_parent_port(neutron, pod)
             self._remove_from_allowed_address_pairs(neutron, vm_port,
-                container_ips, container_mac)
+                                                    container_ips,
+                                                    container_mac)
 
         try:
             neutron.delete_port(vif.id)
@@ -83,7 +84,8 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
     def _add_to_allowed_address_pairs(self, neutron, port, ip_addresses,
                                       mac_address=None):
         if not ip_addresses:
-            raise k_exc.IntegrityError("Cannot add pair from the "
+            raise k_exc.IntegrityError(
+                "Cannot add pair from the "
                 "allowed_address_pairs of port %s: missing IP address",
                 port['id'])
 
@@ -94,11 +96,13 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         for pair in address_pairs:
             if pair['ip_address'] in ip_addresses:
                 if pair['mac_address'] is mac:
-                    raise k_exc.AllowedAddressAlreadyPresent("Pair %s already "
+                    raise k_exc.AllowedAddressAlreadyPresent(
+                        "Pair %s already "
                         "present in the 'allowed_address_pair' list. This is "
                         "due to a misconfiguration or a bug", pair)
                 else:
-                    LOG.warning("A pair with IP %s but different MAC address "
+                    LOG.warning(
+                        "A pair with IP %s but different MAC address "
                         "is already present in the 'allowed_address_pair'. "
                         "This could indicate a misconfiguration or a "
                         "bug", pair['ip_address'])
@@ -111,7 +115,8 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
     def _remove_from_allowed_address_pairs(self, neutron, port, ip_addresses,
                                            mac_address=None):
         if not ip_addresses:
-            raise k_exc.IntegrityError("Cannot remove pair from the "
+            raise k_exc.IntegrityError(
+                "Cannot remove pair from the "
                 "allowed_address_pairs of port %s: missing IP address",
                 port['id'])
 

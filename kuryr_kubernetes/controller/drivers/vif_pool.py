@@ -33,17 +33,19 @@ LOG = logging.getLogger(__name__)
 # Moved out from neutron_default group
 vif_pool_driver_opts = [
     oslo_cfg.IntOpt('ports_pool_max',
-        help=_("Set a maximun amount of ports per pool. 0 to disable"),
-        default=0),
+                    help=_("Set a maximun amount of ports per pool. "
+                           "0 to disable"),
+                    default=0),
     oslo_cfg.IntOpt('ports_pool_min',
-        help=_("Set a target minimum size of the pool of ports"),
-        default=5),
+                    help=_("Set a target minimum size of the pool of ports"),
+                    default=5),
     oslo_cfg.IntOpt('ports_pool_batch',
-        help=_("Number of ports to be created in a bulk request"),
-        default=10),
+                    help=_("Number of ports to be created in a bulk request"),
+                    default=10),
     oslo_cfg.IntOpt('ports_pool_update_frequency',
-        help=_("Minimun interval (in seconds) between pool updates"),
-        default=20),
+                    help=_("Minimun interval (in seconds) "
+                           "between pool updates"),
+                    default=20),
 ]
 
 oslo_cfg.CONF.register_opts(vif_pool_driver_opts, "vif_pool")
@@ -141,8 +143,9 @@ class BaseVIFPool(base.VIFPoolDriver):
         pool_size = self._get_pool_size(pool_key)
         if pool_size < oslo_cfg.CONF.vif_pool.ports_pool_min:
             num_ports = max(oslo_cfg.CONF.vif_pool.ports_pool_batch,
-                oslo_cfg.CONF.vif_pool.ports_pool_min - pool_size)
-            vifs = self._drv_vif.request_vifs(pod=pod,
+                            oslo_cfg.CONF.vif_pool.ports_pool_min - pool_size)
+            vifs = self._drv_vif.request_vifs(
+                pod=pod,
                 project_id=pool_key[1],
                 subnets=subnets,
                 security_groups=list(pool_key[2]),
@@ -170,7 +173,8 @@ class NeutronVIFPool(BaseVIFPool):
         except IndexError:
             raise exceptions.ResourceNotReady(pod)
         neutron = clients.get_neutron_client()
-        neutron.update_port(port_id,
+        neutron.update_port(
+            port_id,
             {
                 "port": {
                     'name': pod['metadata']['name'],
@@ -201,7 +205,8 @@ class NeutronVIFPool(BaseVIFPool):
                     self._get_pool_size(pool_key) <
                         oslo_cfg.CONF.vif_pool.ports_pool_max):
                     try:
-                        neutron.update_port(port_id,
+                        neutron.update_port(
+                            port_id,
                             {
                                 "port": {
                                     'name': 'available-port',
@@ -244,7 +249,8 @@ class NestedVIFPool(BaseVIFPool):
         except IndexError:
             raise exceptions.ResourceNotReady(pod)
         neutron = clients.get_neutron_client()
-        neutron.update_port(port_id,
+        neutron.update_port(
+            port_id,
             {
                 "port": {
                     'name': pod['metadata']['name'],
@@ -274,7 +280,8 @@ class NestedVIFPool(BaseVIFPool):
                     self._get_pool_size(pool_key) <
                         oslo_cfg.CONF.vif_pool.ports_pool_max):
                     try:
-                        neutron.update_port(port_id,
+                        neutron.update_port(
+                            port_id,
                             {
                                 "port": {
                                     'name': 'available-port',

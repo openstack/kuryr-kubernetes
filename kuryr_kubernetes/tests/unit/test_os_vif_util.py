@@ -264,7 +264,7 @@ class TestOSVIFUtils(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.os_vif_util._make_vif_network')
     @mock.patch('kuryr_kubernetes.objects.vif.VIFVlanNested')
     def test_neutron_to_osvif_nested_vlan(self, m_mk_vif, m_make_vif_network,
-                               m_is_port_active, m_get_vif_name):
+                                          m_is_port_active, m_get_vif_name):
         vif_plugin = const.K8S_OS_VIF_NOOP_PLUGIN
         port_id = mock.sentinel.port_id
         mac_address = mock.sentinel.mac_address
@@ -309,7 +309,8 @@ class TestOSVIFUtils(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.os_vif_util._make_vif_network')
     @mock.patch('kuryr_kubernetes.objects.vif.VIFMacvlanNested')
     def test_neutron_to_osvif_nested_macvlan(self, m_mk_vif,
-                        m_make_vif_network, m_is_port_active, m_get_vif_name):
+                                             m_make_vif_network,
+                                             m_is_port_active, m_get_vif_name):
         vif_plugin = const.K8S_OS_VIF_NOOP_PLUGIN
         port_id = mock.sentinel.port_id
         mac_address = mock.sentinel.mac_address

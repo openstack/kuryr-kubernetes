@@ -309,8 +309,9 @@ def neutron_to_osvif_vif(vif_translator, neutron_port, subnets):
     try:
         mgr = _VIF_MANAGERS[vif_translator]
     except KeyError:
-        mgr = stv_driver.DriverManager(namespace=_VIF_TRANSLATOR_NAMESPACE,
-                                    name=vif_translator, invoke_on_load=False)
+        mgr = stv_driver.DriverManager(
+            namespace=_VIF_TRANSLATOR_NAMESPACE,
+            name=vif_translator, invoke_on_load=False)
         _VIF_MANAGERS[vif_translator] = mgr
 
     return mgr.driver(vif_translator, neutron_port, subnets)

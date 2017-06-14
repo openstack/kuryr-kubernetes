@@ -30,7 +30,7 @@ LOG = logging.getLogger(__name__)
 # Moved out from neutron_defaults group
 nested_vif_driver_opts = [
     oslo_cfg.StrOpt('worker_nodes_subnet',
-        help=_("Neutron subnet ID for k8s worker node vms.")),
+                    help=_("Neutron subnet ID for k8s worker node vms.")),
 ]
 
 oslo_cfg.CONF.register_opts(nested_vif_driver_opts, "pod_vif_nested")
@@ -43,8 +43,8 @@ class NestedPodVIFDriver(neutron_vif.NeutronPodVIFDriver):
     def _get_parent_port_by_host_ip(self, neutron, node_fixed_ip):
         node_subnet_id = oslo_cfg.CONF.pod_vif_nested.worker_nodes_subnet
         if not node_subnet_id:
-            raise oslo_cfg.RequiredOptError('worker_nodes_subnet',
-                oslo_cfg.OptGroup('pod_vif_nested'))
+            raise oslo_cfg.RequiredOptError(
+                'worker_nodes_subnet', oslo_cfg.OptGroup('pod_vif_nested'))
 
         try:
             fixed_ips = ['subnet_id=%s' % str(node_subnet_id),

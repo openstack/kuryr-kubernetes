@@ -115,7 +115,8 @@ class TestK8sClient(test_base.TestCase):
         m_get.return_value = m_resp
 
         self.assertEqual(ret, self.client.get(path))
-        m_get.assert_called_once_with(self.base_url + path,
+        m_get.assert_called_once_with(
+            self.base_url + path,
             cert=(None, None), headers={}, verify=False)
 
     @mock.patch('requests.get')

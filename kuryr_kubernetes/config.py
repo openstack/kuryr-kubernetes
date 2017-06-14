@@ -23,71 +23,83 @@ LOG = logging.getLogger(__name__)
 
 kuryr_k8s_opts = [
     cfg.StrOpt('pybasedir',
-        help=_('Directory where Kuryr-kubernetes python module is '
-               'installed.'),
-        default=os.path.abspath(
-            os.path.join(os.path.dirname(__file__),
-            '../../'))),
+               help=_('Directory where Kuryr-kubernetes python module is '
+                      'installed.'),
+               default=os.path.abspath(
+                   os.path.join(os.path.dirname(__file__),
+                                '../../'))),
 ]
 
 k8s_opts = [
     cfg.StrOpt('api_root',
-        help=_("The root URL of the Kubernetes API"),
-        default=os.environ.get('K8S_API', 'http://localhost:8080')),
+               help=_("The root URL of the Kubernetes API"),
+               default=os.environ.get('K8S_API', 'http://localhost:8080')),
     cfg.StrOpt('ssl_client_crt_file',
-        help=_("Absolute path to client cert to connect to HTTPS K8S_API")),
+               help=_("Absolute path to client cert to "
+                      "connect to HTTPS K8S_API")),
     cfg.StrOpt('ssl_client_key_file',
-        help=_("Absolute path client key file to connect to HTTPS K8S_API")),
+               help=_("Absolute path client key file to "
+                      "connect to HTTPS K8S_API")),
     cfg.StrOpt('ssl_ca_crt_file',
-        help=_("Absolute path to ca cert file to connect to HTTPS K8S_API")),
+               help=_("Absolute path to ca cert file to "
+                      "connect to HTTPS K8S_API")),
     cfg.BoolOpt('ssl_verify_server_crt',
-        help=_("HTTPS K8S_API server identity verification"),
-        default=False),
+                help=_("HTTPS K8S_API server identity verification"),
+                default=False),
     cfg.StrOpt('token_file',
-        help=_("The token to talk to the k8s API"),
-        default=''),
+               help=_("The token to talk to the k8s API"),
+               default=''),
     cfg.StrOpt('pod_project_driver',
-        help=_("The driver to determine OpenStack project for pod ports"),
-        default='default'),
+               help=_("The driver to determine OpenStack "
+                      "project for pod ports"),
+               default='default'),
     cfg.StrOpt('service_project_driver',
-        help=_("The driver to determine OpenStack project for services"),
-        default='default'),
+               help=_("The driver to determine OpenStack "
+                      "project for services"),
+               default='default'),
     cfg.StrOpt('pod_subnets_driver',
-        help=_("The driver to determine Neutron subnets for pod ports"),
-        default='default'),
+               help=_("The driver to determine Neutron "
+                      "subnets for pod ports"),
+               default='default'),
     cfg.StrOpt('service_subnets_driver',
-        help=_("The driver to determine Neutron subnets for services"),
-        default='default'),
+               help=_("The driver to determine Neutron "
+                      "subnets for services"),
+               default='default'),
     cfg.StrOpt('pod_security_groups_driver',
-        help=_("The driver to determine Neutron security groups for pods"),
-        default='default'),
+               help=_("The driver to determine Neutron "
+                      "security groups for pods"),
+               default='default'),
     cfg.StrOpt('service_security_groups_driver',
-        help=_("The driver to determine Neutron security groups for services"),
-        default='default'),
+               help=_("The driver to determine Neutron "
+                      "security groups for services"),
+               default='default'),
     cfg.StrOpt('pod_vif_driver',
-        help=_("The driver that provides VIFs for Kubernetes Pods."),
-        default='neutron-vif'),
+               help=_("The driver that provides VIFs for Kubernetes Pods."),
+               default='neutron-vif'),
     cfg.StrOpt('endpoints_lbaas_driver',
-        help=_("The driver that provides LoadBalancers for Kubernetes "
-               "Endpoints"),
-        default='lbaasv2'),
+               help=_("The driver that provides LoadBalancers for "
+                      "Kubernetes Endpoints"),
+               default='lbaasv2'),
     cfg.StrOpt('vif_pool_driver',
-        help=_("The driver that manages VIFs pools for Kubernetes Pods."),
-        default='noop'),
+               help=_("The driver that manages VIFs pools for "
+                      "Kubernetes Pods."),
+               default='noop'),
 ]
 
 neutron_defaults = [
     cfg.StrOpt('project',
-        help=_("Default OpenStack project ID for Kubernetes resources")),
+               help=_("Default OpenStack project ID for "
+                      "Kubernetes resources")),
     cfg.StrOpt('pod_subnet',
-        help=_("Default Neutron subnet ID for Kubernetes pods")),
+               help=_("Default Neutron subnet ID for Kubernetes pods")),
     cfg.ListOpt('pod_security_groups',
-        help=_("Default Neutron security groups' IDs for Kubernetes pods")),
+                help=_("Default Neutron security groups' IDs "
+                       "for Kubernetes pods")),
     cfg.StrOpt('ovs_bridge',
-        help=_("Default OpenVSwitch integration bridge"),
-        sample_default="br-int"),
+               help=_("Default OpenVSwitch integration bridge"),
+               sample_default="br-int"),
     cfg.StrOpt('service_subnet',
-        help=_("Default Neutron subnet ID for Kubernetes services")),
+               help=_("Default Neutron subnet ID for Kubernetes services")),
 ]
 
 

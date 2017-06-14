@@ -71,7 +71,8 @@ class TestNestedPodVIFDriver(test_base.TestCase):
                                    group='pod_vif_nested')
         node_fixed_ip = mock.sentinel.node_fixed_ip
         self.assertRaises(oslo_cfg.RequiredOptError,
-            cls._get_parent_port_by_host_ip, m_driver, neutron, node_fixed_ip)
+                          cls._get_parent_port_by_host_ip,
+                          m_driver, neutron, node_fixed_ip)
 
     def test_get_parent_port_by_host_ip_trunk_not_found(self):
         cls = nested_vif.NestedPodVIFDriver
@@ -90,8 +91,8 @@ class TestNestedPodVIFDriver(test_base.TestCase):
         neutron.list_ports.return_value = ports
 
         self.assertRaises(kl_exc.NoResourceException,
-            cls._get_parent_port_by_host_ip, m_driver, neutron,
-            node_fixed_ip)
+                          cls._get_parent_port_by_host_ip, m_driver, neutron,
+                          node_fixed_ip)
         fixed_ips = ['subnet_id=%s' % str(node_subnet_id),
                      'ip_address=%s' % str(node_fixed_ip)]
         neutron.list_ports.assert_called_once_with(fixed_ips=fixed_ips)
