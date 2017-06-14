@@ -257,66 +257,6 @@ function configure_neutron_defaults {
     fi
 }
 
-function check_docker {
-    if is_ubuntu; then
-       dpkg -s docker-engine > /dev/null 2>&1
-    else
-       rpm -q docker-engine > /dev/null 2>&1 || rpm -q docker > /dev/null 2>&1
-    fi
-}
-
-function prepare_docker {
-    curl -L http://get.docker.com | sudo bash
-}
-
-function run_docker {
-    local dockerd_bin=$(which dockerd)
-
-    if [[ "$USE_SYSTEMD" = "True" ]]; then
-        # If systemd is being used, proceed as normal
-        run_process docker \
-            "$dockerd_bin --debug=true \
-                -H unix://$KURYR_DOCKER_ENGINE_SOCKET_FILE" "root" "root"
-    else
-        # If screen is being used, there is a possibility that the devstack
-        # environment is on a stable branch. Older versions of run_process have
-        # a different signature. Sudo is used as a workaround that works in
-        # both older and newer versions of devstack.
-        run_process docker \
-           "sudo $dockerd_bin --debug=true \
-               -H unix://$KURYR_DOCKER_ENGINE_SOCKET_FILE"
-    fi
-
-    # We put the stack user as owner of the socket so we do not need to
-    # run the Docker commands with sudo when developing.
-    echo -n "Waiting for Docker to create its socket file"
-    while [ ! -e "$KURYR_DOCKER_ENGINE_SOCKET_FILE" ]; do
-        echo -n "."
-        sleep 1
-    done
-    echo ""
-    sudo chown "$STACK_USER":docker "$KURYR_DOCKER_ENGINE_SOCKET_FILE"
-}
-
-function stop_docker {
-    stop_process docker
-
-    # Stop process does not handle well Docker 1.12+ new multi process
-    # split and doesn't kill them all. Let's leverage Docker's own pidfile
-    local DOCKER_PIDFILE="/var/run/docker.pid"
-    if [ -f "$DOCKER_PIDFILE" ]; then
-        echo "Killing docker"
-        sudo kill -s SIGTERM "$(cat "$DOCKER_PIDFILE")"
-    fi
-    while [ -e "$DOCKER_PIDFILE" ]; do
-        echo -n "."
-        sleep 1
-    done
-    if [ -e "$KURYR_DOCKER_ENGINE_SOCKET_FILE" ]; then
-        sudo rm "$KURYR_DOCKER_ENGINE_SOCKET_FILE"
-    fi
-}
-
 function get_hyperkube_container_cacert_setup_dir {
     case "$1" in
         1.[0-3].*) echo "/data";;
@@ -562,12 +502,6 @@ if is_service_enabled kuryr-kubernetes; then
         # If Kuryr start up in "post-config" phase, there is no way to make
         # sure Kuryr can start before neutron-server, so Kuryr start in "extra"
         # phase.  Bug: https://bugs.launchpad.net/kuryr/+bug/1587522
-
-        if is_service_enabled docker; then
-            check_docker || prepare_docker
-            stop_docker
-            run_docker
-        fi
 
         if is_service_enabled legacy_etcd; then
             prepare_etcd_legacy

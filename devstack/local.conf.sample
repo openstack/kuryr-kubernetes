@@ -54,7 +54,7 @@ enable_service rabbit
 # ======
 # If you already have docker configured, running and with its socket writable
 # by the stack user, you can omit the following line.
-enable_service docker
+enable_plugin devstack-plugin-container https://git.openstack.org/openstack/devstack-plugin-container
 
 # Etcd
 # ====

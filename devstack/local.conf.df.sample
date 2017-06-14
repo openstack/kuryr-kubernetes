@@ -3,7 +3,7 @@
 enable_plugin kuryr-kubernetes \
     https://git.openstack.org/openstack/kuryr-kubernetes
 
-enable_plugin dragonflow https://github.com/openstack/dragonflow
+enable_plugin dragonflow https://git.openstack.org/openstack/dragonflow
 
 # If you do not want stacking to clone new versions of the enabled services,
 # like for example when you did local modifications and need to ./unstack.sh
@@ -72,7 +72,7 @@ NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.h
 # ======
 # If you already have docker configured, running and with its socket writable
 # by the stack user, you can omit the following line.
-enable_service docker
+enable_plugin devstack-plugin-container https://git.openstack.org/openstack/devstack-plugin-container
 
 # Etcd
 # ====
