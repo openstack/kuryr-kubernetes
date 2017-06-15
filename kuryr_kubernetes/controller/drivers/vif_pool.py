@@ -20,13 +20,16 @@ import six
 import time
 
 from kuryr.lib._i18n import _
+from kuryr.lib import constants as kl_const
 from neutronclient.common import exceptions as n_exc
 from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes.controller.drivers import base
+from kuryr_kubernetes.controller.drivers import default_subnet
 from kuryr_kubernetes import exceptions
+from kuryr_kubernetes import os_vif_util as ovu
 
 LOG = logging.getLogger(__name__)
 
@@ -104,6 +107,8 @@ class BaseVIFPool(base.VIFPoolDriver):
         # Note(ltomasbo) Execute the port recycling periodic actions in a
         # background thread
         eventlet.spawn(self._return_ports_to_pool)
+        # Note(ltomasbo) Delete or recover previously pre-created ports
+        eventlet.spawn(self._recover_precreated_ports)
 
     def set_vif_driver(self, driver):
         self._drv_vif = driver
@@ -162,6 +167,11 @@ class BaseVIFPool(base.VIFPoolDriver):
         if not self._existing_vifs.get(vif.id):
             self._existing_vifs[vif.id] = vif
         self._recyclable_ports[vif.id] = pool_key
+
+    def _get_ports_by_attrs(self, **attrs):
+        neutron = clients.get_neutron_client()
+        ports = neutron.list_ports(**attrs)
+        return ports['ports']
 
 
 class NeutronVIFPool(BaseVIFPool):
@@ -231,6 +241,19 @@ class NeutronVIFPool(BaseVIFPool):
                         LOG.debug('Port %s is not in the ports list.', port_id)
                 del self._recyclable_ports[port_id]
             eventlet.sleep(oslo_cfg.CONF.vif_pool.ports_pool_update_frequency)
+
+    def _recover_precreated_ports(self):
+        # REVISIT(ltomasbo): host_address cannot be obtained to recover the
+        # port into the corresponding pool. So for now they are just cleaned
+        # up
+        self._cleanup_precreated_ports()
+
+    def _cleanup_precreated_ports(self):
+        neutron = clients.get_neutron_client()
+        available_ports = self._get_ports_by_attrs(
+            name='available-port', device_owner=kl_const.DEVICE_OWNER)
+        for port in available_ports:
+            neutron.delete_port(port['id'])
 
 
 class NestedVIFPool(BaseVIFPool):
@@ -318,3 +341,44 @@ class NestedVIFPool(BaseVIFPool):
                         continue
                 del self._recyclable_ports[port_id]
             eventlet.sleep(oslo_cfg.CONF.vif_pool.ports_pool_update_frequency)
+
+    def _get_parent_port_ip(self, port_id):
+        neutron = clients.get_neutron_client()
+        parent_port = neutron.show_port(port_id).get('port')
+        return parent_port['fixed_ips'][0]['ip_address']
+
+    def _recover_precreated_ports(self):
+        neutron = clients.get_neutron_client()
+        available_ports = self._get_ports_by_attrs(
+            name='available-port', device_owner='trunk:subport')
+
+        if not available_ports:
+            return
+
+        trunk_ports = neutron.list_trunks().get('trunks')
+        for trunk in trunk_ports:
+            try:
+                host_addr = self._get_parent_port_ip(trunk['port_id'])
+            except n_exc.PortNotFoundClient:
+                LOG.debug('Unable to find parent port for trunk port %s.',
+                          trunk['port_id'])
+                continue
+
+            for subport in trunk.get('sub_ports'):
+                kuryr_subport = None
+                for port in available_ports:
+                    if port['id'] == subport['port_id']:
+                        kuryr_subport = port
+                        break
+
+                if kuryr_subport:
+                    pool_key = (host_addr, kuryr_subport['project_id'],
+                                tuple(kuryr_subport['security_groups']))
+                    subnet_id = kuryr_subport['fixed_ips'][0]['subnet_id']
+                    subnet = {subnet_id: default_subnet._get_subnet(subnet_id)}
+                    vif = ovu.neutron_to_osvif_vif_nested_vlan(
+                        kuryr_subport, subnet, subport['segmentation_id'])
+
+                    self._existing_vifs[subport['port_id']] = vif
+                    self._available_ports_pools.setdefault(
+                        pool_key, []).append(subport['port_id'])

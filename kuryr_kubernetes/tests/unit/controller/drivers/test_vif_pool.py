@@ -54,6 +54,51 @@ def get_pod_obj():
         }}
 
 
+def get_port_obj(port_id=None, device_owner=None, ip_address=None):
+    port_obj = {
+        'allowed_address_pairs': [],
+        'extra_dhcp_opts': [],
+        'device_owner': 'compute:kuryr',
+        'revision_number': 9,
+        'port_security_enabled': True,
+        'binding:profile': {},
+        'fixed_ips': [
+            {
+                'subnet_id': 'e1942bb1-5f51-4646-9885-365b66215592',
+                'ip_address': '10.10.0.5'},
+            {
+                'subnet_id': '4894baaf-df06-4a54-9885-9cd99d1cc245',
+                'ip_address': 'fd35:7db5:e3fc:0:f816:3eff:fe80:d421'}],
+        'id': '07cfe856-11cc-43d9-9200-ff4dc02d3620',
+        'security_groups': ['cfb3dfc4-7a43-4ba1-b92d-b8b2650d7f88'],
+        'binding:vif_details': {
+            'port_filter': True,
+            'ovs_hybrid_plug': False},
+        'binding:vif_type': 'ovs',
+        'mac_address': 'fa:16:3e:80:d4:21',
+        'project_id': 'b6e8fb2bde594673923afc19cf168f3a',
+        'status': 'DOWN',
+        'binding:host_id': 'kuryr-devstack',
+        'description': '',
+        'tags': [],
+        'device_id': '',
+        'name': 'available-port',
+        'admin_state_up': True,
+        'network_id': 'ba44f957-c467-412b-b985-ae720514bc46',
+        'tenant_id': 'b6e8fb2bde594673923afc19cf168f3a',
+        'created_at': '2017-06-09T13:23:24Z',
+        'binding:vnic_type': 'normal'}
+
+    if ip_address:
+        port_obj['fixed_ips'][0]['ip_address'] = ip_address
+    if port_id:
+        port_obj['id'] = port_id
+    if device_owner:
+        port_obj['device_owner'] = device_owner
+
+    return port_obj
+
+
 @ddt.ddt
 class NeutronVIFPool(test_base.TestCase):
 
@@ -432,9 +477,58 @@ class NeutronVIFPool(test_base.TestCase):
         neutron.update_port.assert_not_called()
         neutron.delete_port.assert_not_called()
 
+    def test__cleanup_precreated_ports(self):
+        cls = vif_pool.NeutronVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        port_id = mock.sentinel.port_id
+        port = {'id': port_id}
+        filtered_ports = [port]
+        m_driver._get_ports_by_attrs.return_value = filtered_ports
+
+        cls._cleanup_precreated_ports(m_driver)
+        neutron.delete_port.assert_called_with(port_id)
+
+    def test__cleanup_precreated_ports_empty(self):
+        cls = vif_pool.NeutronVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        filtered_ports = []
+        m_driver._get_ports_by_attrs.return_value = filtered_ports
+
+        cls._cleanup_precreated_ports(m_driver)
+        neutron.delete_port.assert_not_called()
+
 
 @ddt.ddt
 class NestedVIFPool(test_base.TestCase):
+
+    def _get_trunk_obj(self, port_id=None, subport_id=None):
+        trunk_obj = {
+            'status': 'ACTIVE',
+            'name': 'trunk-01aa31ea-5adf-4776-9c5d-21b50dba0ccc',
+            'admin_state_up': True,
+            'tenant_id': '18fbc0e645d74e83931193ef99dfe5c5',
+            'sub_ports': [{'port_id': '85104e7d-8597-4bf7-94e7-a447ef0b50f1',
+                           'segmentation_type': 'vlan',
+                           'segmentation_id': 4056}],
+            'updated_at': '2017-06-09T13:25:01Z',
+            'id': 'd1217757-848f-45dd-9ff2-3640f9b053dc',
+            'revision_number': 2359,
+            'project_id': '18fbc0e645d74e83931193ef99dfe5c5',
+            'port_id': '01aa31ea-5adf-4776-9c5d-21b50dba0ccc',
+            'created_at': '2017-05-19T16:43:22Z',
+            'description': ''
+        }
+
+        if port_id:
+            trunk_obj['port_id'] = port_id
+        if subport_id:
+            trunk_obj['sub_ports'][0]['port_id'] = subport_id
+
+        return trunk_obj
 
     def test_request_vif(self):
         cls = vif_pool.NestedVIFPool
@@ -844,3 +938,168 @@ class NestedVIFPool(test_base.TestCase):
                                                                   trunk_id,
                                                                   port_id)
         neutron.delete_port.assert_not_called()
+
+    def test__get_parent_port_ip(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        port_id = mock.sentinel.port_id
+        ip_address = mock.sentinel.ip_address
+
+        port_obj = get_port_obj(ip_address=ip_address)
+        neutron.show_port.return_value = {'port': port_obj}
+
+        self.assertEqual(ip_address, cls._get_parent_port_ip(m_driver,
+                                                             port_id))
+
+    @mock.patch('kuryr_kubernetes.os_vif_util.'
+                'neutron_to_osvif_vif_nested_vlan')
+    @mock.patch('kuryr_kubernetes.controller.drivers.default_subnet.'
+                '_get_subnet')
+    def test__recover_precreated_ports(self, m_get_subnet, m_to_osvif):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        port_id = mock.sentinel.port_id
+        host_addr = mock.sentinel.host_addr
+
+        m_driver._get_ports_by_attrs.return_value = [get_port_obj(
+            port_id=port_id, device_owner='trunk:subport')]
+        trunk_id = mock.sentinel.trunk_id
+        trunk_obj = self._get_trunk_obj(port_id=trunk_id, subport_id=port_id)
+        neutron.list_trunks.return_value = {'trunks': [trunk_obj]}
+        m_driver._get_parent_port_ip.return_value = host_addr
+
+        m_get_subnet.return_value = mock.sentinel.subnet
+        m_to_osvif.return_value = mock.sentinel.vif
+
+        cls._recover_precreated_ports(m_driver)
+        neutron.list_trunks.assert_called_once()
+        m_driver._get_parent_port_ip.assert_called_with(trunk_id)
+
+    @mock.patch('kuryr_kubernetes.os_vif_util.'
+                'neutron_to_osvif_vif_nested_vlan')
+    @mock.patch('kuryr_kubernetes.controller.drivers.default_subnet.'
+                '_get_subnet')
+    def test__recover_precreated_ports_several_trunks(self, m_get_subnet,
+                                                      m_to_osvif):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        port_id1 = mock.sentinel.port_id1
+        host_addr1 = mock.sentinel.host_addr1
+        trunk_id1 = mock.sentinel.trunk_id1
+
+        port_id2 = mock.sentinel.port_id2
+        host_addr2 = mock.sentinel.host_addr2
+        trunk_id2 = mock.sentinel.trunk_id2
+
+        port1 = get_port_obj(port_id=port_id1, device_owner='trunk:subport')
+        port2 = get_port_obj(port_id=port_id2, device_owner='trunk:subport')
+        m_driver._get_ports_by_attrs.return_value = [port1, port2]
+
+        trunk_obj1 = self._get_trunk_obj(port_id=trunk_id1,
+                                         subport_id=port_id1)
+        trunk_obj2 = self._get_trunk_obj(port_id=trunk_id2,
+                                         subport_id=port_id2)
+        neutron.list_trunks.return_value = {'trunks': [trunk_obj1,
+                                                       trunk_obj2]}
+        m_driver._get_parent_port_ip.side_effect = [host_addr1, host_addr2]
+
+        subnet = mock.sentinel.subnet
+        m_get_subnet.return_value = subnet
+        m_to_osvif.return_value = mock.sentinel.vif
+
+        cls._recover_precreated_ports(m_driver)
+        neutron.list_trunks.asser_called_once()
+        m_driver._get_parent_port_ip.assert_has_calls([mock.call(trunk_id1),
+                                                       mock.call(trunk_id2)])
+        calls = [mock.call(port1, {port1['fixed_ips'][0]['subnet_id']: subnet},
+                           trunk_obj1['sub_ports'][0]['segmentation_id']),
+                 mock.call(port2, {port2['fixed_ips'][0]['subnet_id']: subnet},
+                           trunk_obj2['sub_ports'][0]['segmentation_id'])]
+        m_to_osvif.assert_has_calls(calls)
+
+    @mock.patch('kuryr_kubernetes.os_vif_util.'
+                'neutron_to_osvif_vif_nested_vlan')
+    @mock.patch('kuryr_kubernetes.controller.drivers.default_subnet.'
+                '_get_subnet')
+    def test__recover_precreated_ports_several_subports(self, m_get_subnet,
+                                                        m_to_osvif):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        port_id1 = mock.sentinel.port_id1
+        host_addr = mock.sentinel.host_addr
+        trunk_id = mock.sentinel.trunk_id
+
+        port_id2 = mock.sentinel.port_id2
+
+        port1 = get_port_obj(port_id=port_id1, device_owner='trunk:subport')
+        port2 = get_port_obj(port_id=port_id2, device_owner='trunk:subport')
+        m_driver._get_ports_by_attrs.return_value = [port1, port2]
+
+        trunk_obj = self._get_trunk_obj(port_id=trunk_id,
+                                        subport_id=port_id1)
+        trunk_obj['sub_ports'].append({'port_id': port_id2,
+                                       'segmentation_type': 'vlan',
+                                       'segmentation_id': 101})
+        neutron.list_trunks.return_value = {'trunks': [trunk_obj]}
+        m_driver._get_parent_port_ip.return_value = [host_addr]
+
+        subnet = mock.sentinel.subnet
+        m_get_subnet.return_value = subnet
+        m_to_osvif.return_value = mock.sentinel.vif
+
+        cls._recover_precreated_ports(m_driver)
+        neutron.list_trunks.asser_called_once()
+        m_driver._get_parent_port_ip.assert_called_once_with(trunk_id)
+        calls = [mock.call(port1, {port1['fixed_ips'][0]['subnet_id']: subnet},
+                           trunk_obj['sub_ports'][0]['segmentation_id']),
+                 mock.call(port2, {port2['fixed_ips'][0]['subnet_id']: subnet},
+                           trunk_obj['sub_ports'][1]['segmentation_id'])]
+        m_to_osvif.assert_has_calls(calls)
+
+    def test__recover_precreated_ports_no_ports_to_recover(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        m_driver._get_ports_by_attrs.return_value = []
+
+        cls._recover_precreated_ports(m_driver)
+        neutron.list_trunks.assert_not_called()
+
+    def test__recover_precreated_ports_no_trunks(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        m_driver._get_ports_by_attrs.return_value = [get_port_obj(
+            device_owner='trunk:subport')]
+        neutron.list_trunks.return_value = {'trunks': []}
+
+        cls._recover_precreated_ports(m_driver)
+        neutron.list_trunks.assert_called()
+        m_driver._get_parent_port_ip.assert_not_called()
+
+    def test__recover_precreated_ports_exception(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        port_id = mock.sentinel.port_id
+        m_driver._get_ports_by_attrs.return_value = [get_port_obj(
+            port_id=port_id, device_owner='trunk:subport')]
+        trunk_id = mock.sentinel.trunk_id
+        trunk_obj = self._get_trunk_obj(port_id=trunk_id)
+        neutron.list_trunks.return_value = {'trunks': [trunk_obj]}
+        m_driver._get_parent_port_ip.side_effect = n_exc.PortNotFoundClient
+
+        self.assertIsNone(cls._recover_precreated_ports(m_driver))
+        neutron.list_trunks.assert_called()
+        m_driver._get_parent_port_ip.assert_called_with(trunk_id)
