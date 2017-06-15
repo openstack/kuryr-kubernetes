@@ -130,7 +130,7 @@ class Watcher(object):
     def _stop_watch(self, path):
         if self._idle.get(path):
             if self._thread_group:
-                self._watching[path].kill()
+                self._watching[path].stop()
 
     def _watch(self, path):
         try:

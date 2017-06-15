@@ -185,7 +185,7 @@ class TestWatcher(test_base.TestCase):
 
         watcher_obj._stop_watch(path)
 
-        m_th.kill.assert_called()
+        m_th.stop.assert_called()
 
     def test_stop_watch_idle(self):
         path = '/test'
