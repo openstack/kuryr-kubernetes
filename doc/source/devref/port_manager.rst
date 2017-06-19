@@ -105,6 +105,35 @@ In addition, a Time-To-Live (TTL) could be set to the ports at the pool, so
 that if they are not used during a certain period of time, they are removed --
 if and only if the available_pool size is still larger than the target minimum.
 
+Recovery of pool ports upon Kuryr-Controller restart
+++++++++++++++++++++++++++++++++++++++++++++++++++++
+If the Kuryr-Controller is restarted, the pre-created ports will still exist
+on the Neutron side but the Kuryr-controller will be unaware of them, thus
+pre-creating more upon pod allocation requests. To avoid having these existing
+but unused ports a mechanisms is needed to either delete them after
+controller's reboot, or obtain their information and re-include them into
+their corresponding pool.
+
+For the baremetal (NeutronVIF) case, as the ports are not attached to any
+hosts (at least not until CNI support is included) there is not enough
+information to decide which pool should be selected for adding the port.
+For simplicity, and as a temporal solution until CNI support is developed,
+the implemented mechanism will find the previously created ports by looking
+at the existing neutron ports and filtering them by device_owner and name,
+which should be compute:kuryr and available-port, respectively.
+Once these ports are obtained, they are deleted to release unused Neutron
+resources and avoid problems related to ports quota limits.
+
+By contrast, it is possible to obtain all the needed information for the
+subports previously created for the nested (VLAN+Trunk) case as they are still
+attached to their respective trunk ports. Therefore, these ports instead of
+being deleted will be re-added to their corresponding pools.
+To do this, the Neutron ports are filtered by device_owner (trunk:subport in
+this case) and name (available-port), and then we iterate over the subports
+attached to each existing trunk port to find where the filtered ports are
+attached and then obtain all the needed information to re-add them into the
+corresponding pools.
+
 Kuryr Controller Impact
 +++++++++++++++++++++++
 A new VIF Pool driver is created to manage the ports pools upon pods creation
