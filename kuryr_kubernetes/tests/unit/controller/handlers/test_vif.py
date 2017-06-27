@@ -62,12 +62,12 @@ class TestVIFHandler(test_base.TestCase):
         self._get_vif = self._handler._get_vif
         self._set_vif = self._handler._set_vif
         self._is_host_network = self._handler._is_host_network
-        self._is_pending = self._handler._is_pending
+        self._is_pending_node = self._handler._is_pending_node
 
         self._request_vif.return_value = self._vif
         self._get_vif.return_value = self._vif
         self._is_host_network.return_value = False
-        self._is_pending.return_value = True
+        self._is_pending_node.return_value = True
         self._get_project.return_value = self._project_id
         self._get_subnets.return_value = self._subnets
         self._get_security_groups.return_value = self._security_groups
@@ -113,15 +113,20 @@ class TestVIFHandler(test_base.TestCase):
         del pod['spec']['hostNetwork']
         self.assertFalse(h_vif.VIFHandler._is_host_network(pod))
 
-    def test_is_pending(self):
-        self.assertTrue(h_vif.VIFHandler._is_pending(self._pod))
+    def test_is_pending_node(self):
+        self.assertTrue(h_vif.VIFHandler._is_pending_node(self._pod))
 
     def test_is_not_pending(self):
         self._pod['status']['phase'] = 'Unknown'
-        self.assertFalse(h_vif.VIFHandler._is_pending(self._pod))
+        self.assertFalse(h_vif.VIFHandler._is_pending_node(self._pod))
+
+    def test_is_pending_no_node(self):
+        self._pod['spec']['nodeName'] = None
+        self.assertFalse(h_vif.VIFHandler._is_pending_node(self._pod))
 
     def test_unset_pending(self):
-        self.assertFalse(h_vif.VIFHandler._is_pending({}))
+        self.assertFalse(h_vif.VIFHandler._is_pending_node({'spec': {},
+                                                            'status': {}}))
 
     def test_on_present(self):
         h_vif.VIFHandler.on_present(self._handler, self._pod)
@@ -142,7 +147,7 @@ class TestVIFHandler(test_base.TestCase):
         self._set_vif.assert_not_called()
 
     def test_on_present_not_pending(self):
-        self._is_pending.return_value = False
+        self._is_pending_node.return_value = False
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
