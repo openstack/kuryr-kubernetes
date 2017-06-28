@@ -84,6 +84,18 @@ print("%s\\t%s" % (IPAddress(n.first + 1), IPAddress(n.last - 1)))
 EOF
 }
 
+function copy_tempest_kubeconfig {
+    local tempest_home
+    local stack_home
+
+    tempest_home='/home/tempest'
+    stack_home='/opt/stack/new'
+    if [ -d "$tempest_home" ]; then
+        sudo cp -r "$stack_home/.kube" "$tempest_home"
+        sudo chown -R tempest "$tempest_home/.kube"
+    fi
+}
+
 function create_k8s_router_fake_service {
     local service_cidr
     local router_ip
@@ -570,6 +582,9 @@ if is_service_enabled kuryr-kubernetes; then
             KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE=$(trueorfalse True KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE)
             if [[ "$KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE" == "True" ]]; then
                 ovs_bind_for_kubelet "$KURYR_NEUTRON_DEFAULT_PROJECT"
+            fi
+            if is_service_enabled tempest; then
+                copy_tempest_kubeconfig
             fi
         fi
 
