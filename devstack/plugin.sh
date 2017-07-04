@@ -368,15 +368,27 @@ function wait_for {
 }
 
 function run_k8s_api {
+    local cluster_ip_range
+
     # Runs Hyperkube's Kubernetes API Server
     wait_for "etcd" "${KURYR_ETCD_ADVERTISE_CLIENT_URL}/v2/machines"
+
+    KURYR_CONFIGURE_NEUTRON_DEFAULTS=$(trueorfalse True KURYR_CONFIGURE_NEUTRON_DEFAULTS)
+    if [ "$KURYR_CONFIGURE_NEUTRON_DEFAULTS" == "True" ]; then
+        cluster_ip_range="${KURYR_K8S_CLUSTER_IP_RANGE}"
+    else
+        cluster_ip_range=$(openstack --os-cloud devstack-admin \
+                             --os-region "$REGION_NAME" \
+                             subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
+                             -c cidr -f value)
+    fi
 
     run_container kubernetes-api \
         --net host \
         --volume="${KURYR_HYPERKUBE_DATA_DIR}:/srv/kubernetes:rw" \
         "${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}" \
             /hyperkube apiserver \
-                --service-cluster-ip-range="${KURYR_K8S_CLUSTER_IP_RANGE}" \
+                --service-cluster-ip-range="${cluster_ip_range}" \
                 --insecure-bind-address=0.0.0.0 \
                 --insecure-port="${KURYR_K8S_API_PORT}" \
                 --etcd-servers="${KURYR_ETCD_ADVERTISE_CLIENT_URL}" \
