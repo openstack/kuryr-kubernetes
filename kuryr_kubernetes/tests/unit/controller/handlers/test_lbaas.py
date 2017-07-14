@@ -55,6 +55,7 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         m_handler._get_lbaas_spec.return_value = old_spec
         m_handler._has_lbaas_spec_changes.return_value = True
         m_handler._generate_lbaas_spec.return_value = new_spec
+        m_handler._should_ignore.return_value = False
 
         h_lbaas.LBaaSSpecHandler.on_present(m_handler, svc_event)
 
@@ -71,12 +72,28 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
         m_handler._get_lbaas_spec.return_value = old_spec
         m_handler._has_lbaas_spec_changes.return_value = False
+        m_handler._should_ignore.return_value = False
 
         h_lbaas.LBaaSSpecHandler.on_present(m_handler, svc_event)
 
         m_handler._get_lbaas_spec.assert_called_once_with(svc_event)
         m_handler._has_lbaas_spec_changes.assert_called_once_with(svc_event,
                                                                   old_spec)
+        m_handler._generate_lbaas_spec.assert_not_called()
+        m_handler._set_lbaas_spec.assert_not_called()
+
+    def test_on_present_no_selector(self):
+        svc_event = mock.sentinel.svc_event
+        old_spec = mock.sentinel.old_spec
+
+        m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
+        m_handler._get_lbaas_spec.return_value = old_spec
+        m_handler._should_ignore.return_value = True
+
+        h_lbaas.LBaaSSpecHandler.on_present(m_handler, svc_event)
+
+        m_handler._get_lbaas_spec.assert_called_once_with(svc_event)
+        m_handler._has_lbaas_spec_changes.assert_not_called()
         m_handler._generate_lbaas_spec.assert_not_called()
         m_handler._set_lbaas_spec.assert_not_called()
 
