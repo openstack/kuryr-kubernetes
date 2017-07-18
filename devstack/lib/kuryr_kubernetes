@@ -94,11 +94,11 @@ function run_container {
     docker_bin=$(which docker)
     name="$1"
     shift
-
-    "$docker_bin" run --name "$name" --detach "$@"
+    args="$@"
+    $docker_bin create --name $name $args
 
     run_process "$name" \
-        "$docker_bin logs -f $name"
+        "$docker_bin start --attach $name"
 }
 
 # stop_container
