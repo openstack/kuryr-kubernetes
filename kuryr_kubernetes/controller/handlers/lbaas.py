@@ -44,6 +44,11 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
     def on_present(self, service):
         lbaas_spec = self._get_lbaas_spec(service)
 
+        if self._should_ignore(service):
+            LOG.debug("Skiping Kubernetes service without a selector as "
+                      "Kubernetes does not create an endpoint object for it.")
+            return
+
         if self._has_lbaas_spec_changes(service, lbaas_spec):
             lbaas_spec = self._generate_lbaas_spec(service)
             self._set_lbaas_spec(service, lbaas_spec)
@@ -52,6 +57,12 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
         spec = service['spec']
         if spec.get('type') == 'ClusterIP':
             return spec.get('clusterIP')
+
+    def _should_ignore(self, service):
+        return not(self._has_selector(service))
+
+    def _has_selector(self, service):
+        return service['spec'].get('selector')
 
     def _get_subnet_id(self, service, project_id, ip):
         subnets_mapping = self._drv_subnets.get_subnets(service, project_id)
