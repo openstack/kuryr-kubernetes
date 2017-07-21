@@ -17,7 +17,7 @@ OpenStack VMs and Kubernetes Pods on the same Neutron network if your workloads
 require it or to use different segments and, for example, route between them.
 
 * Free software: Apache license
-* Documentation: https://docs.openstack.org/developer/kuryr-kubernetes
+* Documentation: https://docs.openstack.org/kuryr-kubernetes/latest
 * Source: https://git.openstack.org/cgit/openstack/kuryr-kubernetes
 * Bugs: https://bugs.launchpad.net/kuryr-kubernetes
 * Overview and demo: http://superuser.openstack.org/articles/networking-kubernetes-kuryr
