@@ -144,3 +144,104 @@ function run_etcd_legacy {
             --initial-cluster "devstack=$KURYR_ETCD_ADVERTISE_PEER_URL" \
             --initial-cluster-state new
 }
+
+# _allocation_range
+#   Description: Writes out tab separated usable ip range for a CIDR
+#   Params:
+#       cidr - The cidr to get the range for
+#       gateway_position - Whether to reserve at 'beginning' or at 'end'
+function _allocation_range {
+  python - <<EOF "$@"
+import sys
+
+from ipaddress import ip_network
+import six
+
+
+n = ip_network(six.text_type(sys.argv[1]))
+gateway_position = sys.argv[2]
+
+if gateway_position == 'beginning':
+    beg_offset = 2
+    end_offset = 2
+elif gateway_position == 'end':
+    beg_offset = 1
+    end_offset = 3
+else:
+    raise ValueError('Disallowed gateway position %s' % gateway_position)
+
+print("%s\\t%s" % (n[beg_offset], n[-end_offset]))
+EOF
+}
+
+# create_k8s_subnet
+#   Description: Creates a network and subnet for Kuryr-Kubernetes usage
+#   Params:
+#      project_id    - Kuryr's project uuid
+#      net_name      - Name of the network to create
+#      subnet_name   - Name of the subnet to create
+#      subnetpool_id - uuid of the subnet pool to use
+#      router        - name of the router to plug the subnet to
+function create_k8s_subnet {
+    # REVISIT(apuimedo): add support for IPv6
+    local project_id=$1
+    local net_name="$2"
+    local subnet_name="$3"
+    local subnetpool_id="$4"
+    local router="$5"
+    local subnet_params="--project $project_id "
+    local subnet_cidr
+
+    subnet_params+="--ip-version 4 "
+    subnet_params+="--no-dhcp --gateway none "
+    subnet_params+="--subnet-pool $subnetpool_id "
+
+    local net_id
+    net_id=$(openstack --os-cloud devstack-admin \
+                       --os-region "$REGION_NAME" \
+                       network create --project "$project_id" \
+                       "$net_name" \
+                       -c id -f value)
+    subnet_params+="--network $net_id $subnet_name"
+
+    local subnet_id
+    subnet_id=$(openstack --os-cloud devstack-admin \
+                          --os-region "$REGION_NAME" \
+                          subnet create $subnet_params \
+                          -c id -f value)
+    die_if_not_set $LINENO subnet_id \
+        "Failure creating K8s ${subnet_name} IPv4 subnet for ${project_id}"
+
+    subnet_cidr=$(openstack --os-cloud devstack-admin \
+                             --os-region "$REGION_NAME" \
+                             subnet show "$subnet_id" \
+                             -c cidr -f value)
+    die_if_not_set $LINENO subnet_cidr \
+        "Failure getting K8s ${subnet_name} IPv4 subnet for $project_id"
+
+    # Since K8s has its own IPAM for services and allocates the first IP from
+    # service subnet CIDR to Kubernetes apiserver, we'll always put the router
+    # interface at the end of the range.
+    local router_ip
+    local allocation_start
+    local allocation_end
+    router_ip=$(_cidr_range "$subnet_cidr" | cut -f2)
+    allocation_start=$(_allocation_range "$subnet_cidr" end | cut -f1)
+    allocation_end=$(_allocation_range "$subnet_cidr" end | cut -f2)
+    die_if_not_set $LINENO router_ip \
+        "Failed to determine K8s ${subnet_name} subnet router IP"
+    openstack --os-cloud devstack-admin \
+        --os-region "$REGION_NAME" subnet set \
+        --gateway "$router_ip" --no-allocation-pool "$subnet_id" \
+        || die $LINENO "Failed to update K8s ${subnet_name} subnet"
+    # Set a new allocation pool for the subnet so ports can be created again
+    openstack --os-cloud devstack-admin \
+        --os-region "$REGION_NAME" subnet set \
+        --allocation-pool "start=${allocation_start},end=${allocation_end}" \
+        "$subnet_id" || die $LINENO "Failed to update K8s ${subnet_name} subnet"
+    openstack --os-cloud devstack-admin \
+              --os-region "$REGION_NAME" \
+              router add subnet "$router" "$subnet_id" \
+              || die $LINENO \
+              "Failed to enable routing for K8s ${subnet_name} subnet"
+}

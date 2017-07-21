@@ -152,6 +152,12 @@ function create_k8s_api_service {
     neutron lbaas-loadbalancer-create --name "$lb_name" \
         --vip-address "$k8s_api_clusterip" \
         "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET"
+
+    # Octavia needs the LB to be active for the listener
+    while [[ "$(_lb_state $lb_name)" != "ACTIVE" ]]; do
+        sleep 1
+    done
+
     neutron lbaas-listener-create --loadbalancer "$lb_name" \
         --name default/kubernetes:443 \
         --protocol HTTPS \
@@ -177,76 +183,39 @@ function create_k8s_api_service {
         default/kubernetes:443
 }
 
-function create_k8s_service_subnet {
-    # REVISIT(ivc): add support for IPv6
-    # REVISIT(apuimedo): Move this into a tool that can be used on deployments
-    #                    and make use of it here.
-    local project_id=$1
-    local subnet_params="--project $project_id "
-
-    if [ -z $SUBNETPOOL_V4_ID ]; then
-        local service_cidr=$KURYR_K8S_CLUSTER_IP_RANGE
-    fi
-
-    subnet_params+="--ip-version 4 "
-    subnet_params+="--no-dhcp --gateway none "
-    subnet_params+="${SUBNETPOOL_V4_ID:+--subnet-pool $SUBNETPOOL_V4_ID} "
-    subnet_params+="${service_cidr:+--subnet-range $service_cidr} "
-    subnet_params+="--network $NET_ID $KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET"
-
-    local subnet_id
-    subnet_id=$(openstack --os-cloud devstack-admin \
-                          --os-region "$REGION_NAME" \
-                          subnet create $subnet_params \
-                          -c id -f value)
-    die_if_not_set $LINENO subnet_id \
-        "Failure creating K8s service IPv4 subnet for $project_id"
-
-    service_cidr=$(openstack --os-cloud devstack-admin \
-                             --os-region "$REGION_NAME" \
-                             subnet show $subnet_id \
-                             -c cidr -f value)
-    die_if_not_set $LINENO service_cidr \
-        "Failure creating K8s service IPv4 subnet for $project_id"
-    # REVISIT(ivc): consider adding a note to 'settings'
-    # KURYR_K8S_CLUSTER_IP_RANGE from 'settings' is only used if no
-    # SUBNETPOOL_V4_ID is defined and otherwise it is rewritten with a
-    # generated CIDR from SUBNETPOOL_V4_ID.
-    KURYR_K8S_CLUSTER_IP_RANGE=$service_cidr
-
-    # REVISIT(ivc): look for a better solution to deal with K8s IPAM
-    # K8s has its own IPAM for services. It also allocates the first IP from
-    # service subnet CIDR to Kubernetes apiserver.
-    # To deal with it we set gateway's IP to the the last IP from subnet's
-    # IP range and Kuryr's K8s service handler will ignore services with
-    # gateway's IP.
-    local router_ip=$(_cidr_range "$service_cidr" | cut -f2)
-    die_if_not_set $LINENO router_ip \
-        "Failed to determine K8s service subnet router IP"
-    openstack --os-cloud devstack-admin \
-              --os-region "$REGION_NAME" subnet set \
-              --gateway "$router_ip" \
-              --no-allocation-pool \
-              $subnet_id \
-              || die $LINENO "Failed to update K8s service subnet"
-    openstack --os-cloud devstack-admin \
-              --os-region "$REGION_NAME" \
-              router add subnet $ROUTER_ID $subnet_id \
-              || die $LINENO "Failed to enable routing for K8s service subnet"
-
-    KURYR_K8S_SERVICE_SUBNET_ID=$subnet_id
-}
-
 function configure_neutron_defaults {
-    local project_id=$(get_or_create_project \
+    local project_id
+    local pod_subnet_id
+    local sg_ids
+    local service_subnet_id
+    local subnetpool_id
+    local router
+
+    # If a subnetpool is not passed, we get the one created in devstack's
+    # Neutron module
+    subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}}
+    router=${KURYR_NEUTRON_DEFAULT_ROUTER:-$Q_ROUTER_NAME}
+
+    project_id=$(get_or_create_project \
         "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
-    local pod_subnet_id=$(neutron subnet-show -c id -f value \
-        "$KURYR_NEUTRON_DEFAULT_POD_SUBNET")
-    local sg_ids=$(echo $(neutron security-group-list \
+    create_k8s_subnet "$project_id" \
+                      "$KURYR_NEUTRON_DEFAULT_POD_NET" \
+                      "$KURYR_NEUTRON_DEFAULT_POD_SUBNET" \
+                      "$subnetpool_id" \
+                      "$router"
+    pod_subnet_id="$(neutron subnet-show -c id -f value \
+        "${KURYR_NEUTRON_DEFAULT_POD_SUBNET}")"
+
+    sg_ids=$(echo $(neutron security-group-list \
         --project-id "$project_id" -c id -f value) | tr ' ' ',')
 
-    create_k8s_service_subnet $project_id
-    local service_subnet_id=$KURYR_K8S_SERVICE_SUBNET_ID
+    create_k8s_subnet "$project_id" \
+                      "$KURYR_NEUTRON_DEFAULT_SERVICE_NET" \
+                      "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
+                      "$subnetpool_id" \
+                      "$router"
+    service_subnet_id="$(neutron subnet-show -c id -f value \
+        "${KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET}")"
 
     iniset "$KURYR_CONFIG" neutron_defaults project "$project_id"
     iniset "$KURYR_CONFIG" neutron_defaults pod_subnet "$pod_subnet_id"
@@ -373,15 +342,10 @@ function run_k8s_api {
     # Runs Hyperkube's Kubernetes API Server
     wait_for "etcd" "${KURYR_ETCD_ADVERTISE_CLIENT_URL}/v2/machines"
 
-    KURYR_CONFIGURE_NEUTRON_DEFAULTS=$(trueorfalse True KURYR_CONFIGURE_NEUTRON_DEFAULTS)
-    if [ "$KURYR_CONFIGURE_NEUTRON_DEFAULTS" == "True" ]; then
-        cluster_ip_range="${KURYR_K8S_CLUSTER_IP_RANGE}"
-    else
-        cluster_ip_range=$(openstack --os-cloud devstack-admin \
-                             --os-region "$REGION_NAME" \
-                             subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
-                             -c cidr -f value)
-    fi
+    cluster_ip_range=$(openstack --os-cloud devstack-admin \
+                         --os-region "$REGION_NAME" \
+                         subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
+                         -c cidr -f value)
 
     run_container kubernetes-api \
         --net host \
