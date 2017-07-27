@@ -37,7 +37,11 @@ enable_service q-svc
 enable_plugin neutron-lbaas \
     git://git.openstack.org/openstack/neutron-lbaas
 enable_service q-lbaasv2
-NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:opendaylight:networking_odl.lbaas.driver_v2.OpenDaylightLbaasDriverV2:default"
+
+# Currently there is problem with the ODL LBaaS driver integration, so we
+# default to the default neutron one
+#NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:opendaylight:networking_odl.lbaas.driver_v2.OpenDaylightLbaasDriverV2:default"
+NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default
 
 ODL_MODE=allinone
 ODL_RELEASE=carbon-snapshot-0.6

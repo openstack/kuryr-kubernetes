@@ -34,3 +34,7 @@ This section describes how you can install and configure kuryr-kubernetes
     services
     ipv6
     devstack/index
+    default_configuration
+    trunk_ports
+    testing_connectivity
+    testing_nested_connectivity

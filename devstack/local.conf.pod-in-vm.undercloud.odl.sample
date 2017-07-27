@@ -1,0 +1,85 @@
+[[local|localrc]]
+
+# If you do not want stacking to clone new versions of the enabled services,
+# like for example when you did local modifications and need to ./unstack.sh
+# and ./stack.sh again, uncomment the following
+# RECLONE="no"
+
+# Log settings for better readability
+LOGFILE=devstack.log
+LOG_COLOR=False
+# If you want the screen tabs logged in a specific location, you can use:
+# SCREEN_LOGDIR="${HOME}/devstack_logs"
+
+
+# Credentials
+ADMIN_PASSWORD=pass
+DATABASE_PASSWORD=pass
+RABBIT_PASSWORD=pass
+SERVICE_PASSWORD=pass
+SERVICE_TOKEN=pass
+# Enable Keystone v3
+IDENTITY_API_VERSION=3
+
+# In pro of speed and being lightweight, we will be explicit in regards to
+# which services we enable
+ENABLED_SERVICES=""
+
+# Neutron services
+enable_service neutron
+enable_service q-dhcp
+enable_service q-svc
+enable_service q-meta
+
+### Nova
+enable_service n-api
+enable_service n-api-meta
+enable_service n-cpu
+enable_service n-cond
+enable_service n-sch
+enable_service placement-api
+enable_service placement-client
+
+### Glance
+enable_service g-api
+enable_service g-reg
+
+### Neutron-lbaas
+# LBaaSv2 service and Haproxy agent
+enable_plugin neutron-lbaas \
+    git://git.openstack.org/openstack/neutron-lbaas
+enable_service q-lbaasv2
+
+# Currently there is problem with the ODL LBaaS driver integration, so we
+# default to the default neutron one
+#NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:opendaylight:networking_odl.lbaas.driver_v2.OpenDaylightLbaasDriverV2:default"
+NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
+
+
+# Keystone
+enable_service key
+
+# dependencies
+enable_service mysql
+enable_service rabbit
+
+ODL_MODE=allinone
+ODL_RELEASE=carbon-snapshot-0.6
+
+Q_USE_PUBLIC_VETH=False
+PUBLIC_BRIDGE=br-ex
+PUBLIC_PHYSICAL_NETWORK=public
+ODL_PROVIDER_MAPPINGS=public:br-ex
+ODL_L3=True
+
+ODL_NETVIRT_KARAF_FEATURE=odl-neutron-service,odl-restconf-all,odl-aaa-authn,odl-dlux-core,odl-mdsal-apidocs,odl-netvirt-openstack,odl-neutron-logger,odl-neutron-hostconfig-ovs
+
+ODL_PORT_BINDING_CONTROLLER=pseudo-agentdb-binding
+ODL_TIMEOUT=60
+ODL_V2DRIVER=True
+
+ODL_NETVIRT_DEBUG_LOGS=True
+Q_SERVICE_PLUGIN_CLASSES=trunk
+EBTABLES_RACE_FIX=True
+
+enable_plugin networking-odl http://git.openstack.org/openstack/networking-odl
