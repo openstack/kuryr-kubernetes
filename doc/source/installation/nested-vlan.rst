@@ -20,19 +20,11 @@ running. 4GB memory and 2 vCPUs, is the minimum resource requirement for the VM:
     - Since undercloud Neutron will be used by pods, Neutron services should be
       disabled in localrc.
     - Run devstack with ``devstack/local.conf.pod-in-vm.overcloud.sample``.
-      With this config devstack will not configure Neutron resources for the
-      local cloud. These variables have to be added manually
-      to ``/etc/kuryr/kuryr.conf``.
+      Fill in the needed information, such as the subnet pool id to use or the
+      router.
 
-4. Once devstack is done and all services are up inside VM:
-    - Configure ``/etc/kuryr/kuryr.conf`` to set UUID of Neutron resources from undercloud Neutron::
-
-       [neutron_defaults]
-       ovs_bridge = br-int
-       pod_security_groups = <UNDERCLOUD_DEFAULT_SG_UUID>
-       pod_subnet = <UNDERCLOUD_SUBNET_FOR_PODS_UUID>
-       project = <UNDERCLOUD_DEFAULT_PROJECT_UUID>
-       service_subnet = <UNDERCLOUD_SUBNET_FOR_SERVICES_UUID>
+4. Once devstack is done and all services are up inside VM. Next steps are to
+   configure the missing information at ``/etc/kuryr/kuryr.conf``:
 
     - Configure worker VMs subnet::
 
@@ -55,8 +47,3 @@ running. 4GB memory and 2 vCPUs, is the minimum resource requirement for the VM:
        sudo systemctl restart devstack@kuryr-kubernetes.service
 
 Now launch pods using kubectl, Undercloud Neutron will serve the networking.
-
-
-
-
-

@@ -22,8 +22,14 @@ KEYSTONE_SERVICE_HOST=$SERVICE_HOST
 MYSQL_HOST=$SERVICE_HOST
 RABBIT_HOST=$SERVICE_HOST
 
-KURYR_CONFIGURE_NEUTRON_DEFAULTS=False
+KURYR_CONFIGURE_NEUTRON_DEFAULTS=True
 KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE=False
+
+# Include subnet pool id to use. You can use the one from the default undercloud devstack
+KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID=UNDERCLOUD_SUBNETPOOL_V4_ID
+
+# Include the router to use. You can use the one from the default undercloud devstack
+KURYR_NEUTRON_DEFAULT_ROUTER=router1
 
 enable_plugin devstack-plugin-container https://git.openstack.org/openstack/devstack-plugin-container
 enable_service etcd3
