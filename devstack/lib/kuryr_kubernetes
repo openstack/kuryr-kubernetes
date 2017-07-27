@@ -30,7 +30,7 @@ function ovs_bind_for_kubelet() {
         --project "$project_id" \
         --security-group "$security_group" \
         --host "${HOSTNAME}" \
-        --network private \
+        --network "${KURYR_NEUTRON_DEFAULT_POD_NET}" \
         -f value -c id \
         kubelet-"${HOSTNAME}")
     ifname="kubelet${port_id}"
