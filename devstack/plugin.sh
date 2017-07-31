@@ -341,7 +341,7 @@ function run_k8s_scheduler {
 
 function prepare_kubeconfig {
     $KURYR_HYPERKUBE_BINARY kubectl config set-cluster devstack-cluster \
-        --server=http://localhost:8080
+        --server="${KURYR_K8S_API_URL}"
     $KURYR_HYPERKUBE_BINARY kubectl config set-context devstack \
         --cluster=devstack-cluster
     $KURYR_HYPERKUBE_BINARY kubectl config use-context devstack
@@ -433,106 +433,117 @@ function run_kuryr_kubernetes {
 source $DEST/kuryr-kubernetes/devstack/lib/kuryr_kubernetes
 
 # main loop
-if is_service_enabled kuryr-kubernetes; then
-    if [[ "$1" == "stack" && "$2" == "install" ]]; then
-        setup_develop "$KURYR_HOME"
-        if is_service_enabled kubelet; then
-            install_kuryr_cni
-        fi
-
-    elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
-        create_kuryr_account
-        configure_kuryr
+if [[ "$1" == "stack" && "$2" == "install" ]]; then
+    setup_develop "$KURYR_HOME"
+    if is_service_enabled kubelet; then
+        install_kuryr_cni
     fi
 
-    if [[ "$1" == "stack" && "$2" == "extra" ]]; then
+elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
+    if is_service_enabled kuryr-kubernetes; then
+        create_kuryr_account
+    fi
+    configure_kuryr
+fi
+
+if [[ "$1" == "stack" && "$2" == "extra" ]]; then
+    if is_service_enabled kuryr-kubernetes; then
         KURYR_CONFIGURE_NEUTRON_DEFAULTS=$(trueorfalse True KURYR_CONFIGURE_NEUTRON_DEFAULTS)
         if [ "$KURYR_CONFIGURE_NEUTRON_DEFAULTS" == "True" ]; then
             configure_neutron_defaults
         fi
-        # FIXME(limao): When Kuryr start up, it need to detect if neutron
-        # support tag plugin.
-        #
-        # Kuryr will call neutron extension API to verify if neutron support
-        # tag.  So Kuryr need to start after neutron-server finish load tag
-        # plugin.  The process of devstack is:
-        #     ...
-        #     run_phase "stack" "post-config"
-        #     ...
-        #     start neutron-server
-        #     ...
-        #     run_phase "stack" "extra"
-        #
-        # If Kuryr start up in "post-config" phase, there is no way to make
-        # sure Kuryr can start before neutron-server, so Kuryr start in "extra"
-        # phase.  Bug: https://bugs.launchpad.net/kuryr/+bug/1587522
+    fi
+    # FIXME(limao): When Kuryr start up, it need to detect if neutron
+    # support tag plugin.
+    #
+    # Kuryr will call neutron extension API to verify if neutron support
+    # tag.  So Kuryr need to start after neutron-server finish load tag
+    # plugin.  The process of devstack is:
+    #     ...
+    #     run_phase "stack" "post-config"
+    #     ...
+    #     start neutron-server
+    #     ...
+    #     run_phase "stack" "extra"
+    #
+    # If Kuryr start up in "post-config" phase, there is no way to make
+    # sure Kuryr can start before neutron-server, so Kuryr start in "extra"
+    # phase.  Bug: https://bugs.launchpad.net/kuryr/+bug/1587522
 
-        if is_service_enabled legacy_etcd; then
-            prepare_etcd_legacy
-            run_etcd_legacy
-        fi
+    if is_service_enabled legacy_etcd; then
+        prepare_etcd_legacy
+        run_etcd_legacy
+    fi
 
-        get_container "$KURYR_HYPERKUBE_IMAGE" "$KURYR_HYPERKUBE_VERSION"
-        prepare_kubernetes_files
-        if is_service_enabled kubernetes-api; then
-            run_k8s_api
-        fi
-        if is_service_enabled kubernetes-controller-manager; then
-            run_k8s_controller_manager
-        fi
-        if is_service_enabled kubernetes-scheduler; then
-            run_k8s_scheduler
-        fi
+    get_container "$KURYR_HYPERKUBE_IMAGE" "$KURYR_HYPERKUBE_VERSION"
+    prepare_kubernetes_files
+    if is_service_enabled kubernetes-api; then
+        run_k8s_api
+    fi
 
-        if is_service_enabled kubelet; then
-            prepare_kubelet
-            extract_hyperkube
-            prepare_kubeconfig
-            run_k8s_kubelet
-            KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE=$(trueorfalse True KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE)
-            if [[ "$KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE" == "True" ]]; then
-                ovs_bind_for_kubelet "$KURYR_NEUTRON_DEFAULT_PROJECT"
-            fi
-            if is_service_enabled tempest; then
-                copy_tempest_kubeconfig
-            fi
-        fi
+    if is_service_enabled kubernetes-controller-manager; then
+        run_k8s_controller_manager
+    fi
 
+    if is_service_enabled kubernetes-scheduler; then
+        run_k8s_scheduler
+    fi
+
+    if is_service_enabled kubelet; then
+        prepare_kubelet
+        extract_hyperkube
+        prepare_kubeconfig
+        run_k8s_kubelet
+        KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE=$(trueorfalse True KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE)
+        if [[ "$KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE" == "True" ]]; then
+            ovs_bind_for_kubelet "$KURYR_NEUTRON_DEFAULT_PROJECT"
+        fi
+    fi
+
+    if is_service_enabled tempest; then
+        copy_tempest_kubeconfig
+    fi
+
+    if is_service_enabled kuryr-kubernetes; then
         run_kuryr_kubernetes
+    fi
 
-    elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
+elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
+    if is_service_enabled kuryr-kubernetes; then
         create_k8s_router_fake_service
         create_k8s_api_service
     fi
+fi
 
-    if [[ "$1" == "unstack" ]]; then
+if [[ "$1" == "unstack" ]]; then
+    if is_service_enabled kuryr-kubernetes; then
         stop_process kuryr-kubernetes
-        docker kill devstack-k8s-setup-files
-        docker rm devstack-k8s-setup-files
-
-        if is_service_enabled kubernetes-controller-manager; then
-            stop_container kubernetes-controller-manager
-        fi
-        if is_service_enabled kubernetes-scheduler; then
-            stop_container kubernetes-scheduler
-        fi
-        if is_service_enabled kubelet; then
-            stop_process kubelet
-        fi
-        if is_service_enabled kubernetes-api; then
-            stop_container kubernetes-api
-        fi
-        if is_service_enabled legacy_etcd; then
-            stop_container etcd
-        fi
-
-        stop_docker
+    elif is_service_enabled kubelet; then
+         $KURYR_HYPERKUBE_BINARY kubectl delete nodes ${HOSTNAME}
     fi
+    docker kill devstack-k8s-setup-files
+    docker rm devstack-k8s-setup-files
 
-    if [[ "$1" == "clean" ]]; then
-        if is_service_enabled legacy_etcd; then
-            # Cleanup Etcd for the next stacking
-            sudo rm -rf "$KURYR_ETCD_DATA_DIR"
-        fi
+    if is_service_enabled kubernetes-controller-manager; then
+        stop_container kubernetes-controller-manager
+    fi
+    if is_service_enabled kubernetes-scheduler; then
+        stop_container kubernetes-scheduler
+    fi
+    if is_service_enabled kubelet; then
+        stop_process kubelet
+    fi
+    if is_service_enabled kubernetes-api; then
+        stop_container kubernetes-api
+    fi
+    if is_service_enabled legacy_etcd; then
+        stop_container etcd
+    fi
+fi
+
+if [[ "$1" == "clean" ]]; then
+    if is_service_enabled legacy_etcd; then
+        # Cleanup Etcd for the next stacking
+        sudo rm -rf "$KURYR_ETCD_DATA_DIR"
     fi
 fi

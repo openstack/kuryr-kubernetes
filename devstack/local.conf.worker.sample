@@ -1,0 +1,73 @@
+[[local|localrc]]
+
+enable_plugin kuryr-kubernetes \
+    https://git.openstack.org/openstack/kuryr-kubernetes
+
+RECLONE="no"
+
+# Log settings for better readability
+LOGFILE=devstack.log
+LOG_COLOR=False
+
+
+# Credentials
+ADMIN_PASSWORD=pass
+DATABASE_PASSWORD=pass
+RABBIT_PASSWORD=pass
+SERVICE_PASSWORD=pass
+SERVICE_TOKEN=pass
+# Enable Keystone v3
+IDENTITY_API_VERSION=3
+
+# In pro of speed and being lightweight, we will be explicit in regards to
+# which services we enable
+ENABLED_SERVICES=""
+
+SERVICE_HOST=CONTROLLER_IP
+MULTI_HOST=1
+KEYSTONE_SERVICE_HOST=$SERVICE_HOST
+MYSQL_HOST=$SERVICE_HOST
+RABBIT_HOST=$SERVICE_HOST
+
+# For Baremetal deployment, enable SDN agent that should run on worker node
+# enable_service q-agt
+
+# Docker
+# ======
+# If you already have docker configured, running and with its socket writable
+# by the stack user, you can omit the following line.
+enable_plugin devstack-plugin-container https://git.openstack.org/openstack/devstack-plugin-container
+
+
+# Kubernetes
+# ==========
+#
+
+# We use hyperkube to run the services. You can select the hyperkube image and/
+# or version by uncommenting and setting the following ENV vars different
+# to the following defaults:
+# KURYR_HYPERKUBE_IMAGE="gcr.io/google_containers/hyperkube-amd64"
+# KURYR_HYPERKUBE_VERSION="v1.6.2"
+#
+# We are reusing an existing deployment on master, you should uncomment and
+# set an ENV var so that the Kubelet devstack runs can find the API server:
+# KURYR_K8S_API_URL="http (or https, if K8S is SSL/TLS enabled)://k8s_api_ip:k8s_api_port"
+#
+# Set neutron service subnet id/name
+# KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET=k8s-service-subnet
+#
+# For overcloud deployment uncomment this line
+# KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE=False
+
+# Kubelet
+# =======
+#
+# Kubelet should almost invariably be run by devstack
+enable_service kubelet
+
+# You can specify a different location for the hyperkube binary that will be
+# extracted from the hyperkube container into the Host filesystem:
+# KURYR_HYPERKUBE_BINARY=/usr/local/bin/hyperkube
+#
+# NOTE: KURYR_HYPERKUBE_IMAGE, KURYR_HYPERKUBE_VERSION also affect which
+# the selected binary for the Kubelet.
