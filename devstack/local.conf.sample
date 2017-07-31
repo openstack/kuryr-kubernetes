@@ -35,11 +35,44 @@ enable_service q-dhcp
 enable_service q-l3
 enable_service q-svc
 
-# LBaaSv2 service and Haproxy agent
-enable_plugin neutron-lbaas \
-    git://git.openstack.org/openstack/neutron-lbaas
-enable_service q-lbaasv2
-NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
+KURYR_K8S_LBAAS_USE_OCTAVIA=True
+
+if [[ "$KURYR_K8S_LBAAS_USE_OCTAVIA" == "True" ]]; then
+    # Octavia LBaaSv2
+    LIBS_FROM_GIT+=python-octaviaclient
+    enable_plugin octavia https://git.openstack.org/openstack/octavia
+    enable_service octavia
+    enable_service o-api
+    enable_service o-cw
+    enable_service o-hm
+    enable_service o-hk
+    ## Octavia Deps
+    ### Image
+    ### Barbican
+    enable_plugin barbican https://git.openstack.org/openstack/barbican
+    ### Nova
+    enable_service n-api
+    enable_service n-api-meta
+    enable_service n-cpu
+    enable_service n-cond
+    enable_service n-sch
+    enable_service placement-api
+    enable_service placement-client
+    ### Glance
+    enable_service g-api
+    enable_service g-reg
+    ### Neutron-lbaas
+    #### In case Octavia is older than Pike, neutron-lbaas is needed
+    enable_plugin neutron-lbaas \
+        git://git.openstack.org/openstack/neutron-lbaas
+    enable_service q-lbaasv2
+else
+    # LBaaSv2 service and Haproxy agent
+    enable_plugin neutron-lbaas \
+        git://git.openstack.org/openstack/neutron-lbaas
+    enable_service q-lbaasv2
+fi
+
 
 # Keystone
 enable_service key
@@ -139,3 +172,15 @@ enable_service kubelet
 # part of the codebase that connects to the Kubernetes API server to read the
 # resource events and convert them to Neutron actions
 enable_service kuryr-kubernetes
+
+# Increase Octavia amphorae timeout so that the first LB amphora has time to
+# build and boot
+if [[ "$KURYR_K8S_LBAAS_USE_OCTAVIA" == "True" ]]; then
+    IMAGE_URLS+=",http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.img"
+else
+    NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
+fi
+
+[[post-config|$OCTAVIA_CONF_DIR/octavia.conf]]
+[controller_worker]
+amp_active_retries=9999
