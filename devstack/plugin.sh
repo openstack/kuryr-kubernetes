@@ -96,38 +96,6 @@ function copy_tempest_kubeconfig {
     fi
 }
 
-function create_k8s_router_fake_service {
-    local service_cidr
-    local router_ip
-    local existing_svc_ip
-    local fake_svc_name
-
-    fake_svc_name='kuryr-svc-router'
-    service_cidr=$(openstack --os-cloud devstack-admin \
-                             --os-region "$REGION_NAME" \
-                             subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
-                             -c cidr -f value)
-    router_ip=$(_cidr_range "$service_cidr" | cut -f2)
-    existing_svc_ip=$(/usr/local/bin/kubectl get svc --namespace kube-system -o jsonpath='{.items[?(@.metadata.name=='"\"${fake_svc_name}\""')].spec.clusterIP}')
-
-    if [[ "$existing_svc_ip" == "" ]]; then
-        # Create fake router service so the router clusterIP can't be reassigned
-        cat <<EOF | /usr/local/bin/kubectl create -f -
-kind: Service
-apiVersion: v1
-metadata:
-  name: "${fake_svc_name}"
-  namespace: kube-system
-spec:
-  type: ClusterIP
-  clusterIP: "${router_ip}"
-  ports:
-    - protocol: TCP
-      port: 80
-EOF
-    fi
-}
-
 function _lb_state {
     # Checks Neutron lbaas for the Load balancer state
     neutron lbaas-loadbalancer-show "$1" | awk '/provisioning_status/ {print $4}'
