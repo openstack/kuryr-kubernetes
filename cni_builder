@@ -7,7 +7,7 @@ pbr_version=$(find /usr/local/lib/python3.5/site-packages/ -type d \
 cat > /opt/kuryr-kubernetes/kuryr-cni << EOF
 #!/bin/bash
 export PBR_VERSION='$pbr_version'
-/opt/cni/bin/kuryr-cni-bin
+${CNI_BIN_DIR_PATH}/kuryr-cni-bin
 EOF
 cp /dist/kuryr-cni /opt/kuryr-kubernetes/kuryr-cni-bin
 chmod 744 /opt/kuryr-kubernetes/kuryr-cni
