@@ -173,6 +173,14 @@ enable_service kubelet
 # resource events and convert them to Neutron actions
 enable_service kuryr-kubernetes
 
+# Containerized Kuryr
+# ===================
+#
+# Kuryr can be installed on Kubernetes as a pair of Deployment
+# (kuryr-controller) and DaemonSet (kuryr-cni). If you want DevStack to deploy
+# Kuryr services as pods on Kubernetes uncomment next line.
+# KURYR_K8S_CONTAINERIZED_DEPLOYMENT=True
+
 # Increase Octavia amphorae timeout so that the first LB amphora has time to
 # build and boot
 if [[ "$KURYR_K8S_LBAAS_USE_OCTAVIA" == "True" ]]; then

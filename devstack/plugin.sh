@@ -69,6 +69,43 @@ function configure_kuryr {
     fi
 }
 
+function generate_containerized_kuryr_resources {
+    # Containerized deployment will use tokens provided by k8s itself.
+    inicomment "$KURYR_CONFIG" kubernetes ssl_client_crt_file
+    inicomment "$KURYR_CONFIG" kubernetes ssl_client_key_file
+
+    # kuryr-controller and kuryr-cni will have tokens in different dirs.
+    KURYR_CNI_CONFIG=${KURYR_CONFIG}-cni
+    cp $KURYR_CONFIG $KURYR_CNI_CONFIG
+    iniset "$KURYR_CONFIG" kubernetes token_file /var/run/secrets/kubernetes.io/serviceaccount/token
+    iniset "$KURYR_CONFIG" kubernetes ssl_ca_crt_file /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    iniset "$KURYR_CNI_CONFIG" kubernetes token_file /etc/kuryr/token
+    iniset "$KURYR_CNI_CONFIG" kubernetes ssl_ca_crt_file /etc/kuryr/ca.crt
+
+    # Generate kuryr resources in k8s formats.
+    local output_dir="${DATA_DIR}/kuryr-kubernetes"
+    generate_kuryr_configmap $output_dir $KURYR_CONFIG $KURYR_CNI_CONFIG
+    generate_kuryr_service_account $output_dir
+    generate_controller_deployment $output_dir
+    generate_cni_daemon_set $output_dir
+}
+
+function run_containerized_kuryr_resources {
+    local k8s_data_dir="${DATA_DIR}/kuryr-kubernetes"
+    /usr/local/bin/kubectl create -f \
+        "${k8s_data_dir}/config_map.yml" \
+        || die $LINENO "Failed to create kuryr-kubernetes ConfigMap."
+    /usr/local/bin/kubectl create -f \
+        "${k8s_data_dir}/service_account.yml" \
+        || die $LINENO "Failed to create kuryr-kubernetes ServiceAccount."
+    /usr/local/bin/kubectl create -f \
+        "${k8s_data_dir}/controller_deployment.yml" \
+        || die $LINENO "Failed to create kuryr-kubernetes Deployment."
+    /usr/local/bin/kubectl create -f \
+        "${k8s_data_dir}/cni_ds.yml" \
+        || die $LINENO "Failed to create kuryr-kubernetes CNI DaemonSet."
+}
+
 function install_kuryr_cni {
     local kuryr_cni_bin=$(which kuryr-cni)
     sudo install -o "$STACK_USER" -m 0555 -D \
@@ -426,7 +463,10 @@ source $DEST/kuryr-kubernetes/devstack/lib/kuryr_kubernetes
 if [[ "$1" == "stack" && "$2" == "install" ]]; then
     setup_develop "$KURYR_HOME"
     if is_service_enabled kubelet; then
-        install_kuryr_cni
+        KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
+        if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "False" ]; then
+            install_kuryr_cni
+        fi
     fi
 
 elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
@@ -495,7 +535,14 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
     fi
 
     if is_service_enabled kuryr-kubernetes; then
-        run_kuryr_kubernetes
+        KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
+        if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "False" ]; then
+            run_kuryr_kubernetes
+        else
+            build_kuryr_containers
+            generate_containerized_kuryr_resources
+            run_containerized_kuryr_resources
+        fi
     fi
 
 elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
