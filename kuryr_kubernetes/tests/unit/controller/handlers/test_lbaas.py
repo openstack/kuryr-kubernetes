@@ -118,43 +118,6 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         subnets_list = osv_subnet.SubnetList(objects=subnets)
         return osv_network.Network(subnets=subnets_list)
 
-    def test_get_subnet_id(self):
-        test_ip = '1.2.3.4'
-        test_cidr = '1.2.3.0/24'
-        m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
-        m_drv_subnets = mock.Mock(spec=drv_base.ServiceSubnetsDriver)
-        m_handler._drv_subnets = m_drv_subnets
-        m_drv_subnets.get_subnets.return_value = {
-            mock.sentinel.subnet_id: self._make_test_net_obj([test_cidr])
-        }
-
-        self.assertEqual(mock.sentinel.subnet_id,
-                         h_lbaas.LBaaSSpecHandler._get_subnet_id(
-                             m_handler,
-                             mock.sentinel.service,
-                             mock.sentinel.project_id,
-                             test_ip))
-        m_drv_subnets.get_subnets.assert_called_once_with(
-            mock.sentinel.service, mock.sentinel.project_id)
-
-    def test_get_subnet_id_invalid(self):
-        test_ip = '1.2.3.4'
-        test_cidr = '3.2.1.0/24'
-        m_service = mock.MagicMock()
-        m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
-        m_drv_subnets = mock.Mock(spec=drv_base.ServiceSubnetsDriver)
-        m_handler._drv_subnets = m_drv_subnets
-        m_drv_subnets.get_subnets.return_value = {
-            mock.sentinel.subnet_id: self._make_test_net_obj([test_cidr])
-        }
-
-        self.assertRaises(k_exc.IntegrityError,
-                          h_lbaas.LBaaSSpecHandler._get_subnet_id,
-                          m_handler,
-                          m_service,
-                          mock.sentinel.project_id,
-                          test_ip)
-
     def test_generate_lbaas_spec(self):
         m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
 
@@ -494,28 +457,6 @@ class TestLoadBalancerHandler(test_base.TestCase):
 
         self.assertEqual(True, ret)
 
-    def test_get_pod_subnet(self):
-        subnet_id = mock.sentinel.subnet_id
-        project_id = mock.sentinel.project_id
-        target_ref = {'kind': k_const.K8S_OBJ_POD,
-                      'name': 'pod-name',
-                      'namespace': 'default'}
-        ip = '1.2.3.4'
-        m_handler = mock.Mock(spec=h_lbaas.LoadBalancerHandler)
-        m_drv_pod_project = mock.Mock()
-        m_drv_pod_project.get_project.return_value = project_id
-        m_handler._drv_pod_project = m_drv_pod_project
-        m_drv_pod_subnets = mock.Mock()
-        m_drv_pod_subnets.get_subnets.return_value = {
-            subnet_id: osv_network.Network(subnets=osv_subnet.SubnetList(
-                objects=[osv_subnet.Subnet(cidr='1.2.3.0/24')]))}
-        m_handler._drv_pod_subnets = m_drv_pod_subnets
-
-        observed_subnet_id = h_lbaas.LoadBalancerHandler._get_pod_subnet(
-            m_handler, target_ref, ip)
-
-        self.assertEqual(subnet_id, observed_subnet_id)
-
     def _generate_lbaas_state(self, vip, targets, project_id, subnet_id):
         endpoints = mock.sentinel.endpoints
         drv = FakeLBaaSDriver()
@@ -616,9 +557,7 @@ class TestLoadBalancerHandler(test_base.TestCase):
 
         handler = h_lbaas.LoadBalancerHandler()
 
-        with mock.patch.object(handler, '_get_pod_subnet') as m_get_pod_subnet:
-            m_get_pod_subnet.return_value = subnet_id
-            handler._sync_lbaas_members(endpoints, state, spec)
+        handler._sync_lbaas_members(endpoints, state, spec)
 
         lsnrs = {lsnr.id: lsnr for lsnr in state.listeners}
         pools = {pool.id: pool for pool in state.pools}

@@ -174,9 +174,6 @@ function configure_neutron_defaults {
     pod_subnet_id="$(neutron subnet-show -c id -f value \
         "${KURYR_NEUTRON_DEFAULT_POD_SUBNET}")"
 
-    sg_ids=$(echo $(neutron security-group-list \
-        --project-id "$project_id" -c id -f value) | tr ' ' ',')
-
     create_k8s_subnet "$project_id" \
                       "$KURYR_NEUTRON_DEFAULT_SERVICE_NET" \
                       "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
@@ -184,6 +181,31 @@ function configure_neutron_defaults {
                       "$router"
     service_subnet_id="$(neutron subnet-show -c id -f value \
         "${KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET}")"
+
+    sg_ids=$(echo $(neutron security-group-list \
+        --project-id "$project_id" -c id -f value) | tr ' ' ',')
+
+    local use_octavia
+    use_octavia=$(trueorfalse True KURYR_K8S_LBAAS_USE_OCTAVIA)
+    if [[ "$use_octavia" == "True" ]]; then
+        # In order for the pods to allow service traffic under Octavia L3 mode,
+        #it is necessary for the service subnet to be allowed into the $sg_ids
+        local service_cidr
+        local service_pod_access_sg_id
+        service_cidr=$(openstack --os-cloud devstack-admin \
+            --os-region "$REGION_NAME" subnet show \
+            "${KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET}" -f value -c cidr)
+        service_pod_access_sg_id=$(openstack --os-cloud devstack-admin \
+            --os-region "$REGION_NAME" \
+            security group create --project "$project_id" \
+            service_pod_access -f value -c id)
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            security group rule create --project "$project_id" \
+            --description "k8s service subnet allowed" \
+            --remote-ip "$service_cidr" --ethertype IPv4 --protocol tcp \
+            "$service_pod_access_sg_id"
+        sg_ids+=",${service_pod_access_sg_id}"
+    fi
 
     iniset "$KURYR_CONFIG" neutron_defaults project "$project_id"
     iniset "$KURYR_CONFIG" neutron_defaults pod_subnet "$pod_subnet_id"
