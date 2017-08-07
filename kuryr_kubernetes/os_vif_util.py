@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import six
 
 from kuryr.lib._i18n import _
 from kuryr.lib.binding.drivers import utils as kl_utils
@@ -342,4 +341,4 @@ def osvif_to_neutron_fixed_ips(subnets):
 
 
 def osvif_to_neutron_network_ids(subnets):
-    return list(set(net.id for net in six.itervalues(subnets)))
+    return list(set(net.id for net in subnets.values()))
