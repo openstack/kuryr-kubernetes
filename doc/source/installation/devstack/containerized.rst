@@ -61,7 +61,7 @@ kuryr-cni
 
 It's important to understand that kuryr-cni is only a storage pod i.e. it is
 actually idling with ``sleep infinity`` once all the files are copied into
-correct locations on k8s host.
+correct locations on Kubernetes host.
 
 You can force it to redeploy new files by killing it. DaemonSet controller
 should make sure to restart it with new image and configuration files. ::

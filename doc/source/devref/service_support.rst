@@ -41,8 +41,8 @@ Neutron LBaaS service. The initial implementation is based on the OpenStack
 LBaaSv2 API, so compatible with any LBaaSv2 API provider.
 In order to be compatible with Kubernetes networking, Kuryr-Kubernetes
 makes sure that services Load Balancers have access to Pods Neutron ports.
-This may be affected once K8s Network Policies will be supported.
-Oslo versioned objects are used to keep translation details in K8s entities
+This may be affected once Kubernetes Network Policies will be supported.
+Oslo versioned objects are used to keep translation details in Kubernetes entities
 annotation. This will allow future changes to be backward compatible.
 
 Data Model Translation
@@ -66,7 +66,7 @@ Two Kubernetes Event Handlers are added to the Controller pipeline.
 
 - LoadBalancerHandler manages Kubernetes endpoints events. It manages
   LoadBalancer, LoadBalancerListener, LoadBalancerPool and LoadBalancerPool
-  members to reflect and keep in sync with the K8s service. It keeps details of
+  members to reflect and keep in sync with the Kubernetes service. It keeps details of
   Neutron resources by annotating the Kubernetes Endpoints object.
 
 Both Handlers use Project, Subnet and SecurityGroup service drivers to get

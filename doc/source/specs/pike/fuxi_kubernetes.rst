@@ -83,10 +83,10 @@ provisioned, updated, or deleted in OpenStack. The volume provisioner will
 implement the 'ResourceEventHandler' interface of Kuryr-kubernetes for
 handling PVC events.
 
-For each creation of PVC in k8s, the Kuryr-kubernetes's API watcher will
+For each creation of PVC in Kubernetes, the Kuryr-kubernetes's API watcher will
 trigger an event that will be eventually handled by volume provisioner.
 On receiving the event, the volume provisioner will provision the appropriate
-storage asset in OpenStack and create a PV in k8s to represent the provisioned
+storage asset in OpenStack and create a PV in Kubernetes to represent the provisioned
 storage asset. The volume provisioning workflow will be in compliance with
 the Kubernetes's out-of-tree provisioning specification [2]. The provisioned
 PV will be populated with necessary information for the volume driver to
@@ -100,12 +100,12 @@ for fuxi Kubernetes.
 
 Similarly, for each update or deletion of PVC, the volume provisioner will
 call fuxi server to update or delete the corresponding storage assets at
-OpenStack and PVs at k8s.
+OpenStack and PVs at Kubernetes.
 
 
 FlexVolume Driver
 -----------------
-FlexVolume [3] is a k8s volume plugin that allows vendor to write their own
+FlexVolume [3] is a Kubernetes volume plugin that allows vendor to write their own
 driver to support custom storage solutions. This spec proposes to implement
 a FlexVolume driver that enables Kubelet to consume the provisioned storage
 assets. The FlexVolume driver will implement the FlexVolume's driver interface
@@ -140,16 +140,16 @@ Note that FlexVolume has several known drawbacks. For example, it invokes
 drivers via shells, which requires executables pre-installed in the specified
 path. This deployment model doesn't work with operating systems like CoreOS
 in which the root file system is immutable. This proposal suggests to continue
-monitoring the evolution of k8s and switch to a better solution if there is
+monitoring the evolution of Kubernetes and switch to a better solution if there is
 one showed up.
 
 
 Alternatives
 ============
-An alternative to FlexVolume driver is provide an implementation of k8s volume
-plugin. An obstacle of this approach is that k8s doesn't support out-of-tree
+An alternative to FlexVolume driver is provide an implementation of Kubernetes volume
+plugin. An obstacle of this approach is that Kubernetes doesn't support out-of-tree
 volume plugin (beside using FlexVolume) right now. Therefore, the fuxi volume
-plugin needs to be reside in k8s tree and released with a different schedule
+plugin needs to be reside in Kubernetes tree and released with a different schedule
 from OpenStack.
 
 
@@ -165,8 +165,8 @@ Hongbin Lu
 
 Work Items
 ----------
-1. Implement a k8s volume provisioner.
-2. Implement a k8s FlexVolume driver.
+1. Implement a Kubernetes volume provisioner.
+2. Implement a Kubernetes FlexVolume driver.
 
 
 References

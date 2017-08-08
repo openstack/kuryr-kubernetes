@@ -1,7 +1,7 @@
-Watching K8S api-server over HTTPS
-==================================
+Watching Kubernetes api-server over HTTPS
+=========================================
 
-Add absolute path of client side cert file and key file for K8S server
+Add absolute path of client side cert file and key file for Kubernetes server
 in ``kuryr.conf``::
 
     [kubernetes]
@@ -16,7 +16,7 @@ path to the ca cert::
     ssl_ca_crt_file = <absolute file path eg. /etc/kubernetes/ca.crt>
     ssl_verify_server_crt = True
 
-If want to query HTTPS K8S api server with ``--insecure`` mode::
+If want to query HTTPS Kubernetes api server with ``--insecure`` mode::
 
     [kubernetes]
     ssl_verify_server_crt = False

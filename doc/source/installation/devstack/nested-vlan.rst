@@ -1,7 +1,7 @@
 How to try out nested-pods locally (VLAN + trunk)
 =================================================
 
-Following are the instructions for an all-in-one setup where K8s will also be
+Following are the instructions for an all-in-one setup where Kubernetes will also be
 running inside the same Nova VM in which Kuryr-controller and Kuryr-cni will be
 running. 4GB memory and 2 vCPUs, is the minimum resource requirement for the VM:
 

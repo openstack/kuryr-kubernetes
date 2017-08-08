@@ -35,7 +35,7 @@ Overview
 In order to integrate Neutron into kubernetes networking, 2 components are
 introduced: Controller and CNI Driver.
 Controller is a supervisor component responsible to maintain translation of
-networking relevant K8s model into the OpenStack (i.e. Neutron) model.
+networking relevant Kubernetes model into the OpenStack (i.e. Neutron) model.
 This can be considered as a centralized service (supporting HA mode in the
 future).
 CNI driver is responsible for binding kubernetess pods on worker nodes into
@@ -56,9 +56,9 @@ Design Principles
    should rely on existing communication channels, currently added to the pod
    metadata via annotations.
 4. CNI Driver should not depend on Neutron. It gets all required details
-   from K8s API server (currently through K8s annotations), therefore
+   from Kubernetes API server (currently through Kubernetes annotations), therefore
    depending on Controller to perform its translation tasks.
-5. Allow different neutron backends to bind K8s pods without code modification.
+5. Allow different neutron backends to bind Kubernetes pods without code modification.
    This means that both Controller and CNI binding mechanism should allow
    loading of the vif management and binding components, manifested via
    configuration. If some vendor requires some extra code, it should be handled
@@ -76,14 +76,14 @@ Controller is composed from the following components:
 Watcher
 ~~~~~~~
 Watcher is a common software component used by both the  Controller and the CNI
-driver. Watcher connects to K8s API. Watcher’s responsibility is to observe the
+driver. Watcher connects to Kubernetes API. Watcher’s responsibility is to observe the
 registered (either on startup or dynamically during its runtime) endpoints and
 invoke registered callback handler (pipeline) to pass all events from
 registered endpoints.
 
 Event Handler
 ~~~~~~~~~~~~~
-EventHandler is an interface class for the K8s event handling. There are
+EventHandler is an interface class for the Kubernetes event handling. There are
 several 'wrapper' event handlers that can be composed to implement Controller
 handling pipeline.
 
@@ -111,16 +111,16 @@ ControllerPipeline
 ~~~~~~~~~~~~~~~~~~
 ControllerPipeline serves as an event dispatcher of the Watcher for Kuryr-K8s
 controller Service. Currently watched endpoints are 'pods', 'services' and
-'endpoints'. K8s resource event handlers (Event Consumers) are registered into
+'endpoints'. Kubernetes resource event handlers (Event Consumers) are registered into
 the Controller Pipeline. There is a special EventConsumer, ResourceEventHandler,
-that provides API for K8s event handling. When a watched event arrives, it is
-processed by all Resource Event Handlers registered for specific K8s object
+that provides API for Kubernetes event handling. When a watched event arrives, it is
+processed by all Resource Event Handlers registered for specific Kubernetes object
 kind. Pipeline retries on resource event handler invocation in
 case of the ResourceNotReady exception till it succeeds or the number of
 retries (time-based) is reached. Any unrecovered failure is logged without
 affecting other Handlers (of the current and other events).
-Events of the same group (same K8s object) are handled sequentially in the
-order arrival. Events of different K8s objects are handled concurrently.
+Events of the same group (same Kubernetes object) are handled sequentially in the
+order arrival. Events of different Kubernetes objects are handled concurrently.
 
 .. image:: ../..//images/controller_pipeline.png
     :alt: controller pipeline
@@ -129,11 +129,11 @@ order arrival. Events of different K8s objects are handled concurrently.
 
 ResourceEventHandler
 ~~~~~~~~~~~~~~~~~~~~
-ResourceEventHandler is a convenience base class for the K8s event processing.
-The specific Handler associates itself with specific K8s object kind (through
+ResourceEventHandler is a convenience base class for the Kubernetes event processing.
+The specific Handler associates itself with specific Kubernetes object kind (through
 setting OBJECT_KIND) and  is expected to implement at least one of the methods
 of the base class to handle at least one of the ADDED/MODIFIED/DELETED events
-of the k8s object. For details, see `k8s-api  <https://github.com/kubernetes/kubernetes/blob/release-1.4/docs/devel/api-conventions.md#types-kinds>`_.
+of the Kubernetes object. For details, see `k8s-api  <https://github.com/kubernetes/kubernetes/blob/release-1.4/docs/devel/api-conventions.md#types-kinds>`_.
 Since both ADDED and MODIFIED event types trigger very similar sequence of
 actions, Handler has ‘on_present’ method that is invoked for both event types.
 The specific Handler implementation should strive to put all the common ADDED
@@ -142,13 +142,13 @@ and MODIFIED event handling logic in this method to avoid code duplication.
 Providers
 ~~~~~~~~~
 Provider (Drivers) are used by ResourceEventHandlers to manage specific aspects
-of the K8s resource in the OpenStack domain. For example, creating a K8s Pod
+of the Kubernetes resource in the OpenStack domain. For example, creating a Kubernetes Pod
 will require a neutron port to be created on a specific network with the proper
 security groups applied to it. There will be dedicated Drivers for Project,
 Subnet, Port and Security Groups settings in neutron. For instance, the Handler
 that processes pod events, will use PodVIFDriver, PodProjectDriver,
 PodSubnetsDriver and PodSecurityGroupsDriver. The Drivers model is introduced
-in order to allow flexibility in the K8s model mapping to the OpenStack. There
+in order to allow flexibility in the Kubernetes model mapping to the OpenStack. There
 can be different drivers that do Neutron resources management, i.e. create on
 demand or grab one from the precreated pool. There can be different drivers for
 the Project management, i.e. single Tenant or multiple. Same goes for the other
@@ -171,11 +171,11 @@ Kuryr kubernetes integration takes advantage of the kubernetes `CNI plugin <http
 and introduces Kuryr-K8s CNI Driver. Based on design decision, kuryr-kubernetes
 CNI Driver should get all information required to plug and bind Pod via
 kubernetes control plane and should not depend on Neutron. CNI plugin/driver
-is invoked in a blocking manner by kubelet (k8s node agent), therefore it is
+is invoked in a blocking manner by kubelet (Kubernetes node agent), therefore it is
 expected to return when either success or error state determined.
 
 Kuryr-K8s CNI Driver has 2 sources for Pod binding information: kubelet/node
-environment and K8s API. The Kuryr-K8s Controller Service and CNI share the
+environment and Kubernetes API. The Kuryr-K8s Controller Service and CNI share the
 contract that defines Pod annotation that Controller Server adds and CNI
 driver reads. The contract is `os_vif VIF <https://github.com/openstack/os-vif/blob/master/os_vif/objects/vif.py>`_
 
