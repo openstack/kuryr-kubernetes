@@ -116,7 +116,7 @@ Edit ``kuryr.conf``::
 
     [DEFAULT]
     use_stderr = true
-    bindir = /path/to/env/libexec/kuryr
+    bindir = {path_to_env}/libexec/kuryr
     [kubernetes]
     api_root = http://{ip_of_kubernetes_apiserver}:8080
 
