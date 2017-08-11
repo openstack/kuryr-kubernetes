@@ -33,3 +33,4 @@ This section describes how you can install and configure kuryr-kubernetes
     nested-macvlan
     https_kubernetes
     ports-pool
+    services
