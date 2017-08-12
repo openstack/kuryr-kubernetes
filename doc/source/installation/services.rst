@@ -497,6 +497,8 @@ of doing the following:
    the pod subnet, follow the `Making the Pods be able to reach the Kubernetes API`_
    section
 
+.. _k8s_lb_reachable:
+
 Making the Pods be able to reach the Kubernetes API
 ---------------------------------------------------
 

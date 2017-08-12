@@ -40,11 +40,28 @@ def get_ipdb(netns=None):
     return ipdb
 
 
+def _enable_ipv6(netns):
+    # Docker disables IPv6 for --net=none containers
+    # TODO(apuimedo) remove when it is no longer the case
+    try:
+        self_ns_fd = open('/proc/self/ns/net')
+        pyroute2.netns.setns(netns)
+        with open('/proc/sys/net/ipv6/conf/all/disable_ipv6',
+                  'w') as disable_ipv6:
+            disable_ipv6.write('0')
+    except Exception:
+        raise
+    finally:
+        pyroute2.netns.setns(self_ns_fd)
+
+
 def _configure_l3(vif, ifname, netns):
     with get_ipdb(netns).interfaces[ifname] as iface:
         for subnet in vif.network.subnets.objects:
+            if subnet.cidr.version == 6:
+                _enable_ipv6(netns)
             for fip in subnet.ips.objects:
-                iface.add_ip(str(fip.address), mask=str(subnet.cidr.netmask))
+                iface.add_ip('%s/%s' % (fip.address, subnet.cidr.prefixlen))
 
     routes = get_ipdb(netns).routes
     for subnet in vif.network.subnets.objects:

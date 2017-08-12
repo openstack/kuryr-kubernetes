@@ -34,3 +34,4 @@ This section describes how you can install and configure kuryr-kubernetes
     https_kubernetes
     ports-pool
     services
+    ipv6
