@@ -23,7 +23,6 @@ DATABASE_PASSWORD=pass
 RABBIT_PASSWORD=pass
 SERVICE_PASSWORD=pass
 SERVICE_TOKEN=pass
-TUNNEL_TYPE=vxlan
 # Enable Keystone v3
 IDENTITY_API_VERSION=3
 
@@ -35,12 +34,9 @@ ENABLED_SERVICES=""
 enable_service df-redis
 enable_service df-redis-server
 enable_service df-controller
-enable_service df-ext-services
-enable_service df-zmq-publisher-service
 
 # Neutron services
 enable_service neutron
-enable_service df-l3-agent
 enable_service q-svc
 
 # Keystone
@@ -56,9 +52,7 @@ Q_ENABLE_DRAGONFLOW_LOCAL_CONTROLLER=True
 # DF settings
 DF_RUNNING_IN_GATE=True
 TUNNEL_TYPE=vxlan
-DF_L2_RESPONDER="True"
-OVS_INSTALL_FROM_GIT=False
-OVS_BRANCH=master
+DF_SELECTIVE_TOPO_DIST=False
 
 # LBaaSv2 service and Haproxy agent
 enable_plugin neutron-lbaas \
