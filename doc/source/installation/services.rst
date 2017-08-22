@@ -99,6 +99,8 @@ would help avoiding extra hops if the amphorae were scheduled in the worker
 nodes, but how much significant that is, depends on your latency and throughput
 requirements.
 
+.. _k8s_default_configuration:
+
 Default configuration
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -681,3 +683,59 @@ Kubernetes service to be accessible to Pods.
     | updated_at                | 2017-08-10T16:46:55                  |
     +---------------------------+--------------------------------------+
 
+.. _services_troubleshooting:
+
+Troubleshooting
+---------------
+
+* **Pods can talk to each other with IPv6 but they can't talk to services.**
+
+  This means that most likely you forgot to create a security group or rule
+  for the pods to be accessible by the service CIDR. You can find an example
+  here::
+
+    $ openstack security group create service_pod_access
+    +-----------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
+    | Field           | Value                                                                                                                                                 |
+    +-----------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
+    | created_at      | 2017-08-16T10:01:45Z                                                                                                                                  |
+    | description     | service_pod_access                                                                                                                                   |
+    | id              | f0b6f0bd-40f7-4ab6-a77b-3cf9f7cc28ac                                                                                                                  |
+    | name            | service_pod_access                                                                                                                                    |
+    | project_id      | 90baf12877ba49a786419b2cacc2c954                                                                                                                      |
+    | revision_number | 2                                                                                                                                                     |
+    | rules           | created_at='2017-08-16T10:01:45Z', direction='egress', ethertype='IPv4', id='bd759b4f-c0f5-4cff-a30a-3cd8544d2822', updated_at='2017-08-16T10:01:45Z' |
+    |                 | created_at='2017-08-16T10:01:45Z', direction='egress', ethertype='IPv6', id='c89c3f3e-a326-4902-ba26-5315e2d95320', updated_at='2017-08-16T10:01:45Z' |
+    | updated_at      | 2017-08-16T10:01:45Z                                                                                                                                  |
+    +-----------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+    $ openstack security group rule create --remote-ip 10.2.0.0/16 \
+         --ethertype IPv4 f0b6f0bd-40f7-4ab6-a77b-3cf9f7cc28ac
+    +-------------------+--------------------------------------+
+    | Field             | Value                                |
+    +-------------------+--------------------------------------+
+    | created_at        | 2017-08-16T10:04:57Z                 |
+    | description       |                                      |
+    | direction         | ingress                              |
+    | ether_type        | IPv4                                 |
+    | id                | cface77f-666f-4a4c-8a15-a9c6953acf08 |
+    | name              | None                                 |
+    | port_range_max    | None                                 |
+    | port_range_min    | None                                 |
+    | project_id        | 90baf12877ba49a786419b2cacc2c954     |
+    | protocol          | tcp                                  |
+    | remote_group_id   | None                                 |
+    | remote_ip_prefix  | 10.2.0.0/16                          |
+    | revision_number   | 0                                    |
+    | security_group_id | f0b6f0bd-40f7-4ab6-a77b-3cf9f7cc28ac |
+    | updated_at        | 2017-08-16T10:04:57Z                 |
+    +-------------------+--------------------------------------+
+
+  Then remember to add the new security groups to the comma-separated
+  *pod_security_groups* setting in the section *[neutron_defaults]* of
+  /etc/kuryr/kuryr.conf. After making the kuryr.conf edits, you need to
+  restart the kuryr controller for the changes to take effect.
+
+  If you want your current pods to get this change applied, the most
+  comfortable way to do that is to delete them and let the Kubernetes
+  Deployment create them automatically for you.
