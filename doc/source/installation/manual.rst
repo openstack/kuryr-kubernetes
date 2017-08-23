@@ -63,7 +63,7 @@ Kubernetes load balancers and their members:
   will have gone through the router to reach the service.
 * Layer3: Octavia only creates the VIP port. The traffic from the service VIP to
   the members will go back to the router to reach the pod subnet. It is
-  important to note that will have some performance impact depending on the SDN.
+  important to note that it will have some performance impact depending on the SDN.
 
 At the moment Kuryr-Kubernetes supports only L3 mode (both for Octavia and for
 the deprecated Neutron-LBaaSv2.
@@ -126,7 +126,7 @@ Link the CNI binary to CNI directory, where kubelet would find it::
     $ ln -s $(which kuryr-cni) /opt/cni/bin/
 
 Create the CNI config file for kuryr-cni: ``/etc/cni/net.d/10-kuryr.conf``.
-Kubelet would only use the lexicographically first file in that direcotory, so
+Kubelet would only use the lexicographically first file in that directory, so
 make sure that it is kuryr's config file::
 
     {

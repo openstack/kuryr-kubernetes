@@ -483,7 +483,7 @@ of doing the following:
 #. Configure Kubernetes API server to use only a subset of the addresses for
    services, **10.0.0.0/18**. The rest will be used for pods. To configure
    Kubernetes with this CIDR range you have to add the following parameter to
-   its command line invokation::
+   its command line invocation::
 
     --service-cluster-ip-range=10.0.0.0/18
 
