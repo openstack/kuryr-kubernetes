@@ -5,7 +5,7 @@ Kuryr Kubernetes OpenContrail Integration
 https://blueprints.launchpad.net/kuryr-kubernetes/+spec/kuryr-k8s-contrail-integration
 
 This spec proposes how to integrate OpenContrail with Kuryr-Kubernetes.
-OpenContrail is an open source project that provides network virtuaization
+OpenContrail is an open source project that provides network virtualization
 functionality to OpenStack. Integrating these will allow Kuryr to be used to
 bridge container-VM networking in a Contrail-based OpenStack deployment.
 

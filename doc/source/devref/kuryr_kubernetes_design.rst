@@ -56,7 +56,7 @@ Design Principles
    should rely on existing communication channels, currently added to the pod
    metadata via annotations.
 4. CNI Driver should not depend on Neutron. It gets all required details
-   from K8s API server (currenltly through K8s annotations), therefore
+   from K8s API server (currently through K8s annotations), therefore
    depending on Controller to perform its translation tasks.
 5. Allow different neutron backends to bind K8s pods without code modification.
    This means that both Controller and CNI binding mechanism should allow
@@ -120,7 +120,7 @@ case of the ResourceNotReady exception till it succeeds or the number of
 retries (time-based) is reached. Any unrecovered failure is logged without
 affecting other Handlers (of the current and other events).
 Events of the same group (same K8s object) are handled sequentially in the
-order arrival. Events of different K8s objects are handled concurenlty.
+order arrival. Events of different K8s objects are handled concurrently.
 
 .. image:: ../..//images/controller_pipeline.png
     :alt: controller pipeline

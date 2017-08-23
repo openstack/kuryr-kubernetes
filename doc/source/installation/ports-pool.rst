@@ -14,7 +14,7 @@ And for the nested (VLAN+Trunk) case::
        vif_pool_driver = nested
 
 On the other hand, there are a few extra (optional) configuration options
-regarding the maximum and minimun desired sizes of the pools, where the
+regarding the maximum and minimum desired sizes of the pools, where the
 maximum size can be disabled by setting it to 0::
 
        [vif_pool]
