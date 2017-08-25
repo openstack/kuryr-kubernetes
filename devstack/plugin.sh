@@ -203,10 +203,17 @@ function create_k8s_api_service {
     while [[ "$(_lb_state $lb_name)" != "ACTIVE" ]]; do
         sleep 1
     done
-    neutron lbaas-member-create  --subnet public-subnet \
-        --address "${HOST_IP}" \
-        --protocol-port 6443 \
-        default/kubernetes:443
+    if is_service_enabled openshift-master; then
+        neutron lbaas-member-create  --subnet public-subnet \
+            --address "${HOST_IP}" \
+            --protocol-port 8443 \
+            default/kubernetes:443
+    else
+        neutron lbaas-member-create  --subnet public-subnet \
+            --address "${HOST_IP}" \
+            --protocol-port 6443 \
+            default/kubernetes:443
+    fi
 }
 
 function configure_neutron_defaults {
@@ -355,12 +362,21 @@ function prepare_kubernetes_files {
 function wait_for {
     local name
     local url
+    local cacert_path
+    local flags
     name="$1"
     url="$2"
+    cacert_path=${3:-}
 
     echo -n "Waiting for $name to respond"
 
-    until curl -o /dev/null -sIf "$url"; do
+    if [ $# == 3 ]; then
+        extra_flags="--cacert ${cacert_path}"
+    else
+        extra_flags=""
+    fi
+
+    until curl -o /dev/null -sIf $extra_flags "$url"; do
         echo -n "."
         sleep 1
     done
@@ -511,7 +527,13 @@ function run_k8s_kubelet {
 
 function run_kuryr_kubernetes {
     local python_bin=$(which python)
-    wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
+
+    if is_service_enabled openshift-master; then
+        wait_for "OpenShift API Server" "$OPENSHIFT_API_URL" \
+            "${OPENSHIFT_DATA_DIR}/ca.crt"
+    else
+        wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
+    fi
     run_process kuryr-kubernetes \
         "$python_bin ${KURYR_HOME}/scripts/run_server.py  \
             --config-file $KURYR_CONFIG"
@@ -523,7 +545,7 @@ source $DEST/kuryr-kubernetes/devstack/lib/kuryr_kubernetes
 # main loop
 if [[ "$1" == "stack" && "$2" == "install" ]]; then
     setup_develop "$KURYR_HOME"
-    if is_service_enabled kubelet; then
+    if is_service_enabled kubelet || is_service_enabled openshift-node; then
         KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
         if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "False" ]; then
             install_kuryr_cni
@@ -566,8 +588,29 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
         run_etcd_legacy
     fi
 
-    get_container "$KURYR_HYPERKUBE_IMAGE" "$KURYR_HYPERKUBE_VERSION"
-    prepare_kubernetes_files
+    # FIXME(apuimedo): Allow running only openshift node for multinode devstack
+    # We are missing generating a node config so that it does not need to
+    # bootstrap from the master config.
+    if is_service_enabled openshift-master || is_service_enabled openshift-node; then
+        install_openshift_binary
+    fi
+    if is_service_enabled openshift-master; then
+        run_openshift_master
+        make_admin_cluster_admin
+    fi
+    if is_service_enabled openshift-node; then
+        prepare_kubelet
+        run_openshift_node
+    fi
+
+    if is_service_enabled kubernetes-api \
+       || is_service_enabled kubernetes-controller-manager \
+       || is_service_enabled kubernetes-scheduler \
+       || is_service_enabled kubelet; then
+        get_container "$KURYR_HYPERKUBE_IMAGE" "$KURYR_HYPERKUBE_VERSION"
+        prepare_kubernetes_files
+    fi
+
     if is_service_enabled kubernetes-api; then
         run_k8s_api
     fi
@@ -634,6 +677,12 @@ if [[ "$1" == "unstack" ]]; then
     fi
     if is_service_enabled kubernetes-api; then
         stop_container kubernetes-api
+    fi
+    if is_service_enabled openshift-master; then
+        stop_process openshift-master
+    fi
+    if is_service_enabled openshift-node; then
+        stop_process openshift-node
     fi
     if is_service_enabled legacy_etcd; then
         stop_container etcd

@@ -518,3 +518,154 @@ spec:
             path: /etc
 EOF
 }
+
+# install_openshift_binary
+#   Description: Fetches the configured binary release of OpenShift and
+#                installs it in the system
+function install_openshift_binary {
+    mkdir -p "$OPENSHIFT_HOME"
+    wget "$OPENSHIFT_BINARY_URL" -O "${OPENSHIFT_HOME}/openshift.tar.gz"
+    tar xzvf "${OPENSHIFT_HOME}/openshift.tar.gz" --strip 1 -C "$OPENSHIFT_HOME"
+
+    # Make openshift run from its untarred directory
+    cat << EOF | sudo tee /usr/local/bin/openshift
+#!/bin/bash
+cd ${OPENSHIFT_HOME}
+exec ./openshift "\$@"
+EOF
+    sudo chmod a+x /usr/local/bin/openshift
+
+    # Make oc easily available
+    cat << EOF | sudo tee /usr/local/bin/oc
+#!/bin/bash
+CURL_CA_BUNDLE=${OPENSHIFT_DATA_DIR}/ca.crt \
+    KUBECONFIG=${OPENSHIFT_DATA_DIR}/admin.kubeconfig \
+    ${OPENSHIFT_HOME}/oc "\$@"
+EOF
+    sudo chmod a+x /usr/local/bin/oc
+
+    # Make kubectl easily available
+    cat << EOF | sudo tee /usr/local/bin/kubectl
+#!/bin/bash
+CURL_CA_BUNDLE=${OPENSHIFT_DATA_DIR}/ca.crt \
+    KUBECONFIG=${OPENSHIFT_DATA_DIR}/admin.kubeconfig \
+    ${OPENSHIFT_HOME}/kubectl "\$@"
+EOF
+    sudo chmod a+x /usr/local/bin/kubectl
+
+    # Make oadm easily available
+    cat << EOF | sudo tee /usr/local/bin/oadm
+#!/bin/bash
+CURL_CA_BUNDLE=${OPENSHIFT_DATA_DIR}/ca.crt \
+    KUBECONFIG=${OPENSHIFT_DATA_DIR}/admin.kubeconfig \
+    ${OPENSHIFT_HOME}/oadm "\$@"
+EOF
+    sudo chmod a+x /usr/local/bin/oadm
+}
+
+# run_openshift_master
+#   Description: Starts the openshift master
+function run_openshift_master {
+    local cmd
+    local pod_subnet_cidr
+    local service_subnet_cidr
+
+    sudo install -d -o "$STACK_USER" "$OPENSHIFT_DATA_DIR"
+
+    pod_subnet_cidr=$(openstack --os-cloud devstack-admin \
+                         --os-region "$REGION_NAME" \
+                         subnet show "$KURYR_NEUTRON_DEFAULT_POD_SUBNET" \
+                         -c cidr -f value)
+    service_subnet_cidr=$(openstack --os-cloud devstack-admin \
+                         --os-region "$REGION_NAME" \
+                         subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
+                         -c cidr -f value)
+
+    # Generate master config
+    "${OPENSHIFT_HOME}/openshift" start master \
+        "--etcd=${KURYR_ETCD_ADVERTISE_CLIENT_URL}" \
+        "--network-cidr=${pod_subnet_cidr}" \
+        "--portal-net=${service_subnet_cidr}" \
+        "--listen=${OPENSHIFT_API_URL}" \
+        "--master=${OPENSHIFT_API_URL}" \
+        "--write-config=${OPENSHIFT_DATA_DIR}"
+
+    # Reconfigure Kuryr-Kubernetes to use the certs generated
+    iniset "$KURYR_CONFIG" kubernetes api_root "$OPENSHIFT_API_URL"
+    iniset "$KURYR_CONFIG" kubernetes ssl_client_crt_file "${OPENSHIFT_DATA_DIR}/admin.crt"
+    iniset "$KURYR_CONFIG" kubernetes ssl_client_key_file "${OPENSHIFT_DATA_DIR}/admin.key"
+    iniset "$KURYR_CONFIG" kubernetes ssl_ca_crt_file "${OPENSHIFT_DATA_DIR}/ca.crt"
+
+    sudo chown "${STACK_USER}:${STACK_USER}" -R "$OPENSHIFT_DATA_DIR"
+
+    # Generate kubelet kubeconfig
+    "${OPENSHIFT_HOME}/oadm" create-kubeconfig \
+        "--client-key=${OPENSHIFT_DATA_DIR}/master.kubelet-client.key" \
+        "--client-certificate=${OPENSHIFT_DATA_DIR}/master.kubelet-client.crt" \
+        "--certificate-authority=${OPENSHIFT_DATA_DIR}/ca.crt" \
+        "--master=${OPENSHIFT_API_URL}" \
+        "--kubeconfig=${OPENSHIFT_DATA_DIR}/master.kubelet-client.kubeconfig"
+
+    cmd="/usr/local/bin/openshift start master \
+        --config=${OPENSHIFT_DATA_DIR}/master-config.yaml"
+
+    wait_for "etcd" "${KURYR_ETCD_ADVERTISE_CLIENT_URL}/v2/machines"
+
+    if [[ "$USE_SYSTEMD" = "True" ]]; then
+        # If systemd is being used, proceed as normal
+        run_process openshift-master "$cmd" root root
+    else
+        # If screen is being used, there is a possibility that the devstack
+        # environment is on a stable branch. Older versions of run_process have
+        # a different signature. Sudo is used as a workaround that works in
+        # both older and newer versions of devstack.
+        run_process openshift-master "sudo $cmd"
+    fi
+}
+
+# make_admin_cluster_admin
+#   Description: Gives the system:admin permissions over the cluster
+function make_admin_cluster_admin {
+    wait_for "OpenShift API Server" "$OPENSHIFT_API_URL" \
+        "${OPENSHIFT_DATA_DIR}/ca.crt"
+    /usr/local/bin/oadm policy add-cluster-role-to-user cluster-admin admin \
+        "--config=${OPENSHIFT_DATA_DIR}/openshift-master.kubeconfig"
+}
+
+# run_openshift_node
+#   Description: Starts the openshift node
+function run_openshift_node {
+    local command
+
+    #install required CNI loopback driver
+    curl -L "$OPENSHIFT_CNI_BINARY_URL" | sudo tar -C "$CNI_BIN_DIR" -xzvf - ./loopback
+    command="/usr/local/bin/openshift start node \
+        --kubeconfig=${OPENSHIFT_DATA_DIR}/master.kubelet-client.kubeconfig \
+        --enable=kubelet,plugins \
+        --network-plugin=cni"
+
+    # Link master config necessary for bootstrapping
+    # TODO: This needs to be generated so we don't depend on it on multinode
+    mkdir -p "${OPENSHIFT_HOME}/openshift.local.config"
+    ln -fs "${OPENSHIFT_DATA_DIR}" "${OPENSHIFT_HOME}/openshift.local.config/master"
+
+    # Link stack CNI to location expected by openshift node
+    sudo mkdir -p /etc/cni
+    sudo rm -fr /etc/cni/net.d
+    sudo rm -fr /opt/cni/bin
+    sudo ln -fs "${CNI_CONF_DIR}" /etc/cni/net.d
+    sudo mkdir -p /opt/cni
+    sudo ln -fs "${CNI_BIN_DIR}" /opt/cni/bin
+
+
+    if [[ "$USE_SYSTEMD" = "True" ]]; then
+        # If systemd is being used, proceed as normal
+        run_process openshift-node "$command" root root
+    else
+        # If screen is being used, there is a possibility that the devstack
+        # environment is on a stable branch. Older versions of run_process have
+        # a different signature. Sudo is used as a workaround that works in
+        # both older and newer versions of devstack.
+        run_process openshift-node "sudo $command"
+    fi
+}
