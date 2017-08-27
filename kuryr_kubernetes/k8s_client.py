@@ -78,6 +78,29 @@ class K8sClient(object):
             raise exc.K8sClientException(response.text)
         return response.json()
 
+    def _get_url_and_header(self, path):
+        url = self._base_url + path
+        header = {'Content-Type': 'application/merge-patch+json',
+                  'Accept': 'application/json'}
+        if self.token:
+            header.update({'Authorization': 'Bearer %s' % self.token})
+
+        return url, header
+
+    def patch_status(self, path, data):
+
+        LOG.debug("Patch_status %(path)s: %(data)s", {
+            'path': path, 'data': data})
+        path = path + '/status'
+        url, header = self._get_url_and_header(path)
+
+        response = requests.patch(url, json={"status": data},
+                                  headers=header, cert=self.cert,
+                                  verify=self.verify_server)
+        if response.ok:
+            return response.json().get('status')
+        raise exc.K8sClientException(response.text)
+
     def annotate(self, path, annotations, resource_version=None):
         """Pushes a resource annotation to the K8s API resource
 
@@ -88,11 +111,9 @@ class K8sClient(object):
         """
         LOG.debug("Annotate %(path)s: %(names)s", {
             'path': path, 'names': list(annotations)})
-        url = self._base_url + path
-        header = {'Content-Type': 'application/merge-patch+json',
-                  'Accept': 'application/json'}
-        if self.token:
-            header.update({'Authorization': 'Bearer %s' % self.token})
+
+        url, header = self._get_url_and_header(path)
+
         while itertools.count(1):
             data = jsonutils.dumps({
                 "metadata": {

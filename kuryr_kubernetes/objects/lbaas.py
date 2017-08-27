@@ -30,6 +30,7 @@ class LBaaSLoadBalancer(k_obj.KuryrK8sObjectBase):
         'name': obj_fields.StringField(),
         'ip': obj_fields.IPAddressField(),
         'subnet_id': obj_fields.UUIDField(),
+        'port_id': obj_fields.UUIDField(),
     }
 
 
@@ -77,6 +78,17 @@ class LBaaSMember(k_obj.KuryrK8sObjectBase):
 
 
 @obj_base.VersionedObjectRegistry.register
+class LBaaSPubIp(k_obj.KuryrK8sObjectBase):
+    VERSION = '1.0'
+
+    fields = {
+        'ip_id': obj_fields.UUIDField(),
+        'ip_addr': obj_fields.IPAddressField(),
+        'alloc_method': obj_fields.StringField(),
+    }
+
+
+@obj_base.VersionedObjectRegistry.register
 class LBaaSState(k_obj.KuryrK8sObjectBase):
     VERSION = '1.0'
 
@@ -90,6 +102,9 @@ class LBaaSState(k_obj.KuryrK8sObjectBase):
                                                default=[]),
         'members': obj_fields.ListOfObjectsField(LBaaSMember.__name__,
                                                  default=[]),
+        'service_pub_ip_info': obj_fields.ObjectField(LBaaSPubIp.__name__,
+                                                      nullable=True,
+                                                      default=None),
     }
 
 
@@ -115,4 +130,6 @@ class LBaaSServiceSpec(k_obj.KuryrK8sObjectBase):
         'project_id': obj_fields.StringField(nullable=True, default=None),
         'subnet_id': obj_fields.UUIDField(nullable=True, default=None),
         'security_groups_ids': k_fields.ListOfUUIDField(default=[]),
+        'type': obj_fields.StringField(nullable=True, default=None),
+        'lb_ip': obj_fields.IPAddressField(nullable=True, default=None),
     }

@@ -8,7 +8,9 @@ be implemented in the following way:
 * **Service**: It is translated to a single **LoadBalancer** and as many
   **Listeners** and **Pools** as ports the Kubernetes Service spec defines.
 * **ClusterIP**: It is translated to a LoadBalancer's VIP.
+* **loadBalancerIP**: Translated to public IP associated with the LoadBalancer's VIP.
 * **Endpoints**: The Endpoint object is translated to a LoadBalancer's VIP.
+
 
 .. _services: https://kubernetes.io/docs/concepts/services-networking/service/
 .. _LBaaS API: https://wiki.openstack.org/wiki/Neutron/LBaaS/API_2.0
@@ -395,6 +397,53 @@ The services and pods subnets should be created.
 #. Once you have Kubernetes installed and you have the API host reachable from
    the pod subnet, follow the `Making the Pods be able to reach the Kubernetes
    API`_ section
+
+#. For the external services (type=LoadBalancer) case,
+   two methods are supported:
+
+* Pool - external IPs are allocated from pre-defined pool
+* User - user specify the external IP address
+
+   In case 'Pool' method should be supported, execute the next steps
+
+   A. Create an external/provider network
+   B. Create subnet/pool range of external CIDR
+   C. Connect external subnet to kuryr-kubernetes router
+   D. Configure Kuryr.conf public ip subnet to point to the external subnet::
+
+         [neutron_defaults]
+         external_svc_subnet=  external_subnet_id
+
+   From this point for each K8s service of type=LoadBalancer and in which
+   'load-balancer-ip' is not specified, an external IP from
+   'external_svc_subnet' will be allocated.
+
+   For the 'User' case, user should first create an external/floating IP::
+
+    $#openstack floating ip create --subnet <ext-subnet-id> <ext-netowrk-id>
+    $openstack floating ip create --subnet 48ddcfec-1b29-411b-be92-8329cc09fc12  3b4eb25e-e103-491f-a640-a6246d588561
+    +---------------------------+--------------------------------------+
+    | Field               | Value                                |
+    +---------------------+--------------------------------------+
+    | created_at          | 2017-10-02T09:22:37Z                 |
+    | description         |                                      |
+    | fixed_ip_address    | None                                 |
+    | floating_ip_address | 172.24.4.13                          |
+    | floating_network_id | 3b4eb25e-e103-491f-a640-a6246d588561 |
+    | id                  | 1157e2fd-de64-492d-b955-88ea203b4c37 |
+    | name                | 172.24.4.13                          |
+    | port_id             | None                                 |
+    | project_id          | 6556471f4f7b40e2bde1fc6e4aba0eef     |
+    | revision_number     | 0                                    |
+    | router_id           | None                                 |
+    | status              | DOWN                                 |
+    | updated_at          | 2017-10-02T09:22:37Z                 |
+    +---------------------+--------------------------------------+
+
+  and then create k8s service with type=LoadBalancer and load-balancer-ip=<floating_ip> (e.g: 172.24.4.13)
+
+  In both 'User' and 'Pool' methods, the extrenal IP address could be find
+  in k8s service status information (under loadbalancer/ingress/ip)
 
 Alternative configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~

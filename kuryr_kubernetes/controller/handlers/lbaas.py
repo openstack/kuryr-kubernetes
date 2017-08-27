@@ -27,6 +27,8 @@ from kuryr_kubernetes.objects import lbaas as obj_lbaas
 
 LOG = logging.getLogger(__name__)
 
+SUPPORTED_SERVICE_TYPES = ('ClusterIP', 'LoadBalancer')
+
 
 class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
     """LBaaSSpecHandler handles K8s Service events.
@@ -54,10 +56,14 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
             lbaas_spec = self._generate_lbaas_spec(service)
             self._set_lbaas_spec(service, lbaas_spec)
 
-    def _get_service_ip(self, service):
+    def _is_supported_type(self, service):
         spec = service['spec']
-        if spec.get('type') == 'ClusterIP':
-            return spec.get('clusterIP')
+        return spec.get('type') in SUPPORTED_SERVICE_TYPES
+
+    def _get_service_ip(self, service):
+        if self._is_supported_type(service):
+            return service['spec'].get('clusterIP')
+        return None
 
     def _should_ignore(self, service):
         return not(self._has_selector(service))
@@ -88,12 +94,16 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
         subnet_id = self._get_subnet_id(service, project_id, ip)
         ports = self._generate_lbaas_port_specs(service)
         sg_ids = self._drv_sg.get_security_groups(service, project_id)
+        spec_type = service['spec'].get('type')
+        spec_lb_ip = service['spec'].get('loadBalancerIP')
 
         return obj_lbaas.LBaaSServiceSpec(ip=ip,
                                           project_id=project_id,
                                           subnet_id=subnet_id,
                                           ports=ports,
-                                          security_groups_ids=sg_ids)
+                                          security_groups_ids=sg_ids,
+                                          type=spec_type,
+                                          lb_ip=spec_lb_ip)
 
     def _has_lbaas_spec_changes(self, service, lbaas_spec):
         return (self._has_ip_changes(service, lbaas_spec) or
@@ -207,6 +217,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         self._drv_lbaas = drv_base.LBaaSDriver.get_instance()
         self._drv_pod_project = drv_base.PodProjectDriver.get_instance()
         self._drv_pod_subnets = drv_base.PodSubnetsDriver.get_instance()
+        self._drv_service_pub_ip = drv_base.ServicePubIpDriver.get_instance()
 
     def on_present(self, endpoints):
         lbaas_spec = self._get_lbaas_spec(endpoints)
@@ -452,25 +463,74 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                                      if l.id not in removed_ids]
         return bool(removed_ids)
 
+    def _update_lb_status(self, endpoints, lb_ip_address):
+        status_data = {"loadBalancer": {
+            "ingress": [{"ip": lb_ip_address.format()}]}}
+        k8s = clients.get_kubernetes_client()
+        svc_link = self._get_service_link(endpoints)
+        try:
+            k8s.patch_status(svc_link, status_data)
+        except k_exc.K8sClientException:
+            # REVISIT(ivc): only raise ResourceNotReady for NotFound
+            raise k_exc.ResourceNotReady(svc_link)
+
+    def _get_service_link(self, endpoints):
+        ep_link = endpoints['metadata']['selfLink']
+        link_parts = ep_link.split('/')
+
+        if link_parts[-2] != 'endpoints':
+            raise k_exc.IntegrityError(_(
+                "Unsupported endpoints link: %(link)s") % {
+                'link': ep_link})
+        link_parts[-2] = 'services'
+        return "/".join(link_parts)
+
     def _sync_lbaas_loadbalancer(self, endpoints, lbaas_state, lbaas_spec):
         changed = False
         lb = lbaas_state.loadbalancer
 
         if lb and lb.ip != lbaas_spec.ip:
+            # if loadbalancerIP was associated to lbaas VIP, disassociate it.
+            if lbaas_state.service_pub_ip_info:
+                self._drv_service_pub_ip.disassociate_pub_ip(
+                    lbaas_state.service_pub_ip_info)
+
             self._drv_lbaas.release_loadbalancer(
                 endpoints=endpoints,
                 loadbalancer=lb)
             lb = None
             changed = True
 
-        if not lb and lbaas_spec.ip:
-            lb = self._drv_lbaas.ensure_loadbalancer(
-                endpoints=endpoints,
-                project_id=lbaas_spec.project_id,
-                subnet_id=lbaas_spec.subnet_id,
-                ip=lbaas_spec.ip,
-                security_groups_ids=lbaas_spec.security_groups_ids)
-            changed = True
+        if not lb:
+            if lbaas_spec.ip:
+                lb = self._drv_lbaas.ensure_loadbalancer(
+                    endpoints=endpoints,
+                    project_id=lbaas_spec.project_id,
+                    subnet_id=lbaas_spec.subnet_id,
+                    ip=lbaas_spec.ip,
+                    security_groups_ids=lbaas_spec.security_groups_ids)
+                if lbaas_state.service_pub_ip_info is None:
+                    service_pub_ip_info = (
+                        self._drv_service_pub_ip.acquire_service_pub_ip_info(
+                            lbaas_spec.type,
+                            lbaas_spec.lb_ip,
+                            lbaas_spec.project_id))
+                    if service_pub_ip_info:
+                        # if loadbalancerIP should be defined for lbaas,
+                        #  associate it to lbaas VIP
+                        # and update k8s-service status with
+                        # loadbalancerIP address
+                        self._drv_service_pub_ip.associate_pub_ip(
+                            service_pub_ip_info, lb.port_id)
+                        self._update_lb_status(
+                            endpoints, service_pub_ip_info.ip_addr)
+                        lbaas_state.service_pub_ip_info = service_pub_ip_info
+                changed = True
+            elif lbaas_state.service_pub_ip_info:
+                self._drv_service_pub_ip.release_pub_ip(
+                    lbaas_state.service_pub_ip_info)
+                lbaas_state.service_pub_ip_info = None
+                changed = True
 
         lbaas_state.loadbalancer = lb
         return changed
