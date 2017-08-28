@@ -125,7 +125,7 @@ class BaseVIFPool(base.VIFPoolDriver):
         except KeyError:
             LOG.warning("Pod has not been scheduled yet.")
             raise
-        pool_key = (host_addr, project_id, tuple(security_groups))
+        pool_key = (host_addr, project_id, tuple(sorted(security_groups)))
 
         try:
             return self._get_port_from_pool(pool_key, pod, subnets)
@@ -162,7 +162,7 @@ class BaseVIFPool(base.VIFPoolDriver):
 
     def release_vif(self, pod, vif, project_id, security_groups):
         host_addr = pod['status']['hostIP']
-        pool_key = (host_addr, project_id, tuple(security_groups))
+        pool_key = (host_addr, project_id, tuple(sorted(security_groups)))
 
         if not self._existing_vifs.get(vif.id):
             self._existing_vifs[vif.id] = vif
