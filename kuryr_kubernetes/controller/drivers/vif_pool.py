@@ -349,8 +349,13 @@ class NestedVIFPool(BaseVIFPool):
 
     def _recover_precreated_ports(self):
         neutron = clients.get_neutron_client()
+        # Note(ltomasbo): ML2/OVS changes the device_owner to trunk:subport
+        # when a port is attached to a trunk. However, that is not the case
+        # for other ML2 drivers, such as ODL. So we also need to look for
+        # compute:kuryr
         available_ports = self._get_ports_by_attrs(
-            name='available-port', device_owner='trunk:subport')
+            name='available-port', device_owner=['trunk:subport',
+                                                 kl_const.DEVICE_OWNER])
 
         if not available_ports:
             return
