@@ -965,8 +965,8 @@ class NestedVIFPool(test_base.TestCase):
         port_id = mock.sentinel.port_id
         host_addr = mock.sentinel.host_addr
 
-        m_driver._get_ports_by_attrs.return_value = [get_port_obj(
-            port_id=port_id, device_owner='trunk:subport')]
+        m_driver._get_ports_by_attrs.side_effect = [[get_port_obj(
+            port_id=port_id, device_owner='trunk:subport')], []]
         trunk_id = mock.sentinel.trunk_id
         trunk_obj = self._get_trunk_obj(port_id=trunk_id, subport_id=port_id)
         neutron.list_trunks.return_value = {'trunks': [trunk_obj]}
@@ -999,7 +999,7 @@ class NestedVIFPool(test_base.TestCase):
 
         port1 = get_port_obj(port_id=port_id1, device_owner='trunk:subport')
         port2 = get_port_obj(port_id=port_id2, device_owner='trunk:subport')
-        m_driver._get_ports_by_attrs.return_value = [port1, port2]
+        m_driver._get_ports_by_attrs.side_effect = [[port1, port2], []]
 
         trunk_obj1 = self._get_trunk_obj(port_id=trunk_id1,
                                          subport_id=port_id1)
@@ -1041,7 +1041,7 @@ class NestedVIFPool(test_base.TestCase):
 
         port1 = get_port_obj(port_id=port_id1, device_owner='trunk:subport')
         port2 = get_port_obj(port_id=port_id2, device_owner='trunk:subport')
-        m_driver._get_ports_by_attrs.return_value = [port1, port2]
+        m_driver._get_ports_by_attrs.side_effect = [[port1, port2], []]
 
         trunk_obj = self._get_trunk_obj(port_id=trunk_id,
                                         subport_id=port_id1)
@@ -1079,8 +1079,8 @@ class NestedVIFPool(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
-        m_driver._get_ports_by_attrs.return_value = [get_port_obj(
-            device_owner='trunk:subport')]
+        m_driver._get_ports_by_attrs.side_effect = [[get_port_obj(
+            device_owner='trunk:subport')], []]
         neutron.list_trunks.return_value = {'trunks': []}
 
         cls._recover_precreated_ports(m_driver)
@@ -1093,8 +1093,8 @@ class NestedVIFPool(test_base.TestCase):
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
         port_id = mock.sentinel.port_id
-        m_driver._get_ports_by_attrs.return_value = [get_port_obj(
-            port_id=port_id, device_owner='trunk:subport')]
+        m_driver._get_ports_by_attrs.side_effect = [[get_port_obj(
+            port_id=port_id, device_owner='trunk:subport')], []]
         trunk_id = mock.sentinel.trunk_id
         trunk_obj = self._get_trunk_obj(port_id=trunk_id)
         neutron.list_trunks.return_value = {'trunks': [trunk_obj]}
