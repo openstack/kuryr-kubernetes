@@ -356,7 +356,10 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
                                     security_groups, unbound)
 
         self.assertEqual(expected, ret)
-        m_driver._get_port_name.assert_called_once_with(pod)
+        if unbound:
+            m_driver._get_port_name.assert_not_called()
+        else:
+            m_driver._get_port_name.assert_called_once_with(pod)
         m_driver._get_network_id.assert_called_once_with(subnets)
         m_to_fips.assert_called_once_with(subnets)
 

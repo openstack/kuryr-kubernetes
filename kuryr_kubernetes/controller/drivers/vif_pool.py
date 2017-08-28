@@ -348,6 +348,21 @@ class NestedVIFPool(BaseVIFPool):
         return parent_port['fixed_ips'][0]['ip_address']
 
     def _recover_precreated_ports(self):
+        self._precreated_ports(action='recover')
+
+    def _remove_precreated_ports(self, trunk_ips=None):
+        self._precreated_ports(action='free', trunk_ips=trunk_ips)
+
+    def _precreated_ports(self, action, trunk_ips=None):
+        """Removes or recovers pre-created subports at given pools
+
+        This function handles the pre-created ports based on the given action:
+        - If action is `free` it will remove all the subport from the given
+        trunk ports, or from all the trunk ports if no trunk_ips are passed.
+        - If action is `recover` it will discover the existing subports in the
+        given trunk ports (or in all of them if none are passed) and will add
+        them (and the needed information) to the respective pools.
+        """
         neutron = clients.get_neutron_client()
         # Note(ltomasbo): ML2/OVS changes the device_owner to trunk:subport
         # when a port is attached to a trunk. However, that is not the case
@@ -369,6 +384,9 @@ class NestedVIFPool(BaseVIFPool):
                           trunk['port_id'])
                 continue
 
+            if trunk_ips and host_addr not in trunk_ips:
+                continue
+
             for subport in trunk.get('sub_ports'):
                 kuryr_subport = None
                 for port in available_ports:
@@ -379,11 +397,67 @@ class NestedVIFPool(BaseVIFPool):
                 if kuryr_subport:
                     pool_key = (host_addr, kuryr_subport['project_id'],
                                 tuple(kuryr_subport['security_groups']))
-                    subnet_id = kuryr_subport['fixed_ips'][0]['subnet_id']
-                    subnet = {subnet_id: default_subnet._get_subnet(subnet_id)}
-                    vif = ovu.neutron_to_osvif_vif_nested_vlan(
-                        kuryr_subport, subnet, subport['segmentation_id'])
 
-                    self._existing_vifs[subport['port_id']] = vif
-                    self._available_ports_pools.setdefault(
-                        pool_key, []).append(subport['port_id'])
+                    if action == 'recover':
+                        subnet_id = kuryr_subport['fixed_ips'][0]['subnet_id']
+                        subnet = {
+                            subnet_id: default_subnet._get_subnet(subnet_id)}
+                        vif = ovu.neutron_to_osvif_vif_nested_vlan(
+                            kuryr_subport, subnet, subport['segmentation_id'])
+
+                        self._existing_vifs[subport['port_id']] = vif
+                        self._available_ports_pools.setdefault(
+                            pool_key, []).append(subport['port_id'])
+                    elif action == 'free':
+                        try:
+                            self._drv_vif._remove_subport(neutron, trunk['id'],
+                                                          subport['port_id'])
+                            neutron.delete_port(subport['port_id'])
+                            self._drv_vif._release_vlan_id(
+                                subport['segmentation_id'])
+                            del self._existing_vifs[subport['port_id']]
+                            self._available_ports_pools[pool_key].remove(
+                                subport['port_id'])
+                        except n_exc.PortNotFoundClient:
+                            LOG.debug('Unable to release port %s as it no '
+                                      'longer exists.', subport['port_id'])
+                        except KeyError:
+                            LOG.debug('Port %s is not in the ports list.',
+                                      subport['port_id'])
+                        except n_exc.NeutronClientException:
+                            LOG.warning('Error removing the subport %s',
+                                        subport['port_id'])
+                        except ValueError:
+                            LOG.debug('Port %s is not in the available ports '
+                                      'pool.', subport['port_id'])
+
+    def force_populate_pool(self, trunk_ip, project_id, subnets,
+                            security_groups, num_ports):
+        """Create a given amount of subports at a given trunk port.
+
+        This function creates a given amount of subports and attaches them to
+        the specified trunk, adding them to the related subports pool
+        regardless of the amount of subports already available in the pool.
+        """
+        vifs = self._drv_vif.request_vifs(
+            pod=[],
+            project_id=project_id,
+            subnets=subnets,
+            security_groups=security_groups,
+            num_ports=num_ports,
+            trunk_ip=trunk_ip)
+
+        pool_key = (trunk_ip, project_id, tuple(sorted(security_groups)))
+        for vif in vifs:
+            self._existing_vifs[vif.id] = vif
+            self._available_ports_pools.setdefault(pool_key,
+                                                   []).append(vif.id)
+
+    def free_pool(self, trunk_ips=None):
+        """Removes subports from the pool and deletes neutron port resource.
+
+        This function empties the pool of available subports and removes the
+        neutron port resources of the specified trunk port (or all of them if
+        no trunk is specified).
+        """
+        self._remove_precreated_ports(trunk_ips)
