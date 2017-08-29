@@ -37,3 +37,6 @@ KURYR_PORT_NAME = 'kuryr-pool-port'
 
 OCTAVIA_L2_MEMBER_MODE = "L2"
 OCTAVIA_L3_MEMBER_MODE = "L3"
+
+VIF_POOL_POPULATE = '/populatePool'
+VIF_POOL_FREE = '/freePool'

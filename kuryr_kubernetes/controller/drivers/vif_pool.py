@@ -31,6 +31,7 @@ from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes.controller.drivers import default_subnet
+from kuryr_kubernetes.controller.managers import pool
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes import os_vif_util as ovu
 
@@ -328,6 +329,16 @@ class NestedVIFPool(BaseVIFPool):
     to each pool_key to skip calls to neutron to get the trunk information.
     """
     _known_trunk_ids = collections.defaultdict(str)
+
+    def __init__(self):
+        super(NestedVIFPool, self).__init__()
+        # Start the pool manager so that pools can be populated/freed on
+        # demand
+        if config.CONF.kubernetes.enable_manager:
+            self._pool_manager = pool.PoolManager()
+
+    def set_vif_driver(self, driver):
+        self._drv_vif = driver
 
     def _get_port_from_pool(self, pool_key, pod, subnets):
         try:

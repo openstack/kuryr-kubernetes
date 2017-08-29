@@ -41,6 +41,7 @@ EOF
 }
 
 function configure_kuryr {
+    local dir
     sudo install -d -o "$STACK_USER" "$KURYR_CONFIG_DIR"
     "${KURYR_HOME}/tools/generate_config_file_samples.sh"
     sudo install -o "$STACK_USER" -m 640 -D "${KURYR_HOME}/etc/kuryr.conf.sample" \
@@ -73,6 +74,16 @@ function configure_kuryr {
             iniset "$KURYR_CONFIG" vif_pool ports_pool_max "$KURYR_VIF_POOL_MAX"
             iniset "$KURYR_CONFIG" vif_pool ports_pool_batch "$KURYR_VIF_POOL_BATCH"
             iniset "$KURYR_CONFIG" vif_pool ports_pool_update_frequency "$KURYR_VIF_POOL_UPDATE_FREQ"
+            if [ "$KURYR_VIF_POOL_MANAGER" ]; then
+                iniset "$KURYR_CONFIG" kubernetes enable_manager "$KURYR_VIF_POOL_MANAGER"
+
+                dir=`iniget "$KURYR_CONFIG" vif_pool manager_sock_file`
+                if [[ -z $dir ]]; then
+                    dir="/run/kuryr/kuryr_manage.sock"
+                fi
+                dir=`dirname $dir`
+                sudo mkdir -p $dir
+            fi
         fi
     fi
 }

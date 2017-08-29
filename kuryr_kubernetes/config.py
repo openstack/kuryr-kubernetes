@@ -92,6 +92,9 @@ k8s_opts = [
                help=_("The driver that provides external IP for LB at "
                       "Kubernetes"),
                default='neutron_floating_ip'),
+    cfg.BoolOpt('enable_manager',
+                help=_("Enable Manager to manage the pools."),
+                default=False),
 ]
 
 neutron_defaults = [
