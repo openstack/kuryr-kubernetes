@@ -457,6 +457,28 @@ class TestLoadBalancerHandler(test_base.TestCase):
 
         self.assertEqual(True, ret)
 
+    def test_get_pod_subnet(self):
+        subnet_id = mock.sentinel.subnet_id
+        project_id = mock.sentinel.project_id
+        target_ref = {'kind': k_const.K8S_OBJ_POD,
+                      'name': 'pod-name',
+                      'namespace': 'default'}
+        ip = '1.2.3.4'
+        m_handler = mock.Mock(spec=h_lbaas.LoadBalancerHandler)
+        m_drv_pod_project = mock.Mock()
+        m_drv_pod_project.get_project.return_value = project_id
+        m_handler._drv_pod_project = m_drv_pod_project
+        m_drv_pod_subnets = mock.Mock()
+        m_drv_pod_subnets.get_subnets.return_value = {
+            subnet_id: osv_network.Network(subnets=osv_subnet.SubnetList(
+                objects=[osv_subnet.Subnet(cidr='1.2.3.0/24')]))}
+        m_handler._drv_pod_subnets = m_drv_pod_subnets
+
+        observed_subnet_id = h_lbaas.LoadBalancerHandler._get_pod_subnet(
+            m_handler, target_ref, ip)
+
+        self.assertEqual(subnet_id, observed_subnet_id)
+
     def _generate_lbaas_state(self, vip, targets, project_id, subnet_id):
         endpoints = mock.sentinel.endpoints
         drv = FakeLBaaSDriver()
@@ -557,7 +579,9 @@ class TestLoadBalancerHandler(test_base.TestCase):
 
         handler = h_lbaas.LoadBalancerHandler()
 
-        handler._sync_lbaas_members(endpoints, state, spec)
+        with mock.patch.object(handler, '_get_pod_subnet') as m_get_pod_subnet:
+            m_get_pod_subnet.return_value = subnet_id
+            handler._sync_lbaas_members(endpoints, state, spec)
 
         lsnrs = {lsnr.id: lsnr for lsnr in state.listeners}
         pools = {pool.id: pool for pool in state.pools}

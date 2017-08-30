@@ -82,7 +82,7 @@ k8s_opts = [
                default='lbaasv2'),
     cfg.StrOpt('vif_pool_driver',
                help=_("The driver that manages VIFs pools for "
-                      "Kubernetes Pods."),
+                      "Kubernetes Pods"),
                default='noop'),
     cfg.BoolOpt('port_debug',
                 help=_('Enable port debug to force kuryr port names to be '
@@ -106,11 +106,19 @@ neutron_defaults = [
                help=_("Default Neutron subnet ID for Kubernetes services")),
 ]
 
+octavia_defaults = [
+    cfg.StrOpt('member_mode',
+               help=_("Define the communication mode between load balanacer "
+                      "and its members"),
+               default='L3'),
+]
+
 
 CONF = cfg.CONF
 CONF.register_opts(kuryr_k8s_opts)
 CONF.register_opts(k8s_opts, group='kubernetes')
 CONF.register_opts(neutron_defaults, group='neutron_defaults')
+CONF.register_opts(octavia_defaults, group='octavia_defaults')
 
 CONF.register_opts(lib_config.core_opts)
 CONF.register_opts(lib_config.binding_opts, 'binding')

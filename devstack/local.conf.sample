@@ -35,7 +35,10 @@ enable_service q-dhcp
 enable_service q-l3
 enable_service q-svc
 
+# OCTAVIA
 KURYR_K8S_LBAAS_USE_OCTAVIA=True
+# Uncomment it to use L2 communication between loadbalancer and member pods
+# KURYR_K8S_OCTAVIA_MEMBER_MODE=L2
 
 if [[ "$KURYR_K8S_LBAAS_USE_OCTAVIA" == "True" ]]; then
     # Octavia LBaaSv2

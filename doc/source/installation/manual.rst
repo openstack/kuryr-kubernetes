@@ -58,21 +58,19 @@ Octavia supports two ways of performing the load balancing between the
 Kubernetes load balancers and their members:
 
 * Layer2: Octavia, apart from the VIP port in the services subnet, creates a
-  Neutron port to the subnet of each of the members.  This way the traffic from
+  Neutron port to the subnet of each of the members. This way the traffic from
   the Service Haproxy to the members will not go through the router again, only
   will have gone through the router to reach the service.
 * Layer3: Octavia only creates the VIP port. The traffic from the service VIP to
   the members will go back to the router to reach the pod subnet. It is
   important to note that it will have some performance impact depending on the SDN.
 
-At the moment Kuryr-Kubernetes supports only L3 mode (both for Octavia and for
-the deprecated Neutron-LBaaSv2.
-
-This means that:
+To support the L3 mode (both for Octavia and for the deprecated
+Neutron-LBaaSv2):
 
 * There should be a router between the two subnets.
 * The pod_security_groups setting should include a security group with a rule
-  granting access to all the CIDR or the service subnet, e.g.::
+  granting access to all the CIDR of the service subnet, e.g.::
 
     openstack security group create --project k8s_cluster_project \
         service_pod_access_sg
@@ -82,6 +80,21 @@ This means that:
 
 * The uuid of this security group id should be added to the comma separated
   list of pod security groups. *pod_security_groups* in *[neutron_defaults]*.
+
+Alternatively, to support Octavia L2 mode:
+
+* The pod security_groups setting should include a security group with a rule
+  granting access to all the CIDR of the pod subnet, e.g.::
+
+    openstack security group create --project k8s_cluster_project \
+        octavia_pod_access_sg
+    openstack --project k8s_cluster_project security group rule create \
+        --remote-ip cidr_of_pod_subnet --ethertype IPv4 --protocol tcp \
+        octavia_pod_access_sg
+
+* The uuid of this security group id should be added to the comma separated
+  list of pod security groups. *pod_security_groups* in *[neutron_defaults]*.
+
 
 Run kuryr-k8s-controller::
 

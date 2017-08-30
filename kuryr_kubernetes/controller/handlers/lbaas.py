@@ -18,6 +18,7 @@ from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
 from kuryr_kubernetes import clients
+from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes.controller.drivers import base as drv_base
 from kuryr_kubernetes import exceptions as k_exc
@@ -300,13 +301,18 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                         continue
                     port_name = subset_port.get('name')
                     pool = pool_by_tgt_name[port_name]
-                    # We use the service subnet id so that the connectivity
-                    # from VIP to pods happens in layer 3 mode, i.e., routed.
-                    # TODO(apuimedo): Add L2 mode
                     # TODO(apuimedo): Do not pass subnet_id at all when in
                     # L3 mode once old neutron-lbaasv2 is not supported, as
                     # octavia does not require it
-                    member_subnet_id = lbaas_state.loadbalancer.subnet_id
+                    if (config.CONF.octavia_defaults.member_mode ==
+                            k_const.OCTAVIA_L2_MEMBER_MODE):
+                        member_subnet_id = self._get_pod_subnet(target_ref,
+                                                                target_ip)
+                    else:
+                        # We use the service subnet id so that the connectivity
+                        # from VIP to pods happens in layer 3 mode, i.e.,
+                        # routed.
+                        member_subnet_id = lbaas_state.loadbalancer.subnet_id
                     member = self._drv_lbaas.ensure_member(
                         endpoints=endpoints,
                         loadbalancer=lbaas_state.loadbalancer,
@@ -319,6 +325,18 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                     changed = True
 
         return changed
+
+    def _get_pod_subnet(self, target_ref, ip):
+        # REVISIT(ivc): consider using true pod object instead
+        pod = {'kind': target_ref['kind'],
+               'metadata': {'name': target_ref['name'],
+                            'namespace': target_ref['namespace']}}
+        project_id = self._drv_pod_project.get_project(pod)
+        subnets_map = self._drv_pod_subnets.get_subnets(pod, project_id)
+        # FIXME(ivc): potentially unsafe [0] index
+        return [subnet_id for subnet_id, network in subnets_map.items()
+                for subnet in network.subnets.objects
+                if ip in subnet.cidr][0]
 
     def _remove_unused_members(self, endpoints, lbaas_state, lbaas_spec):
         spec_port_names = {p.name for p in lbaas_spec.ports}
