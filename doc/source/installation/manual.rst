@@ -97,7 +97,7 @@ Configure kuryr-cni
 On every kubernetes minion node (and on master if you intend to run containers
 there) you need to configure kuryr-cni.
 
-Install ``kuryr-cni`` a virtualenv::
+Install ``kuryr-cni`` in a virtualenv::
 
     $ mkdir kuryr-k8s-cni
     $ cd kuryr-k8s-cni
