@@ -1,0 +1,49 @@
+[[local|localrc]]
+
+Q_ENABLE_DRAGONFLOW_LOCAL_CONTROLLER=True
+
+DATABASE_PASSWORD=pass
+RABBIT_PASSWORD=pass
+SERVICE_PASSWORD=pass
+SERVICE_TOKEN=pass
+ADMIN_PASSWORD=pass
+
+MULTI_HOST=1
+
+# Dragonflow plugin and services
+enable_plugin dragonflow https://git.openstack.org/openstack/dragonflow
+enable_service df-controller
+enable_service df-redis
+enable_service df-redis-server
+enable_service df-metadata
+enable_service q-trunk
+
+
+# Neutron services
+disable_service n-net
+enable_service q-svc
+enable_service q-qos
+disable_service q-l3
+disable_service df-l3-agent
+# We have to disable the neutron L2 agent. DF does not use the L2 agent.
+disable_service q-agt
+# We have to disable the neutron dhcp agent. DF does not use the dhcp agent.
+disable_service q-dhcp
+
+# LBaaSv2 service and Haproxy agent
+enable_plugin neutron-lbaas git://git.openstack.org/openstack/neutron-lbaas
+enable_service q-lbaasv2
+NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
+
+# Enable heat services if you want to deploy overcloud using Heat stack
+enable_plugin heat https://git.openstack.org/openstack/heat
+enable_service h-eng h-api h-api-cfn h-api-cw
+
+disable_service tempest
+
+DF_REDIS_PUBSUB=True
+Q_USE_PROVIDERNET_FOR_PUBLIC=True
+Q_FLOATING_ALLOCATION_POOL=start=172.24.4.10,end=172.24.4.200
+PUBLIC_NETWORK_NAME=public
+PUBLIC_NETWORK_GATEWAY=172.24.4.1
+
