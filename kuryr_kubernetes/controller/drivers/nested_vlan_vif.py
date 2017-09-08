@@ -46,7 +46,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         return ovu.neutron_to_osvif_vif_nested_vlan(port, subnets, vlan_id)
 
     def request_vifs(self, pod, project_id, subnets, security_groups,
-                     num_ports):
+                     num_ports, trunk_ip=None):
         """This method creates subports and returns a list with their vifs.
 
         It creates up to num_ports subports and attaches them to the trunk
@@ -61,7 +61,10 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         exception is raised.
         """
         neutron = clients.get_neutron_client()
-        parent_port = self._get_parent_port(neutron, pod)
+        if trunk_ip:
+            parent_port = self._get_parent_port_by_host_ip(neutron, trunk_ip)
+        else:
+            parent_port = self._get_parent_port(neutron, pod)
         trunk_id = self._get_trunk_id(parent_port)
 
         port_rq, subports_info = self._create_subports_info(
@@ -116,7 +119,6 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
     def _get_port_request(self, pod, project_id, subnets, security_groups,
                           unbound=False):
         port_req_body = {'project_id': project_id,
-                         'name': self._get_port_name(pod),
                          'network_id': self._get_network_id(subnets),
                          'fixed_ips': ovu.osvif_to_neutron_fixed_ips(subnets),
                          'device_owner': kl_const.DEVICE_OWNER,
@@ -124,6 +126,8 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
 
         if unbound:
             port_req_body['name'] = 'available-port'
+        else:
+            port_req_body['name'] = self._get_port_name(pod)
 
         if security_groups:
             port_req_body['security_groups'] = security_groups
