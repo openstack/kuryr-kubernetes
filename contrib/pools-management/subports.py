@@ -62,6 +62,32 @@ def delete_subports(trunk_ips, timeout=180):
     print(resp.read())
 
 
+def list_pools(timeout=180):
+    method = 'GET'
+    body = jsonutils.dumps({})
+    headers = {'Context-Type': 'application/json', 'Connection': 'close'}
+    headers['Context-Length'] = len(body)
+    path = 'http://localhost{0}'.format(constants.VIF_POOL_LIST)
+    socket_path = constants.MANAGER_SOCKET_FILE
+    conn = UnixDomainHttpConnection(socket_path, timeout)
+    conn.request(method, path, body=body, headers=headers)
+    resp = conn.getresponse()
+    print(resp.read())
+
+
+def show_pool(trunk_ip, project_id, sg, timeout=180):
+    method = 'GET'
+    body = jsonutils.dumps({"pool_key": [trunk_ip, project_id, sg]})
+    headers = {'Context-Type': 'application/json', 'Connection': 'close'}
+    headers['Context-Length'] = len(body)
+    path = 'http://localhost{0}'.format(constants.VIF_POOL_SHOW)
+    socket_path = constants.MANAGER_SOCKET_FILE
+    conn = UnixDomainHttpConnection(socket_path, timeout)
+    conn.request(method, path, body=body, headers=headers)
+    resp = conn.getresponse()
+    print(resp.read())
+
+
 def _get_parser():
     parser = argparse.ArgumentParser(
         description='Tool to create/free subports from the subports pool')
@@ -104,6 +130,42 @@ def _get_parser():
         default=180,
         type=int)
 
+    list_pools_parser = subparser.add_parser(
+        'list',
+        help='List available pools and the number of ports they have')
+    list_pools_parser.add_argument(
+        '-t', '--timeout',
+        help='set timeout for operation. Default is 180 sec',
+        dest='timeout',
+        default=180,
+        type=int)
+
+    show_pool_parser = subparser.add_parser(
+        'show',
+        help='Show the ports associated to a given pool')
+    show_pool_parser.add_argument(
+        '--trunk',
+        help='Trunk IP of the desired pool',
+        dest='trunk_ip',
+        required=True)
+    show_pool_parser.add_argument(
+        '-p', '--project-id',
+        help='project id of the pool',
+        dest='project_id',
+        required=True)
+    show_pool_parser.add_argument(
+        '--sg',
+        help='Security group ids of the pool',
+        dest='sg',
+        nargs='+',
+        required=True)
+    show_pool_parser.add_argument(
+        '-t', '--timeout',
+        help='set timeout for operation. Default is 180 sec',
+        dest='timeout',
+        default=180,
+        type=int)
+
     return parser
 
 
@@ -115,6 +177,10 @@ def main():
         create_subports(args.num, args.subports, args.timeout)
     elif args.command == 'free':
         delete_subports(args.subports, args.timeout)
+    elif args.command == 'list':
+        list_pools(args.timeout)
+    elif args.command == 'show':
+        show_pool(args.trunk_ip, args.project_id, args.sg, args.timeout)
 
 
 if __name__ == '__main__':

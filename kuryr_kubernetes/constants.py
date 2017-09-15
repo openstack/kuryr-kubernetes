@@ -40,3 +40,5 @@ OCTAVIA_L3_MEMBER_MODE = "L3"
 
 VIF_POOL_POPULATE = '/populatePool'
 VIF_POOL_FREE = '/freePool'
+VIF_POOL_LIST = '/listPools'
+VIF_POOL_SHOW = '/showPool'

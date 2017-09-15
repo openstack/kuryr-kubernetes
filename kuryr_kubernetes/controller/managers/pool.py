@@ -102,6 +102,50 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(response.encode())
 
+    def do_GET(self):
+        content_length = int(self.headers.get('Content-Length', 0))
+
+        body = self.rfile.read(content_length)
+        params = dict(jsonutils.loads(body))
+
+        if self.path.endswith(constants.VIF_POOL_LIST):
+            try:
+                pools_info = self._list_pools()
+            except Exception:
+                response = 'Error listing the pools.'
+            else:
+                response = 'Pools:\n{0}'.format(pools_info)
+
+            self.send_header('Content-Length', len(response))
+            self.end_headers()
+            self.wfile.write(response.encode())
+
+        elif self.path.endswith(constants.VIF_POOL_SHOW):
+            raw_key = params.get('pool_key', None)
+            if len(raw_key) != 3:
+                response = ('Invalid pool key. Proper format is:\n'
+                            '[trunk_ip, project_id, [security_groups]]\n')
+            else:
+                pool_key = (raw_key[0], raw_key[1], tuple(sorted(raw_key[2])))
+
+                try:
+                    pool_info = self._show_pool(pool_key)
+                except Exception:
+                    response = 'Error showing pool: {0}.'.format(pool_key)
+                else:
+                    response = 'Pool {0} ports are:\n{1}'.format(pool_key,
+                                                                 pool_info)
+
+            self.send_header('Content-Length', len(response))
+            self.end_headers()
+            self.wfile.write(response.encode())
+
+        else:
+            response = 'Method not allowed.'
+            self.send_header('Content-Length', len(response))
+            self.end_headers()
+            self.wfile.write(response.encode())
+
     def _create_subports(self, num_ports, trunk_ips):
         try:
             drv_project = drivers.PodProjectDriver.get_instance()
@@ -140,6 +184,44 @@ class RequestHandler(BaseHTTPRequestHandler):
         except TypeError as ex:
             LOG.error("Invalid driver type")
             raise ex
+
+    def _list_pools(self):
+        try:
+            drv_vif = drivers.PodVIFDriver.get_instance()
+            drv_vif_pool = drivers.VIFPoolDriver.get_instance()
+            drv_vif_pool.set_vif_driver(drv_vif)
+
+            available_pools = drv_vif_pool.list_pools()
+        except TypeError as ex:
+            LOG.error("Invalid driver type")
+            raise ex
+
+        pools_info = ""
+        for pool_key, pool_items in available_pools.items():
+            pools_info += (jsonutils.dumps(pool_key) + " has "
+                           + str(len(pool_items)) + " ports\n")
+        if pools_info:
+            return pools_info
+        return "There are no pools"
+
+    def _show_pool(self, pool_key):
+        try:
+            drv_vif = drivers.PodVIFDriver.get_instance()
+            drv_vif_pool = drivers.VIFPoolDriver.get_instance()
+            drv_vif_pool.set_vif_driver(drv_vif)
+
+            pool = drv_vif_pool.show_pool(pool_key)
+        except TypeError as ex:
+            LOG.error("Invalid driver type")
+            raise ex
+
+        if pool:
+            pool_info = ""
+            for pool_id in pool:
+                pool_info += str(pool_id) + "\n"
+            return pool_info
+        else:
+            return "Empty pool"
 
 
 class PoolManager(object):

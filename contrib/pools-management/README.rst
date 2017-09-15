@@ -245,6 +245,62 @@ Or from all the pools at once::
     $ # returns nothing
 
 
+List pools for nested environment
+---------------------------------
+
+There is a `list` command available to show information about the existing
+pools, i.e., it prints out the pool keys (trunk_ip, project_id,
+[security_groups]) and the amount of available ports in each one of them::
+
+    $ python contrib/pools-management/subports.py list -h
+    usage: subports.py list [-h] [-t TIMEOUT]
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -t TIMEOUT, --timeout TIMEOUT
+                            set timeout for operation. Default is 180 sec
+
+
+As an example::
+
+    $ python contrib/pools-management/subports.py list
+    Content-length: 150
+
+    Pools:
+    ["10.0.0.6", "9d2b45c4efaa478481c30340b49fd4d2", ["00efc78c-f11c-414a-bfcd-a82e16dc07d1", "fd6b13dc-7230-4cbe-9237-36b4614bc6b5"]] has 4 ports
+
+
+Show pool for nested environment
+--------------------------------
+
+There is a `show` command available to print out information about a given
+pool. It prints the ids of the ports associated to that pool:::
+
+    $ python contrib/pools-management/subports.py show -h
+    usage: subports.py show [-h] --trunk TRUNK_IP -p PROJECT_ID --sg SG [SG ...]
+                            [-t TIMEOUT]
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      --trunk TRUNK_IP      Trunk IP of the desired pool
+      -p PROJECT_ID, --project-id PROJECT_ID
+                            project id of the pool
+      --sg SG [SG ...]      Security group ids of the pool
+      -t TIMEOUT, --timeout TIMEOUT
+                            set timeout for operation. Default is 180 sec
+
+As an example::
+
+    $ python contrib/pools-management/subports.py show --trunk 10.0.0.6 -p 9d2b45c4efaa478481c30340b49fd4d2 --sg 00efc78c-f11c-414a-bfcd-a82e16dc07d1 fd6b13dc-7230-4cbe-9237-36b4614bc6b5
+    Content-length: 299
+
+    Pool (u'10.0.0.6', u'9d2b45c4efaa478481c30340b49fd4d2', (u'00efc78c-f11c-414a-bfcd-a82e16dc07d1', u'fd6b13dc-7230-4cbe-9237-36b4614bc6b5')) ports are:
+    4913fbde-5939-4aef-80c0-7fcca0348871
+    864c8237-6ab4-4713-bec8-3d8bb6aa2144
+    8138134b-44df-489c-a693-3defeb2adb58
+    f5e107c6-f998-4416-8f17-a055269f2829
+
+
 Without the script
 ------------------
 
@@ -256,3 +312,9 @@ REST API with curl::
 
     # To free the pool
     $ curl --unix-socket /run/kuryr/kuryr_manage.sock http://localhost/freePool -H "Content-Type: application/json" -X POST -d '{"trunks": ["10.0.4.6"]}'
+
+    # To list the existing pools
+    $ curl --unix-socket /run/kuryr/kuryr_manage.sock http://localhost/listPools -H "Content-Type: application/json" -X GET -d '{}'
+
+    # To show a specific pool
+    $ curl --unix-socket /run/kuryr/kuryr_manage.sock http://localhost/showPool -H "Content-Type: application/json" -X GET -d '{"pool_key": ["10.0.0.6", "9d2b45c4efaa478481c30340b49fd4d2", ["00efc78c-f11c-414a-bfcd-a82e16dc07d1", "fd6b13dc-7230-4cbe-9237-36b4614bc6b5"]]}'

@@ -205,6 +205,12 @@ class BaseVIFPool(base.VIFPoolDriver):
                     annotations['versioned_object.data']['id'])
         return in_use_ports
 
+    def list_pools(self):
+        return self._available_ports_pools
+
+    def show_pool(self, pool_key):
+        return self._available_ports_pools.get(pool_key)
+
 
 class NeutronVIFPool(BaseVIFPool):
     """Manages VIFs for Bare Metal Kubernetes Pods."""
