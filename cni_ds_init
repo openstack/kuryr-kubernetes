@@ -1,16 +1,38 @@
 #!/bin/bash -e
 
-rm -f /etc/cni/net.d/10-kuryr.conf
-rm -f /etc/cni/net.d/99-loopback.conf
-rm -f /opt/cni/bin/kuryr-cni
-rm -f /opt/cni/bin/kuryr-cni-bin
-rm -rf /etc/kuryr
-mkdir /etc/kuryr
-cp /var/run/secrets/kubernetes.io/serviceaccount/token /etc/kuryr/token
-cp /var/run/secrets/kubernetes.io/serviceaccount/ca.crt /etc/kuryr/ca.crt
-cp /opt/kuryr-kubernetes/etc/cni/net.d/* /etc/cni/net.d/
-cp /kuryr-cni-bin /opt/cni/bin/kuryr-cni-bin
-cp /kuryr-cni /opt/cni/bin/kuryr-cni
-cat /tmp/kuryr/* > /etc/kuryr/kuryr.conf
+function cleanup() {
+    local cni_conf_path
+    local cni_bin_path
+    cni_conf_path="$1"
+    cni_bin_path="$2"
 
-while true; do sleep 3600; done
+    rm -f "${cni_conf_path}/10-kuryr.conf"
+    rm -f "${cni_conf_path}/99-loopback.conf"
+    rm -f "${cni_bin_path}/kuryr-cni"
+    rm -f "${cni_bin_path}/kuryr-cni-bin"
+    rm -rf /etc/kuryr
+}
+
+function deploy() {
+    local cni_conf_path
+    local cni_bin_path
+    local serviceaccount_path
+
+    cni_conf_path="$1"
+    cni_bin_path="$2"
+    serviceaccount_path="/var/run/secrets/kubernetes.io/serviceaccount"
+
+    mkdir -p /etc/kuryr
+    cp "${serviceaccount_path}/token" /etc/kuryr/token
+    cp "${serviceaccount_path}/ca.crt" /etc/kuryr/ca.crt
+
+    cp /opt/kuryr-kubernetes/etc/cni/net.d/* "$cni_conf_path"
+    cp /kuryr-cni-bin "${cni_bin_path}/kuryr-cni-bin"
+    cp /kuryr-cni "${cni_bin_path}/kuryr-cni"
+    cat /tmp/kuryr/* > /etc/kuryr/kuryr.conf
+}
+
+cleanup "$CNI_CONFIG_DIR_PATH" "$CNI_BIN_DIR_PATH"
+deploy "$CNI_CONFIG_DIR_PATH" "$CNI_BIN_DIR_PATH"
+
+sleep infinity
