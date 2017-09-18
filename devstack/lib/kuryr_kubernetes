@@ -246,8 +246,6 @@ function create_k8s_subnet {
               "Failed to enable routing for K8s ${subnet_name} subnet"
 }
 
-
-
 # create_k8s_router_fake_service
 #   Description: Creates an endpoint-less kubernetes service to keep Kubernetes
 #                API server from allocating the service subnet router IP for
@@ -280,6 +278,24 @@ spec:
       port: 80
 EOF
     fi
+}
+
+# build_kuryr_containers
+#   Description: Generates a Kuryr controller and Kuryr CNI docker images in
+#       the local docker registry as kuryr/controller:latest and
+#       kuryr/cni:latest respectively
+function build_kuryr_containers() {
+    local build_dir
+
+    build_dir="${DEST}/kuryr-kubernetes"
+    pushd "$build_dir"
+
+    # Build controller image
+    sudo docker build -t kuryr/controller -f "controller.Dockerfile" .
+
+    # Build CNI image
+    sudo ./tools/build_cni_daemonset_image
+    popd
 }
 
 function indent() {

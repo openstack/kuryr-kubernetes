@@ -34,3 +34,4 @@ ML2 drivers.
     nested-macvlan
     odl_support
     dragonflow_support
+    containerized
