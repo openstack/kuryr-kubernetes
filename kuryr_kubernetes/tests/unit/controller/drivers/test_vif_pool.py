@@ -21,6 +21,7 @@ from oslo_config import cfg as oslo_cfg
 
 from os_vif.objects import vif as osv_vif
 
+from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import nested_vlan_vif
 from kuryr_kubernetes.controller.drivers import neutron_vif
 from kuryr_kubernetes.controller.drivers import vif_pool
@@ -82,7 +83,7 @@ def get_port_obj(port_id=None, device_owner=None, ip_address=None):
         'description': '',
         'tags': [],
         'device_id': '',
-        'name': 'available-port',
+        'name': constants.KURYR_PORT_NAME,
         'admin_state_up': True,
         'network_id': 'ba44f957-c467-412b-b985-ae720514bc46',
         'tenant_id': 'b6e8fb2bde594673923afc19cf168f3a',
@@ -259,6 +260,12 @@ class NeutronVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_min',
                                    5,
                                    group='vif_pool')
+        oslo_cfg.CONF.set_override('port_debug',
+                                   True,
+                                   group='kubernetes')
+        oslo_cfg.CONF.set_override('port_debug',
+                                   True,
+                                   group='kubernetes')
         pool_length = 5
         m_driver._get_pool_size.return_value = pool_length
 
@@ -295,6 +302,9 @@ class NeutronVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_min',
                                    5,
                                    group='vif_pool')
+        oslo_cfg.CONF.set_override('port_debug',
+                                   True,
+                                   group='kubernetes')
         pool_length = 3
         m_driver._get_pool_size.return_value = pool_length
 
@@ -359,6 +369,9 @@ class NeutronVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    max_pool,
                                    group='vif_pool')
+        oslo_cfg.CONF.set_override('port_debug',
+                                   True,
+                                   group='kubernetes')
         m_driver._get_pool_size.return_value = pool_length
 
         self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
@@ -367,7 +380,7 @@ class NeutronVIFPool(test_base.TestCase):
             port_id,
             {
                 "port": {
-                    'name': 'available-port',
+                    'name': constants.KURYR_PORT_NAME,
                     'device_id': '',
                     'security_groups': ['security_group']
                 }
@@ -413,6 +426,12 @@ class NeutronVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    0,
                                    group='vif_pool')
+        oslo_cfg.CONF.set_override('port_debug',
+                                   True,
+                                   group='kubernetes')
+        oslo_cfg.CONF.set_override('port_debug',
+                                   True,
+                                   group='kubernetes')
         m_driver._get_pool_size.return_value = pool_length
         neutron.update_port.side_effect = n_exc.NeutronClientException
 
@@ -422,7 +441,7 @@ class NeutronVIFPool(test_base.TestCase):
             port_id,
             {
                 "port": {
-                    'name': 'available-port',
+                    'name': constants.KURYR_PORT_NAME,
                     'device_id': '',
                     'security_groups': ['security_group']
                 }
@@ -684,6 +703,9 @@ class NestedVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_min',
                                    5,
                                    group='vif_pool')
+        oslo_cfg.CONF.set_override('port_debug',
+                                   True,
+                                   group='kubernetes')
         pool_length = 5
         m_driver._get_pool_size.return_value = pool_length
 
@@ -719,6 +741,9 @@ class NestedVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_min',
                                    5,
                                    group='vif_pool')
+        oslo_cfg.CONF.set_override('port_debug',
+                                   True,
+                                   group='kubernetes')
         pool_length = 3
         m_driver._get_pool_size.return_value = pool_length
 
@@ -782,6 +807,9 @@ class NestedVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    max_pool,
                                    group='vif_pool')
+        oslo_cfg.CONF.set_override('port_debug',
+                                   True,
+                                   group='kubernetes')
         m_driver._get_pool_size.return_value = pool_length
 
         self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
@@ -790,7 +818,7 @@ class NestedVIFPool(test_base.TestCase):
             port_id,
             {
                 "port": {
-                    'name': 'available-port',
+                    'name': constants.KURYR_PORT_NAME,
                     'security_groups': ['security_group']
                 }
             })
@@ -849,6 +877,9 @@ class NestedVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    0,
                                    group='vif_pool')
+        oslo_cfg.CONF.set_override('port_debug',
+                                   True,
+                                   group='kubernetes')
         m_driver._get_pool_size.return_value = pool_length
         neutron.update_port.side_effect = n_exc.NeutronClientException
 
@@ -858,7 +889,7 @@ class NestedVIFPool(test_base.TestCase):
             port_id,
             {
                 "port": {
-                    'name': 'available-port',
+                    'name': constants.KURYR_PORT_NAME,
                     'security_groups': ['security_group']
                 }
             })

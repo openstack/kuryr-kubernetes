@@ -84,6 +84,10 @@ k8s_opts = [
                help=_("The driver that manages VIFs pools for "
                       "Kubernetes Pods."),
                default='noop'),
+    cfg.BoolOpt('port_debug',
+                help=_('Enable port debug to force kuryr port names to be '
+                       'set to their corresponding pod names.'),
+                default=False),
 ]
 
 neutron_defaults = [

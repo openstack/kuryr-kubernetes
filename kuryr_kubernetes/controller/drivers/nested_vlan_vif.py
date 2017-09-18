@@ -20,6 +20,8 @@ from neutronclient.common import exceptions as n_exc
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
+from kuryr_kubernetes import config
+from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import nested_vif
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes import os_vif_util as ovu
@@ -124,10 +126,12 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                          'device_owner': kl_const.DEVICE_OWNER,
                          'admin_state_up': True}
 
-        if unbound:
-            port_req_body['name'] = 'available-port'
-        else:
-            port_req_body['name'] = self._get_port_name(pod)
+        # only set name if port_debug is enabled
+        if config.CONF.kubernetes.port_debug:
+            if unbound:
+                port_req_body['name'] = constants.KURYR_PORT_NAME
+            else:
+                port_req_body['name'] = self._get_port_name(pod)
 
         if security_groups:
             port_req_body['security_groups'] = security_groups

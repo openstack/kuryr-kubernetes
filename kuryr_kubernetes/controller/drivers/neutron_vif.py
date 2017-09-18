@@ -18,6 +18,8 @@ from neutronclient.common import exceptions as n_exc
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
+from kuryr_kubernetes import config
+from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes import os_vif_util as ovu
@@ -93,20 +95,23 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
     def _get_port_request(self, pod, project_id, subnets, security_groups,
                           unbound=False):
         port_req_body = {'project_id': project_id,
-                         'name': self._get_port_name(pod),
                          'network_id': self._get_network_id(subnets),
                          'fixed_ips': ovu.osvif_to_neutron_fixed_ips(subnets),
                          'device_owner': kl_const.DEVICE_OWNER,
-                         'device_id': self._get_device_id(pod),
                          'admin_state_up': True,
                          'binding:host_id': self._get_host_id(pod)}
 
         # if unbound argument is set to true, it means the port requested
         # should not be bound and not associated to the pod. Thus the port dict
-        # is filled with a generic name (available-port) and without device_id
-        if unbound:
-            port_req_body['name'] = 'available-port'
-            port_req_body['device_id'] = ''
+        # is filled with a generic name (constants.KURYR_PORT_NAME) if
+        # port_debug is enabled, and without device_id
+        if unbound and config.CONF.kubernetes.port_debug:
+            port_req_body['name'] = constants.KURYR_PORT_NAME
+        else:
+            # only set the name if port_debug is enabled
+            if config.CONF.kubernetes.port_debug:
+                port_req_body['name'] = self._get_port_name(pod)
+            port_req_body['device_id'] = self._get_device_id(pod)
 
         if security_groups:
             port_req_body['security_groups'] = security_groups
