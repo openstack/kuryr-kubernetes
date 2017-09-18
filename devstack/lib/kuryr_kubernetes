@@ -281,3 +281,185 @@ spec:
 EOF
     fi
 }
+
+function indent() {
+    sed 's/^/    /';
+}
+
+function generate_kuryr_configmap() {
+    local output_dir
+    local controller_conf_path
+    local cni_conf_path
+    output_dir=$1
+    controller_conf_path=${2:-""}
+    cni_conf_path=${3:-$controller_conf_path}
+
+    mkdir -p "$output_dir"
+    rm -f ${output_dir}/config_map.yml
+    # kuryr-contoller config
+    cat >> "${output_dir}/config_map.yml" << EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kuryr-config
+  namespace: kube-system
+data:
+  kuryr.conf: |
+EOF
+
+    cat $controller_conf_path | indent >> "${output_dir}/config_map.yml"
+
+    # kuryr-cni config (different token_file location)
+    # token_file = /etc/kuryr/token
+    # ssl_ca_crt_file = /etc/kuryr/ca.crt
+    # ssl_verify_server_crt = true
+    cat >> "${output_dir}/config_map.yml" << EOF
+  kuryr-cni.conf: |
+EOF
+
+    cat $cni_conf_path | indent >> "${output_dir}/config_map.yml"
+}
+
+function generate_kuryr_service_account() {
+    output_dir=$1
+    mkdir -p "$output_dir"
+    rm -f ${output_dir}/service_account.yml
+    cat >> "${output_dir}/service_account.yml" << EOF
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kuryr-controller
+  namespace: kube-system
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: kuryr-controller
+rules:
+- apiGroups:
+  - ""
+  verbs: ["*"]
+  resources:
+    - deployments
+    - endpoints
+    - ingress
+    - pods
+    - policies
+    - nodes
+    - services
+    - services/status
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: kuryr-controller-global
+subjects:
+- kind: ServiceAccount
+  name: kuryr-controller
+  namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: kuryr-controller
+  apiGroup: rbac.authorization.k8s.io
+EOF
+}
+
+function generate_controller_deployment() {
+    output_dir=$1
+    mkdir -p "$output_dir"
+    rm -f ${output_dir}/controller_deployment.yml
+    cat >> "${output_dir}/controller_deployment.yml" << EOF
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    name: kuryr-controller
+  name: kuryr-controller
+  namespace: kube-system
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: kuryr-controller
+      name: kuryr-controller
+    spec:
+      serviceAccountName: kuryr-controller
+      automountServiceAccountToken: true
+      hostNetwork: true
+      containers:
+      - image: kuryr/controller:latest
+        imagePullPolicy: Never
+        name: controller
+        terminationMessagePath: "/dev/termination-log"
+        volumeMounts:
+        - name: config-volume
+          mountPath: "/etc/kuryr/kuryr.conf"
+          subPath: kuryr.conf
+      volumes:
+      - name: config-volume
+        configMap:
+          name: kuryr-config
+      restartPolicy: Always
+EOF
+}
+
+function generate_cni_daemon_set() {
+    output_dir=$1
+    mkdir -p "$output_dir"
+    rm -f ${output_dir}/cni_ds.yml
+    cat >> "${output_dir}/cni_ds.yml" << EOF
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: kuryr-cni-ds
+  namespace: kube-system
+  labels:
+    tier: node
+    app: kuryr
+spec:
+  template:
+    metadata:
+      labels:
+        tier: node
+        app: kuryr
+    spec:
+      hostNetwork: true
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+      serviceAccountName: kuryr-controller
+      containers:
+      - name: kuryr-cni
+        image: kuryr/cni:latest
+        imagePullPolicy: Never
+        command: [ "cni_ds_init" ]
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: bin
+          mountPath: /opt/cni/bin
+        - name: net-conf
+          mountPath: /etc/cni/net.d
+        - name: config-volume
+          mountPath: /tmp/kuryr/kuryr.conf
+          subPath: kuryr-cni.conf
+        - name: etc
+          mountPath: /etc
+      volumes:
+        - name: bin
+          hostPath:
+            path: /opt/cni/bin
+        - name: net-conf
+          hostPath:
+            path: /etc/cni/net.d
+        - name: config-volume
+          configMap:
+            name: kuryr-config
+        - name: etc
+          hostPath:
+            path: /etc
+EOF
+}
