@@ -189,8 +189,6 @@ else
     NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
 fi
 
-if [[ "$KURYR_K8S_LBAAS_USE_OCTAVIA" == "True" ]]; then
-    [[post-config|$OCTAVIA_CONF_DIR/octavia.conf]]
-    [controller_worker]
-    amp_active_retries=9999
-fi
+[[post-config|$OCTAVIA_CONF]]
+[controller_worker]
+amp_active_retries=9999
