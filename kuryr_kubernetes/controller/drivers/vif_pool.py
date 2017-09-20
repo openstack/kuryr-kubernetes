@@ -215,15 +215,23 @@ class NeutronVIFPool(BaseVIFPool):
         """Recycle ports to be reused by future pods.
 
         For each port in the recyclable_ports dict it reaplies
-        security group and changes the port name to available_port.
-        Upon successful port update, the port_id is included in the dict
-        with the available_ports.
+        security group if they have been changed and it changes the port
+        name to available_port if the port_debug option is enabled.
+        Then the port_id is included in the dict with the available_ports.
 
         If a maximun number of port per pool is set, the port will be
         deleted if the maximun has been already reached.
         """
         neutron = clients.get_neutron_client()
         while True:
+            sg_current = {}
+            if not config.CONF.kubernetes.port_debug:
+                kuryr_ports = self._get_ports_by_attrs(
+                    device_owner=kl_const.DEVICE_OWNER)
+                for port in kuryr_ports:
+                    if port['id'] in self._recyclable_ports.keys():
+                        sg_current[port['id']] = port['security_groups']
+
             for port_id, pool_key in self._recyclable_ports.copy().items():
                 if (not oslo_cfg.CONF.vif_pool.ports_pool_max or
                     self._get_pool_size(pool_key) <
@@ -231,20 +239,23 @@ class NeutronVIFPool(BaseVIFPool):
                     port_name = (constants.KURYR_PORT_NAME
                                  if config.CONF.kubernetes.port_debug
                                  else '')
-                    try:
-                        neutron.update_port(
-                            port_id,
-                            {
-                                "port": {
-                                    'name': port_name,
-                                    'device_id': '',
-                                    'security_groups': list(pool_key[2])
-                                }
-                            })
-                    except n_exc.NeutronClientException:
-                        LOG.warning("Error preparing port %s to be reused, put"
-                                    " back on the cleanable pool.", port_id)
-                        continue
+                    if (config.CONF.kubernetes.port_debug or
+                            list(pool_key[2]) != sg_current.get(port_id)):
+                        try:
+                            neutron.update_port(
+                                port_id,
+                                {
+                                    "port": {
+                                        'name': port_name,
+                                        'device_id': '',
+                                        'security_groups': list(pool_key[2])
+                                    }
+                                })
+                        except n_exc.NeutronClientException:
+                            LOG.warning("Error preparing port %s to be "
+                                        "reused, put back on the cleanable "
+                                        "pool.", port_id)
+                            continue
                     self._available_ports_pools.setdefault(
                         pool_key, []).append(port_id)
                 else:
@@ -315,15 +326,23 @@ class NestedVIFPool(BaseVIFPool):
         """Recycle ports to be reused by future pods.
 
         For each port in the recyclable_ports dict it reaplies
-        security group and changes the port name to available_port.
-        Upon successful port update, the port_id is included in the dict
-        with the available_ports.
+        security group if they have been changed and it changes the port
+        name to available_port if the port_debug option is enabled.
+        Then the port_id is included in the dict with the available_ports.
 
         If a maximun number of ports per pool is set, the port will be
         deleted if the maximun has been already reached.
         """
         neutron = clients.get_neutron_client()
         while True:
+            sg_current = {}
+            if not config.CONF.kubernetes.port_debug:
+                kuryr_subports = self._get_ports_by_attrs(
+                    device_owner=['trunk:subport', kl_const.DEVICE_OWNER])
+                for subport in kuryr_subports:
+                    if subport['id'] in self._recyclable_ports.keys():
+                        sg_current[subport['id']] = subport['security_groups']
+
             for port_id, pool_key in self._recyclable_ports.copy().items():
                 if (not oslo_cfg.CONF.vif_pool.ports_pool_max or
                     self._get_pool_size(pool_key) <
@@ -331,19 +350,22 @@ class NestedVIFPool(BaseVIFPool):
                     port_name = (constants.KURYR_PORT_NAME
                                  if config.CONF.kubernetes.port_debug
                                  else '')
-                    try:
-                        neutron.update_port(
-                            port_id,
-                            {
-                                "port": {
-                                    'name': port_name,
-                                    'security_groups': list(pool_key[2])
-                                }
-                            })
-                    except n_exc.NeutronClientException:
-                        LOG.warning("Error preparing port %s to be reused, put"
-                                    " back on the cleanable pool.", port_id)
-                        continue
+                    if (config.CONF.kubernetes.port_debug or
+                            list(pool_key[2]) != sg_current.get(port_id)):
+                        try:
+                            neutron.update_port(
+                                port_id,
+                                {
+                                    "port": {
+                                        'name': port_name,
+                                        'security_groups': list(pool_key[2])
+                                    }
+                                })
+                        except n_exc.NeutronClientException:
+                            LOG.warning("Error preparing port %s to be "
+                                        "reused, put back on the cleanable "
+                                        "pool.", port_id)
+                            continue
                     self._available_ports_pools.setdefault(
                         pool_key, []).append(port_id)
                 else:

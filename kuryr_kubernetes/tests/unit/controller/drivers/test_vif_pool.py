@@ -372,6 +372,8 @@ class NeutronVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('port_debug',
                                    True,
                                    group='kubernetes')
+        m_driver._get_ports_by_attrs.return_value = [
+            {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
 
         self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
@@ -385,6 +387,34 @@ class NeutronVIFPool(test_base.TestCase):
                     'security_groups': ['security_group']
                 }
             })
+        neutron.delete_port.assert_not_called()
+
+    @mock.patch('eventlet.sleep', side_effect=SystemExit)
+    @ddt.data((0), (10))
+    def test__return_ports_to_pool_no_update(self, max_pool, m_sleep):
+        cls = vif_pool.NeutronVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        port_id = mock.sentinel.port_id
+        pool_length = 5
+
+        m_driver._recyclable_ports = {port_id: pool_key}
+        m_driver._available_ports_pools = {}
+        oslo_cfg.CONF.set_override('ports_pool_max',
+                                   max_pool,
+                                   group='vif_pool')
+        oslo_cfg.CONF.set_override('port_debug',
+                                   False,
+                                   group='kubernetes')
+        m_driver._get_ports_by_attrs.return_value = [
+            {'id': port_id, 'security_groups': ['security_group']}]
+        m_driver._get_pool_size.return_value = pool_length
+
+        self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
+
+        neutron.update_port.assert_not_called()
         neutron.delete_port.assert_not_called()
 
     @mock.patch('eventlet.sleep', side_effect=SystemExit)
@@ -404,6 +434,8 @@ class NeutronVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    10,
                                    group='vif_pool')
+        m_driver._get_ports_by_attrs.return_value = [
+            {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
 
         self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
@@ -432,6 +464,8 @@ class NeutronVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('port_debug',
                                    True,
                                    group='kubernetes')
+        m_driver._get_ports_by_attrs.return_value = [
+            {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
         neutron.update_port.side_effect = n_exc.NeutronClientException
 
@@ -465,6 +499,8 @@ class NeutronVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    5,
                                    group='vif_pool')
+        m_driver._get_ports_by_attrs.return_value = [
+            {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
         neutron.delete_port.side_effect = n_exc.PortNotFoundClient
 
@@ -489,6 +525,8 @@ class NeutronVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    5,
                                    group='vif_pool')
+        m_driver._get_ports_by_attrs.return_value = [
+            {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
 
         self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
@@ -810,6 +848,8 @@ class NestedVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('port_debug',
                                    True,
                                    group='kubernetes')
+        m_driver._get_ports_by_attrs.return_value = [
+            {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
 
         self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
@@ -822,6 +862,34 @@ class NestedVIFPool(test_base.TestCase):
                     'security_groups': ['security_group']
                 }
             })
+        neutron.delete_port.assert_not_called()
+
+    @mock.patch('eventlet.sleep', side_effect=SystemExit)
+    @ddt.data((0), (10))
+    def test__return_ports_to_pool_no_update(self, max_pool, m_sleep):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        port_id = mock.sentinel.port_id
+        pool_length = 5
+
+        m_driver._recyclable_ports = {port_id: pool_key}
+        m_driver._available_ports_pools = {}
+        oslo_cfg.CONF.set_override('ports_pool_max',
+                                   max_pool,
+                                   group='vif_pool')
+        oslo_cfg.CONF.set_override('port_debug',
+                                   False,
+                                   group='kubernetes')
+        m_driver._get_ports_by_attrs.return_value = [
+            {'id': port_id, 'security_groups': ['security_group']}]
+        m_driver._get_pool_size.return_value = pool_length
+
+        self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
+
+        neutron.update_port.assert_not_called()
         neutron.delete_port.assert_not_called()
 
     @mock.patch('eventlet.sleep', side_effect=SystemExit)
@@ -847,6 +915,8 @@ class NestedVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    10,
                                    group='vif_pool')
+        m_driver._get_ports_by_attrs.return_value = [
+            {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
         m_driver._known_trunk_ids = {}
         m_driver._drv_vif._get_parent_port_by_host_ip.return_value = p_port
@@ -880,6 +950,8 @@ class NestedVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('port_debug',
                                    True,
                                    group='kubernetes')
+        m_driver._get_ports_by_attrs.return_value = [
+            {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
         neutron.update_port.side_effect = n_exc.NeutronClientException
 
@@ -918,6 +990,8 @@ class NestedVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    5,
                                    group='vif_pool')
+        m_driver._get_ports_by_attrs.return_value = [
+            {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
         neutron.delete_port.side_effect = n_exc.PortNotFoundClient
         m_driver._known_trunk_ids = {}
@@ -955,6 +1029,8 @@ class NestedVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    5,
                                    group='vif_pool')
+        m_driver._get_ports_by_attrs.return_value = [
+            {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
         m_driver._known_trunk_ids = {}
         m_driver._drv_vif._get_parent_port_by_host_ip.return_value = p_port
