@@ -24,8 +24,11 @@ from kuryr.lib import constants as kl_const
 from neutronclient.common import exceptions as n_exc
 from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
+from oslo_serialization import jsonutils
 
 from kuryr_kubernetes import clients
+from kuryr_kubernetes import config
+from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes.controller.drivers import default_subnet
 from kuryr_kubernetes import exceptions
@@ -173,6 +176,16 @@ class BaseVIFPool(base.VIFPoolDriver):
         ports = neutron.list_ports(**attrs)
         return ports['ports']
 
+    def _get_in_use_ports(self):
+        kubernetes = clients.get_kubernetes_client()
+        in_use_ports = []
+        running_pods = kubernetes.get(constants.K8S_API_BASE + '/pods')
+        for pod in running_pods['items']:
+            annotations = jsonutils.loads(pod['metadata']['annotations'][
+                constants.K8S_ANNOTATION_VIF])
+            in_use_ports.append(annotations['versioned_object.data']['id'])
+        return in_use_ports
+
 
 class NeutronVIFPool(BaseVIFPool):
     """Manages VIFs for Bare Metal Kubernetes Pods."""
@@ -182,15 +195,16 @@ class NeutronVIFPool(BaseVIFPool):
             port_id = self._available_ports_pools[pool_key].pop()
         except IndexError:
             raise exceptions.ResourceNotReady(pod)
-        neutron = clients.get_neutron_client()
-        neutron.update_port(
-            port_id,
-            {
-                "port": {
-                    'name': pod['metadata']['name'],
-                    'device_id': pod['metadata']['uid']
-                }
-            })
+        if config.CONF.kubernetes.port_debug:
+            neutron = clients.get_neutron_client()
+            neutron.update_port(
+                port_id,
+                {
+                    "port": {
+                        'name': pod['metadata']['name'],
+                        'device_id': pod['metadata']['uid']
+                    }
+                })
         # check if the pool needs to be populated
         if (self._get_pool_size(pool_key) <
                 oslo_cfg.CONF.vif_pool.ports_pool_min):
@@ -214,12 +228,15 @@ class NeutronVIFPool(BaseVIFPool):
                 if (not oslo_cfg.CONF.vif_pool.ports_pool_max or
                     self._get_pool_size(pool_key) <
                         oslo_cfg.CONF.vif_pool.ports_pool_max):
+                    port_name = (constants.KURYR_PORT_NAME
+                                 if config.CONF.kubernetes.port_debug
+                                 else '')
                     try:
                         neutron.update_port(
                             port_id,
                             {
                                 "port": {
-                                    'name': 'available-port',
+                                    'name': port_name,
                                     'device_id': '',
                                     'security_groups': list(pool_key[2])
                                 }
@@ -250,8 +267,16 @@ class NeutronVIFPool(BaseVIFPool):
 
     def _cleanup_precreated_ports(self):
         neutron = clients.get_neutron_client()
-        available_ports = self._get_ports_by_attrs(
-            name='available-port', device_owner=kl_const.DEVICE_OWNER)
+        if config.CONF.kubernetes.port_debug:
+            available_ports = self._get_ports_by_attrs(
+                name=constants.KURYR_PORT_NAME, device_owner=[
+                    kl_const.DEVICE_OWNER])
+        else:
+            kuryr_ports = self._get_ports_by_attrs(
+                device_owner=kl_const.DEVICE_OWNER)
+            in_use_ports = self._get_in_use_ports()
+            available_ports = [port for port in kuryr_ports
+                               if port['id'] not in in_use_ports]
         for port in available_ports:
             neutron.delete_port(port['id'])
 
@@ -271,14 +296,15 @@ class NestedVIFPool(BaseVIFPool):
             port_id = self._available_ports_pools[pool_key].pop()
         except IndexError:
             raise exceptions.ResourceNotReady(pod)
-        neutron = clients.get_neutron_client()
-        neutron.update_port(
-            port_id,
-            {
-                "port": {
-                    'name': pod['metadata']['name'],
-                }
-            })
+        if config.CONF.kubernetes.port_debug:
+            neutron = clients.get_neutron_client()
+            neutron.update_port(
+                port_id,
+                {
+                    "port": {
+                        'name': pod['metadata']['name'],
+                    }
+                })
         # check if the pool needs to be populated
         if (self._get_pool_size(pool_key) <
                 oslo_cfg.CONF.vif_pool.ports_pool_min):
@@ -302,12 +328,15 @@ class NestedVIFPool(BaseVIFPool):
                 if (not oslo_cfg.CONF.vif_pool.ports_pool_max or
                     self._get_pool_size(pool_key) <
                         oslo_cfg.CONF.vif_pool.ports_pool_max):
+                    port_name = (constants.KURYR_PORT_NAME
+                                 if config.CONF.kubernetes.port_debug
+                                 else '')
                     try:
                         neutron.update_port(
                             port_id,
                             {
                                 "port": {
-                                    'name': 'available-port',
+                                    'name': port_name,
                                     'security_groups': list(pool_key[2])
                                 }
                             })
@@ -349,6 +378,7 @@ class NestedVIFPool(BaseVIFPool):
 
     def _recover_precreated_ports(self):
         self._precreated_ports(action='recover')
+        LOG.info("PORTS POOL: pools updated with pre-created ports")
 
     def _remove_precreated_ports(self, trunk_ips=None):
         self._precreated_ports(action='free', trunk_ips=trunk_ips)
@@ -368,9 +398,16 @@ class NestedVIFPool(BaseVIFPool):
         # when a port is attached to a trunk. However, that is not the case
         # for other ML2 drivers, such as ODL. So we also need to look for
         # compute:kuryr
-        available_ports = self._get_ports_by_attrs(
-            name='available-port', device_owner=['trunk:subport',
-                                                 kl_const.DEVICE_OWNER])
+        if config.CONF.kubernetes.port_debug:
+            available_ports = self._get_ports_by_attrs(
+                name=constants.KURYR_PORT_NAME, device_owner=[
+                    'trunk:subport', kl_const.DEVICE_OWNER])
+        else:
+            kuryr_subports = self._get_ports_by_attrs(
+                device_owner=['trunk:subport', kl_const.DEVICE_OWNER])
+            in_use_ports = self._get_in_use_ports()
+            available_ports = [subport for subport in kuryr_subports
+                               if subport['id'] not in in_use_ports]
 
         if not available_ports:
             return

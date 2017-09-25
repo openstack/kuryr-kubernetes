@@ -17,7 +17,9 @@ import mock
 
 from kuryr.lib import constants as kl_const
 from neutronclient.common import exceptions as n_exc
+from oslo_config import cfg as oslo_cfg
 
+from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import neutron_vif
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.tests import base as test_base
@@ -209,12 +211,15 @@ class NeutronPodVIFDriver(test_base.TestCase):
         m_driver._get_device_id.return_value = device_id
         m_driver._get_host_id.return_value = host_id
 
+        oslo_cfg.CONF.set_override('port_debug',
+                                   True,
+                                   group='kubernetes')
+
         expected = {'port': {'project_id': project_id,
                              'name': port_name,
                              'network_id': network_id,
                              'fixed_ips': fixed_ips,
                              'device_owner': kl_const.DEVICE_OWNER,
-                             'device_id': device_id,
                              'admin_state_up': True,
                              'binding:host_id': host_id}}
 
@@ -222,17 +227,19 @@ class NeutronPodVIFDriver(test_base.TestCase):
             expected['port']['security_groups'] = security_groups
 
         if unbound:
-            expected['port']['name'] = 'available-port'
-            expected['port']['device_id'] = ''
+            expected['port']['name'] = constants.KURYR_PORT_NAME
+        else:
+            expected['port']['device_id'] = device_id
 
         ret = cls._get_port_request(m_driver, pod, project_id, subnets,
                                     security_groups, unbound)
 
         self.assertEqual(expected, ret)
-        m_driver._get_port_name.assert_called_once_with(pod)
         m_driver._get_network_id.assert_called_once_with(subnets)
         m_to_fips.assert_called_once_with(subnets)
-        m_driver._get_device_id.assert_called_once_with(pod)
+        if not unbound:
+            m_driver._get_port_name.assert_called_once_with(pod)
+            m_driver._get_device_id.assert_called_once_with(pod)
         m_driver._get_host_id.assert_called_once_with(pod)
 
     @mock.patch('kuryr_kubernetes.os_vif_util.osvif_to_neutron_fixed_ips')

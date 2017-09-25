@@ -15,7 +15,9 @@ import mock
 from kuryr.lib import constants as kl_const
 from kuryr.lib import exceptions as kl_exc
 from neutronclient.common import exceptions as n_exc
+from oslo_config import cfg as oslo_cfg
 
+from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import nested_vlan_vif
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.tests import base as test_base
@@ -339,6 +341,10 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         m_driver._get_network_id.return_value = network_id
         m_to_fips.return_value = fixed_ips
 
+        oslo_cfg.CONF.set_override('port_debug',
+                                   True,
+                                   group='kubernetes')
+
         expected = {'port': {'project_id': project_id,
                              'name': port_name,
                              'network_id': network_id,
@@ -350,7 +356,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
             expected['port']['security_groups'] = security_groups
 
         if unbound:
-            expected['port']['name'] = 'available-port'
+            expected['port']['name'] = constants.KURYR_PORT_NAME
 
         ret = cls._get_port_request(m_driver, pod, project_id, subnets,
                                     security_groups, unbound)
