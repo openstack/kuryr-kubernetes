@@ -4,4 +4,4 @@ Usage
 
 To use kuryr-kubernetes in a project::
 
-    import kuryr-kubernetes
+    import kuryr_kubernetes
