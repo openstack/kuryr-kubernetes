@@ -94,12 +94,20 @@ class K8sClient(object):
         if self.token:
             header.update({'Authorization': 'Bearer %s' % self.token})
         while itertools.count(1):
-            data = jsonutils.dumps({
-                "metadata": {
-                    "annotations": annotations,
-                    "resourceVersion": resource_version,
-                }
-            }, sort_keys=True)
+            if resource_version:
+                data = jsonutils.dumps({
+                    "metadata": {
+                        "annotations": annotations,
+                        "resourceVersion": resource_version,
+                    }
+                }, sort_keys=True)
+            else:
+                data = jsonutils.dumps({
+                    "metadata": {
+                        "annotations": annotations
+                    }
+                }, sort_keys=True)
+
             response = requests.patch(url, data=data,
                                       headers=header, cert=self.cert,
                                       verify=self.verify_server)
@@ -121,6 +129,11 @@ class K8sClient(object):
                 LOG.debug("Annotations for %(path)s already present: "
                           "%(names)s", {'path': path,
                                         'names': retrieved_annotations})
+
+            LOG.debug("Exception response, headers: %(headers)s, "
+                      "content: %(content)s, text: %(text)s"
+                      % {'headers': response.headers,
+                         'content': response.content, 'text': response.text})
             raise exc.K8sClientException(response.text)
 
     def watch(self, path):
