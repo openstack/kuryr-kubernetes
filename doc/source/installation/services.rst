@@ -97,12 +97,19 @@ requirements.
 Default configuration
 ~~~~~~~~~~~~~~~~~~~~~
 
-Kuryr uses Octavia in a way that is commonly referred to as **Layer 3**, this
-means that Kuryr will tell Octavia not to add a Neutron port to the pod network
-for each load balancer. Instead, **it relies on the pod and the service subnets
-being routable**. This means that the communication from Pods to Services and
-back will go through the router. Depending on the SDN of your choice, this may
-have performance implications.
+Kuryr can use Octavia in two ways:
+
+* The one that is commonly referred to as **Layer 3**, this means that Kuryr
+  will tell Octavia not to add a Neutron port to the pod network for each
+  load balancer. Instead, **it relies on the pod and the service subnets being
+  routable**. This means that the communication from Pods to Services and back
+  will go through the router. Depending on the SDN of your choice, this may
+  have performance implications.
+* The **Layer 2** way, where kuryr will tell Octavia to add a Neutron port to
+  the pod network for each load balancer. Therefore the communication from
+  Services to its Pods members and back will go directly through L2 layer. The
+  drawback of this approach is the extra usage of neutron ports in the Pods
+  subnet, that needs to be accordingly dimensioned.
 
 The services and pods subnets should be created.
 
@@ -363,8 +370,8 @@ The services and pods subnets should be created.
           d2a06d95-8abd-471b-afbe-9dfe475dd8a4 \
           572cee3d-c30a-4ee6-a59c-fe9529a6e168
 
-#. Configure kuryr.conf pod subnet and service subnet to point to the same
-   subnet created in step (1)::
+#. Configure kuryr.conf pod subnet and service subnet to point to their
+   respective subnets created in step (2) and (4)::
 
     [neutron_defaults]
     pod_subnet = e0a888ab-9915-4685-a600-bffe240dc58b
@@ -396,9 +403,9 @@ that was successfully pioneered by the people at EasyStack Inc. which consists
 of doing the following:
 
 #. Create the pod network and subnet so that it has enough addresses for both
-   the pod ports and the subnet. We are limiting the allocation range out of the
-   service range so that nor Octavia nor Kuryr-Kubernetes pod allocation create
-   ports in the part reserved for services
+   the pod ports and the service ports. We are limiting the allocation range
+   out of the service range so that nor Octavia nor Kuryr-Kubernetes pod
+   allocation create ports in the part reserved for services.
 
    Create the network::
 

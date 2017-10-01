@@ -224,7 +224,8 @@ function configure_neutron_defaults {
 
     local use_octavia
     use_octavia=$(trueorfalse True KURYR_K8S_LBAAS_USE_OCTAVIA)
-    if [[ "$use_octavia" == "True" ]]; then
+    if [[ "$use_octavia" == "True" && \
+          "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L3" ]]; then
         # In order for the pods to allow service traffic under Octavia L3 mode,
         #it is necessary for the service subnet to be allowed into the $sg_ids
         local service_cidr
@@ -242,6 +243,29 @@ function configure_neutron_defaults {
             --remote-ip "$service_cidr" --ethertype IPv4 --protocol tcp \
             "$service_pod_access_sg_id"
         sg_ids+=",${service_pod_access_sg_id}"
+    elif [[ "$use_octavia" == "True" && \
+            "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L2" ]]; then
+        # In case the member connectivity is L2, Octavia by default uses the
+        # admin 'default' sg to create a port for the amphora load balancer
+        # at the member ports subnet. Thus we need to allow L2 communication
+        # between the member ports and the octavia ports by allowing all
+        # access from the pod subnet range to the ports in that subnet, and
+        # include it into $sg_ids
+        local pod_cidr
+        local pod_pod_access_sg_id
+        pod_cidr=$(openstack --os-cloud devstack-admin \
+            --os-region "$REGION_NAME" subnet show \
+            "${KURYR_NEUTRON_DEFAULT_POD_SUBNET}" -f value -c cidr)
+        octavia_pod_access_sg_id=$(openstack --os-cloud devstack-admin \
+            --os-region "$REGION_NAME" \
+            security group create --project "$project_id" \
+            octavia_pod_access -f value -c id)
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            security group rule create --project "$project_id" \
+            --description "k8s pod subnet allowed from k8s-pod-subnet" \
+            --remote-ip "$pod_cidr" --ethertype IPv4 --protocol tcp \
+            "$octavia_pod_access_sg_id"
+        sg_ids+=",${octavia_pod_access_sg_id}"
     fi
 
     iniset "$KURYR_CONFIG" neutron_defaults project "$project_id"
@@ -251,6 +275,7 @@ function configure_neutron_defaults {
     if [ -n "$OVS_BRIDGE" ]; then
         iniset "$KURYR_CONFIG" neutron_defaults ovs_bridge "$OVS_BRIDGE"
     fi
+    iniset "$KURYR_CONFIG" octavia_defaults member_mode "$KURYR_K8S_OCTAVIA_MEMBER_MODE"
 }
 
 function get_hyperkube_container_cacert_setup_dir {

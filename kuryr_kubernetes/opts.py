@@ -24,6 +24,7 @@ _kuryr_k8s_opts = [
     ('neutron_defaults', config.neutron_defaults),
     ('pod_vif_nested', nested_vif.nested_vif_driver_opts),
     ('vif_pool', vif_pool.vif_pool_driver_opts),
+    ('octavia_defaults', config.octavia_defaults),
 ]
 
 
