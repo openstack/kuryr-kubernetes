@@ -285,8 +285,12 @@ EOF
 #       the local docker registry as kuryr/controller:latest and
 #       kuryr/cni:latest respectively
 function build_kuryr_containers() {
+    local cni_bin_dir
+    local cni_conf_dir
     local build_dir
 
+    cni_bin_dir=$1
+    cni_conf_dir=$2
     build_dir="${DEST}/kuryr-kubernetes"
     pushd "$build_dir"
 
@@ -294,7 +298,7 @@ function build_kuryr_containers() {
     sudo docker build -t kuryr/controller -f "controller.Dockerfile" .
 
     # Build CNI image
-    sudo ./tools/build_cni_daemonset_image
+    sudo ./tools/build_cni_daemonset_image $cni_bin_dir $cni_conf_dir
     popd
 }
 
@@ -423,6 +427,8 @@ EOF
 
 function generate_cni_daemon_set() {
     output_dir=$1
+    cni_bin_dir=${2:-/opt/cni/bin}
+    cni_conf_dir=${3:-/etc/cni/net.d}
     mkdir -p "$output_dir"
     rm -f ${output_dir}/cni_ds.yml
     cat >> "${output_dir}/cni_ds.yml" << EOF
@@ -467,10 +473,10 @@ spec:
       volumes:
         - name: bin
           hostPath:
-            path: /opt/cni/bin
+            path: ${cni_bin_dir}
         - name: net-conf
           hostPath:
-            path: /etc/cni/net.d
+            path: ${cni_conf_dir}
         - name: config-volume
           configMap:
             name: kuryr-config

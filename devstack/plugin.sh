@@ -87,7 +87,7 @@ function generate_containerized_kuryr_resources {
     generate_kuryr_configmap $output_dir $KURYR_CONFIG $KURYR_CNI_CONFIG
     generate_kuryr_service_account $output_dir
     generate_controller_deployment $output_dir
-    generate_cni_daemon_set $output_dir
+    generate_cni_daemon_set $output_dir $CNI_BIN_DIR $CNI_CONF_DIR
 }
 
 function run_containerized_kuryr_resources {
@@ -564,7 +564,7 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
         if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "False" ]; then
             run_kuryr_kubernetes
         else
-            build_kuryr_containers
+            build_kuryr_containers $CNI_BIN_DIR $CNI_CONF_DIR
             generate_containerized_kuryr_resources
             run_containerized_kuryr_resources
         fi
