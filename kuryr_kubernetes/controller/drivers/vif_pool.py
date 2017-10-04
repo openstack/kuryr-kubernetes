@@ -140,6 +140,9 @@ class BaseVIFPool(base.VIFPoolDriver):
             eventlet.spawn(self._populate_pool, pool_key, pod, subnets)
             raise ex
 
+    def _get_port_from_pool(self, pool_key, pod, subnets):
+        raise NotImplementedError()
+
     def _populate_pool(self, pool_key, pod, subnets):
         # REVISIT(ltomasbo): Drop the subnets parameter and get the information
         # from the pool_key, which will be required when multi-network is
@@ -174,6 +177,12 @@ class BaseVIFPool(base.VIFPoolDriver):
             self._existing_vifs[vif.id] = vif
         self._recyclable_ports[vif.id] = pool_key
 
+    def _return_ports_to_pool(self):
+        raise NotImplementedError()
+
+    def _recover_precreated_ports(self):
+        raise NotImplementedError()
+
     def _get_ports_by_attrs(self, **attrs):
         neutron = clients.get_neutron_client()
         ports = neutron.list_ports(**attrs)
@@ -184,9 +193,15 @@ class BaseVIFPool(base.VIFPoolDriver):
         in_use_ports = []
         running_pods = kubernetes.get(constants.K8S_API_BASE + '/pods')
         for pod in running_pods['items']:
-            annotations = jsonutils.loads(pod['metadata']['annotations'][
-                constants.K8S_ANNOTATION_VIF])
-            in_use_ports.append(annotations['versioned_object.data']['id'])
+            try:
+                annotations = jsonutils.loads(pod['metadata']['annotations'][
+                    constants.K8S_ANNOTATION_VIF])
+            except KeyError:
+                LOG.debug("Skipping pod without kuryr VIF annotation: %s",
+                          pod)
+            else:
+                in_use_ports.append(
+                    annotations['versioned_object.data']['id'])
         return in_use_ports
 
 
