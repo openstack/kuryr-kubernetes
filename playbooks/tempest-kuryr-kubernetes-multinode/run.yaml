@@ -1,0 +1,99 @@
+- hosts: controller
+  name: tempest-kuryr-kubernetes-multinode
+  tasks:
+
+    - name: Ensure legacy workspace directory
+      file:
+        path: '{{ ansible_user_dir }}/workspace'
+        state: directory
+
+    - shell:
+        cmd: |
+          set -e
+          set -x
+          cat > clonemap.yaml << EOF
+          clonemap:
+            - name: openstack-infra/devstack-gate
+              dest: devstack-gate
+          EOF
+          /usr/zuul-env/bin/zuul-cloner -m clonemap.yaml --cache-dir /opt/git \
+              git://git.openstack.org \
+              openstack-infra/devstack-gate
+        executable: /bin/bash
+        chdir: '{{ ansible_user_dir }}/workspace'
+      environment: '{{ zuul | zuul_legacy_vars }}'
+
+    - shell:
+        cmd: |
+          set -e
+          set -x
+          cat << 'EOF' >>"/tmp/dg-local.conf"
+          [[local|localrc]]
+          enable_plugin kuryr-kubernetes \
+              https://git.openstack.org/openstack/kuryr-kubernetes
+          ENABLED_SERVICES=""
+          # Neutron services
+          enable_service neutron
+          enable_service q-agt
+          enable_service q-dhcp
+          enable_service q-l3
+          enable_service q-svc
+          # LBaaSv2 service and Haproxy agent
+          enable_plugin neutron-lbaas \
+              git://git.openstack.org/openstack/neutron-lbaas
+          enable_service q-lbaasv2
+          NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
+          # Keystone
+          enable_service key
+          # dependencies
+          enable_service mysql
+          enable_service rabbit
+          # Docker
+          enable_plugin devstack-plugin-container \
+              git://git.openstack.org/openstack/devstack-plugin-container
+          # Etcd
+          enable_service etcd3
+          # Kubernetes
+          enable_service kubernetes-api
+          enable_service kubernetes-controller-manager
+          enable_service kubernetes-scheduler
+          KURYR_K8S_API_PORT="8080"
+          # Kubelet
+          enable_service kubelet
+          # Kuryr watcher
+          enable_service kuryr-kubernetes
+          # Enable Tempest
+          enable_service tempest
+          # Enable Tempest plugin
+          TEMPEST_PLUGINS='/opt/stack/new/kuryr-tempest-plugin'
+
+          EOF
+        executable: /bin/bash
+        chdir: '{{ ansible_user_dir }}/workspace'
+      environment: '{{ zuul | zuul_legacy_vars }}'
+
+    - shell:
+        cmd: |
+          set -e
+          set -x
+          export PYTHONUNBUFFERED=true
+          export DEVSTACK_GATE_TEMPEST=1
+          export DEVSTACK_GATE_NEUTRON=1
+          export DEVSTACK_GATE_TEMPEST_REGEX="kuryr_tempest_plugin.tests"
+          export BRANCH_OVERRIDE=default
+
+          if [ "$BRANCH_OVERRIDE" != "default" ] ; then
+              export OVERRIDE_ZUUL_BRANCH=$BRANCH_OVERRIDE
+          fi
+
+          export PROJECTS="openstack/kuryr-kubernetes $PROJECTS"
+          export PROJECTS="openstack/kuryr-tempest-plugin $PROJECTS"
+          export PROJECTS="openstack/devstack-plugin-container $PROJECTS"
+
+          export DEVSTACK_GATE_TOPOLOGY="multinode"
+
+          cp devstack-gate/devstack-vm-gate-wrap.sh ./safe-devstack-vm-gate-wrap.sh
+          ./safe-devstack-vm-gate-wrap.sh
+        executable: /bin/bash
+        chdir: '{{ ansible_user_dir }}/workspace'
+      environment: '{{ zuul | zuul_legacy_vars }}'
