@@ -192,6 +192,66 @@ change to ‘Active’ before returning the control to the caller.
     :align: center
     :width: 100%
 
+.. _cni-daemon:
+
+CNI Daemon
+----------
+
+CNI Daemon is an optional service that should run on every Kubernetes node. It
+is responsible for watching pod events on the node it's running on, answering
+calls from CNI Driver and attaching VIFs when they are ready. In the future
+it will also keep information about pooled ports in memory. This helps to limit
+the number of processes spawned when creating multiple Pods, as a single
+Watcher is enough for each node and CNI Driver will only wait on local network
+socket for response from the Daemon.
+
+Currently CNI Daemon consists of two processes i.e. Watcher and Server.
+Processes communicate between each other using Python's
+``multiprocessing.Manager`` and a shared dictionary object. Watcher is
+responsible for extracting VIF annotations from Pod events and putting them
+into the shared dictionary. Server is a regular WSGI server that will answer
+CNI Driver calls. When a CNI request comes, Server is waiting for VIF object to
+appear in the shared dictionary. As annotations are read from
+kubernetes API and added to the registry by Watcher thread, Server will
+eventually get VIF it needs to connect for a given pod. Then it waits for the
+VIF to become active before returning to the CNI Driver.
+
+Communication
+~~~~~~~~~~~~~
+
+CNI Daemon Server is starting an HTTP server on a local network socket
+(``127.0.0.1:50036`` by default). Currently server is listening for 2 API
+calls. Both calls load the ``CNIParameters`` from the body of the call (it is
+expected to be JSON).
+
+For reference see updated pod creation flow diagram:
+
+.. image:: ../../images/pod_creation_flow_daemon.png
+    :alt: Controller-CNI-daemon interaction
+    :align: center
+    :width: 100%
+
+/addNetwork
++++++++++++
+**Function**: Is equivalent of running ``K8sCNIPlugin.add``.
+
+**Return code:** 201 Created
+
+**Return body:** Returns VIF data in JSON form. This is serialized
+oslo.versionedobject from ``os_vif`` library. On the other side it can be
+deserialized using o.vo's ``obj_from_primitive()`` method.
+
+/delNetwork
++++++++++++
+**Function**: Is equivalent of running ``K8sCNIPlugin.delete``.
+
+**Return code:** 204 No content
+
+**Return body:** None.
+
+When running in daemonized mode, CNI Driver will call CNI Daemon over those APIs
+to perform its tasks and wait on socket for result.
+
 Kubernetes Documentation
 ------------------------
 The `Kubernetes reference documentation <https://kubernetes.io/docs/reference/>`_
