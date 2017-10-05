@@ -420,3 +420,48 @@ class VIFPoolDriver(PodVIFDriver):
         vif resources.
         """
         raise NotImplementedError()
+
+
+@six.add_metaclass(abc.ABCMeta)
+class ServicePubIpDriver(DriverBase):
+    """Manages loadbalancerIP/public ip for neutron lbaas."""
+
+    ALIAS = 'service_public_ip'
+
+    @abc.abstractmethod
+    def acquire_service_pub_ip_info(self, spec_type, spec_lb_ip, project_id):
+        """Get k8s service loadbalancer IP info based on service spec
+
+        :param spec_type: service.spec.type field
+        :param spec_lb_ip: service spec LoadBlaceIP field
+        :param project_id: openstack project id
+
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def release_pub_ip(self, service_pub_ip_info):
+        """Release (if needed) based on service_pub_ip_info content
+
+        :param service_pub_ip_info: service loadbalancer IP info
+
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def associate_pub_ip(self, service_pub_ip_info, vip_port_id):
+        """Associate loadbalancer IP to lbaas VIP port ID
+
+        :param service_pub_ip_info: service loadbalancer IP info
+        :param vip_port_id: Lbaas VIP port id
+
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def disassociate_pub_ip(self, service_pub_ip_info):
+        """Disassociate loadbalancer IP and lbaas VIP port ID
+
+        :param service_pub_ip_info: service loadbalancer IP info
+
+        """

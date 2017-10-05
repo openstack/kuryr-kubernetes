@@ -88,6 +88,10 @@ k8s_opts = [
                 help=_('Enable port debug to force kuryr port names to be '
                        'set to their corresponding pod names.'),
                 default=False),
+    cfg.StrOpt('service_public_ip_driver',
+               help=_("The driver that provides external IP for LB at "
+                      "Kubernetes"),
+               default='neutron_floating_ip'),
 ]
 
 neutron_defaults = [
@@ -104,6 +108,8 @@ neutron_defaults = [
                sample_default="br-int"),
     cfg.StrOpt('service_subnet',
                help=_("Default Neutron subnet ID for Kubernetes services")),
+    cfg.StrOpt('external_svc_subnet',
+               help=_("Default external subnet for Kubernetes services")),
 ]
 
 octavia_defaults = [

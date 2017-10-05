@@ -111,6 +111,21 @@ class LBaaSv2Driver(base.LBaaSDriver):
                       neutron.delete_lbaas_member,
                       member.id, member.pool_id)
 
+    def _get_vip_port_id(self, loadbalancer):
+        neutron = clients.get_neutron_client()
+        try:
+            fixed_ips = ['subnet_id=%s' % str(loadbalancer.subnet_id),
+                         'ip_address=%s' % str(loadbalancer.ip)]
+            ports = neutron.list_ports(fixed_ips=fixed_ips)
+        except n_exc.NeutronClientException as ex:
+            LOG.error("Port with fixed ips %s not found!", fixed_ips)
+            raise ex
+
+        if ports['ports']:
+            return ports['ports'][0].get("id")
+
+        return None
+
     def _create_loadbalancer(self, loadbalancer):
         neutron = clients.get_neutron_client()
         response = neutron.create_loadbalancer({'loadbalancer': {
@@ -120,6 +135,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             'vip_address': str(loadbalancer.ip),
             'vip_subnet_id': loadbalancer.subnet_id}})
         loadbalancer.id = response['loadbalancer']['id']
+        loadbalancer.port_id = self._get_vip_port_id(loadbalancer)
         return loadbalancer
 
     def _find_loadbalancer(self, loadbalancer):
@@ -133,6 +149,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         try:
             loadbalancer.id = response['loadbalancers'][0]['id']
+            loadbalancer.port_id = self._get_vip_port_id(loadbalancer)
         except (KeyError, IndexError):
             return None
 

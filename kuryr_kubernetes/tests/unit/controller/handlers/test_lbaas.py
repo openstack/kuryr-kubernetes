@@ -39,7 +39,6 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         m_get_drv_project.return_value = mock.sentinel.drv_project
         m_get_drv_subnets.return_value = mock.sentinel.drv_subnets
         m_get_drv_sg.return_value = mock.sentinel.drv_sg
-
         handler = h_lbaas.LBaaSSpecHandler()
 
         self.assertEqual(mock.sentinel.drv_project, handler._drv_project)
@@ -51,11 +50,16 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         old_spec = mock.sentinel.old_spec
         new_spec = mock.sentinel.new_spec
 
+        project_id = mock.sentinel.project_id
+        m_drv_project = mock.Mock()
+        m_drv_project.get_project.return_value = project_id
+
         m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
         m_handler._get_lbaas_spec.return_value = old_spec
         m_handler._has_lbaas_spec_changes.return_value = True
         m_handler._generate_lbaas_spec.return_value = new_spec
         m_handler._should_ignore.return_value = False
+        m_handler._drv_project = m_drv_project
 
         h_lbaas.LBaaSSpecHandler.on_present(m_handler, svc_event)
 
@@ -105,13 +109,28 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         ret = h_lbaas.LBaaSSpecHandler._get_service_ip(m_handler, svc_body)
         self.assertEqual(mock.sentinel.cluster_ip, ret)
 
-    def test_get_service_ip_not_cluster_ip(self):
-        svc_body = {'spec': {'type': 'notClusterIP',
+        svc_body = {'spec': {'type': 'LoadBalancer',
                              'clusterIP': mock.sentinel.cluster_ip}}
         m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
 
         ret = h_lbaas.LBaaSSpecHandler._get_service_ip(m_handler, svc_body)
-        self.assertIsNone(ret)
+        self.assertEqual(mock.sentinel.cluster_ip, ret)
+
+    def test_is_supported_type_clusterip(self):
+        m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
+        svc_body = {'spec': {'type': 'ClusterIP',
+                             'clusterIP': mock.sentinel.cluster_ip}}
+
+        ret = h_lbaas.LBaaSSpecHandler._is_supported_type(m_handler, svc_body)
+        self.assertEqual(ret, True)
+
+    def test_is_supported_type_loadbalancer(self):
+        m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
+        svc_body = {'spec': {'type': 'LoadBalancer',
+                             'clusterIP': mock.sentinel.cluster_ip}}
+
+        ret = h_lbaas.LBaaSSpecHandler._is_supported_type(m_handler, svc_body)
+        self.assertEqual(ret, True)
 
     def _make_test_net_obj(self, cidr_list):
         subnets = [osv_subnet.Subnet(cidr=cidr) for cidr in cidr_list]
@@ -141,6 +160,8 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         spec_ctor_path = 'kuryr_kubernetes.objects.lbaas.LBaaSServiceSpec'
         with mock.patch(spec_ctor_path) as m_spec_ctor:
             m_spec_ctor.return_value = mock.sentinel.ret_obj
+            service = {'spec': {'type': 'ClusterIP'}}
+
             ret_obj = h_lbaas.LBaaSSpecHandler._generate_lbaas_spec(
                 m_handler, service)
             self.assertEqual(mock.sentinel.ret_obj, ret_obj)
@@ -149,7 +170,9 @@ class TestLBaaSSpecHandler(test_base.TestCase):
                 project_id=project_id,
                 subnet_id=subnet_id,
                 ports=ports,
-                security_groups_ids=sg_ids)
+                security_groups_ids=sg_ids,
+                type='ClusterIP',
+                lb_ip=None)
 
         m_drv_project.get_project.assert_called_once_with(service)
         m_handler._get_service_ip.assert_called_once_with(service)
@@ -359,21 +382,25 @@ class FakeLBaaSDriver(drv_base.LBaaSDriver):
 
 class TestLoadBalancerHandler(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
+                '.ServicePubIpDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.PodSubnetsDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.PodProjectDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
-    def test_init(self, m_get_drv_lbaas, m_get_drv_project, m_get_drv_subnets):
+    def test_init(self, m_get_drv_lbaas, m_get_drv_project,
+                  m_get_drv_subnets, m_get_drv_service_pub_ip):
         m_get_drv_lbaas.return_value = mock.sentinel.drv_lbaas
         m_get_drv_project.return_value = mock.sentinel.drv_project
         m_get_drv_subnets.return_value = mock.sentinel.drv_subnets
-
+        m_get_drv_service_pub_ip.return_value = mock.sentinel.drv_lb_ip
         handler = h_lbaas.LoadBalancerHandler()
 
         self.assertEqual(mock.sentinel.drv_lbaas, handler._drv_lbaas)
         self.assertEqual(mock.sentinel.drv_project, handler._drv_pod_project)
         self.assertEqual(mock.sentinel.drv_subnets, handler._drv_pod_subnets)
+        self.assertEqual(mock.sentinel.drv_lb_ip, handler._drv_service_pub_ip)
 
     def test_on_present(self):
         lbaas_spec = mock.sentinel.lbaas_spec
