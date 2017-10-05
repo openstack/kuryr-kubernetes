@@ -143,15 +143,15 @@ class NeutronVIFPool(test_base.TestCase):
                           m_driver, pod, project_id, subnets, security_groups)
         m_eventlet.assert_called_once()
 
-    def test_request_vif_pod_without_host_id(self):
+    def test_request_vif_pod_without_host_name(self):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
         pod = get_pod_obj()
-        del pod['status']['hostIP']
         project_id = mock.sentinel.project_id
         subnets = mock.sentinel.subnets
         security_groups = [mock.sentinel.security_groups]
+        m_driver._get_host_addr.side_effect = KeyError
 
         self.assertRaises(KeyError, cls.request_vif, m_driver, pod, project_id,
                           subnets, security_groups)
@@ -496,29 +496,68 @@ class NeutronVIFPool(test_base.TestCase):
         neutron.update_port.assert_not_called()
         neutron.delete_port.assert_not_called()
 
-    def test__cleanup_precreated_ports(self):
+    @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif')
+    @mock.patch('kuryr_kubernetes.controller.drivers.default_subnet.'
+                '_get_subnet')
+    def test__recover_precreated_ports(self, m_get_subnet, m_to_osvif):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        cls_vif_driver = neutron_vif.NeutronPodVIFDriver
+        vif_driver = mock.MagicMock(spec=cls_vif_driver)
+        m_driver._drv_vif = vif_driver
+
+        m_driver._existing_vifs = {}
+        m_driver._available_ports_pools = {}
 
         port_id = mock.sentinel.port_id
-        port = {'id': port_id}
+        port = get_port_obj(port_id=port_id)
         filtered_ports = [port]
         m_driver._get_ports_by_attrs.return_value = filtered_ports
+        vif_plugin = mock.sentinel.plugin
+        m_driver._drv_vif._get_vif_plugin.return_value = vif_plugin
 
-        cls._cleanup_precreated_ports(m_driver)
-        neutron.delete_port.assert_called_with(port_id)
+        oslo_cfg.CONF.set_override('port_debug',
+                                   False,
+                                   group='kubernetes')
+        subnet = mock.sentinel.subnet
+        subnet_id = port['fixed_ips'][0]['subnet_id']
+        m_get_subnet.return_value = subnet
+        vif = mock.sentinel.vif
+        m_to_osvif.return_value = vif
 
-    def test__cleanup_precreated_ports_empty(self):
+        cls._recover_precreated_ports(m_driver)
+
+        m_driver._get_ports_by_attrs.assert_called_once()
+        m_get_subnet.assert_called_with(subnet_id)
+        m_driver._drv_vif._get_vif_plugin.assert_called_once_with(port)
+        m_to_osvif.assert_called_once_with(vif_plugin, port,
+                                           {subnet_id: subnet})
+
+        self.assertEqual(m_driver._existing_vifs[port_id], vif)
+        pool_key = (port['binding:host_id'], port['project_id'],
+                    tuple(port['security_groups']))
+        self.assertEqual(m_driver._available_ports_pools[pool_key], [port_id])
+
+    @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif')
+    @mock.patch('kuryr_kubernetes.controller.drivers.default_subnet.'
+                '_get_subnet')
+    def test__recover_precreated_ports_empty(self, m_get_subnet, m_to_osvif):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
         filtered_ports = []
         m_driver._get_ports_by_attrs.return_value = filtered_ports
 
-        cls._cleanup_precreated_ports(m_driver)
-        neutron.delete_port.assert_not_called()
+        oslo_cfg.CONF.set_override('port_debug',
+                                   False,
+                                   group='kubernetes')
+
+        cls._recover_precreated_ports(m_driver)
+
+        m_driver._get_ports_by_attrs.assert_called_once()
+        m_get_subnet.assert_not_called()
+        m_to_osvif.assert_not_called()
 
 
 @ddt.ddt
@@ -591,10 +630,10 @@ class NestedVIFPool(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
 
         pod = get_pod_obj()
-        del pod['status']['hostIP']
         project_id = mock.sentinel.project_id
         subnets = mock.sentinel.subnets
         security_groups = [mock.sentinel.security_groups]
+        m_driver._get_host_addr.side_effect = KeyError
 
         self.assertRaises(KeyError, cls.request_vif, m_driver, pod, project_id,
                           subnets, security_groups)

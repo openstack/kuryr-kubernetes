@@ -122,9 +122,12 @@ class BaseVIFPool(base.VIFPoolDriver):
     def _get_pool_size(self, pool_key=None):
         return len(self._available_ports_pools.get(pool_key, []))
 
+    def _get_host_addr(self, pod):
+        return pod['status']['hostIP']
+
     def request_vif(self, pod, project_id, subnets, security_groups):
         try:
-            host_addr = pod['status']['hostIP']
+            host_addr = self._get_host_addr(pod)
         except KeyError:
             LOG.warning("Pod has not been scheduled yet.")
             raise
@@ -164,7 +167,7 @@ class BaseVIFPool(base.VIFPoolDriver):
                                                        []).append(vif.id)
 
     def release_vif(self, pod, vif, project_id, security_groups):
-        host_addr = pod['status']['hostIP']
+        host_addr = self._get_host_addr(pod)
         pool_key = (host_addr, project_id, tuple(sorted(security_groups)))
 
         if not self._existing_vifs.get(vif.id):
@@ -189,6 +192,9 @@ class BaseVIFPool(base.VIFPoolDriver):
 
 class NeutronVIFPool(BaseVIFPool):
     """Manages VIFs for Bare Metal Kubernetes Pods."""
+
+    def _get_host_addr(self, pod):
+        return pod['spec']['nodeName']
 
     def _get_port_from_pool(self, pool_key, pod, subnets):
         try:
@@ -260,13 +266,6 @@ class NeutronVIFPool(BaseVIFPool):
             eventlet.sleep(oslo_cfg.CONF.vif_pool.ports_pool_update_frequency)
 
     def _recover_precreated_ports(self):
-        # REVISIT(ltomasbo): host_address cannot be obtained to recover the
-        # port into the corresponding pool. So for now they are just cleaned
-        # up
-        self._cleanup_precreated_ports()
-
-    def _cleanup_precreated_ports(self):
-        neutron = clients.get_neutron_client()
         if config.CONF.kubernetes.port_debug:
             available_ports = self._get_ports_by_attrs(
                 name=constants.KURYR_PORT_NAME, device_owner=[
@@ -277,8 +276,21 @@ class NeutronVIFPool(BaseVIFPool):
             in_use_ports = self._get_in_use_ports()
             available_ports = [port for port in kuryr_ports
                                if port['id'] not in in_use_ports]
+
         for port in available_ports:
-            neutron.delete_port(port['id'])
+            pool_key = (port['binding:host_id'], port['project_id'],
+                        tuple(port['security_groups']))
+            subnet_id = port['fixed_ips'][0]['subnet_id']
+            subnet = {
+                subnet_id: default_subnet._get_subnet(subnet_id)}
+            vif_plugin = self._drv_vif._get_vif_plugin(port)
+            vif = ovu.neutron_to_osvif_vif(vif_plugin, port, subnet)
+
+            self._existing_vifs[port['id']] = vif
+            self._available_ports_pools.setdefault(
+                pool_key, []).append(port['id'])
+
+        LOG.info("PORTS POOL: pools updated with pre-created ports")
 
 
 class NestedVIFPool(BaseVIFPool):
