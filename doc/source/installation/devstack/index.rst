@@ -30,6 +30,7 @@ ML2 drivers.
 .. toctree::
     :maxdepth: 1
 
+    basic
     nested-vlan
     nested-macvlan
     odl_support
