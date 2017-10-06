@@ -13,8 +13,6 @@ enable_plugin dragonflow https://git.openstack.org/openstack/dragonflow
 # Log settings for better readability
 LOGFILE=devstack.log
 LOG_COLOR=False
-# If you want the screen tabs logged in a specific location, you can use:
-# SCREEN_LOGDIR="${HOME}/devstack_logs"
 
 
 # Credentials
