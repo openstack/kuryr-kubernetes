@@ -58,12 +58,11 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
 
         # NOTE(ltomasbo): Due to the bug (1696051) on neutron bulk port
         # creation request returning the port objects without binding
-        # information, an additional (non-bulk) port creation is performed to
-        # get the right vif binding information
+        # information, an additional port show is performed to get the binding
+        # information
         if vif_plugin == 'unbound':
-            single_port = neutron.create_port(rq).get('port')
-            vif_plugin = self._get_vif_plugin(single_port)
-            ports.append(single_port)
+            port_info = neutron.show_port(ports[0]['id']).get('port')
+            vif_plugin = self._get_vif_plugin(port_info)
 
         vifs = []
         for port in ports:
