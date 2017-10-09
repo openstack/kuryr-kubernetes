@@ -38,3 +38,28 @@ enable_service kubernetes-controller-manager
 enable_service kubernetes-scheduler
 enable_service kubelet
 enable_service kuryr-kubernetes
+
+KURYR_POD_VIF_DRIVER=nested-vlan
+
+# Kuryr Ports Pools
+# =================
+#
+# To speed up containers boot time the kuryr ports pool driver can be enabled
+# by uncommenting the next line, so that neutron port resources are precreated
+# and ready to be used by the pods when needed
+# KURYR_USE_PORTS_POOLS=True
+#
+# By default the pool driver is noop, i.e., there is no pool. If pool
+# optimizations want to be used you need to set it to 'neutron' for the
+# baremetal case, or to 'nested' for the nested case
+KURYR_VIF_POOL_DRIVER=nested
+#
+# There are extra configuration options for the pools that can be set to decide
+# on the minimum number of ports that should be ready to use at each pool, the
+# maximum (0 to unset), and the batch size for the repopulation actions, i.e.,
+# the number of neutron ports to create in bulk operations. Finally, the update
+# frequency between actions over the pool can be set too
+# KURYR_VIF_POOL_MIN=5
+# KURYR_VIF_POOL_MAX=0
+# KURYR_VIF_POOL_BATCH=10
+# KURYR_VIF_POOL_UPDATE_FREQ=20

@@ -66,6 +66,14 @@ function configure_kuryr {
     if is_service_enabled kuryr-kubernetes; then
         configure_auth_token_middleware "$KURYR_CONFIG" kuryr \
         "$KURYR_AUTH_CACHE_DIR" neutron
+        iniset "$KURYR_CONFIG" kubernetes pod_vif_driver "$KURYR_POD_VIF_DRIVER"
+        if [ "$KURYR_USE_PORTS_POOLS" ]; then
+            iniset "$KURYR_CONFIG" kubernetes vif_pool_driver "$KURYR_VIF_POOL_DRIVER"
+            iniset "$KURYR_CONFIG" vif_pool ports_pool_min "$KURYR_VIF_POOL_MIN"
+            iniset "$KURYR_CONFIG" vif_pool ports_pool_max "$KURYR_VIF_POOL_MAX"
+            iniset "$KURYR_CONFIG" vif_pool ports_pool_batch "$KURYR_VIF_POOL_BATCH"
+            iniset "$KURYR_CONFIG" vif_pool ports_pool_update_frequency "$KURYR_VIF_POOL_UPDATE_FREQ"
+        fi
     fi
 }
 

@@ -146,3 +146,34 @@ enable_service kubelet
 # part of the codebase that connects to the Kubernetes API server to read the
 # resource events and convert them to Neutron actions
 enable_service kuryr-kubernetes
+
+# Kuryr POD VIF Driver
+# ====================
+#
+# Set up the VIF Driver to be used. The default one is the neutron-vif, but if
+# a nested deployment is desired, the corresponding driver need to be set,
+# e.g.: nested-vlan or nested-macvlan
+# KURYR_POD_VIF_DRIVER=neutron-vif
+
+# Kuryr Ports Pools
+# =================
+#
+# To speed up containers boot time the kuryr ports pool driver can be enabled
+# by uncommenting the next line, so that neutron port resources are precreated
+# and ready to be used by the pods when needed
+# KURYR_USE_PORTS_POOLS=True
+#
+# By default the pool driver is noop, i.e., there is no pool. If pool
+# optimizations want to be used you need to set it to 'neutron' for the
+# baremetal case, or to 'nested' for the nested case
+# KURYR_VIF_POOL_DRIVER=noop
+#
+# There are extra configuration options for the pools that can be set to decide
+# on the minimum number of ports that should be ready to use at each pool, the
+# maximum (0 to unset), and the batch size for the repopulation actions, i.e.,
+# the number of neutron ports to create in bulk operations. Finally, the update
+# frequency between actions over the pool can be set too
+# KURYR_VIF_POOL_MIN=5
+# KURYR_VIF_POOL_MAX=0
+# KURYR_VIF_POOL_BATCH=10
+# KURYR_VIF_POOL_UPDATE_FREQ=20
