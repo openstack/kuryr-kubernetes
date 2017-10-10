@@ -63,3 +63,11 @@ KURYR_VIF_POOL_DRIVER=nested
 # KURYR_VIF_POOL_MAX=0
 # KURYR_VIF_POOL_BATCH=10
 # KURYR_VIF_POOL_UPDATE_FREQ=20
+
+# Kuryr VIF Pool Manager
+# ======================
+#
+# Uncomment the next line to enable the pool manager. Note it requires the
+# nested-vlan pod vif driver, as well as the ports pool being enabled and
+# configured with the nested driver
+# KURYR_VIF_POOL_MANAGER=True
