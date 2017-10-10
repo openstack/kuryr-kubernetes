@@ -237,6 +237,15 @@ nested_vif_driver_opts = [
                default=''),
 ]
 
+DEFAULT_PHYSNET_SUBNET_MAPPINGS = {}
+sriov_opts = [
+    cfg.DictOpt('default_physnet_subnets',
+                help=_("A mapping of default subnets for certain physnets "
+                       "in a form of physnet-name:<SUBNET-ID>"),
+                default=DEFAULT_PHYSNET_SUBNET_MAPPINGS),
+]
+
+
 CONF = cfg.CONF
 CONF.register_opts(kuryr_k8s_opts)
 CONF.register_opts(daemon_opts, group='cni_daemon')
@@ -246,6 +255,7 @@ CONF.register_opts(octavia_defaults, group='octavia_defaults')
 CONF.register_opts(cache_defaults, group='cache_defaults')
 CONF.register_opts(ingress, group='ingress')
 CONF.register_opts(nested_vif_driver_opts, group='pod_vif_nested')
+CONF.register_opts(sriov_opts, group='sriov')
 
 CONF.register_opts(lib_config.core_opts)
 CONF.register_opts(lib_config.binding_opts, 'binding')

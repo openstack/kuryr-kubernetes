@@ -38,3 +38,23 @@ class NoOpPlugin(PluginBase):
 
     def unplug(self, vif, instance_info):
         pass
+
+
+class SriovPlugin(PluginBase):
+    """Sriov Plugin to be used with sriov VIFS"""
+
+    def describe(self):
+        return objects.host_info.HostPluginInfo(
+            plugin_name='sriov',
+            vif_info=[
+                objects.host_info.HostVIFInfo(
+                    vif_object_name=objects.vif.VIFDirect.__name__,
+                    min_version="1.0",
+                    max_version="1.0"),
+            ])
+
+    def plug(self, vif, instance_info):
+        pass
+
+    def unplug(self, vif, instance_info):
+        pass

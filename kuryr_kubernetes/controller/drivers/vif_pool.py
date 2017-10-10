@@ -85,7 +85,8 @@ VIF_TYPE_TO_DRIVER_MAPPING = {
     'VIFOpenVSwitch': 'neutron-vif',
     'VIFBridge': 'neutron-vif',
     'VIFVlanNested': 'nested-vlan',
-    'VIFMacvlanNested': 'nested-macvlan'
+    'VIFMacvlanNested': 'nested-macvlan',
+    'VIFSriov': 'sriov'
 }
 
 

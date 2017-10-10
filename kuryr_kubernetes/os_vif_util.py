@@ -52,6 +52,11 @@ def neutron_to_osvif_network(neutron_network):
     if neutron_network.get('mtu') is not None:
         obj.mtu = neutron_network['mtu']
 
+    # Vlan information will be used later in Sriov binding driver
+    if neutron_network.get('provider:network_type') == 'vlan':
+        obj.should_provide_vlan = True
+        obj.vlan = neutron_network['provider:segmentation_id']
+
     return obj
 
 
@@ -293,6 +298,35 @@ def neutron_to_osvif_vif_nested_macvlan(neutron_port, subnets):
         active=_is_port_active(neutron_port),
         plugin=const.K8S_OS_VIF_NOOP_PLUGIN,
         vif_name=_get_vif_name(neutron_port))
+
+
+def neutron_to_osvif_vif_sriov(vif_plugin, neutron_port, subnets):
+    """Converts Neutron port to VIF object for SRIOV containers.
+
+    :param vif_plugin: name of the os-vif plugin to use (i.e. 'noop')
+    :param neutron_port: dict containing port information as returned by
+                         neutron client's 'show_port'
+    :param subnets: subnet mapping as returned by PodSubnetsDriver.get_subnets
+    :return: osv_vif VIFSriov object
+    """
+
+    details = neutron_port.get('binding:vif_details', {})
+    network = _make_vif_network(neutron_port, subnets)
+    vlan_name = network.vlan if network.should_provide_vlan else ''
+    vif = k_vif.VIFSriov(
+        id=neutron_port['id'],
+        address=neutron_port['mac_address'],
+        network=network,
+        has_traffic_filtering=details.get('port_filter', False),
+        preserve_on_delete=False,
+        active=_is_port_active(neutron_port),
+        plugin=vif_plugin,
+        mode='passthrough',
+        vlan_name=vlan_name,
+        vif_name=_get_vif_name(neutron_port),
+    )
+
+    return vif
 
 
 def neutron_to_osvif_vif(vif_translator, neutron_port, subnets):
