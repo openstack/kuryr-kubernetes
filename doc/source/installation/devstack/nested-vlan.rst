@@ -34,6 +34,15 @@ running. 4GB memory and 2 vCPUs, is the minimum resource requirement for the VM:
             KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID=UNDERCLOUD_SUBNETPOOL_V4_ID
             KURYR_NEUTRON_DEFAULT_ROUTER=router1
 
+        - Ensure the nested-vlan driver is going to be set by setting::
+
+            KURYR_POD_VIF_DRIVER=nested-vlan
+
+        - Optionally, the ports pool funcionality can be enabled by following:
+          `How to enable ports pool with devstack`_.
+
+        .. _How to enable ports pool with devstack: https://docs.openstack.org/kuryr-kubernetes/latest/installation/devstack/ports-pools.html
+
 
 4. Once devstack is done and all services are up inside VM. Next steps are to
    configure the missing information at ``/etc/kuryr/kuryr.conf``:
@@ -42,11 +51,6 @@ running. 4GB memory and 2 vCPUs, is the minimum resource requirement for the VM:
 
        [pod_vif_nested]
        worker_nodes_subnet = <UNDERCLOUD_SUBNET_WORKER_NODES_UUID>
-
-    - Configure "pod_vif_driver" as "nested-vlan"::
-
-       [kubernetes]
-       pod_vif_driver = nested-vlan
 
     - Configure binding section::
 

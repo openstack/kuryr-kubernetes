@@ -62,6 +62,12 @@ Feel free to edit it if you'd like, but it should work as-is.
     $ cd devstack
     $ cp ../kuryr-kubernetes/devstack/local.conf.df.sample local.conf
 
+
+Optionally, the ports pool funcionality can be enabled by following:
+`How to enable ports pool with devstack`_.
+
+.. _How to enable ports pool with devstack:  https://docs.openstack.org/kuryr-kubernetes/latest/installation/devstack/ports-pool.html
+
 5. Run DevStack.
 
 Expect it to take a while. It installs required packages, clones a bunch
