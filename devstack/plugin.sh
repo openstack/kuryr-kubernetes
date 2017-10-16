@@ -61,6 +61,8 @@ function configure_kuryr {
     # daemon-based CNI driver is implemented, this could be removed.
     iniset "$KURYR_CONFIG" DEFAULT use_stderr true
 
+    iniset "$KURYR_CONFIG" kubernetes port_debug "$KURYR_PORT_DEBUG"
+
     create_kuryr_cache_dir
 
     # Neutron API server & Neutron plugin
