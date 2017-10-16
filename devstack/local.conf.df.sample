@@ -54,11 +54,46 @@ DF_RUNNING_IN_GATE=True
 TUNNEL_TYPE=vxlan
 DF_SELECTIVE_TOPO_DIST=False
 
-# LBaaSv2 service and Haproxy agent
-enable_plugin neutron-lbaas \
-    git://git.openstack.org/openstack/neutron-lbaas
-enable_service q-lbaasv2
-NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
+# OCTAVIA
+KURYR_K8S_LBAAS_USE_OCTAVIA=False
+# Uncomment it to use L2 communication between loadbalancer and member pods
+# KURYR_K8S_OCTAVIA_MEMBER_MODE=L2
+
+if [[ "$KURYR_K8S_LBAAS_USE_OCTAVIA" == "True" ]]; then
+    # Octavia LBaaSv2
+    LIBS_FROM_GIT+=python-octaviaclient
+    enable_plugin octavia https://git.openstack.org/openstack/octavia
+    enable_service octavia
+    enable_service o-api
+    enable_service o-cw
+    enable_service o-hm
+    enable_service o-hk
+    ## Octavia Deps
+    ### Image
+    ### Barbican
+    enable_plugin barbican https://git.openstack.org/openstack/barbican
+    ### Nova
+    enable_service n-api
+    enable_service n-api-meta
+    enable_service n-cpu
+    enable_service n-cond
+    enable_service n-sch
+    enable_service placement-api
+    enable_service placement-client
+    ### Glance
+    enable_service g-api
+    enable_service g-reg
+    ### Neutron-lbaas
+    #### In case Octavia is older than Pike, neutron-lbaas is needed
+    enable_plugin neutron-lbaas \
+        git://git.openstack.org/openstack/neutron-lbaas
+    enable_service q-lbaasv2
+else
+    # LBaaSv2 service and Haproxy agent
+    enable_plugin neutron-lbaas \
+        git://git.openstack.org/openstack/neutron-lbaas
+    enable_service q-lbaasv2
+fi
 
 # By default use all the services from the kuryr-kubernetes plugin
 
@@ -178,3 +213,15 @@ enable_service kuryr-kubernetes
 # KURYR_VIF_POOL_MAX=0
 # KURYR_VIF_POOL_BATCH=10
 # KURYR_VIF_POOL_UPDATE_FREQ=20
+
+# Increase Octavia amphorae timeout so that the first LB amphora has time to
+# build and boot
+if [[ "$KURYR_K8S_LBAAS_USE_OCTAVIA" == "True" ]]; then
+    IMAGE_URLS+=",http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.img"
+else
+    NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
+fi
+
+[[post-config|$OCTAVIA_CONF]]
+[controller_worker]
+amp_active_retries=9999
