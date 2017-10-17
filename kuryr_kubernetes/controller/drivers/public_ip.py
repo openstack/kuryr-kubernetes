@@ -56,6 +56,7 @@ class BasePubIpDriver(object):
         """free ip by resource ID
 
         :param res_id: resource_id
+        :returns True/False
 
         """
         raise NotImplementedError()
@@ -120,10 +121,11 @@ class FipPubIpDriver(BasePubIpDriver):
         neutron = clients.get_neutron_client()
         try:
             neutron.delete_floatingip(res_id)
-        except n_exc.NeutronClientException as ex:
+        except n_exc.NeutronClientException:
             LOG.error("Failed to delete floating_ip_id =%s !",
                       res_id)
-            raise ex
+            return False
+        return True
 
     def _update(self, res_id, vip_port_id):
         response = None

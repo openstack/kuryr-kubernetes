@@ -92,12 +92,14 @@ class FloatingIpServicePubIPDriver(base.ServicePubIpDriver):
 
     def release_pub_ip(self, service_pub_ip_info):
         if not service_pub_ip_info:
-            return
+            return True
         if service_pub_ip_info.alloc_method == 'pool':
             retcode = self._drv_pub_ip.free_ip(service_pub_ip_info.ip_id)
             if not retcode:
                 LOG.error("Failed to delete public_ip_id =%s !",
                           service_pub_ip_info.ip_id)
+                return False
+        return True
 
     def associate_pub_ip(self, service_pub_ip_info, vip_port_id):
         if (not service_pub_ip_info or

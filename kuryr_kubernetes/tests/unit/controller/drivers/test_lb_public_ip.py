@@ -162,8 +162,8 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         m_driver = mock.Mock(spec=cls)
         service_pub_ip_info = None
 
-        self.assertIsNone(cls.release_pub_ip
-                          (m_driver, service_pub_ip_info))
+        rc = cls.release_pub_ip(m_driver, service_pub_ip_info)
+        self.assertEqual(rc, True)
 
     def test_release_pub_ip_alloc_method_non_pool(self):
         cls = d_lb_public_ip.FloatingIpServicePubIPDriver
@@ -177,8 +177,8 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
                                  ip_addr=floating_ip['floating_ip_address'],
                                  alloc_method='kk')
 
-        self.assertIsNone(
-            cls.release_pub_ip(m_driver, service_pub_ip_info))
+        rc = cls.release_pub_ip(m_driver, service_pub_ip_info)
+        self.assertEqual(rc, True)
 
     def test_release_pub_ip_alloc_method_user(self):
         cls = d_lb_public_ip.FloatingIpServicePubIPDriver
@@ -191,9 +191,8 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
             obj_lbaas.LBaaSPubIp(ip_id=floating_ip['id'],
                                  ip_addr=floating_ip['floating_ip_address'],
                                  alloc_method='user')
-
-        self.assertIsNone(cls.release_pub_ip
-                          (m_driver, service_pub_ip_info))
+        rc = cls.release_pub_ip(m_driver, service_pub_ip_info)
+        self.assertEqual(rc, True)
 
     def test_release_pub_ip_alloc_method_pool_neutron_exception(self):
         cls = d_lb_public_ip.FloatingIpServicePubIPDriver
@@ -209,10 +208,8 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
             obj_lbaas.LBaaSPubIp(ip_id=floating_ip['id'],
                                  ip_addr=floating_ip['floating_ip_address'],
                                  alloc_method='pool')
-
-        self.assertRaises(
-            n_exc.NeutronClientException, cls.release_pub_ip,
-            m_driver, service_pub_ip_info)
+        rc = cls.release_pub_ip(m_driver, service_pub_ip_info)
+        self.assertEqual(rc, False)
 
     def test_release_pub_ip_alloc_method_pool_neutron_succeeded(self):
         cls = d_lb_public_ip.FloatingIpServicePubIPDriver
@@ -228,9 +225,8 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
             obj_lbaas.LBaaSPubIp(ip_id=floating_ip['id'],
                                  ip_addr=floating_ip['floating_ip_address'],
                                  alloc_method='pool')
-
-        self.assertIsNone(cls.release_pub_ip
-                          (m_driver, service_pub_ip_info))
+        rc = cls.release_pub_ip(m_driver, service_pub_ip_info)
+        self.assertEqual(rc, True)
 
     def test_associate_pub_ip_empty_params(self):
         cls = d_lb_public_ip.FloatingIpServicePubIPDriver
