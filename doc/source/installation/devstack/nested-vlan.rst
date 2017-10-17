@@ -41,7 +41,7 @@ running. 4GB memory and 2 vCPUs, is the minimum resource requirement for the VM:
         - Optionally, the ports pool funcionality can be enabled by following:
           `How to enable ports pool with devstack`_.
 
-        .. _How to enable ports pool with devstack: https://docs.openstack.org/kuryr-kubernetes/latest/installation/devstack/ports-pools.html
+        .. _How to enable ports pool with devstack: https://docs.openstack.org/kuryr-kubernetes/latest/installation/devstack/ports-pool.html
 
         - [OPTIONAL] If you want to enable the subport pools driver and the
           VIF Pool Manager you need to include::
