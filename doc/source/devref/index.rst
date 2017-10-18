@@ -38,6 +38,7 @@ Design documents
     kuryr_kubernetes_design
     service_support
     port_manager
+    vif_handler_drivers_design
 
 
 Indices and tables
