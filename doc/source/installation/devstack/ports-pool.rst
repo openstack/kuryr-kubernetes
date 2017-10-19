@@ -14,13 +14,13 @@ options needs to be set at the local.conf file:
    are set to the right baremetal drivers, for instance::
 
     KURYR_POD_VIF_DRIVER=neutron-vif
-    KURYR_PORT_POOL_DRIVER=neutron
+    KURYR_VIF_POOL_DRIVER=neutron
 
 
    And if the use case is the nested one, then they should be set to::
 
     KURYR_POD_VIF_DRIVER=nested-vlan
-    KURYR_PORT_POOL_DRIVER=nested
+    KURYR_VIF_POOL_DRIVER=nested
 
 
 3. Then, in case you want to set a limit to the maximum number of ports, or
