@@ -444,6 +444,7 @@ class ServicePubIpDriver(DriverBase):
         """Release (if needed) based on service_pub_ip_info content
 
         :param service_pub_ip_info: service loadbalancer IP info
+        :returns True/False
 
         """
         raise NotImplementedError()

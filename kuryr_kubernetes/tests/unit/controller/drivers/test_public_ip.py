@@ -127,9 +127,8 @@ class TestFipPubIpDriver(test_base.TestCase):
 
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
         neutron.delete_floatingip.side_effect = n_exc.NeutronClientException
-
-        self.assertRaises(
-            n_exc.NeutronClientException, cls.free_ip, m_driver, res_id)
+        rc = cls.free_ip(m_driver, res_id)
+        self.assertEqual(rc, False)
 
     def test_free_ip_succeeded(self):
         cls = d_public_ip.FipPubIpDriver
@@ -138,10 +137,14 @@ class TestFipPubIpDriver(test_base.TestCase):
 
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
         neutron.delete_floatingip.return_value = None
-        try:
-            cls.free_ip(m_driver, res_id)
-        except Exception:
-            self.fail("Encountered an unexpected exception.")
+
+        rc = cls.free_ip(m_driver, res_id)
+        self.assertEqual(rc, True)
+
+#        try:
+#            cls.free_ip(m_driver, res_id)
+#        except Exception:
+#            self.fail("Encountered an unexpected exception.")
 
     def test_associate_neutron_exception(self):
         cls = d_public_ip.FipPubIpDriver
