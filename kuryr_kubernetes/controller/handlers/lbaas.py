@@ -305,7 +305,8 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                         continue
                 except KeyError:
                     continue
-
+                if not pool_by_tgt_name:
+                    continue
                 for subset_port in subset_ports:
                     target_port = subset_port['port']
                     if (target_ip, target_port) in current_targets:
