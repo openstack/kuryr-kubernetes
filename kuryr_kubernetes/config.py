@@ -30,6 +30,32 @@ kuryr_k8s_opts = [
                                 '../../'))),
 ]
 
+daemon_opts = [
+    cfg.BoolOpt('daemon_enabled',
+                help=_('Enable CNI Daemon configuration.'),
+                default=False),
+    cfg.StrOpt('bind_address',
+               help=_('Bind address for CNI daemon HTTP server. It is '
+                      'recommened to allow only local connections.'),
+               default='127.0.0.1:50036'),
+    cfg.IntOpt('worker_num',
+               help=_('Maximum number of processes that will be spawned to '
+                      'process requests from CNI driver.'),
+               default=30),
+    cfg.IntOpt('vif_annotation_timeout',
+               help=_('Time (in seconds) the CNI daemon will wait for VIF '
+                      'annotation to appear in pod metadata before failing '
+                      'the CNI request.'),
+               default=60),
+    cfg.IntOpt('pyroute2_timeout',
+               help=_('Kuryr uses pyroute2 library to manipulate networking '
+                      'interfaces. When processing a high number of Kuryr '
+                      'requests in parallel, it may take kernel more time to '
+                      'process all networking stack changes. This option '
+                      'allows to tune internal pyroute2 timeout.'),
+               default=10),
+]
+
 k8s_opts = [
     cfg.StrOpt('api_root',
                help=_("The root URL of the Kubernetes API"),
@@ -125,6 +151,7 @@ octavia_defaults = [
 
 CONF = cfg.CONF
 CONF.register_opts(kuryr_k8s_opts)
+CONF.register_opts(daemon_opts, group='cni_daemon')
 CONF.register_opts(k8s_opts, group='kubernetes')
 CONF.register_opts(neutron_defaults, group='neutron_defaults')
 CONF.register_opts(octavia_defaults, group='octavia_defaults')

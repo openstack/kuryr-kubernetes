@@ -63,6 +63,10 @@ function configure_kuryr {
 
     iniset "$KURYR_CONFIG" kubernetes port_debug "$KURYR_PORT_DEBUG"
 
+    if is_service_enabled kuryr-daemon; then
+        iniset "$KURYR_CONFIG" cni_daemon daemon_enabled True
+    fi
+
     create_kuryr_cache_dir
 
     # Neutron API server & Neutron plugin
@@ -518,10 +522,23 @@ function run_kuryr_kubernetes {
 }
 
 
+function run_kuryr_daemon {
+    local daemon_bin=$(which kuryr-daemon)
+    run_process kuryr-daemon "$daemon_bin --config-file $KURYR_CONFIG" root root
+}
+
+
 source $DEST/kuryr-kubernetes/devstack/lib/kuryr_kubernetes
 
 # main loop
-if [[ "$1" == "stack" && "$2" == "install" ]]; then
+if [[ "$1" == "stack" && "$2" == "pre-install" ]]; then
+    KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
+    if is_service_enabled kuryr-daemon && [[ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]]; then
+        die $LINENO "Cannot enable kuryr-daemon with KURYR_K8S_CONTAINERIZED_DEPLOYMENT."
+    fi
+
+
+elif [[ "$1" == "stack" && "$2" == "install" ]]; then
     setup_develop "$KURYR_HOME"
     if is_service_enabled kubelet; then
         KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
@@ -580,6 +597,8 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
         run_k8s_scheduler
     fi
 
+    run_kuryr_daemon
+
     if is_service_enabled kubelet; then
         prepare_kubelet
         extract_hyperkube
@@ -620,6 +639,7 @@ if [[ "$1" == "unstack" ]]; then
     elif is_service_enabled kubelet; then
          $KURYR_HYPERKUBE_BINARY kubectl delete nodes ${HOSTNAME}
     fi
+    stop_process kuryr-daemon
     docker kill devstack-k8s-setup-files
     docker rm devstack-k8s-setup-files
 

@@ -176,6 +176,20 @@ enable_service kubelet
 # resource events and convert them to Neutron actions
 enable_service kuryr-kubernetes
 
+
+# Kuryr Daemon
+# ============
+#
+# Kuryr can run CNI plugin in daemonized way - i.e. kubelet will run kuryr CNI
+# driver and the driver will pass requests to Kuryr daemon running on the node,
+# instead of processing them on its own. This limits the number of Kubernetes
+# API requests (as only Kuryr Daemon will watch for new pod events) and should
+# increase scalability in environments that often delete and create pods.
+# Please note that kuryr-daemon is not yet supported in containerized
+# deployment. To enable kuryr-daemon uncomment next line.
+# enable_service kuryr-daemon
+
+
 # Containerized Kuryr
 # ===================
 #

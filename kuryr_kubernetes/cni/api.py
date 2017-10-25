@@ -13,49 +13,25 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+
 import abc
 import six
+from six.moves import http_client as httplib
 import traceback
 
+import requests
+
 from kuryr.lib._i18n import _
+from os_vif.objects import base
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
+from kuryr_kubernetes.cni import utils
+from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes import exceptions as k_exc
 
 LOG = logging.getLogger(__name__)
-_CNI_TIMEOUT = 60
-
-
-class CNIConfig(dict):
-    def __init__(self, cfg):
-        super(CNIConfig, self).__init__(cfg)
-
-        for k, v in self.items():
-            if not k.startswith('_'):
-                setattr(self, k, v)
-
-
-class CNIArgs(object):
-    def __init__(self, value):
-        for item in value.split(';'):
-            k, v = item.split('=', 1)
-            if not k.startswith('_'):
-                setattr(self, k, v)
-
-
-class CNIParameters(object):
-    def __init__(self, env, cfg):
-        for k, v in env.items():
-            if k.startswith('CNI_'):
-                setattr(self, k, v)
-        self.config = CNIConfig(cfg)
-        self.args = CNIArgs(self.CNI_ARGS)
-
-    def __repr__(self):
-        return repr({key: value for key, value in self.__dict__.items() if
-                     key.startswith('CNI_')})
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -70,35 +46,20 @@ class CNIPlugin(object):
         raise NotImplementedError()
 
 
+@six.add_metaclass(abc.ABCMeta)
 class CNIRunner(object):
-
     # TODO(ivc): extend SUPPORTED_VERSIONS and format output based on
     # requested params.CNI_VERSION and/or params.config.cniVersion
     VERSION = '0.3.0'
     SUPPORTED_VERSIONS = ['0.3.0']
 
-    def __init__(self, plugin):
-        self._plugin = plugin
+    @abc.abstractmethod
+    def _add(self, params):
+        raise NotImplementedError()
 
-    def run(self, env, fin, fout):
-        try:
-            params = CNIParameters(env, jsonutils.load(fin))
-
-            if params.CNI_COMMAND == 'ADD':
-                vif = self._plugin.add(params)
-                self._write_vif(fout, vif)
-            elif params.CNI_COMMAND == 'DEL':
-                self._plugin.delete(params)
-            elif params.CNI_COMMAND == 'VERSION':
-                self._write_version(fout)
-            else:
-                raise k_exc.CNIError(_("unknown CNI_COMMAND: %s")
-                                     % params.CNI_COMMAND)
-            return 0
-        except Exception as ex:
-            # LOG.exception
-            self._write_exception(fout, str(ex))
-            return 1
+    @abc.abstractmethod
+    def _delete(self, params):
+        raise NotImplementedError()
 
     def _write_dict(self, fout, dct):
         output = {'cniVersion': self.VERSION}
@@ -116,7 +77,31 @@ class CNIRunner(object):
     def _write_version(self, fout):
         self._write_dict(fout, {'supportedVersions': self.SUPPORTED_VERSIONS})
 
-    def _write_vif(self, fout, vif):
+    @abc.abstractmethod
+    def prepare_env(self, env, stdin):
+        raise NotImplementedError()
+
+    def run(self, env, fin, fout):
+        try:
+            # Prepare params according to calling Object
+            params = self.prepare_env(env, fin)
+            if env.get('CNI_COMMAND') == 'ADD':
+                vif = self._add(params)
+                self._write_dict(fout, vif)
+            elif env.get('CNI_COMMAND') == 'DEL':
+                self._delete(params)
+            elif env.get('CNI_COMMAND') == 'VERSION':
+                self._write_version(fout)
+            else:
+                raise k_exc.CNIError(_("unknown CNI_COMMAND: %s")
+                                     % env['CNI_COMMAND'])
+            return 0
+        except Exception as ex:
+            # LOG.exception
+            self._write_exception(fout, str(ex))
+            return 1
+
+    def _vif_data(self, vif):
         result = {}
         nameservers = []
 
@@ -137,5 +122,61 @@ class CNIRunner(object):
 
         if nameservers:
             result['dns'] = {'nameservers': nameservers}
+        return result
 
-        self._write_dict(fout, result)
+
+class CNIStandaloneRunner(CNIRunner):
+
+    def __init__(self, plugin):
+        self._plugin = plugin
+
+    def _add(self, params):
+        vif = self._plugin.add(params)
+        return self._vif_data(vif)
+
+    def _delete(self, params):
+        self._plugin.delete(params)
+
+    def prepare_env(self, env, stdin):
+        return utils.CNIParameters(env, stdin)
+
+
+class CNIDaemonizedRunner(CNIRunner):
+
+    def _add(self, params):
+        resp = self._make_request('addNetwork', params, httplib.ACCEPTED)
+        vif = base.VersionedObject.obj_from_primitive(resp.json())
+        return self._vif_data(vif)
+
+    def _delete(self, params):
+        self._make_request('delNetwork', params, httplib.NO_CONTENT)
+
+    def prepare_env(self, env, stdin):
+        cni_envs = {}
+        cni_envs.update(
+            {k: v for k, v in env.items() if k.startswith('CNI_')})
+        cni_envs['config_kuryr'] = dict(stdin)
+        return cni_envs
+
+    def _make_request(self, path, cni_envs, expected_status=None):
+        method = 'POST'
+
+        address = config.CONF.cni_daemon.bind_address
+        url = 'http://%s/%s' % (address, path)
+        try:
+            LOG.debug('Making request to CNI Daemon. %(method)s %(path)s\n'
+                      '%(body)s',
+                      {'method': method, 'path': url, 'body': cni_envs})
+            resp = requests.post(url, json=cni_envs,
+                                 headers={'Connection': 'close'})
+        except requests.ConnectionError:
+            LOG.exception('Looks like %s cannot be reached. Is kuryr-daemon '
+                          'running?', address)
+            raise
+        LOG.debug('CNI Daemon returned "%(status)d %(reason)s".',
+                  {'status': resp.status_code, 'reason': resp.reason})
+        if expected_status and resp.status_code != expected_status:
+            LOG.error('CNI daemon returned error "%(status)d %(reason)s".',
+                      {'status': resp.status_code, 'reason': resp.reason})
+            raise k_exc.CNIError('Got invalid status code from CNI daemon.')
+        return resp

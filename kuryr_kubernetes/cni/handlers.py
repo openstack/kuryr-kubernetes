@@ -90,6 +90,15 @@ class DelHandler(CNIHandlerBase):
         self._callback(vif)
 
 
+class CallbackHandler(CNIHandlerBase):
+
+    def __init__(self, on_vif):
+        super(CallbackHandler, self).__init__(None, on_vif)
+
+    def on_vif(self, pod, vif):
+        self._callback(pod, vif)
+
+
 class CNIPipeline(k_dis.EventPipeline):
 
     def _wrap_dispatcher(self, dispatcher):
