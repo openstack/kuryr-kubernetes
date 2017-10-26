@@ -75,18 +75,14 @@
           ENABLED_SERVICES+=,q-lbaasv2
 
           enable_plugin neutron-lbaas git://git.openstack.org/openstack/neutron-lbaas
-          if "{{ loadbalancer }}" == "lbaasv2"; then
+          if [ "{{ loadbalancer }}" == "lbaasv2" ]; then
               # Haproxy agent
               NEUTRON_LBAAS_SERVICE_PROVIDERV2=LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default
-          elif "{{ loadbalancer }}" == "octavia"; then
+          elif [ "{{ loadbalancer }}" == "octavia" ]; then
               # Octavia
               enable_plugin octavia https://git.openstack.org/openstack/octavia
               enable_plugin barbican https://git.openstack.org/openstack/barbican
               ENABLED_SERVICES+=,octavia,o-api,o-cw,o-hk,o-hm
-              export PROJECTS="openstack/barbican $PROJECTS"
-              export PROJECTS="openstack/python-barbicanclient $PROJECTS"
-              export PROJECTS="openstack/octavia $PROJECTS"
-              export PROJECTS="openstack/python-octaviaclient $PROJECTS"
           fi
 
           # Enable Tempest
@@ -116,6 +112,13 @@
           export PROJECTS="openstack/kuryr-kubernetes $PROJECTS"
           export PROJECTS="openstack/kuryr-tempest-plugin $PROJECTS"
           export PROJECTS="openstack/devstack-plugin-container $PROJECTS"
+
+          if [ "{{ loadbalancer }}" == "octavia" ]; then
+              export PROJECTS="openstack/barbican $PROJECTS"
+              export PROJECTS="openstack/python-barbicanclient $PROJECTS"
+              export PROJECTS="openstack/octavia $PROJECTS"
+              export PROJECTS="openstack/python-octaviaclient $PROJECTS"
+          fi
 
           cp devstack-gate/devstack-vm-gate-wrap.sh ./safe-devstack-vm-gate-wrap.sh
           ./safe-devstack-vm-gate-wrap.sh
