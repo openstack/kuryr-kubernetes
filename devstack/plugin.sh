@@ -303,6 +303,20 @@ function configure_neutron_defaults {
     iniset "$KURYR_CONFIG" octavia_defaults member_mode "$KURYR_K8S_OCTAVIA_MEMBER_MODE"
 }
 
+function configure_k8s_pod_sg_rules {
+    local project_id
+    local sg_id
+
+    project_id=$(get_or_create_project \
+        "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
+    sg_id=$(openstack --os-cloud devstack-admin \
+                      --os-region "$REGION_NAME" \
+                      security group list \
+                      --project "$project_id" -c ID -c Name -f value | \
+                      awk '/default/ {print $1}')
+    create_k8s_icmp_sg_rules "$sg_id" ingress
+}
+
 function get_hyperkube_container_cacert_setup_dir {
     case "$1" in
         1.[0-3].*) echo "/data";;
@@ -582,6 +596,7 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
 
     if is_service_enabled tempest; then
         copy_tempest_kubeconfig
+        configure_k8s_pod_sg_rules
     fi
 
     if is_service_enabled kuryr-kubernetes; then
