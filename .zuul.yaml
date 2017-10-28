@@ -1,8 +1,8 @@
 - job:
     name: kuryr-kubernetes-install-base
     parent: legacy-dsvm-base
-    run: playbooks/kuryr-kubernetes-install-base/run
-    post-run: playbooks/kuryr-kubernetes-install-base/post
+    run: playbooks/kuryr-kubernetes-install-base/run.yaml
+    post-run: playbooks/kuryr-kubernetes-install-base/post.yaml
     timeout: 4200
     vars:
       variant: default
@@ -16,8 +16,8 @@
 - job:
     name: tempest-kuryr-kubernetes-base
     parent: legacy-dsvm-base
-    run: playbooks/tempest-kuryr-kubernetes-base/run
-    post-run: playbooks/tempest-kuryr-kubernetes-base/post
+    run: playbooks/tempest-kuryr-kubernetes-base/run.yaml
+    post-run: playbooks/tempest-kuryr-kubernetes-base/post.yaml
     timeout: 4200
     vars:
       loadbalancer: lbaasv2
@@ -48,8 +48,8 @@
 - job:
     name: tempest-kuryr-kubernetes-multinode
     parent: legacy-dsvm-base-multinode
-    run: playbooks/tempest-kuryr-kubernetes-multinode/run
-    post-run: playbooks/tempest-kuryr-kubernetes-multinode/post
+    run: playbooks/tempest-kuryr-kubernetes-multinode/run.yaml
+    post-run: playbooks/tempest-kuryr-kubernetes-multinode/post.yaml
     timeout: 4200
     required-projects:
       - openstack-infra/devstack-gate
