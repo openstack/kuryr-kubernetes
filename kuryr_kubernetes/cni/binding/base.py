@@ -18,7 +18,6 @@ import pyroute2
 from stevedore import driver as stv_driver
 
 _BINDING_NAMESPACE = 'kuryr_kubernetes.cni.binding'
-_IPDB = {}
 
 
 def _get_binding_driver(vif):
@@ -29,14 +28,10 @@ def _get_binding_driver(vif):
 
 
 def get_ipdb(netns=None):
-    try:
-        return _IPDB[netns]
-    except KeyError:
-        if netns:
-            ipdb = pyroute2.IPDB(nl=pyroute2.NetNS(netns))
-        else:
-            ipdb = pyroute2.IPDB()
-    _IPDB[netns] = ipdb
+    if netns:
+        ipdb = pyroute2.IPDB(nl=pyroute2.NetNS(netns))
+    else:
+        ipdb = pyroute2.IPDB()
     return ipdb
 
 
@@ -56,21 +51,23 @@ def _enable_ipv6(netns):
 
 
 def _configure_l3(vif, ifname, netns):
-    with get_ipdb(netns).interfaces[ifname] as iface:
-        for subnet in vif.network.subnets.objects:
-            if subnet.cidr.version == 6:
-                _enable_ipv6(netns)
-            for fip in subnet.ips.objects:
-                iface.add_ip('%s/%s' % (fip.address, subnet.cidr.prefixlen))
+    with get_ipdb(netns) as ipdb:
+        with ipdb.interfaces[ifname] as iface:
+            for subnet in vif.network.subnets.objects:
+                if subnet.cidr.version == 6:
+                    _enable_ipv6(netns)
+                for fip in subnet.ips.objects:
+                    iface.add_ip('%s/%s' % (fip.address,
+                                            subnet.cidr.prefixlen))
 
-    routes = get_ipdb(netns).routes
-    for subnet in vif.network.subnets.objects:
-        for route in subnet.routes.objects:
-            routes.add(gateway=str(route.gateway),
-                       dst=str(route.cidr)).commit()
-        if subnet.gateway:
-            routes.add(gateway=str(subnet.gateway),
-                       dst='default').commit()
+        routes = ipdb.routes
+        for subnet in vif.network.subnets.objects:
+            for route in subnet.routes.objects:
+                routes.add(gateway=str(route.gateway),
+                           dst=str(route.cidr)).commit()
+            if subnet.gateway:
+                routes.add(gateway=str(subnet.gateway),
+                           dst='default').commit()
 
 
 def connect(vif, instance_info, ifname, netns=None):
