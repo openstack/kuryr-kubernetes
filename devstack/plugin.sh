@@ -67,6 +67,12 @@ function configure_kuryr {
 
     if is_service_enabled kuryr-daemon; then
         iniset "$KURYR_CONFIG" cni_daemon daemon_enabled True
+        KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
+        if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
+            # When running kuryr-daemon in container we need to set up configs.
+            iniset "$KURYR_CONFIG" cni_daemon docker_mode True
+            iniset "$KURYR_CONFIG" cni_daemon netns_proc_dir "/host_proc"
+        fi
     fi
 
     create_kuryr_cache_dir
@@ -582,14 +588,7 @@ function run_kuryr_daemon {
 source $DEST/kuryr-kubernetes/devstack/lib/kuryr_kubernetes
 
 # main loop
-if [[ "$1" == "stack" && "$2" == "pre-install" ]]; then
-    KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
-    if is_service_enabled kuryr-daemon && [[ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]]; then
-        die $LINENO "Cannot enable kuryr-daemon with KURYR_K8S_CONTAINERIZED_DEPLOYMENT."
-    fi
-
-
-elif [[ "$1" == "stack" && "$2" == "install" ]]; then
+if [[ "$1" == "stack" && "$2" == "install" ]]; then
     setup_develop "$KURYR_HOME"
     if is_service_enabled kubelet || is_service_enabled openshift-node; then
         KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
@@ -669,7 +668,11 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
         run_k8s_scheduler
     fi
 
-    run_kuryr_daemon
+    KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
+    if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "False" ]; then
+        # If running in containerized mode, we'll run the daemon as DaemonSet.
+        run_kuryr_daemon
+    fi
 
     if is_service_enabled kubelet; then
         prepare_kubelet
@@ -688,11 +691,14 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
     fi
 
     if is_service_enabled kuryr-kubernetes; then
-        KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
         if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "False" ]; then
             run_kuryr_kubernetes
         else
-            build_kuryr_containers $CNI_BIN_DIR $CNI_CONF_DIR
+            if is_service_enabled kuryr-daemon; then
+                build_kuryr_containers $CNI_BIN_DIR $CNI_CONF_DIR True
+            else
+                build_kuryr_containers $CNI_BIN_DIR $CNI_CONF_DIR False
+            fi
             generate_containerized_kuryr_resources
             run_containerized_kuryr_resources
         fi
@@ -706,12 +712,21 @@ elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
 fi
 
 if [[ "$1" == "unstack" ]]; then
+    KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
     if is_service_enabled kuryr-kubernetes; then
-        stop_process kuryr-kubernetes
+        if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "False" ]; then
+            stop_process kuryr-kubernetes
+        else
+            $KURYR_HYPERKUBE_BINARY kubectl delete deploy/kuryr-controller
+        fi
     elif is_service_enabled kubelet; then
          $KURYR_HYPERKUBE_BINARY kubectl delete nodes ${HOSTNAME}
     fi
-    stop_process kuryr-daemon
+    if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "False" ]; then
+        stop_process kuryr-daemon
+    else
+        $KURYR_HYPERKUBE_BINARY kubectl delete ds/kuryr-cni-ds
+    fi
 
     if is_service_enabled kubernetes-controller-manager; then
         stop_container kubernetes-controller-manager

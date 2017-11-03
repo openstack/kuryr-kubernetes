@@ -17,6 +17,8 @@ ARG CNI_CONFIG_DIR_PATH=/etc/cni/net.d
 ENV CNI_CONFIG_DIR_PATH ${CNI_CONFIG_DIR_PATH}
 ARG CNI_BIN_DIR_PATH=/opt/cni/bin
 ENV CNI_BIN_DIR_PATH ${CNI_BIN_DIR_PATH}
+ARG CNI_DAEMON=False
+ENV CNI_DAEMON ${CNI_DAEMON}
 
 RUN cd /usr/src \
     && wget https://www.python.org/ftp/python/3.5.3/Python-3.5.3.tgz \

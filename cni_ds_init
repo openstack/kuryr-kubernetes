@@ -34,4 +34,9 @@ function deploy() {
 cleanup "$CNI_CONFIG_DIR_PATH" "$CNI_BIN_DIR_PATH"
 deploy "$CNI_CONFIG_DIR_PATH" "$CNI_BIN_DIR_PATH"
 
-sleep infinity
+# Start CNI daemon if required
+if [ "$CNI_DAEMON" == "True" ]; then
+    /usr/bin/kuryr-daemon --config-file /etc/kuryr/kuryr.conf
+else
+    sleep infinity
+fi

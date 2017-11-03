@@ -13,7 +13,19 @@ For creating controller image on local machine: ::
 
 For creating cni daemonset image on local machine: ::
 
-    $ ./tools/build_cni_daemonset_image
+    $ ./tools/build_cni_daemonset_image [<cni_bin_dir>] [<cni_conf_dir>] [<enable_cni_daemon>]
+
+* ``cni_bin_dir`` - host directory where CNI binaries are located, defaults to
+  ``/opt/cni/bin``.
+* ``cni_conf_dir`` - host directory where CNI configuration is located,
+  defaults to ``/etc/cni/net.d``.
+* ``enable_cni_daemon`` - Set to ``True`` if you want CNI Docker image to run
+  CNI daemon by default. Defaults to ``False``.
+
+.. note::
+  You can override those build variables by passing env variables when running
+  the Docker image. Supported variables are ``CNI_CONFIG_DIR_PATH``,
+  ``CNI_BIN_DIR_PATH`` and ``CNI_DAEMON``.
 
 Alternatively, you can remove ``imagePullPolicy: Never`` from kuryr-controller
 Deployment and kuryr-cni DaemonSet definitions to use pre-built

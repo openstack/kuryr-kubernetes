@@ -17,6 +17,7 @@ import six
 
 from kuryr_kubernetes.cni.binding import base as b_base
 from kuryr_kubernetes import config
+from kuryr_kubernetes import utils
 
 VLAN_KIND = 'vlan'
 MACVLAN_KIND = 'macvlan'
@@ -48,7 +49,7 @@ class NestedDriver(object):
             with h_ipdb.create(ifname=temp_name,
                                link=h_ipdb.interfaces[vm_iface_name],
                                **args) as iface:
-                iface.net_ns_fd = netns
+                iface.net_ns_fd = utils.convert_netns(netns)
 
         with b_base.get_ipdb(netns) as c_ipdb:
             with c_ipdb.interfaces[temp_name] as iface:

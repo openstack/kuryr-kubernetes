@@ -304,10 +304,12 @@ EOF
 function build_kuryr_containers() {
     local cni_bin_dir
     local cni_conf_dir
+    local cni_daemon
     local build_dir
 
     cni_bin_dir=$1
     cni_conf_dir=$2
+    cni_daemon=$3
     build_dir="${DEST}/kuryr-kubernetes"
     pushd "$build_dir"
 
@@ -315,7 +317,7 @@ function build_kuryr_containers() {
     sudo docker build -t kuryr/controller -f "controller.Dockerfile" .
 
     # Build CNI image
-    sudo ./tools/build_cni_daemonset_image $cni_bin_dir $cni_conf_dir
+    sudo ./tools/build_cni_daemonset_image $cni_bin_dir $cni_conf_dir $cni_daemon
     popd
 }
 
@@ -491,6 +493,11 @@ spec:
         image: kuryr/cni:latest
         imagePullPolicy: Never
         command: [ "cni_ds_init" ]
+        env:
+        - name: KUBERNETES_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
         securityContext:
           privileged: true
         volumeMounts:
@@ -503,6 +510,10 @@ spec:
           subPath: kuryr-cni.conf
         - name: etc
           mountPath: /etc
+        - name: proc
+          mountPath: /host_proc
+        - name: openvswitch
+          mountPath: /var/run/openvswitch
       volumes:
         - name: bin
           hostPath:
@@ -516,6 +527,12 @@ spec:
         - name: etc
           hostPath:
             path: /etc
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: openvswitch
+          hostPath:
+            path: /var/run/openvswitch
 EOF
 }
 
