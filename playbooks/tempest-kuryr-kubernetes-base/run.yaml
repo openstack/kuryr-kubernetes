@@ -38,6 +38,7 @@
           enable_service q-dhcp
           enable_service q-l3
           enable_service q-svc
+          enable_service q-meta
           # Keystone
           enable_service key
           # dependencies
@@ -45,6 +46,7 @@
           enable_service rabbit
           # Nova
           enable_service n-api
+          enable_service n-api-meta
           enable_service n-cpu
           enable_service n-cond
           enable_service n-sch
