@@ -472,9 +472,6 @@ function prepare_kubelet {
     sudo install -o "$STACK_USER" -m 0664 -D \
         "${KURYR_HOME}${kubelet_plugin_dir}/10-kuryr.conf" \
         "${CNI_CONF_DIR}/10-kuryr.conf"
-    sudo install -o "$STACK_USER" -m 0664 -D \
-        "${KURYR_HOME}${kubelet_plugin_dir}/99-loopback.conf" \
-        "${CNI_CONF_DIR}/99-loopback.conf"
 }
 
 function run_k8s_kubelet {

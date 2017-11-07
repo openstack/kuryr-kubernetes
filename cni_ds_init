@@ -7,7 +7,6 @@ function cleanup() {
     cni_bin_path="$2"
 
     rm -f "${cni_conf_path}/10-kuryr.conf"
-    rm -f "${cni_conf_path}/99-loopback.conf"
     rm -f "${cni_bin_path}/kuryr-cni"
     rm -f "${cni_bin_path}/kuryr-cni-bin"
     rm -rf /etc/kuryr
