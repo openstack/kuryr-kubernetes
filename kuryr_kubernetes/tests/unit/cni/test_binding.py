@@ -16,11 +16,14 @@ import mock
 import uuid
 
 from os_vif import objects as osv_objects
+from oslo_config import cfg
 
 from kuryr_kubernetes.cni.binding import base
 from kuryr_kubernetes import objects
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests import fake
+
+CONF = cfg.CONF
 
 
 class TestDriverMixin(test_base.TestCase):
@@ -33,36 +36,40 @@ class TestDriverMixin(test_base.TestCase):
 
         # Mock IPDB context managers
         self.ipdbs = {}
-        self.m_bridge_iface = mock.Mock(__exit__=mock.Mock())
+        self.m_bridge_iface = mock.Mock(__exit__=mock.Mock(return_value=None))
         self.m_c_iface = mock.Mock()
         self.m_h_iface = mock.Mock()
         self.h_ipdb, self.h_ipdb_exit = self._mock_ipdb_context_manager(None)
         self.c_ipdb, self.c_ipdb_exit = self._mock_ipdb_context_manager(
             self.netns)
         self.m_create = mock.Mock()
+        self.h_ipdb.create = mock.Mock(
+            return_value=mock.Mock(
+                __enter__=mock.Mock(return_value=self.m_create),
+                __exit__=mock.Mock(return_value=None)))
         self.c_ipdb.create = mock.Mock(
             return_value=mock.Mock(
                 __enter__=mock.Mock(return_value=self.m_create),
-                __exit__=mock.Mock()))
+                __exit__=mock.Mock(return_value=None)))
 
     def _mock_ipdb_context_manager(self, netns):
         mock_ipdb = mock.Mock(
             interfaces={
                 'bridge': mock.Mock(
                     __enter__=mock.Mock(return_value=self.m_bridge_iface),
-                    __exit__=mock.Mock(),
+                    __exit__=mock.Mock(return_value=None),
                 ),
                 'c_interface': mock.Mock(
                     __enter__=mock.Mock(return_value=self.m_c_iface),
-                    __exit__=mock.Mock(),
+                    __exit__=mock.Mock(return_value=None),
                 ),
                 'h_interface': mock.Mock(
                     __enter__=mock.Mock(return_value=self.m_h_iface),
-                    __exit__=mock.Mock(),
+                    __exit__=mock.Mock(return_value=None),
                 ),
             }
         )
-        mock_exit = mock.Mock()
+        mock_exit = mock.Mock(return_value=None)
         self.ipdbs[netns] = mock.Mock(
             __enter__=mock.Mock(return_value=mock_ipdb),
             __exit__=mock_exit)
@@ -95,7 +102,7 @@ class TestOpenVSwitchDriver(TestDriverMixin, test_base.TestCase):
     @mock.patch('kuryr_kubernetes.linux_net_utils.create_ovs_vif_port')
     def test_connect(self, mock_create_ovs):
         self._test_connect()
-        self.assertEqual(1, self.h_ipdb_exit.call_count)
+        self.assertEqual(2, self.h_ipdb_exit.call_count)
         self.assertEqual(2, self.c_ipdb_exit.call_count)
         self.c_ipdb.create.assert_called_once_with(
             ifname=self.ifname, peer='h_interface', kind='veth')
@@ -126,7 +133,9 @@ class TestBridgeDriver(TestDriverMixin, test_base.TestCase):
     def test_connect(self):
         self._test_connect()
 
-        self.assertEqual(2, self.h_ipdb_exit.call_count)
+        self.m_h_iface.remove.assert_called_once_with()
+
+        self.assertEqual(3, self.h_ipdb_exit.call_count)
         self.assertEqual(2, self.c_ipdb_exit.call_count)
         self.c_ipdb.create.assert_called_once_with(
             ifname=self.ifname, peer='h_interface', kind='veth')
@@ -148,6 +157,9 @@ class TestNestedVlanDriver(TestDriverMixin, test_base.TestCase):
     def setUp(self):
         super(TestNestedVlanDriver, self).setUp()
         self.vif = fake._fake_vif(objects.vif.VIFVlanNested)
+        self.vif.vlan_id = 7
+        CONF.set_override('link_iface', 'bridge', group='binding')
+        self.addCleanup(CONF.clear_override, 'link_iface', group='binding')
 
     def test_connect(self):
         self._test_connect()
@@ -168,6 +180,8 @@ class TestNestedMacvlanDriver(TestDriverMixin, test_base.TestCase):
     def setUp(self):
         super(TestNestedMacvlanDriver, self).setUp()
         self.vif = fake._fake_vif(objects.vif.VIFMacvlanNested)
+        CONF.set_override('link_iface', 'bridge', group='binding')
+        self.addCleanup(CONF.clear_override, 'link_iface', group='binding')
 
     def test_connect(self):
         self._test_connect()
