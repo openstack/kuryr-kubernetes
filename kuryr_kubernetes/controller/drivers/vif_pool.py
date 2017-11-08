@@ -442,6 +442,66 @@ class NestedVIFPool(BaseVIFPool):
         parent_port = neutron.show_port(port_id).get('port')
         return parent_port['fixed_ips'][0]['ip_address']
 
+    def _get_trunks_info(self):
+        """Returns information about trunks and their subports.
+
+        This method searches for parent ports and subports among the active
+        neutron ports.
+        To find the parent ports it filters the ones that have trunk_details,
+        i.e., the ones that are the parent port of a trunk.
+        To find the subports to recover, it filters out the ports that are
+        already in used by running kubernetes pods. It also filters out the
+        ports whose device_owner is not related to subports, i.e., the ports
+        that are not attached to trunks, such as active ports allocated to
+        running VMs.
+        At the same time it collects information about ports subnets to
+        minimize the number of interaction with Neutron API.
+
+        It returns three dictionaries with the needed information about the
+        parent ports, subports and subnets
+
+        :return: 3 dicts with the trunk details (Key: trunk_id; Value: dict
+        containing ip and subports), subport details (Key: port_id; Value:
+        port_object), and subnet details (Key: subnet_id; Value: subnet dict)
+        """
+        # REVISIT(ltomasbo): there is no need to recover the subports
+        # belonging to trunk ports whose parent port is DOWN as that means no
+        # pods can be scheduled there. We may need to update this if we allow
+        # lively extending the kubernetes cluster with VMs that already have
+        # precreated subports. For instance by shutting down and up a
+        # kubernetes Worker VM with subports already attached, and the
+        # controller is restarted in between.
+        parent_ports = {}
+        subports = {}
+        subnets = {}
+
+        all_active_ports = self._get_ports_by_attrs(status='ACTIVE')
+        in_use_ports = self._get_in_use_ports()
+
+        for port in all_active_ports:
+            trunk_details = port.get('trunk_details')
+            # Parent port
+            if trunk_details:
+                parent_ports[trunk_details['trunk_id']] = {
+                    'ip': port['fixed_ips'][0]['ip_address'],
+                    'subports': trunk_details['sub_ports']}
+            else:
+                # Filter to only get subports that are not in use
+                if (port['id'] not in in_use_ports and
+                    port['device_owner'] in ['trunk:subport',
+                                             kl_const.DEVICE_OWNER]):
+                    subports[port['id']] = port
+                    # NOTE(ltomasbo): _get_subnet can be costly as it
+                    # needs to call neutron to get network and subnet
+                    # information. This ensures it is only called once
+                    # per subnet in use
+                    subnet_id = port['fixed_ips'][0]['subnet_id']
+                    if not subnets.get(subnet_id):
+                        subnets[subnet_id] = {subnet_id:
+                                              default_subnet._get_subnet(
+                                                  subnet_id)}
+        return parent_ports, subports, subnets
+
     def _recover_precreated_ports(self):
         self._precreated_ports(action='recover')
         LOG.info("PORTS POOL: pools updated with pre-created ports")
@@ -464,75 +524,55 @@ class NestedVIFPool(BaseVIFPool):
         # when a port is attached to a trunk. However, that is not the case
         # for other ML2 drivers, such as ODL. So we also need to look for
         # compute:kuryr
-        if config.CONF.kubernetes.port_debug:
-            available_ports = self._get_ports_by_attrs(
-                name=constants.KURYR_PORT_NAME, device_owner=[
-                    'trunk:subport', kl_const.DEVICE_OWNER])
-        else:
-            kuryr_subports = self._get_ports_by_attrs(
-                device_owner=['trunk:subport', kl_const.DEVICE_OWNER])
-            in_use_ports = self._get_in_use_ports()
-            available_ports = [subport for subport in kuryr_subports
-                               if subport['id'] not in in_use_ports]
 
-        if not available_ports:
+        parent_ports, available_subports, subnets = self._get_trunks_info()
+
+        if not available_subports:
             return
 
-        trunk_ports = neutron.list_trunks().get('trunks')
-        for trunk in trunk_ports:
-            try:
-                host_addr = self._get_parent_port_ip(trunk['port_id'])
-            except n_exc.PortNotFoundClient:
-                LOG.debug('Unable to find parent port for trunk port %s.',
-                          trunk['port_id'])
-                continue
-
+        for trunk_id, parent_port in parent_ports.items():
+            host_addr = parent_port.get('ip')
             if trunk_ips and host_addr not in trunk_ips:
                 continue
 
-            for subport in trunk.get('sub_ports'):
-                kuryr_subport = None
-                for port in available_ports:
-                    if port['id'] == subport['port_id']:
-                        kuryr_subport = port
-                        break
-
+            for subport in parent_port.get('subports'):
+                kuryr_subport = available_subports.get(subport['port_id'])
                 if kuryr_subport:
                     pool_key = (host_addr, kuryr_subport['project_id'],
                                 tuple(kuryr_subport['security_groups']))
 
                     if action == 'recover':
                         subnet_id = kuryr_subport['fixed_ips'][0]['subnet_id']
-                        subnet = {
-                            subnet_id: default_subnet._get_subnet(subnet_id)}
+                        subnet = subnets[subnet_id]
                         vif = ovu.neutron_to_osvif_vif_nested_vlan(
                             kuryr_subport, subnet, subport['segmentation_id'])
 
-                        self._existing_vifs[subport['port_id']] = vif
+                        self._existing_vifs[kuryr_subport['id']] = vif
                         self._available_ports_pools.setdefault(
-                            pool_key, []).append(subport['port_id'])
+                            pool_key, []).append(kuryr_subport['id'])
+
                     elif action == 'free':
                         try:
-                            self._drv_vif._remove_subport(neutron, trunk['id'],
-                                                          subport['port_id'])
-                            neutron.delete_port(subport['port_id'])
+                            self._drv_vif._remove_subport(neutron, trunk_id,
+                                                          kuryr_subport['id'])
+                            neutron.delete_port(kuryr_subport['id'])
                             self._drv_vif._release_vlan_id(
                                 subport['segmentation_id'])
-                            del self._existing_vifs[subport['port_id']]
+                            del self._existing_vifs[kuryr_subport['id']]
                             self._available_ports_pools[pool_key].remove(
-                                subport['port_id'])
+                                kuryr_subport['id'])
                         except n_exc.PortNotFoundClient:
                             LOG.debug('Unable to release port %s as it no '
-                                      'longer exists.', subport['port_id'])
+                                      'longer exists.', kuryr_subport['id'])
                         except KeyError:
                             LOG.debug('Port %s is not in the ports list.',
-                                      subport['port_id'])
+                                      kuryr_subport['id'])
                         except n_exc.NeutronClientException:
                             LOG.warning('Error removing the subport %s',
-                                        subport['port_id'])
+                                        kuryr_subport['id'])
                         except ValueError:
                             LOG.debug('Port %s is not in the available ports '
-                                      'pool.', subport['port_id'])
+                                      'pool.', kuryr_subport['id'])
 
     def force_populate_pool(self, trunk_ip, project_id, subnets,
                             security_groups, num_ports):
