@@ -211,6 +211,18 @@ class BaseVIFPool(base.VIFPoolDriver):
     def show_pool(self, pool_key):
         return self._available_ports_pools.get(pool_key)
 
+    def _create_healthcheck_file(self):
+        # Note(ltomasbo): Create a health check file when the pre-created
+        # ports are loaded into their corresponding pools. This file is used
+        # by the readiness probe when the controller is deployed in
+        # containerized mode. This way the controller pod will not be ready
+        # until all the pre-created ports have been loaded
+        try:
+            with open('/tmp/pools_loaded', 'a'):
+                LOG.debug("Health check file created for readiness probe")
+        except IOError:
+            LOG.exception("I/O error creating the health check file.")
+
 
 class NeutronVIFPool(BaseVIFPool):
     """Manages VIFs for Bare Metal Kubernetes Pods."""
@@ -324,6 +336,7 @@ class NeutronVIFPool(BaseVIFPool):
                 pool_key, []).append(port['id'])
 
         LOG.info("PORTS POOL: pools updated with pre-created ports")
+        self._create_healthcheck_file()
 
 
 class NestedVIFPool(BaseVIFPool):
@@ -445,6 +458,7 @@ class NestedVIFPool(BaseVIFPool):
     def _recover_precreated_ports(self):
         self._precreated_ports(action='recover')
         LOG.info("PORTS POOL: pools updated with pre-created ports")
+        self._create_healthcheck_file()
 
     def _remove_precreated_ports(self, trunk_ips=None):
         self._precreated_ports(action='free', trunk_ips=trunk_ips)

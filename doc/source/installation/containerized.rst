@@ -55,6 +55,15 @@ Below is the list of available variables:
 * ``$KURYR_K8S_BINDING_DRIVER`` - ``[binding]driver`` (default: ``kuryr.lib.binding.drivers.vlan``)
 * ``$KURYR_K8S_BINDING_IFACE`` - ``[binding]link_iface`` (default: eth0)
 
+In case of using ports pool functionality, we may want to make the
+kuryr-controller not ready until the pools are populated with the existing
+ports. To achive this a readiness probe must be added to the kuryr-controller
+deployment. To add the readiness probe, in addition to the above environment
+variables or the kuryr-controller configuration file, and extra environmental
+variable must be set:
+
+* ``$KURYR_USE_PORTS_POOLS`` - ``True`` (default: False)
+
 Example run: ::
 
     $ KURYR_K8S_API_ROOT="192.168.0.1:6443" ./tools/generate_k8s_resource_definitions /tmp
@@ -73,13 +82,13 @@ To deploy the files on your Kubernetes cluster run: ::
 
     $ kubectl apply -f config_map.yml -n kube-system
     $ kubectl apply -f service_account.yml -n kube-system
-    $ kubectl apply -f conteoller_deployment.yml -n kube-system
+    $ kubectl apply -f controller_deployment.yml -n kube-system
     $ kubectl apply -f cni_ds.yml -n kube-system
 
 After successful completion:
 
 * kuryr-controller Deployment object, with single replica count, will get
-  created in default namespace.
+  created in kube-system namespace.
 * kuryr-cni gets installed as a daemonset object on all the nodes in kube-system
   namespace
 
