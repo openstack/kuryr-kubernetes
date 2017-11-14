@@ -101,5 +101,6 @@ fi
 
 generate_kuryr_configmap $OUTPUT_DIR $CONTROLLER_CONF_PATH $CNI_CONF_PATH
 generate_kuryr_service_account $OUTPUT_DIR
-generate_controller_deployment $OUTPUT_DIR
+readiness_probe=${KURYR_USE_PORTS_POOLS:-False}
+generate_controller_deployment $OUTPUT_DIR $readiness_probe
 generate_cni_daemon_set $OUTPUT_DIR
