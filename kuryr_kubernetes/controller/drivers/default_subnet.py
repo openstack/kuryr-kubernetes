@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_cache import core as cache
 from oslo_config import cfg
 
 from kuryr_kubernetes import clients
@@ -21,8 +22,25 @@ from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes import os_vif_util
 
 
+CONF = cfg.CONF
+
+subnet_caching_opts = [
+    cfg.BoolOpt('caching', default=True),
+    cfg.IntOpt('cache_time', default=3600),
+]
+
+CONF.register_opts(subnet_caching_opts, "subnet_caching")
+
+cache.configure(CONF)
+subnet_cache_region = cache.create_region()
+MEMOIZE = cache.get_memoization_decorator(
+    CONF, subnet_cache_region, "subnet_caching")
+
+cache.configure_cache_region(CONF, subnet_cache_region)
+
+
+@MEMOIZE
 def _get_subnet(subnet_id):
-    # TODO(ivc): add caching (e.g. oslo.cache with dict backend)
     neutron = clients.get_neutron_client()
 
     n_subnet = neutron.show_subnet(subnet_id).get('subnet')

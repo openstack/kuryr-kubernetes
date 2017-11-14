@@ -15,6 +15,7 @@ from oslo_log import _options
 
 from kuryr.lib import opts as lib_opts
 from kuryr_kubernetes import config
+from kuryr_kubernetes.controller.drivers import default_subnet
 from kuryr_kubernetes.controller.drivers import nested_vif
 from kuryr_kubernetes.controller.drivers import vif_pool
 from kuryr_kubernetes.controller.managers import pool
@@ -26,6 +27,8 @@ _kuryr_k8s_opts = [
     ('pod_vif_nested', nested_vif.nested_vif_driver_opts),
     ('vif_pool', vif_pool.vif_pool_driver_opts),
     ('octavia_defaults', config.octavia_defaults),
+    ('cache_defaults', config.cache_defaults),
+    ('subnet_caching', default_subnet.subnet_caching_opts),
     ('pool_manager', pool.pool_manager_opts),
     ('cni_daemon', config.daemon_opts),
 ]
