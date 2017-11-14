@@ -87,6 +87,11 @@
               ENABLED_SERVICES+=,octavia,o-api,o-cw,o-hk,o-hm
           fi
 
+          if [ "{{ kuryr_daemon }}" == "True" ]; then
+              # Enable kuryr-daemon
+              enable_service kuryr-daemon
+          fi
+
           # Enable Tempest
           enable_service tempest
           # Enable Tempest plugin
