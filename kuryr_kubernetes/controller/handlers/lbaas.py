@@ -66,10 +66,15 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
         return None
 
     def _should_ignore(self, service):
-        return not(self._has_selector(service))
+        return (not(self._has_selector(service)) or
+                not(self._has_clusterip(service)))
 
     def _has_selector(self, service):
         return service['spec'].get('selector')
+
+    def _has_clusterip(sef, service):
+        # ignore headless service, clusterIP is None
+        return service['spec'].get('clusterIP') != 'None'
 
     def _get_subnet_id(self, service, project_id, ip):
         subnets_mapping = self._drv_subnets.get_subnets(service, project_id)
