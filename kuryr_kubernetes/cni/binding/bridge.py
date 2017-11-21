@@ -23,22 +23,21 @@ class BaseBridgeDriver(object):
     def connect(self, vif, ifname, netns):
         host_ifname = vif.vif_name
 
-        c_ipdb = b_base.get_ipdb(netns)
-        h_ipdb = b_base.get_ipdb()
+        with b_base.get_ipdb(netns) as c_ipdb:
+            with c_ipdb.create(ifname=ifname, peer=host_ifname,
+                               kind='veth') as c_iface:
+                c_iface.mtu = vif.network.mtu
+                c_iface.address = str(vif.address)
+                c_iface.up()
 
-        with c_ipdb.create(ifname=ifname, peer=host_ifname,
-                           kind='veth') as c_iface:
-            c_iface.mtu = vif.network.mtu
-            c_iface.address = str(vif.address)
-            c_iface.up()
+            if netns:
+                with c_ipdb.interfaces[host_ifname] as h_iface:
+                    h_iface.net_ns_pid = os.getpid()
 
-        if netns:
-            with c_ipdb.interfaces[host_ifname] as h_iface:
-                h_iface.net_ns_pid = os.getpid()
-
-        with h_ipdb.interfaces[host_ifname] as h_iface:
-            h_iface.mtu = vif.network.mtu
-            h_iface.up()
+        with b_base.get_ipdb() as h_ipdb:
+            with h_ipdb.interfaces[host_ifname] as h_iface:
+                h_iface.mtu = vif.network.mtu
+                h_iface.up()
 
     def disconnect(self, vif, ifname, netns):
         pass
@@ -50,10 +49,9 @@ class BridgeDriver(BaseBridgeDriver):
         host_ifname = vif.vif_name
         bridge_name = vif.bridge_name
 
-        h_ipdb = b_base.get_ipdb()
-
-        with h_ipdb.interfaces[bridge_name] as h_br:
-            h_br.add_port(host_ifname)
+        with b_base.get_ipdb() as h_ipdb:
+            with h_ipdb.interfaces[bridge_name] as h_br:
+                h_br.add_port(host_ifname)
 
     def disconnect(self, vif, ifname, netns):
         # NOTE(ivc): veth pair is destroyed automatically along with the

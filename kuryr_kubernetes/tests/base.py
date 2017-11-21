@@ -10,6 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 from kuryr_kubernetes import config
+import os_vif
 from oslotest import base
 
 
@@ -20,3 +21,4 @@ class TestCase(base.BaseTestCase):
         super(TestCase, self).setUp()
         args = []
         config.init(args=args)
+        os_vif.initialize()

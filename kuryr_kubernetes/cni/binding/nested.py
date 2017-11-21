@@ -31,31 +31,31 @@ class NestedDriver(object):
         raise NotImplementedError()
 
     def connect(self, vif, ifname, netns):
-        h_ipdb = b_base.get_ipdb()
-        c_ipdb = b_base.get_ipdb(netns)
+        with b_base.get_ipdb() as h_ipdb:
+            # NOTE(vikasc): Ideally 'ifname' should be used here but instead a
+            # temporary name is being used while creating the device for
+            # container in host network namespace. This is because cni expects
+            # only 'eth0' as interface name and if host already has an
+            # interface named 'eth0', device creation will fail with 'already
+            # exists' error.
+            temp_name = vif.vif_name
 
-        # NOTE(vikasc): Ideally 'ifname' should be used here but instead a
-        # temporary name is being used while creating the device for container
-        # in host network namespace. This is because cni expects only 'eth0'
-        # as interface name and if host already has an interface named 'eth0',
-        # device creation will fail with 'already exists' error.
-        temp_name = vif.vif_name
+            # TODO(vikasc): evaluate whether we should have stevedore
+            #               driver for getting the link device.
+            vm_iface_name = config.CONF.binding.link_iface
 
-        # TODO(vikasc): evaluate whether we should have stevedore
-        #               driver for getting the link device.
-        vm_iface_name = config.CONF.binding.link_iface
+            args = self._get_iface_create_args(vif)
+            with h_ipdb.create(ifname=temp_name,
+                               link=h_ipdb.interfaces[vm_iface_name],
+                               **args) as iface:
+                iface.net_ns_fd = netns
 
-        args = self._get_iface_create_args(vif)
-        with h_ipdb.create(ifname=temp_name,
-                           link=h_ipdb.interfaces[vm_iface_name],
-                           **args) as iface:
-            iface.net_ns_fd = netns
-
-        with c_ipdb.interfaces[temp_name] as iface:
-            iface.ifname = ifname
-            iface.mtu = vif.network.mtu
-            iface.address = str(vif.address)
-            iface.up()
+        with b_base.get_ipdb(netns) as c_ipdb:
+            with c_ipdb.interfaces[temp_name] as iface:
+                iface.ifname = ifname
+                iface.mtu = vif.network.mtu
+                iface.address = str(vif.address)
+                iface.up()
 
     def disconnect(self, vif, ifname, netns):
         # NOTE(vikasc): device will get deleted with container namespace, so
