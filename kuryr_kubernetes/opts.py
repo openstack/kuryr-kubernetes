@@ -27,6 +27,7 @@ _kuryr_k8s_opts = [
     ('vif_pool', vif_pool.vif_pool_driver_opts),
     ('octavia_defaults', config.octavia_defaults),
     ('pool_manager', pool.pool_manager_opts),
+    ('cni_daemon', config.daemon_opts),
 ]
 
 
