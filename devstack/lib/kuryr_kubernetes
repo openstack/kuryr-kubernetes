@@ -42,7 +42,7 @@ function ovs_bind_for_kubelet() {
     port_subnets=($(openstack port show "$port_id" -f value -c fixed_ips | \
         awk -F"'" '{print $4}'))
 
-    sudo ovs-vsctl -- --may-exist add-port br-int "$ifname" \
+    sudo ovs-vsctl -- --may-exist add-port $OVS_BRIDGE "$ifname" \
         -- set Interface "$ifname" type=internal \
         -- set Interface "$ifname" external-ids:iface-status=active \
         -- set Interface "$ifname" external-ids:attached-mac="$port_mac" \
