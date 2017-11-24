@@ -61,6 +61,8 @@ function configure_kuryr {
     # daemon-based CNI driver is implemented, this could be removed.
     iniset "$KURYR_CONFIG" DEFAULT use_stderr true
 
+    iniset "$KURYR_CONFIG" DEFAULT debug "$ENABLE_DEBUG_LOG_LEVEL"
+
     iniset "$KURYR_CONFIG" kubernetes port_debug "$KURYR_PORT_DEBUG"
 
     if is_service_enabled kuryr-daemon; then
