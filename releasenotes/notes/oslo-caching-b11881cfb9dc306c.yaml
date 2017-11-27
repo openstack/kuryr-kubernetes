@@ -1,0 +1,22 @@
+---
+features:
+  - |
+    oslo.cache support has been added to the default_subnet driver. This
+    allows to skip unnecessary calls to neutron to retrieve network and
+    subnet information that can be cached and retrieved faster. It includes
+    the generic oslo caching options to enable/disable it as well as to
+    specify the backend to use (dogpile.cache.memory by default). In addition
+    it includes the specific options ofr the subnet driver, to enable/disable
+    it just for this driver, as well as to specify the cache time. To change
+    default configurations, the next can be modified at kuryr.conf
+
+    .. code-block:: ini
+
+      [cache]
+      enable=True
+      backend=dogpile.cache.memory
+
+      [subnet_caching]
+      caching=True
+      cache_time=3600
+
