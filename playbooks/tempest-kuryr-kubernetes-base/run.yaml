@@ -65,12 +65,18 @@
           # Etcd
           enable_service etcd3
           # Kubernetes
-          enable_service kubernetes-api
-          enable_service kubernetes-controller-manager
-          enable_service kubernetes-scheduler
           KURYR_K8S_API_PORT="8080"
-          # Kubelet
-          enable_service kubelet
+          if [ "{{ container_engine }}" == "kubernetes" ]; then
+            enable_service kubernetes-api
+            enable_service kubernetes-controller-manager
+            enable_service kubernetes-scheduler
+            # Kubelet
+            enable_service kubelet
+          elif [ "{{ container_engine }}" == "openshift" ]; then
+            enable_service openshift-master
+            enable_service openshift-node
+            DOCKER_CGROUP_DRIVER="systemd"
+          fi
           # Kuryr watcher
           enable_service kuryr-kubernetes
           # LBaaS service

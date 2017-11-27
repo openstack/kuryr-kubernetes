@@ -22,6 +22,7 @@
     vars:
       loadbalancer: lbaasv2
       kuryr_daemon: False
+      container_engine: kubernetes
     required-projects:
       - openstack-infra/devstack-gate
       - openstack/devstack-plugin-container
@@ -65,10 +66,33 @@
       - ^(test-|)requirements.txt$
       - ^setup.cfg$
 
+# Tempest with LBaaSV2
 - job:
     name: tempest-kuryr-kubernetes-lbaasv2
     parent: tempest-kuryr-kubernetes-base
 
+# Tempest with LBaaSV2 and CNI daemon enabled
+- job:
+    name: tempest-kuryr-kubernetes-lbaasv2-daemon
+    parent: tempest-kuryr-kubernetes-base
+    vars:
+      kuryr_daemon: True
+
+# Tempest with LBaaSV2 and OpenShift
+- job:
+    name: tempest-kuryr-kubernetes-lbaasv2-openshift
+    parent: tempest-kuryr-kubernetes-lbaasv2
+    vars:
+      container_engine: openshift
+
+# Tempest with LBaaSV2, OpenShift and CNI daemon enabled
+- job:
+    name: tempest-kuryr-kubernetes-lbaasv2-daemon-openshift
+    parent: tempest-kuryr-kubernetes-lbaasv2-daemon
+    vars:
+      container_engine: openshift
+
+# Tempest with Octavia
 - job:
     name: tempest-kuryr-kubernetes-octavia
     parent: tempest-kuryr-kubernetes-base
@@ -86,17 +110,26 @@
       - openstack/python-octaviaclient
       - openstack/tempest
 
-- job:
-    name: tempest-kuryr-kubernetes-lbaasv2-daemon
-    parent: tempest-kuryr-kubernetes-base
-    vars:
-      kuryr_daemon: True
-
+# Tempest with Octavia and CNI daemon enabled
 - job:
     name: tempest-kuryr-kubernetes-octavia-daemon
     parent: tempest-kuryr-kubernetes-octavia
     vars:
       kuryr_daemon: True
+
+# Tempest with Octavia and OpenShift
+- job:
+    name: tempest-kuryr-kubernetes-octavia-openshift
+    parent: tempest-kuryr-kubernetes-octavia
+    vars:
+      container_engine: openshift
+
+# Tempest with Octavia, OpenShift and CNI daemon enabled
+- job:
+    name: tempest-kuryr-kubernetes-octavia-daemon-openshift
+    parent: tempest-kuryr-kubernetes-octavia-daemon
+    vars:
+      container_engine: openshift
 
 - project:
     name: openstack/kuryr-kubernetes
@@ -105,12 +138,16 @@
         - kuryr-kubernetes-install-default
         - kuryr-kubernetes-install-dragonflow
         - tempest-kuryr-kubernetes-lbaasv2
-        - tempest-kuryr-kubernetes-octavia
+        - tempest-kuryr-kubernetes-lbaasv2-openshift
         - tempest-kuryr-kubernetes-lbaasv2-daemon
+        - tempest-kuryr-kubernetes-octavia
         - tempest-kuryr-kubernetes-octavia-daemon
+        - tempest-kuryr-kubernetes-octavia-openshift
     gate:
       jobs:
         - kuryr-kubernetes-install-default
     experimental:
       jobs:
         - tempest-kuryr-kubernetes-multinode
+        - tempest-kuryr-kubernetes-lbaasv2-daemon-openshift
+        - tempest-kuryr-kubernetes-octavia-daemon-openshift
