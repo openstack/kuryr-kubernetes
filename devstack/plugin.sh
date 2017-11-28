@@ -113,6 +113,7 @@ function generate_containerized_kuryr_resources {
     local output_dir="${DATA_DIR}/kuryr-kubernetes"
     generate_kuryr_configmap $output_dir $KURYR_CONFIG $KURYR_CNI_CONFIG
     generate_kuryr_service_account $output_dir
+    KURYR_USE_PORTS_POOLS=$(trueorfalse False KURYR_USE_PORTS_POOLS)
     generate_controller_deployment $output_dir $KURYR_USE_PORTS_POOLS
     generate_cni_daemon_set $output_dir $CNI_BIN_DIR $CNI_CONF_DIR
 }

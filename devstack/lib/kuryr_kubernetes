@@ -439,7 +439,7 @@ EOF
     # Add readiness probe if ports pool functionality is enabled. The rationale
     # behind is to make the controller not ready until the precreated ports are
     # loaded into the pools
-    if [ "$readiness_probe" ]; then
+    if [ "$readiness_probe" == "True" ]; then
         cat >> "${output_dir}/controller_deployment.yml" << EOF
         readinessProbe:
           exec:
