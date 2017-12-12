@@ -33,7 +33,6 @@
     irrelevant-files:
       - ^(test-|)requirements.txt$
       - ^setup.cfg$
-    voting: false
 
 
 - job:
@@ -84,6 +83,7 @@
     parent: tempest-kuryr-kubernetes-lbaasv2
     vars:
       container_engine: openshift
+    voting: false
 
 # Tempest with LBaaSV2, OpenShift and CNI daemon enabled
 - job:
@@ -91,6 +91,7 @@
     parent: tempest-kuryr-kubernetes-lbaasv2-daemon
     vars:
       container_engine: openshift
+    voting: false
 
 # Tempest with Octavia
 - job:
@@ -116,6 +117,7 @@
     parent: tempest-kuryr-kubernetes-octavia
     vars:
       kuryr_daemon: True
+    voting: false
 
 # Tempest with Octavia and OpenShift
 - job:
@@ -123,6 +125,7 @@
     parent: tempest-kuryr-kubernetes-octavia
     vars:
       container_engine: openshift
+    voting: false
 
 # Tempest with Octavia, OpenShift and CNI daemon enabled
 - job:
@@ -130,6 +133,7 @@
     parent: tempest-kuryr-kubernetes-octavia-daemon
     vars:
       container_engine: openshift
+    voting: false
 
 - project:
     name: openstack/kuryr-kubernetes
