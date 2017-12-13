@@ -346,10 +346,13 @@ function get_hyperkube_container_cacert_setup_dir {
     esac
 }
 
+function create_token() {
+  echo $(cat /dev/urandom | base64 | tr -d "=+/" | dd bs=32 count=1 2> /dev/null)
+}
+
 function prepare_kubernetes_files {
     # Sets up the base configuration for the Kubernetes API Server and the
     # Controller Manager.
-    local mountpoint
     local service_cidr
     local k8s_api_clusterip
 
@@ -358,15 +361,24 @@ function prepare_kubernetes_files {
                              subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET"\
                              -c cidr -f value)
     k8s_api_clusterip=$(_cidr_range "$service_cidr" | cut -f1)
-    mountpoint=$(get_hyperkube_container_cacert_setup_dir "$KURYR_HYPERKUBE_VERSION")
 
-    docker run \
-        --name devstack-k8s-setup-files \
-        --detach \
-        --volume "${KURYR_HYPERKUBE_DATA_DIR}:${mountpoint}:rw" \
-        "${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}" \
-            /setup-files.sh \
-            "IP:${HOST_IP},IP:${k8s_api_clusterip},DNS:kubernetes,DNS:kubernetes.default,DNS:kubernetes.default.svc,DNS:kubernetes.default.svc.cluster.local"
+    # It's not prettiest, but the file haven't changed since 1.6, so it's safe to download it like that.
+    curl -o /tmp/make-ca-cert.sh https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.8/cluster/saltbase/salt/generate-cert/make-ca-cert.sh
+    chmod +x /tmp/make-ca-cert.sh
+
+    # Create HTTPS certificates
+    sudo groupadd -f -r kube-cert
+
+    # hostname -I gets the ip of the node
+    sudo CERT_DIR=${KURYR_HYPERKUBE_DATA_DIR} /tmp/make-ca-cert.sh $(hostname -I | awk '{print $1}') "IP:${HOST_IP},IP:${k8s_api_clusterip},DNS:kubernetes,DNS:kubernetes.default,DNS:kubernetes.default.svc,DNS:kubernetes.default.svc.cluster.local"
+
+    # Create basic token authorization
+    sudo bash -c "echo 'admin,admin,admin' > $KURYR_HYPERKUBE_DATA_DIR/basic_auth.csv"
+
+    # Create known tokens for service accounts
+    sudo bash -c "echo '$(create_token),admin,admin' >> ${KURYR_HYPERKUBE_DATA_DIR}/known_tokens.csv"
+    sudo bash -c "echo '$(create_token),kubelet,kubelet' >> ${KURYR_HYPERKUBE_DATA_DIR}/known_tokens.csv"
+    sudo bash -c "echo '$(create_token),kube_proxy,kube_proxy' >> ${KURYR_HYPERKUBE_DATA_DIR}/known_tokens.csv"
 
     # FIXME(ivc): replace 'sleep' with a strict check (e.g. wait_for_files)
     # 'kubernetes-api' fails if started before files are generated.
@@ -517,8 +529,8 @@ function run_k8s_kubelet {
 
     sudo mkdir -p "${KURYR_HYPERKUBE_DATA_DIR}/"{kubelet,kubelet.cert}
     command="$KURYR_HYPERKUBE_BINARY kubelet\
+        --kubeconfig=${HOME}/.kube/config --require-kubeconfig \
         --allow-privileged=true \
-        --api-servers=$KURYR_K8S_API_URL \
         --v=2 \
         --address=0.0.0.0 \
         --enable-server \
@@ -527,6 +539,12 @@ function run_k8s_kubelet {
         --cni-conf-dir=$CNI_CONF_DIR \
         --cert-dir=${KURYR_HYPERKUBE_DATA_DIR}/kubelet.cert \
         --root-dir=${KURYR_HYPERKUBE_DATA_DIR}/kubelet"
+
+    # Kubernetes 1.8 requires additional option to work in the gate.
+    if [[ ${KURYR_HYPERKUBE_VERSION} == v1.8* ]]; then
+        command="$command --fail-swap-on=false"
+    fi
+
     wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
     if [[ "$USE_SYSTEMD" = "True" ]]; then
         # If systemd is being used, proceed as normal
@@ -694,8 +712,6 @@ if [[ "$1" == "unstack" ]]; then
          $KURYR_HYPERKUBE_BINARY kubectl delete nodes ${HOSTNAME}
     fi
     stop_process kuryr-daemon
-    docker kill devstack-k8s-setup-files
-    docker rm devstack-k8s-setup-files
 
     if is_service_enabled kubernetes-controller-manager; then
         stop_container kubernetes-controller-manager
