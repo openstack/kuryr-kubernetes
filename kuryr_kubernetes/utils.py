@@ -15,6 +15,13 @@ from oslo_serialization import jsonutils
 
 CONF = cfg.CONF
 
+VALID_MULTI_POD_POOLS_OPTS = {'noop': ['neutron-vif',
+                                       'nested-vlan',
+                                       'nested-macvlan'],
+                              'neutron': ['neutron-vif'],
+                              'nested': ['nested-vlan'],
+                              }
+
 
 def utf8_json_decoder(byte_data):
     """Deserializes the bytes into UTF-8 encoded JSON.
@@ -50,3 +57,7 @@ def get_pod_unique_name(pod):
     :returns: String with namespace/name of the pod
     """
     return "%(namespace)s/%(name)s" % pod['metadata']
+
+
+def check_suitable_multi_pool_driver_opt(pool_driver, pod_driver):
+    return pod_driver in VALID_MULTI_POD_POOLS_OPTS.get(pool_driver, [])

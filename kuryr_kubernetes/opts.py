@@ -31,6 +31,7 @@ _kuryr_k8s_opts = [
     ('octavia_defaults', config.octavia_defaults),
     ('cache_defaults', config.cache_defaults),
     ('subnet_caching', default_subnet.subnet_caching_opts),
+    ('node_driver_caching', vif_pool.node_vif_driver_caching_opts),
     ('pool_manager', pool.pool_manager_opts),
     ('cni_daemon', config.daemon_opts),
     ('health_server', health.health_server_opts),

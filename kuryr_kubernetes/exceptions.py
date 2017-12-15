@@ -51,3 +51,14 @@ class AllowedAddressAlreadyPresent(Exception):
     'allowed address pair' on a port is made. Such a condition likely indicates
     a bad program state or a programming bug.
     """
+
+
+class MultiPodDriverPoolConfigurationNotSupported(Exception):
+    """Exception indicates a wrong configuration of the multi pod driver pool
+
+    This exception is raised when the multi pod driver pool is not properly
+    configured. This could be due to three different reasons:
+    1. One of the pool drivers is not supported
+    2. One of the pod drivers is not supported
+    3. One of the pod drivers is not supported by its selected pool driver
+    """
