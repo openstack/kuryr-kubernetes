@@ -171,6 +171,7 @@ class DaemonServer(object):
         LOG.info('Starting server on %s.', server_pair)
         try:
             address, port = server_pair.split(':')
+            port = int(port)
         except ValueError:
             LOG.exception('Cannot start server on %s.', server_pair)
             raise
