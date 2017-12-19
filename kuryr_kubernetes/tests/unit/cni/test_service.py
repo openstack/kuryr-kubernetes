@@ -35,10 +35,12 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
                                 CNI_IFNAME='baz', CNI_NETNS=123,
                                 CNI_CONTAINERID='cont_id')
 
+    @mock.patch('oslo_concurrency.lockutils.lock')
     @mock.patch('kuryr_kubernetes.cni.binding.base.connect')
-    def test_add_present(self, m_connect):
+    def test_add_present(self, m_connect, m_lock):
         self.plugin.add(self.params)
 
+        m_lock.assert_called_with('foo', external=True)
         m_connect.assert_called_with(mock.ANY, mock.ANY, 'baz', 123)
         self.assertEqual('cont_id', self.plugin.registry['foo']['containerid'])
 
@@ -57,10 +59,12 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
 
         m_disconnect.assert_not_called()
 
+    @mock.patch('oslo_concurrency.lockutils.lock')
     @mock.patch('time.sleep', mock.Mock())
     @mock.patch('kuryr_kubernetes.cni.binding.base.connect')
-    def test_add_present_on_5_try(self, m_connect):
+    def test_add_present_on_5_try(self, m_connect, m_lock):
         se = [KeyError] * 5
+        se.append({'pod': self.pod, 'vif': self.vif, 'containerid': None})
         se.append({'pod': self.pod, 'vif': self.vif, 'containerid': None})
         se.append({'pod': self.pod, 'vif': self.vif, 'containerid': None})
         m_getitem = mock.Mock(side_effect=se)
@@ -69,6 +73,7 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
         self.plugin.registry = m_registry
         self.plugin.add(self.params)
 
+        m_lock.assert_called_with('foo', external=True)
         m_setitem.assert_called_once_with('foo', {'pod': self.pod,
                                                   'vif': self.vif,
                                                   'containerid': 'cont_id'})

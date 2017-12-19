@@ -26,6 +26,7 @@ import retrying
 import os_vif
 from os_vif import objects as obj_vif
 from os_vif.objects import base
+from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
@@ -43,6 +44,7 @@ from kuryr_kubernetes import watcher as k_watcher
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
+RETRY_DELAY = 1000  # 1 second in milliseconds
 
 # TODO(dulek): Another corner case is (and was) when pod is deleted before it's
 #              annotated by controller or even noticed by any watcher. Kubelet
@@ -62,15 +64,31 @@ class K8sCNIRegistryPlugin(api.CNIPlugin):
     def add(self, params):
         vif = self._do_work(params, b_base.connect)
 
-        # NOTE(dulek): Saving containerid to be able to distinguish old DEL
-        #              requests that we should ignore. We need to replace whole
-        #              object in the dict for multiprocessing.Manager to work.
         pod_name = params.args.K8S_POD_NAME
-        d = self.registry[pod_name]
-        d['containerid'] = params.CNI_CONTAINERID
-        self.registry[pod_name] = d
-        LOG.debug('Saved containerid = %s for pod %s', params.CNI_CONTAINERID,
-                  pod_name)
+        # NOTE(dulek): Saving containerid to be able to distinguish old DEL
+        #              requests that we should ignore. We need a lock to
+        #              prevent race conditions and replace whole object in the
+        #              dict for multiprocessing.Manager to notice that.
+        with lockutils.lock(pod_name, external=True):
+            d = self.registry[pod_name]
+            d['containerid'] = params.CNI_CONTAINERID
+            self.registry[pod_name] = d
+            LOG.debug('Saved containerid = %s for pod %s',
+                      params.CNI_CONTAINERID, pod_name)
+
+        # Wait for VIF to become active.
+        timeout = CONF.cni_daemon.vif_annotation_timeout
+
+        # Wait for timeout sec, 1 sec between tries, retry when vif not active.
+        @retrying.retry(stop_max_delay=timeout * 1000, wait_fixed=RETRY_DELAY,
+                        retry_on_result=lambda x: not x.active)
+        def wait_for_active(pod_name):
+            return base.VersionedObject.obj_from_primitive(
+                self.registry[pod_name]['vif'])
+
+        vif = wait_for_active(pod_name)
+        if not vif.active:
+            raise exceptions.ResourceNotReady(pod_name)
 
         return vif
 
@@ -96,7 +114,7 @@ class K8sCNIRegistryPlugin(api.CNIPlugin):
         timeout = CONF.cni_daemon.vif_annotation_timeout
 
         # In case of KeyError retry for `timeout` s, wait 1 s between tries.
-        @retrying.retry(stop_max_delay=(timeout * 1000), wait_fixed=1000,
+        @retrying.retry(stop_max_delay=timeout * 1000, wait_fixed=RETRY_DELAY,
                         retry_on_exception=lambda e: isinstance(e, KeyError))
         def find():
             return self.registry[pod_name]
@@ -261,12 +279,23 @@ class CNIDaemonWatcherService(cotyledon.Service):
         self.watcher.start()
 
     def on_done(self, pod, vif):
-        # Add to registry only if it isn't already there.
-        if pod['metadata']['name'] not in self.registry:
-            vif_dict = vif.obj_to_primitive()
-            self.registry[pod['metadata']['name']] = {'pod': pod,
-                                                      'vif': vif_dict,
-                                                      'containerid': None}
+        pod_name = pod['metadata']['name']
+        vif_dict = vif.obj_to_primitive()
+        # NOTE(dulek): We need a lock when modifying shared self.registry dict
+        #              to prevent race conditions with other processes/threads.
+        with lockutils.lock(pod_name, external=True):
+            if pod_name not in self.registry:
+                self.registry[pod_name] = {'pod': pod, 'vif': vif_dict,
+                                           'containerid': None}
+            else:
+                # NOTE(dulek): Only update vif if its status changed, we don't
+                #              need to care about other changes now.
+                old_vif = base.VersionedObject.obj_from_primitive(
+                    self.registry[pod_name]['vif'])
+                if old_vif.active != vif.active:
+                    pod_dict = self.registry[pod_name]
+                    pod_dict['vif'] = vif_dict
+                    self.registry[pod_name] = pod_dict
 
     def terminate(self):
         if self.watcher:
