@@ -39,7 +39,7 @@ Design documents
     service_support
     port_manager
     vif_handler_drivers_design
-
+    health_manager
 
 Indices and tables
 ------------------

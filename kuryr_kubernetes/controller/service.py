@@ -25,6 +25,7 @@ from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.handlers import lbaas as h_lbaas
 from kuryr_kubernetes.controller.handlers import pipeline as h_pipeline
 from kuryr_kubernetes.controller.handlers import vif as h_vif
+from kuryr_kubernetes.controller.managers import health
 from kuryr_kubernetes import objects
 from kuryr_kubernetes import watcher
 
@@ -49,6 +50,7 @@ class KuryrK8sService(service.Service):
 
     def start(self):
         LOG.info("Service '%s' starting", self.__class__.__name__)
+        health.ReadinessChecker()
         super(KuryrK8sService, self).start()
         self.watcher.start()
         LOG.info("Service '%s' started", self.__class__.__name__)
