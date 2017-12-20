@@ -17,6 +17,8 @@ import os_vif
 import pyroute2
 from stevedore import driver as stv_driver
 
+from kuryr_kubernetes import utils
+
 _BINDING_NAMESPACE = 'kuryr_kubernetes.cni.binding'
 
 
@@ -29,6 +31,7 @@ def _get_binding_driver(vif):
 
 def get_ipdb(netns=None):
     if netns:
+        netns = utils.convert_netns(netns)
         ipdb = pyroute2.IPDB(nl=pyroute2.NetNS(netns))
     else:
         ipdb = pyroute2.IPDB()
@@ -39,10 +42,12 @@ def _enable_ipv6(netns):
     # Docker disables IPv6 for --net=none containers
     # TODO(apuimedo) remove when it is no longer the case
     try:
-        self_ns_fd = open('/proc/self/ns/net')
+        netns = utils.convert_netns(netns)
+        path = utils.convert_netns('/proc/self/ns/net')
+        self_ns_fd = open(path)
         pyroute2.netns.setns(netns)
-        with open('/proc/sys/net/ipv6/conf/all/disable_ipv6',
-                  'w') as disable_ipv6:
+        path = utils.convert_netns('/proc/sys/net/ipv6/conf/all/disable_ipv6')
+        with open(path, 'w') as disable_ipv6:
             disable_ipv6.write('0')
     except Exception:
         raise

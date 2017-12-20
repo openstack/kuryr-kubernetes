@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import multiprocessing
+import os
 from six.moves import http_client as httplib
 import socket
 import sys
@@ -128,11 +129,34 @@ class DaemonServer(object):
         self.headers = {'ContentType': 'application/json',
                         'Connection': 'close'}
 
+    def _prepare_request(self):
+        if CONF.cni_daemon.docker_mode:
+            # FIXME(dulek): This is an awful hack to make os_vif's privsep
+            #               daemon to run in FORK mode. This is required,
+            #               as it's assumed kuryr-daemon is run as root, but
+            #               it's not assumed that system it's running on has
+            #               sudo command. Once os_vif allows to configure the
+            #               mode, switch this to nicer method. It's placed
+            #               here, because we need to repeat it for each process
+            #               spawned by HTTP server.
+            ovs = os_vif._EXT_MANAGER['ovs'].obj
+            ovs_mod = sys.modules[ovs.__module__]
+            ovs_mod.linux_net.privsep.vif_plug.start(
+                ovs_mod.linux_net.privsep.priv_context.Method.FORK)
+
+        params = utils.CNIParameters(flask.request.get_json())
+        LOG.debug('Received %s request. CNI Params: %s',
+                  params.CNI_COMMAND, params)
+        return params
+
     def add(self):
-        params = None
         try:
-            params = utils.CNIParameters(flask.request.get_json())
-            LOG.debug('Received addNetwork request. CNI Params: %s', params)
+            params = self._prepare_request()
+        except Exception:
+            LOG.exception('Exception when reading CNI params.')
+            return '', httplib.BAD_REQUEST, self.headers
+
+        try:
             vif = self.plugin.add(params)
             data = jsonutils.dumps(vif.obj_to_primitive())
         except exceptions.ResourceNotReady as e:
@@ -143,13 +167,17 @@ class DaemonServer(object):
             LOG.exception('Error when processing addNetwork request. CNI '
                           'Params: %s', params)
             return '', httplib.INTERNAL_SERVER_ERROR, self.headers
+
         return data, httplib.ACCEPTED, self.headers
 
     def delete(self):
-        params = None
         try:
-            params = utils.CNIParameters(flask.request.get_json())
-            LOG.debug('Received delNetwork request. CNI Params: %s', params)
+            params = self._prepare_request()
+        except Exception:
+            LOG.exception('Exception when reading CNI params.')
+            return '', httplib.BAD_REQUEST, self.headers
+
+        try:
             self.plugin.delete(params)
         except exceptions.ResourceNotReady as e:
             # NOTE(dulek): It's better to ignore this error - most of the time
@@ -213,6 +241,15 @@ class CNIDaemonWatcherService(cotyledon.Service):
         self.watcher = None
         self.registry = registry
 
+    def _get_nodename(self):
+        # NOTE(dulek): At first try to get it using environment variable,
+        #              otherwise assume hostname is the nodename.
+        try:
+            nodename = os.environ['KUBERNETES_NODE_NAME']
+        except KeyError:
+            nodename = socket.gethostname()
+        return nodename
+
     def run(self):
         self.pipeline = h_cni.CNIPipeline()
         self.pipeline.register(h_cni.CallbackHandler(self.on_done))
@@ -220,7 +257,7 @@ class CNIDaemonWatcherService(cotyledon.Service):
         self.watcher.add(
             "%(base)s/pods?fieldSelector=spec.nodeName=%(node_name)s" % {
                 'base': k_const.K8S_API_BASE,
-                'node_name': socket.gethostname()})
+                'node_name': self._get_nodename()})
         self.watcher.start()
 
     def on_done(self, pod, vif):

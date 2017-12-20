@@ -95,7 +95,8 @@ class TestDaemonServer(base.TestCase):
 
         self.srv.application.testing = True
         self.test_client = self.srv.application.test_client()
-        params = {'config_kuryr': {}, 'CNI_ARGS': 'foo=bar'}
+        params = {'config_kuryr': {}, 'CNI_ARGS': 'foo=bar',
+                  'CNI_CONTAINERID': 'baz', 'CNI_COMMAND': 'ADD'}
         self.params_str = jsonutils.dumps(params)
 
     @mock.patch('kuryr_kubernetes.cni.daemon.service.K8sCNIRegistryPlugin.add')

@@ -54,6 +54,22 @@ daemon_opts = [
                       'process all networking stack changes. This option '
                       'allows to tune internal pyroute2 timeout.'),
                default=10),
+    cfg.BoolOpt('docker_mode',
+                help=_('Set to True when you are running kuryr-daemon inside '
+                       'a Docker container on Kubernetes host. E.g. as '
+                       'DaemonSet on Kubernetes cluster Kuryr is supposed to '
+                       'provide networking for. This mainly means that'
+                       'kuryr-daemon will look for network namespaces in '
+                       '$netns_proc_dir instead of /proc.'),
+                default=False),
+    cfg.StrOpt('netns_proc_dir',
+               help=_("When docker_mode is set to True, this config option "
+                      "should be set to where host's /proc directory is "
+                      "mounted. Please note that mounting it is necessary to "
+                      "allow Kuryr-Kubernetes to move host interfaces between "
+                      "host network namespaces, which is essential for Kuryr "
+                      "to work."),
+               default=None),
 ]
 
 k8s_opts = [
