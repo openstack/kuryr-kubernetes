@@ -12,6 +12,10 @@
       - openstack/dragonflow
       - openstack/kuryr
       - openstack/kuryr-kubernetes
+    irrelevant-files:
+      - ^.*\.rst$
+      - ^doc/.*$
+      - ^releasenotes/.*$
 
 - job:
     name: tempest-kuryr-kubernetes-base
@@ -31,9 +35,9 @@
       - openstack/kuryr-tempest-plugin
       - openstack/tempest
     irrelevant-files:
-      - ^(test-|)requirements.txt$
-      - ^setup.cfg$
-
+      - ^.*\.rst$
+      - ^doc/.*$
+      - ^releasenotes/.*$
 
 - job:
     name: kuryr-kubernetes-install-default
@@ -62,8 +66,9 @@
     nodeset: legacy-ubuntu-xenial-2-node
     voting: false
     irrelevant-files:
-      - ^(test-|)requirements.txt$
-      - ^setup.cfg$
+      - ^.*\.rst$
+      - ^doc/.*$
+      - ^releasenotes/.*$
 
 # Tempest with LBaaSV2
 - job:
