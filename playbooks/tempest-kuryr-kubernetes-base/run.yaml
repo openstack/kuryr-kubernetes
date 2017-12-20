@@ -55,10 +55,6 @@
           # Glance
           enable_service g-api
           enable_service g-reg
-          # Cinder
-          enable_service c-api
-          enable_service c-vol
-          enable_service c-sch
           # Docker
           enable_plugin devstack-plugin-container \
               git://git.openstack.org/openstack/devstack-plugin-container
