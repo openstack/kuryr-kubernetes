@@ -41,6 +41,7 @@ Design documents
     vif_handler_drivers_design
     health_manager
     kuryr_kubernetes_ingress_design
+    kuryr_kubernetes_ocp_route_design
 
 Indices and tables
 ------------------
