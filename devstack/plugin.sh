@@ -156,22 +156,18 @@ EOF
 }
 
 function copy_tempest_kubeconfig {
-    # FIXME(dulek): This should not be based on arbitrary paths that are
-    #               only standard for the gate.
     local tempest_home
-    local stack_home
 
     tempest_home='/home/tempest'
-    stack_home='/opt/stack/new'
     if is_service_enabled openshift-master; then
-        sudo mkdir -p "$stack_home/.kube"
-        sudo cp "$OPENSHIFT_DATA_DIR/admin.kubeconfig" "$stack_home/.kube/config"
-        sudo chown -R $STACK_USER "$stack_home/.kube"
+        sudo mkdir -p "${HOME}/.kube"
+        sudo cp "${OPENSHIFT_DATA_DIR}/admin.kubeconfig" "${HOME}/.kube/config"
+        sudo chown -R $STACK_USER "${HOME}/.kube"
     fi
 
     if [ -d "$tempest_home" ]; then
-        sudo cp -r "$stack_home/.kube" "$tempest_home"
-        sudo chown -R tempest "$tempest_home/.kube"
+        sudo cp -r "${HOME}/.kube" "$tempest_home"
+        sudo chown -R tempest "${tempest_home}/.kube"
     fi
 }
 
