@@ -85,9 +85,12 @@ network namespace is used by Octavia to reconfigure and monitor the Load
 Balancer, which it talks to via HAProxy's control unix domain socket.
 
 Running Kuryr with Octavia means that each Kubernetes service that runs in the
-cluster will need one Load Balancer VM, i.e., an *Amphora*. It is important to
-configure the right Octavia flavor for your deployment and to size the compute
-nodes appropriately so that Octavia can operate well.
+cluster will need at least one Load Balancer VM, i.e., an *Amphora*.
+To avoid single point of failure at Amphora, Octavia should be configured to
+support active/standby loadbalancer topology.
+In addition, it is important to configure the right Octavia flavor for your
+deployment and to size the compute nodes appropriately so that Octavia can
+operate well.
 
 Another important consideration is where do the Amphorae run, i.e., whether the
 worker nodes should also be compute nodes so that they run the Amphorae or if
