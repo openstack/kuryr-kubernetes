@@ -48,3 +48,45 @@ kuryr-k8s-controller. At devstack deployment::
 And for RDO packaging based installations::
 
       sudo systemctl restart kuryr-controller
+
+Note that for the containerized deployment, you need to edit the associated
+ConfigMap to change the kuryr.conf files with::
+
+      kubectl -n kube-system edit cm kuryr-config
+
+Then modify the kuryr.conf (not the kuryr-cni.conf) to modify the controller
+configuration regarding the pools. After that, to have the new configuration
+applied you need to restart the kuryr-controller just by killing the existing
+pod::
+
+      kubectl -n kube-system get pod | grep kuryr-controller
+      kubectl -n kube-system delete pod KURYR_CONTROLLER_POD_NAME
+
+
+Ports loading into pools
+------------------------
+
+Pre-created ports for the pools will be loaded and put back into their
+respective pools upon controller restart. This allows the pre-creation of
+neutron ports (or subports for the nested case) with a script or any other
+preferred tool (e.g., heat templates) and load them into their respective
+pools just by restarting the kuryr-controller (or even before installing it).
+To do that you just need to ensure the ports are created with the right
+device_owner:
+
+    - For neutron pod driver: compute:kuryr (of the value at
+      kuryr.lib.constants.py)
+
+    - For nested-vlan pod driver: trunk:subport or compute:kuryr (or the value
+      at kuryr.lib.constants.py). But in this case they also need to be
+      attached to an active neutron trunk port, i.e., they need to be subports
+      of an existing trunk
+
+
+Subports pools management tool
+------------------------------
+
+Note there is a developers tool available at `contrib/pools-management` to
+create/delete ports in the desired pool(s) as well as to control the amount of
+existing ports loaded into each pool. For more details on this read the readme
+file on that folder.
