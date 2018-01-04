@@ -558,6 +558,7 @@ function run_k8s_kubelet {
     # saves us from the arduous task of setting up mounts to the official image
     # adding Python and all our CNI/binding dependencies.
     local command
+    local minor_version
 
     sudo mkdir -p "${KURYR_HYPERKUBE_DATA_DIR}/"{kubelet,kubelet.cert}
     command="$KURYR_HYPERKUBE_BINARY kubelet\
@@ -572,8 +573,9 @@ function run_k8s_kubelet {
         --cert-dir=${KURYR_HYPERKUBE_DATA_DIR}/kubelet.cert \
         --root-dir=${KURYR_HYPERKUBE_DATA_DIR}/kubelet"
 
-    # Kubernetes 1.8 requires additional option to work in the gate.
-    if [[ ${KURYR_HYPERKUBE_VERSION} == v1.8* ]]; then
+    # Kubernetes 1.8+ requires additional option to work in the gate.
+    minor_version=${KURYR_HYPERKUBE_VERSION:3:1}
+    if [ ${minor_version} -gt 7 ]; then
         command="$command --fail-swap-on=false"
     fi
 
