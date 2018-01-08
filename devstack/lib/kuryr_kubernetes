@@ -406,7 +406,7 @@ EOF
 
 function generate_controller_deployment() {
     output_dir=$1
-    readiness_probe=${2:-False}
+    health_server_port=$2
     mkdir -p "$output_dir"
     rm -f ${output_dir}/controller_deployment.yml
     cat >> "${output_dir}/controller_deployment.yml" << EOF
@@ -437,19 +437,13 @@ spec:
         - name: config-volume
           mountPath: "/etc/kuryr/kuryr.conf"
           subPath: kuryr.conf
-EOF
-    # Add readiness probe if ports pool functionality is enabled. The rationale
-    # behind is to make the controller not ready until the precreated ports are
-    # loaded into the pools
-    if [ "$readiness_probe" == "True" ]; then
-        cat >> "${output_dir}/controller_deployment.yml" << EOF
         readinessProbe:
-          exec:
-            command:
-            - cat
-            - /tmp/pools_loaded
+          httpGet:
+            path: /healthz
+            port: ${health_server_port}
+            scheme: HTTP
+          timeoutSeconds: 5
 EOF
-    fi
 
     cat >> "${output_dir}/controller_deployment.yml" << EOF
       volumes:
