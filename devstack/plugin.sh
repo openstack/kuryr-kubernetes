@@ -490,13 +490,16 @@ function extract_hyperkube {
     tmp_loopback_cni_path="/tmp/loopback"
     tmp_nsenter_path="/tmp/nsenter"
 
-    hyperkube_container="$(docker ps -aq \
-        -f ancestor="${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}" | \
-        head -1)"
+    hyperkube_container=$(docker run -d \
+        --net host \
+       "${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}" \
+       /bin/false)
     docker cp "${hyperkube_container}:/hyperkube" "$tmp_hyperkube_path"
     docker cp "${hyperkube_container}:/opt/cni/bin/loopback" \
         "$tmp_loopback_cni_path"
     docker cp "${hyperkube_container}:/usr/bin/nsenter" "$tmp_nsenter_path"
+
+    docker rm "$hyperkube_container"
     sudo install -o "$STACK_USER" -m 0555 -D "$tmp_hyperkube_path" \
         "$KURYR_HYPERKUBE_BINARY"
     sudo install -o "$STACK_USER" -m 0555 -D "$tmp_loopback_cni_path" \
