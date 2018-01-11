@@ -535,7 +535,7 @@ EOF
 #                installs it in the system
 function install_openshift_binary {
     mkdir -p "$OPENSHIFT_HOME"
-    wget "$OPENSHIFT_BINARY_URL" -O "${OPENSHIFT_HOME}/openshift.tar.gz"
+    curl -L "$OPENSHIFT_BINARY_URL" -o "${OPENSHIFT_HOME}/openshift.tar.gz" --retry 2
     tar xzvf "${OPENSHIFT_HOME}/openshift.tar.gz" --strip 1 -C "$OPENSHIFT_HOME"
 
     # Make openshift run from its untarred directory
