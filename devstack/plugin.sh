@@ -27,6 +27,11 @@ function create_kuryr_cache_dir {
     fi
 }
 
+function create_kuryr_lock_dir {
+    # Create lock directory
+    sudo install -d -o "$STACK_USER" "$KURYR_LOCK_DIR"
+}
+
 function get_distutils_data_path {
     cat << EOF | python -
 from __future__ import print_function
@@ -67,6 +72,8 @@ function configure_kuryr {
 
     if is_service_enabled kuryr-daemon; then
         iniset "$KURYR_CONFIG" cni_daemon daemon_enabled True
+        iniset "$KURYR_CONFIG" oslo_concurrency lock_path "$KURYR_LOCK_DIR"
+        create_kuryr_lock_dir
         KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
         if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
             # When running kuryr-daemon in container we need to set up configs.

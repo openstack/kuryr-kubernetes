@@ -43,6 +43,7 @@ def _fake_vif(cls=osv_vif.VIFOpenVSwitch):
     subnet.ips.objects.append(
         osv_objects.fixed_ip.FixedIP(address='192.168.0.2'))
     vif.network.subnets.objects.append(subnet)
+    vif.active = True
     return vif
 
 
