@@ -439,10 +439,15 @@ spec:
           subPath: kuryr.conf
         readinessProbe:
           httpGet:
-            path: /healthz
+            path: /ready
             port: ${health_server_port}
             scheme: HTTP
           timeoutSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /alive
+            port: ${health_server_port}
+          initialDelaySeconds: 15
 EOF
 
     cat >> "${output_dir}/controller_deployment.yml" << EOF

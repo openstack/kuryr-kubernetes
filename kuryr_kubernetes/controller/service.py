@@ -41,6 +41,7 @@ class KuryrK8sService(service.Service):
         objects.register_locally_defined_vifs()
         pipeline = h_pipeline.ControllerPipeline(self.tg)
         self.watcher = watcher.Watcher(pipeline, self.tg)
+        self.health_manager = health.HealthServer()
         # TODO(ivc): pluggable resource/handler registration
         for resource in ["pods", "services", "endpoints"]:
             self.watcher.add("%s/%s" % (constants.K8S_API_BASE, resource))
@@ -50,9 +51,9 @@ class KuryrK8sService(service.Service):
 
     def start(self):
         LOG.info("Service '%s' starting", self.__class__.__name__)
-        health.ReadinessChecker()
         super(KuryrK8sService, self).start()
         self.watcher.start()
+        self.health_manager.run()
         LOG.info("Service '%s' started", self.__class__.__name__)
 
     def wait(self):

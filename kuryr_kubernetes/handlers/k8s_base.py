@@ -14,6 +14,7 @@
 #    under the License.
 
 from kuryr_kubernetes.handlers import dispatch
+from kuryr_kubernetes.handlers import health
 
 
 def object_kind(event):
@@ -30,7 +31,7 @@ def object_link(event):
         return None
 
 
-class ResourceEventHandler(dispatch.EventConsumer):
+class ResourceEventHandler(dispatch.EventConsumer, health.HealthHandler):
     """Base class for K8s event handlers.
 
     Implementing classes should override the `OBJECT_KIND` attribute with a
@@ -47,6 +48,9 @@ class ResourceEventHandler(dispatch.EventConsumer):
     """
 
     OBJECT_KIND = None
+
+    def __init__(self):
+        super(ResourceEventHandler, self).__init__()
 
     @property
     def consumes(self):

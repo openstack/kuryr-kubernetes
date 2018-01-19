@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import eventlet
 from flask import Flask
 from keystoneauth1 import exceptions as k_exc
 from keystoneclient import client as keystone_client
 from kuryr.lib._i18n import _
 from kuryr.lib import config as kuryr_config
 from kuryr.lib import utils
+from kuryr_kubernetes.handlers import health as h_health
 import os
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -38,16 +38,25 @@ CONF.register_opts(health_server_opts, "health_server")
 
 
 class HealthServer(object):
+    """Proxy server used by readiness and liveness probes to manage health checks.
+
+    Allows to verify connectivity with Kubernetes API, Keystone and Neutron.
+    If pool ports functionality is enabled it is verified whether
+    the precreated ports are loaded into the pools. Also, checks handlers
+    states.
+    """
 
     def __init__(self):
         self.ctx = None
-
+        self._registry = h_health.HealthRegister.get_instance().registry
         self.application = Flask('health-daemon')
         self.application.add_url_rule(
-            '/healthz', methods=['GET'], view_func=self.read)
+            '/ready', methods=['GET'], view_func=self.readiness_status)
+        self.application.add_url_rule(
+            '/alive', methods=['GET'], view_func=self.liveness_status)
         self.headers = {'Connection': 'close'}
 
-    def read(self):
+    def readiness_status(self):
         data = 'ok'
 
         if CONF.kubernetes.vif_pool_driver != 'noop':
@@ -81,6 +90,15 @@ class HealthServer(object):
         LOG.info('Kuryr Controller readiness verified.')
         return data, httplib.OK, self.headers
 
+    def liveness_status(self):
+        data = 'ok'
+        for component in self._registry:
+            if not component.is_healthy():
+                LOG.debug('Kuryr Controller not healthy.')
+                return '', httplib.INTERNAL_SERVER_ERROR, self.headers
+        LOG.debug('Kuryr Controller Liveness verified.')
+        return data, httplib.OK, self.headers
+
     def run(self):
         address = ''
         try:
@@ -109,19 +127,3 @@ class HealthServer(object):
     def verify_neutron_connection(self):
         neutron = utils.get_neutron_client()
         neutron.list_extensions()
-
-
-class ReadinessChecker(object):
-    """Proxy server used by readiness probe to manage health checks.
-
-    Allows to verify connectivity with Kubernetes API, Keystone and Neutron.
-    Also, if pool ports functionality is enabled it is verified whether
-    the precreated ports are loaded into the pools.
-    """
-
-    def __init__(self):
-        eventlet.spawn(self._start_readiness_checker_daemon)
-
-    def _start_readiness_checker_daemon(self):
-        server = HealthServer()
-        server.run()

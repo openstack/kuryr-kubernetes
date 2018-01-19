@@ -23,8 +23,8 @@ The purpose of this document is to present the design decision behind
 Kuryr Kubernetes Health Manager.
 
 The main purpose of the Health Manager is to perform Health verifications
-that assures Kuryr Controller readiness and so improve the management that
-Kubernetes does on Kuryr Controller pod.
+that assures Kuryr Controller readiness and liveness, and so improve the
+management that Kubernetes does on Kuryr Controller pod.
 
 Overview
 --------
@@ -34,19 +34,19 @@ unable to connect with services it depends on and they being not healthy.
 
 It is important to check health of these services so that Kubernetes and
 its users know when Kuryr Controller it is ready to perform its networking
-tasks. To provide this functionality, Health Manager will verify and serve
-the health state of these services to the probe.
+tasks. Also, it is necessary to check the health state of Kuryr components in
+order to assure Kuryr Controller service is alive. To provide these
+functionalities, Health Manager will verify and serve the health state of
+these services and components to the probe.
 
 Proposed Solution
 -----------------
-The Health Manager will provide an endpoint that will check whether it is
+One of the endpoints provided by The Health Manager will check whether it is
 able to watch the Kubernetes API, authenticate with Keystone and talk to
 Neutron, since these are services needed by Kuryr Controller. These checks
-will assure the Controller readiness.
+will assure the Controller readiness. The other endpoint, will verify
+the health state of Kuryr components and guarantee Controller liveness.
 
 The idea behind the Manager is to combine all the necessary checks in a
 server running inside Kuryr Controller pod and provide the checks result
 to the probe.
-
-This design focuses on providing health checks for readiness probe, but
-another endpoint can be created for liveness probes.

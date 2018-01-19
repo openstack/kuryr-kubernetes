@@ -19,6 +19,7 @@ import mock
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as kuryr_fixtures
 from kuryr_kubernetes import watcher
+from requests import exceptions
 
 
 class TestWatcher(test_base.TestCase):
@@ -289,3 +290,14 @@ class TestWatcher(test_base.TestCase):
         m_handler.assert_called_once_with(events[0])
         self.assertNotIn(path, watcher_obj._idle)
         self.assertNotIn(path, watcher_obj._watching)
+
+    def test_watch_client_request_failed(self):
+        path = '/test'
+        m_handler = mock.Mock()
+        watcher_obj = self._test_watch_create_watcher(path, m_handler)
+        watcher_obj._watch(path)
+        self.client.watch.side_effect = exceptions.ChunkedEncodingError(
+            "Connection Broken")
+
+        self.client.watch.assert_called_once()
+        self.assertFalse(watcher_obj._healthy)
