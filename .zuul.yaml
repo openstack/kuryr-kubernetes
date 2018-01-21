@@ -18,7 +18,7 @@
       - ^releasenotes/.*$
 
 - job:
-    name: tempest-kuryr-kubernetes-base
+    name: kuryr-kubernetes-tempest-base
     parent: legacy-dsvm-base
     run: playbooks/tempest-kuryr-kubernetes-base/run.yaml
     post-run: playbooks/tempest-kuryr-kubernetes-base/post.yaml
@@ -51,7 +51,7 @@
     voting: false
 
 - job:
-    name: tempest-kuryr-kubernetes-multinode
+    name: kuryr-kubernetes-tempest-multinode
     parent: legacy-dsvm-base-multinode
     run: playbooks/tempest-kuryr-kubernetes-multinode/run.yaml
     post-run: playbooks/tempest-kuryr-kubernetes-multinode/post.yaml
@@ -72,36 +72,36 @@
 
 # Tempest with LBaaSV2
 - job:
-    name: tempest-kuryr-kubernetes-lbaasv2
-    parent: tempest-kuryr-kubernetes-base
+    name: kuryr-kubernetes-tempest-lbaasv2
+    parent: kuryr-kubernetes-tempest-base
 
 # Tempest with LBaaSV2 and CNI daemon enabled
 - job:
-    name: tempest-kuryr-kubernetes-lbaasv2-daemon
-    parent: tempest-kuryr-kubernetes-base
+    name: kuryr-kubernetes-tempest-lbaasv2-daemon
+    parent: kuryr-kubernetes-tempest-base
     vars:
       kuryr_daemon: True
 
 # Tempest with LBaaSV2 and OpenShift
 - job:
-    name: tempest-kuryr-kubernetes-lbaasv2-openshift
-    parent: tempest-kuryr-kubernetes-lbaasv2
+    name: kuryr-kubernetes-tempest-lbaasv2-openshift
+    parent: kuryr-kubernetes-tempest-lbaasv2
     vars:
       container_engine: openshift
     voting: false
 
 # Tempest with LBaaSV2, OpenShift and CNI daemon enabled
 - job:
-    name: tempest-kuryr-kubernetes-lbaasv2-daemon-openshift
-    parent: tempest-kuryr-kubernetes-lbaasv2-daemon
+    name: kuryr-kubernetes-tempest-lbaasv2-daemon-openshift
+    parent: kuryr-kubernetes-tempest-lbaasv2-daemon
     vars:
       container_engine: openshift
     voting: false
 
 # Tempest with Octavia
 - job:
-    name: tempest-kuryr-kubernetes-octavia
-    parent: tempest-kuryr-kubernetes-base
+    name: kuryr-kubernetes-tempest-octavia
+    parent: kuryr-kubernetes-tempest-base
     vars:
       loadbalancer: octavia
     required-projects:
@@ -118,45 +118,44 @@
 
 # Tempest with Octavia and CNI daemon enabled
 - job:
-    name: tempest-kuryr-kubernetes-octavia-daemon
-    parent: tempest-kuryr-kubernetes-octavia
+    name: kuryr-kubernetes-tempest-octavia-daemon
+    parent: kuryr-kubernetes-tempest-octavia
     vars:
       kuryr_daemon: True
     voting: false
 
 # Tempest with Octavia and OpenShift
 - job:
-    name: tempest-kuryr-kubernetes-octavia-openshift
-    parent: tempest-kuryr-kubernetes-octavia
+    name: kuryr-kubernetes-tempest-octavia-openshift
+    parent: kuryr-kubernetes-tempest-octavia
     vars:
       container_engine: openshift
     voting: false
 
 # Tempest with Octavia, OpenShift and CNI daemon enabled
 - job:
-    name: tempest-kuryr-kubernetes-octavia-daemon-openshift
-    parent: tempest-kuryr-kubernetes-octavia-daemon
+    name: kuryr-kubernetes-tempest-octavia-daemon-openshift
+    parent: kuryr-kubernetes-tempest-octavia-daemon
     vars:
       container_engine: openshift
     voting: false
 
 - project:
-    name: openstack/kuryr-kubernetes
     check:
       jobs:
         - kuryr-kubernetes-install-default
         - kuryr-kubernetes-install-dragonflow
-        - tempest-kuryr-kubernetes-lbaasv2
-        - tempest-kuryr-kubernetes-lbaasv2-openshift
-        - tempest-kuryr-kubernetes-lbaasv2-daemon
-        - tempest-kuryr-kubernetes-octavia
-        - tempest-kuryr-kubernetes-octavia-daemon
-        - tempest-kuryr-kubernetes-octavia-openshift
+        - kuryr-kubernetes-tempest-lbaasv2
+        - kuryr-kubernetes-tempest-lbaasv2-openshift
+        - kuryr-kubernetes-tempest-lbaasv2-daemon
+        - kuryr-kubernetes-tempest-octavia
+        - kuryr-kubernetes-tempest-octavia-daemon
+        - kuryr-kubernetes-tempest-octavia-openshift
     gate:
       jobs:
         - kuryr-kubernetes-install-default
     experimental:
       jobs:
-        - tempest-kuryr-kubernetes-multinode
-        - tempest-kuryr-kubernetes-lbaasv2-daemon-openshift
-        - tempest-kuryr-kubernetes-octavia-daemon-openshift
+        - kuryr-kubernetes-tempest-multinode
+        - kuryr-kubernetes-tempest-lbaasv2-daemon-openshift
+        - kuryr-kubernetes-tempest-octavia-daemon-openshift
