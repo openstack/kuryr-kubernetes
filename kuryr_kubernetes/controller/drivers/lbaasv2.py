@@ -35,6 +35,7 @@ LOG = logging.getLogger(__name__)
 
 _ACTIVATION_TIMEOUT = CONF.neutron_defaults.lbaas_activation_timeout
 _SUPPORTED_LISTENER_PROT = ('HTTP', 'HTTPS', 'TCP')
+_L7_POLICY_ACT_REDIRECT_TO_POOL = 'REDIRECT_TO_POOL'
 
 
 class LBaaSv2Driver(base.LBaaSDriver):
@@ -197,7 +198,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
     def ensure_pool_attached_to_lb(self, loadbalancer, namespace,
                                    svc_name, protocol):
-        name = self.get_loadbalancer_pool_name(loadbalancer.name,
+        name = self.get_loadbalancer_pool_name(loadbalancer,
                                                namespace, svc_name)
         pool = obj_lbaas.LBaaSPool(name=name,
                                    project_id=loadbalancer.project_id,
@@ -334,7 +335,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             loadbalancer_id=pool.loadbalancer_id,
             protocol=pool.protocol, lb_algorithm=lb_algorithm)
         bogus_pool_ids = [p['id'] for p in pools.get('pools')
-                          if not p['listeners']]
+                          if not p['listeners'] and pool.name == p['name']]
         for pool_id in bogus_pool_ids:
             try:
                 LOG.debug("Removing bogus pool %(id)s %(pool)s", {
@@ -476,3 +477,148 @@ class LBaaSv2Driver(base.LBaaSDriver):
                           loadbalancer.name)
 
         return None
+
+    def get_lb_by_uuid(self, lb_uuid):
+        lbaas = clients.get_loadbalancer_client()
+        response = lbaas.show_loadbalancer(lb_uuid)
+        try:
+            return obj_lbaas.LBaaSLoadBalancer(
+                id=response['loadbalancer']['id'],
+                port_id=response['loadbalancer']['vip_port_id'],
+                name=response['loadbalancer']['name'],
+                project_id=response['loadbalancer']['project_id'],
+                subnet_id=response['loadbalancer']['vip_subnet_id'],
+                ip=response['loadbalancer']['vip_address'],
+                security_groups=None,
+                provider=response['loadbalancer']['provider'])
+        except (KeyError, IndexError):
+            LOG.debug("Couldn't find loadbalancer with uuid=%s", lb_uuid)
+        return None
+
+    def get_pool_by_name(self, pool_name, project_id):
+        lbaas = clients.get_loadbalancer_client()
+
+        # NOTE(yboaron): pool_name should be constructed using
+        # get_loadbalancer_pool_name function, which means that pool's name
+        # is unique
+
+        pools_list = lbaas.list_lbaas_pools(
+            project_id=project_id)
+        for entry in pools_list['pools']:
+            if not entry:
+                continue
+            if entry['name'] == pool_name:
+                listener_id = (entry['listeners'][0]['id'] if
+                               entry['listeners'] else None)
+                return obj_lbaas.LBaaSPool(
+                    name=entry['name'], project_id=entry['project_id'],
+                    loadbalancer_id=entry['loadbalancers'][0]['id'],
+                    listener_id=listener_id,
+                    protocol=entry['protocol'], id=entry['id'])
+        return None
+
+    def ensure_l7_policy(self, namespace, route_name,
+                         loadbalancer, pool,
+                         listener_id):
+        name = namespace + route_name
+        l7_policy = obj_lbaas.LBaaSL7Policy(name=name,
+                                            project_id=pool.project_id,
+                                            listener_id=listener_id,
+                                            redirect_pool_id=pool.id)
+
+        return self._ensure_provisioned(
+            loadbalancer, l7_policy, self._create_l7_policy,
+            self._find_l7_policy)
+
+    def release_l7_policy(self, loadbalancer, l7_policy):
+        lbaas = clients.get_loadbalancer_client()
+        self._release(
+            loadbalancer, l7_policy, lbaas.delete_lbaas_l7policy,
+            l7_policy.id)
+
+    def _create_l7_policy(self, l7_policy):
+        lbaas = clients.get_loadbalancer_client()
+        response = lbaas.create_lbaas_l7policy({'l7policy': {
+            'action': _L7_POLICY_ACT_REDIRECT_TO_POOL,
+            'listener_id': l7_policy.listener_id,
+            'name': l7_policy.name,
+            'project_id': l7_policy.project_id,
+            'redirect_pool_id': l7_policy.redirect_pool_id}})
+        l7_policy.id = response['l7policy']['id']
+        return l7_policy
+
+    def _find_l7_policy(self, l7_policy):
+        lbaas = clients.get_loadbalancer_client()
+        response = lbaas.list_lbaas_l7policies(
+            name=l7_policy.name,
+            project_id=l7_policy.project_id,
+            redirect_pool_id=l7_policy.redirect_pool_id,
+            listener_id=l7_policy.listener_id)
+        try:
+            l7_policy.id = response['l7policies'][0]['id']
+        except (KeyError, IndexError):
+            return None
+        return l7_policy
+
+    def ensure_l7_rule(self, loadbalancer, l7_policy, compare_type,
+                       type, value):
+
+        l7_rule = obj_lbaas.LBaaSL7Rule(
+            compare_type=compare_type, l7policy_id=l7_policy.id,
+            type=type, value=value)
+        return self._ensure_provisioned(
+            loadbalancer, l7_rule, self._create_l7_rule,
+            self._find_l7_rule)
+
+    def _create_l7_rule(self, l7_rule):
+        lbaas = clients.get_loadbalancer_client()
+        response = lbaas.create_lbaas_l7rule(
+            l7_rule.l7policy_id,
+            {'rule': {'compare_type': l7_rule.compare_type,
+                      'type': l7_rule.type,
+                      'value': l7_rule.value}})
+        l7_rule.id = response['rule']['id']
+        return l7_rule
+
+    def _find_l7_rule(self, l7_rule):
+        lbaas = clients.get_loadbalancer_client()
+        response = lbaas.list_lbaas_l7rules(
+            l7_rule.l7policy_id,
+            type=l7_rule.type,
+            value=l7_rule.value,
+            compare_type=l7_rule.compare_type)
+        try:
+            l7_rule.id = response['rules'][0]['id']
+        except (KeyError, IndexError):
+            return None
+        return l7_rule
+
+    def release_l7_rule(self, loadbalancer, l7_rule):
+        lbaas = clients.get_loadbalancer_client()
+        self._release(
+            loadbalancer, l7_rule, lbaas.delete_lbaas_l7rule,
+            l7_rule.id, l7_rule.l7policy_id)
+
+    def update_l7_rule(self, l7_rule, new_value):
+        lbaas = clients.get_loadbalancer_client()
+        try:
+            lbaas.update_lbaas_l7rule(
+                l7_rule.id, l7_rule.l7policy_id,
+                {'rule': {'value': new_value}})
+
+        except n_exc.NeutronClientException as ex:
+            LOG.error("Failed to update l7_rule- id=%s ",
+                      l7_rule.id)
+            raise ex
+
+    def is_pool_used_by_other_l7policies(self, l7policy, pool):
+        lbaas = clients.get_loadbalancer_client()
+        l7policy_list = lbaas.list_lbaas_l7policies(
+            project_id=l7policy.project_id)
+        for entry in l7policy_list['l7policies']:
+            if not entry:
+                continue
+            if (entry['redirect_pool_id'] == pool.id and
+                    entry['id'] != l7policy.id):
+                return True
+        return False

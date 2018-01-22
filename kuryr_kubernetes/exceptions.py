@@ -72,3 +72,11 @@ class MultiPodDriverPoolConfigurationNotSupported(Exception):
     2. One of the pod drivers is not supported
     3. One of the pod drivers is not supported by its selected pool driver
     """
+
+
+class IngressControllerFailure(Exception):
+    """Exception represents a failure in the Ingress Controller functionality
+
+    This exception is raised when we fail to activate properly the Ingress
+    Controller.
+    """

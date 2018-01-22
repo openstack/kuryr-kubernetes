@@ -207,6 +207,10 @@ cache_defaults = [
                default="dogpile.cache.memory"),
 ]
 
+ingress = [
+    cfg.StrOpt('l7_router_uuid',
+               help=_("UUID of the L7 Router")),
+]
 
 CONF = cfg.CONF
 CONF.register_opts(kuryr_k8s_opts)
@@ -215,6 +219,7 @@ CONF.register_opts(k8s_opts, group='kubernetes')
 CONF.register_opts(neutron_defaults, group='neutron_defaults')
 CONF.register_opts(octavia_defaults, group='octavia_defaults')
 CONF.register_opts(cache_defaults, group='cache_defaults')
+CONF.register_opts(ingress, group='ingress')
 
 CONF.register_opts(lib_config.core_opts)
 CONF.register_opts(lib_config.binding_opts, 'binding')

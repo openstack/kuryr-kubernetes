@@ -329,8 +329,9 @@ class PodVIFDriver(DriverBase):
         raise NotImplementedError()
 
 
+@six.add_metaclass(abc.ABCMeta)
 class LBaaSDriver(DriverBase):
-    """Manages Neutron/Octavia load balancer to support Kubernetes Services."""
+    """Base class for Openstack loadbalancer services."""
 
     ALIAS = 'endpoints_lbaas'
 
@@ -466,6 +467,91 @@ class LBaaSDriver(DriverBase):
 
         :param loadbalancer: `LBaaSLoadBalancer` object
         :param member: `LBaaSMember` object
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def get_lb_by_uuid(self, lb_uuid):
+        """Get loadbalancer by loadbalancer uuid.
+
+        :param lb_uuid: Loadbalancer uuid
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def get_pool_by_name(self, pool_name, project_id):
+        """Get pool by pool's name.
+
+        :param pool_name: the pool name
+        :param project_id: project id
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def ensure_l7_policy(self, namespace, route_name, loadbalancer,
+                         pool, listener_id):
+        """Get or create L7 policy.
+
+        :param namespace: ocp-route/k8s-ingress namespace
+        :param route_name: ocp-route/k8s-ingress name
+        :param loadbalancer: `LBaaSLoadBalancer` object
+        :param pool: L7 policy's target pool
+        :param listener_id: ID of listener to attach L7policy to
+
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def release_l7_policy(self, loadbalancer, l7_policy):
+        """Release l7policy.
+
+        :param loadbalancer: `LBaaSLoadBalancer` object
+        :param l7_policy: `LBaaSL7Policy` object
+
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def ensure_l7_rule(self, loadbalancer, l7_policy, compare_type,
+                       type, value):
+        """Get or create L7 rule.
+
+        :param loadbalancer: `LBaaSLoadBalancer` object
+        :param l7_policy: `LBaaSL7Policy` object
+        :param compare_type: comparison type for the L7 rule.
+        :param type: the L7 rule type
+        :param value:the value to use for the comparison.
+
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def release_l7_rule(self, loadbalancer, l7_rule):
+        """Release L7 rule.
+
+        :param loadbalancer: `LBaaSLoadBalancer` object
+        :param l7_rule: `LBaaSL7Rule` object
+
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def update_l7_rule(self, l7_rule, new_value):
+        """Update L7 rule value.
+
+        :param l7_rule: `LBaaSL7Rule` object
+        :param new_value: rule's new value
+
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def is_pool_used_by_other_l7policies(l7policy, pool):
+        """Checks if pool used by other L7policy.
+
+        :param l7policy: `LBaaSL7Policy` object
+        :param pool: `LBaaSPool` object
+
         """
         raise NotImplementedError()
 

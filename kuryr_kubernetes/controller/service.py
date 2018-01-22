@@ -27,6 +27,7 @@ from stevedore.named import NamedExtensionManager
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes.controller.handlers import pipeline as h_pipeline
+from kuryr_kubernetes.controller.ingress import ingress_ctl
 from kuryr_kubernetes.controller.managers import health
 from kuryr_kubernetes import objects
 from kuryr_kubernetes import utils
@@ -97,6 +98,8 @@ class KuryrK8sService(six.with_metaclass(KuryrK8sServiceMeta,
 
     def start(self):
         LOG.info("Service '%s' starting", self.__class__.__name__)
+        ingress_ctrl = ingress_ctl.IngressCtrlr.get_instance()
+        ingress_ctrl.start_operation()
         super(KuryrK8sService, self).start()
 
         if not CONF.kubernetes.controller_ha:

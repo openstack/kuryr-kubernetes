@@ -56,14 +56,16 @@ class LBaaSListener(k_obj.KuryrK8sObjectBase):
 
 @obj_base.VersionedObjectRegistry.register
 class LBaaSPool(k_obj.KuryrK8sObjectBase):
-    VERSION = '1.0'
+    # Version 1.0: Initial version
+    # Version 1.1: Added support for pool attached directly to loadbalancer.
+    VERSION = '1.1'
 
     fields = {
         'id': obj_fields.UUIDField(),
         'project_id': obj_fields.StringField(),
         'name': obj_fields.StringField(),
         'loadbalancer_id': obj_fields.UUIDField(),
-        'listener_id': obj_fields.UUIDField(),
+        'listener_id': obj_fields.UUIDField(nullable=True),
         'protocol': obj_fields.StringField(),
     }
 
@@ -138,4 +140,30 @@ class LBaaSServiceSpec(k_obj.KuryrK8sObjectBase):
         'security_groups_ids': k_fields.ListOfUUIDField(default=[]),
         'type': obj_fields.StringField(nullable=True, default=None),
         'lb_ip': obj_fields.IPAddressField(nullable=True, default=None),
+    }
+
+
+@obj_base.VersionedObjectRegistry.register
+class LBaaSL7Policy(k_obj.KuryrK8sObjectBase):
+    VERSION = '1.0'
+
+    fields = {
+        'id': obj_fields.UUIDField(),
+        'name': obj_fields.StringField(nullable=True),
+        'listener_id': obj_fields.UUIDField(),
+        'redirect_pool_id': obj_fields.UUIDField(),
+        'project_id': obj_fields.StringField(),
+    }
+
+
+@obj_base.VersionedObjectRegistry.register
+class LBaaSL7Rule(k_obj.KuryrK8sObjectBase):
+    VERSION = '1.0'
+
+    fields = {
+        'id': obj_fields.UUIDField(),
+        'compare_type': obj_fields.StringField(nullable=True),
+        'l7policy_id': obj_fields.UUIDField(),
+        'type': obj_fields.StringField(nullable=True),
+        'value': obj_fields.StringField(nullable=True),
     }

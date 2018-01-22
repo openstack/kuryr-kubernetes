@@ -652,6 +652,7 @@ function create_ingress_l7_router {
     local fake_svc_name
     local l7_router_fip
     local project_id
+    local lb_uuid
 
     lb_name=${KURYR_L7_ROUTER_NAME}
     max_timeout=600
@@ -675,6 +676,9 @@ function create_ingress_l7_router {
     openstack  --os-cloud devstack-admin \
             --os-region "$REGION_NAME" \
             floating ip set --port "$lb_port_id" "$l7_router_fip"
+
+    lb_uuid="$(get_loadbalancer_attribute "$lb_name" "id")"
+    iniset "$KURYR_CONFIG" ingress l7_router_uuid "$lb_uuid"
 
     if is_service_enabled octavia; then
         echo -n "Octavia: no need to create fake k8s service for Ingress."

@@ -418,7 +418,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         # TODO(ivc): add unit test or get rid of _cleanup_bogus_pool
         self.skipTest("not implemented")
 
-    def test_find_pool(self):
+    def test_find_pool_by_listener(self):
         lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
@@ -442,7 +442,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
                              getattr(ret, attr))
         self.assertEqual(pool_id, ret.id)
 
-    def test_find_pool_not_found(self):
+    def test_find_pool_by_listener_not_found(self):
         lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
@@ -700,3 +700,372 @@ class TestLBaaSv2Driver(test_base.TestCase):
     def test_provisioning_timer(self):
         # REVISIT(ivc): add test if _provisioning_timer is to stay
         self.skipTest("not implemented")
+
+    def test_get_pool_by_name_not_found(self):
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+
+        pools = {'name': 'KUKU', 'id': 'a2a62ea7-e3bf-40df-8c09-aa0c29876a6b'}
+        lbaas.list_lbaas_pools.return_value = {'pools': [pools]}
+        pool_name = 'NOT_KUKU'
+        project_id = 'TEST_PROJECT'
+
+        pool_id = cls.get_pool_by_name(m_driver, pool_name, project_id)
+        self.assertIsNone(pool_id)
+
+    def test_get_pool_by_name_found(self):
+        self._test_get_pool_by_name_found(listener_is_empty=False)
+
+    def test_get_pool_by_name_found_listener_is_empty(self):
+        self._test_get_pool_by_name_found(listener_is_empty=True)
+
+    def _test_get_pool_by_name_found(self, listener_is_empty):
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+
+        pool_name = 'KUKU'
+        pool_lb_id = "607226db-27ef-4d41-ae89-f2a800e9c2db"
+        pool_project_id = "e3cd678b11784734bc366148aa37580e"
+        pool_id = "ddb2b28f-89e9-45d3-a329-a359c3e39e4a"
+        pool_protocol = "HTTP"
+        pool_listener_id = "023f2e34-7806-443b-bfae-16c324569a3d"
+
+        if listener_is_empty:
+            resp_listeners = []
+        else:
+            resp_listeners = [{"id": pool_listener_id}]
+
+        listener_id = (resp_listeners[0]['id'] if
+                       resp_listeners else None)
+        expected_result = obj_lbaas.LBaaSPool(
+            name=pool_name, project_id=pool_project_id,
+            loadbalancer_id=pool_lb_id,
+            listener_id=listener_id,
+            protocol=pool_protocol,
+            id=pool_id)
+
+        resp = {"pools": [
+            {
+                "protocol": pool_protocol,
+                "loadbalancers": [
+                    {
+                        "id": pool_lb_id
+                    }
+                ],
+                "listeners": resp_listeners,
+                "project_id": pool_project_id,
+                "id": pool_id,
+                "name": pool_name
+            }
+        ]}
+
+        lbaas.list_lbaas_pools.return_value = resp
+
+        pool = cls.get_pool_by_name(m_driver, pool_name, pool_project_id)
+        lbaas.list_lbaas_pools.assert_called_once()
+        for attr in expected_result.obj_fields:
+            self.assertEqual(getattr(expected_result, attr),
+                             getattr(pool, attr))
+
+    def test_get_pool_by_name_empty_list(self):
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        pools = {}
+        lbaas.list_lbaas_pools.return_value = {'pools': [pools]}
+        pool_name = 'NOT_KUKU'
+        project_id = 'TEST_PROJECT'
+
+        pool = cls.get_pool_by_name(m_driver, pool_name, project_id)
+        self.assertIsNone(pool)
+
+    def test_get_lb_by_uuid(self):
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+
+        loadbalancer_id = '00EE9E11-91C2-41CF-8FD4-7970579E5C4C'
+        loadbalancer_vip = '1.2.3.4'
+        loadbalancer_vip_port_id = '00EE9E11-91C2-41CF-8FD4-7970579EFFFF'
+        loadbalancer_project_id = '00EE9E11-91C2-41CF-8FD4-7970579EAAAA'
+        loadbalancer_name = 'MyName'
+        loadbalancer_subnet_id = '00EE9E11-91C2-41CF-8FD4-7970579EBBBB'
+        loadbalancer_provider = 'haproxy'
+
+        expected_lb = obj_lbaas.LBaaSLoadBalancer(
+            id=loadbalancer_id, port_id=loadbalancer_vip_port_id,
+            name=loadbalancer_name, project_id=loadbalancer_project_id,
+            subnet_id=loadbalancer_subnet_id, ip=loadbalancer_vip,
+            security_groups=None, provider=loadbalancer_provider)
+
+        resp = {'loadbalancer': {'id': loadbalancer_id,
+                                 'vip_port_id': loadbalancer_vip_port_id,
+                                 'name': loadbalancer_name,
+                                 'project_id': loadbalancer_project_id,
+                                 'vip_subnet_id': loadbalancer_subnet_id,
+                                 'vip_address': loadbalancer_vip,
+                                 'provider': loadbalancer_provider}}
+
+        lbaas.show_loadbalancer.return_value = resp
+
+        ret = cls.get_lb_by_uuid(m_driver, loadbalancer_id)
+        lbaas.show_loadbalancer.assert_called_once()
+        for attr in expected_lb.obj_fields:
+            self.assertEqual(getattr(expected_lb, attr),
+                             getattr(ret, attr))
+        self.assertEqual(loadbalancer_id, ret.id)
+
+    def test_get_lb_by_uuid_not_found(self):
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+
+        resp = {'loadbalancer': {}}
+        lbaas.show_loadbalancer.return_value = resp
+
+        requested_uuid = '00EE9E11-91C2-41CF-8FD4-7970579EFFFF'
+        lbaas.show_loadbalancer.return_value = resp
+
+        ret = cls.get_lb_by_uuid(m_driver, requested_uuid)
+        lbaas.show_loadbalancer.assert_called_once()
+        self.assertIsNone(ret)
+
+    def test_ensure_l7policy(self):
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        expected_resp = mock.sentinel.expected_resp
+        loadbalancer = mock.sentinel.expected_resp
+        route_name = 'ROUTE_NAME'
+        namespace = 'NAMESPACE'
+        listener_id = 'D4F35594-27EB-4F4C-930C-31DD40F53B77'
+        pool = obj_lbaas.LBaaSPool(
+            id='00EE9E11-91C2-41CF-8FD4-7970579E5C4C',
+            project_id='TEST_PROJECT',
+            name='NAME',
+            loadbalancer_id='010101',
+            listener_id='12345',
+            protocol='TCP'
+        )
+
+        m_driver._ensure_provisioned.return_value = expected_resp
+
+        cls.ensure_l7_policy(
+            m_driver, namespace, route_name, loadbalancer, pool, listener_id)
+
+        m_driver._ensure_provisioned.assert_called_once_with(
+            loadbalancer, mock.ANY, m_driver._create_l7_policy,
+            m_driver._find_l7_policy)
+        l7policy = m_driver._ensure_provisioned.call_args[0][1]
+
+        self.assertEqual("%s%s" % (namespace, route_name), l7policy.name)
+        self.assertEqual(listener_id, l7policy.listener_id)
+        self.assertEqual(pool.id, l7policy.redirect_pool_id)
+        self.assertEqual(pool.project_id, l7policy.project_id)
+
+    def test_release_l7policy(self):
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+
+        loadbalancer = mock.Mock()
+        l7_policy = mock.Mock()
+        cls.release_l7_policy(m_driver, loadbalancer, l7_policy)
+
+        m_driver._release.assert_called_once_with(
+            loadbalancer, l7_policy, lbaas.delete_lbaas_l7policy,
+            l7_policy.id)
+
+    def test_create_l7policy(self):
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+
+        l7_policy = obj_lbaas.LBaaSL7Policy(
+            name='TEST_NAME',
+            project_id='TEST_PROJECT',
+            listener_id='D4F35594-27EB-4F4C-930C-31DD40F53B77',
+            redirect_pool_id='D3FA400A-F543-4B91-9CD3-047AF0CE42D1')
+
+        l7policy_id = '3A70CEC0-392D-4BC1-A27C-06E63A0FD54F'
+        req = {'l7policy': {
+            'action': 'REDIRECT_TO_POOL',
+            'listener_id': l7_policy.listener_id,
+            'name': l7_policy.name,
+            'project_id': l7_policy.project_id,
+            'redirect_pool_id': l7_policy.redirect_pool_id}}
+        resp = {'l7policy': {'id': l7policy_id}}
+        lbaas.create_lbaas_l7policy.return_value = resp
+
+        ret = cls._create_l7_policy(m_driver, l7_policy)
+        lbaas.create_lbaas_l7policy.assert_called_once_with(req)
+        for attr in l7_policy.obj_fields:
+            self.assertEqual(getattr(l7_policy, attr),
+                             getattr(ret, attr))
+        self.assertEqual(l7policy_id, ret.id)
+
+    def test_find_l7_policy(self):
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        l7_policy = obj_lbaas.LBaaSL7Policy(
+            name='TEST_NAME',
+            project_id='TEST_PROJECT',
+            listener_id='D4F35594-27EB-4F4C-930C-31DD40F53B77',
+            redirect_pool_id='D3FA400A-F543-4B91-9CD3-047AF0CE42D1')
+
+        l7policy_id = '3A70CEC0-392D-4BC1-A27C-06E63A0FD54F'
+
+        resp = {'l7policies': [{'id': l7policy_id}]}
+        lbaas.list_lbaas_l7policies.return_value = resp
+
+        ret = cls._find_l7_policy(m_driver, l7_policy)
+        lbaas.list_lbaas_l7policies.assert_called_once_with(
+            name=l7_policy.name,
+            project_id=l7_policy.project_id,
+            redirect_pool_id=l7_policy.redirect_pool_id,
+            listener_id=l7_policy.listener_id)
+        for attr in l7_policy.obj_fields:
+            self.assertEqual(getattr(l7_policy, attr),
+                             getattr(ret, attr))
+        self.assertEqual(l7policy_id, ret.id)
+
+    def test_find_l7_policy_not_found(self):
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        l7_policy = obj_lbaas.LBaaSL7Policy(
+            name='TEST_NAME',
+            project_id='TEST_PROJECT',
+            listener_id='D4F35594-27EB-4F4C-930C-31DD40F53B77',
+            redirect_pool_id='D3FA400A-F543-4B91-9CD3-047AF0CE42D1')
+
+        resp = {'l7policies': []}
+        lbaas.list_lbaas_l7policies.return_value = resp
+
+        ret = cls._find_l7_policy(m_driver, l7_policy)
+        lbaas.list_lbaas_l7policies.assert_called_once_with(
+            name=l7_policy.name,
+            project_id=l7_policy.project_id,
+            redirect_pool_id=l7_policy.redirect_pool_id,
+            listener_id=l7_policy.listener_id)
+        self.assertIsNone(ret)
+
+    def test_ensure_l7_rule(self):
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        expected_resp = mock.sentinel.expected_resp
+        loadbalancer = mock.sentinel.expected_resp
+        compare_type = 'EQUAL_TO'
+        type = 'HOST_NAME'
+        value = 'www.test.com'
+        l7_policy = obj_lbaas.LBaaSL7Policy(
+            id='00EE9E11-91C2-41CF-8FD4-7970579E5C4C',
+            name='TEST_NAME',
+            project_id='TEST_PROJECT',
+            listener_id='D4F35594-27EB-4F4C-930C-31DD40F53B77',
+            redirect_pool_id='D3FA400A-F543-4B91-9CD3-047AF0CE42D1')
+
+        m_driver._ensure_provisioned.return_value = expected_resp
+
+        cls.ensure_l7_rule(
+            m_driver, loadbalancer, l7_policy, compare_type, type, value)
+
+        m_driver._ensure_provisioned.assert_called_once_with(
+            loadbalancer, mock.ANY, m_driver._create_l7_rule,
+            m_driver._find_l7_rule)
+        l7rule = m_driver._ensure_provisioned.call_args[0][1]
+
+        self.assertEqual(compare_type, l7rule.compare_type)
+        self.assertEqual(type, l7rule.type)
+        self.assertEqual(value, l7rule.value)
+
+    def test_release_l7_rule(self):
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+
+        loadbalancer = mock.Mock()
+        l7_rule = mock.Mock()
+        cls.release_l7_rule(m_driver, loadbalancer, l7_rule)
+
+        m_driver._release.assert_called_once_with(
+            loadbalancer, l7_rule, lbaas.delete_lbaas_l7rule,
+            l7_rule.id, l7_rule.l7policy_id)
+
+    def test_create_l7_rule(self):
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+
+        l7_rule = obj_lbaas.LBaaSL7Rule(
+            compare_type='EQUAL_TO',
+            l7policy_id='D4F35594-27EB-4F4C-930C-31DD40F53B77',
+            type='HOST_NAME',
+            value='www.test.com')
+
+        l7_rule_id = '3A70CEC0-392D-4BC1-A27C-06E63A0FD54F'
+
+        req = {'rule': {
+            'compare_type': l7_rule.compare_type,
+            'type': l7_rule.type,
+            'value': l7_rule.value}}
+
+        resp = {'rule': {'id': l7_rule_id}}
+        lbaas.create_lbaas_l7rule.return_value = resp
+
+        ret = cls._create_l7_rule(m_driver, l7_rule)
+        lbaas.create_lbaas_l7rule.assert_called_once_with(
+            l7_rule.l7policy_id, req)
+        for attr in l7_rule.obj_fields:
+            self.assertEqual(getattr(l7_rule, attr),
+                             getattr(ret, attr))
+        self.assertEqual(l7_rule_id, ret.id)
+
+    def test_find_l7_rule(self):
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        l7_rule = obj_lbaas.LBaaSL7Rule(
+            compare_type='EQUAL_TO',
+            l7policy_id='D4F35594-27EB-4F4C-930C-31DD40F53B77',
+            type='HOST_NAME',
+            value='www.test.com')
+
+        l7_rule_id = '3A70CEC0-392D-4BC1-A27C-06E63A0FD54F'
+        resp = {'rules': [{'id': l7_rule_id}]}
+        lbaas.list_lbaas_l7rules.return_value = resp
+
+        ret = cls._find_l7_rule(m_driver, l7_rule)
+        lbaas.list_lbaas_l7rules.assert_called_once_with(
+            l7_rule.l7policy_id,
+            type=l7_rule.type,
+            value=l7_rule.value,
+            compare_type=l7_rule.compare_type)
+
+        for attr in l7_rule.obj_fields:
+            self.assertEqual(getattr(l7_rule, attr),
+                             getattr(ret, attr))
+        self.assertEqual(l7_rule_id, ret.id)
+
+    def test_find_l7_rule_not_found(self):
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        l7_rule = obj_lbaas.LBaaSL7Rule(
+            compare_type='EQUAL_TO',
+            l7policy_id='D4F35594-27EB-4F4C-930C-31DD40F53B77',
+            type='HOST_NAME',
+            value='www.test.com')
+
+        resp = {'rules': []}
+        lbaas.list_lbaas_l7rules.return_value = resp
+
+        ret = cls._find_l7_rule(m_driver, l7_rule)
+        lbaas.list_lbaas_l7rules.assert_called_once_with(
+            l7_rule.l7policy_id,
+            type=l7_rule.type,
+            value=l7_rule.value,
+            compare_type=l7_rule.compare_type)
+        self.assertIsNone(ret)

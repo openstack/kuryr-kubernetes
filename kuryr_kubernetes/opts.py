@@ -38,6 +38,7 @@ _kuryr_k8s_opts = [
     ('health_server', health.health_server_opts),
     ('cni_health_server', cni_health.cni_health_server_opts),
     ('namespace_subnet', namespace_subnet.namespace_subnet_driver_opts),
+    ('ingress', config.ingress),
 ]
 
 
