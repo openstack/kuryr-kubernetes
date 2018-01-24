@@ -167,3 +167,35 @@ class LBaaSL7Rule(k_obj.KuryrK8sObjectBase):
         'type': obj_fields.StringField(nullable=True),
         'value': obj_fields.StringField(nullable=True),
     }
+
+
+@obj_base.VersionedObjectRegistry.register
+class LBaaSRouteState(k_obj.KuryrK8sObjectBase):
+    VERSION = '1.0'
+
+    fields = {
+        'members': obj_fields.ListOfObjectsField(LBaaSMember.__name__,
+                                                 default=[]),
+        'pool': obj_fields.ObjectField(LBaaSPool.__name__,
+                                       nullable=True, default=None),
+    }
+
+
+@obj_base.VersionedObjectRegistry.register
+class LBaaSRouteNotifEntry(k_obj.KuryrK8sObjectBase):
+    VERSION = '1.0'
+
+    fields = {
+        'route_id': obj_fields.UUIDField(),
+        'msg': obj_fields.StringField(),
+    }
+
+
+@obj_base.VersionedObjectRegistry.register
+class LBaaSRouteNotifier(k_obj.KuryrK8sObjectBase):
+    VERSION = '1.0'
+
+    fields = {
+        'routes': obj_fields.ListOfObjectsField(
+            LBaaSRouteNotifEntry.__name__, default=[]),
+    }

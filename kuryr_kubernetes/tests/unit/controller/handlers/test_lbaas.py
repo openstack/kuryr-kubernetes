@@ -428,7 +428,10 @@ class FakeLBaaSDriver(drv_base.LBaaSDriver):
 
     def ensure_pool_attached_to_lb(self, loadbalancer, namespace,
                                    svc_name, protocol):
-        pass
+        return obj_lbaas.LBaaSPool(id=uuidutils.generate_uuid(),
+                                   loadbalancer_id=loadbalancer.id,
+                                   project_id=loadbalancer.project_id,
+                                   protocol=protocol)
 
     def get_pool_by_name(self, pool_name, project_id):
         pass
