@@ -1,0 +1,15 @@
+name: kuryr
+shortDesc: "OpenStack kuryr tools"
+tree:
+  - name: get
+    shortDesc: "Retrieves Kuryr managed resources"
+    command: "./kuryr get"
+    flags:
+      - name: selector
+        shorthand: l
+        desc: "Selects which pods to find kuryr vif info for"
+        defValue: ""
+      - name: output
+        shorthand: o
+        desc: How to format the output
+        defValue: tabular
