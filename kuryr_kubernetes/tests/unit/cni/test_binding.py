@@ -77,20 +77,26 @@ class TestDriverMixin(test_base.TestCase):
 
     @mock.patch('kuryr_kubernetes.cni.binding.base.get_ipdb')
     @mock.patch('os_vif.plug')
-    def _test_connect(self, m_vif_plug, m_get_ipdb):
+    def _test_connect(self, m_vif_plug, m_get_ipdb, report=None):
         def get_ipdb(netns=None):
             return self.ipdbs[netns]
 
         m_get_ipdb.side_effect = get_ipdb
 
-        base.connect(self.vif, self.instance_info, self.ifname, self.netns)
+        base.connect(self.vif, self.instance_info, self.ifname, self.netns,
+                     report)
         m_vif_plug.assert_called_once_with(self.vif, self.instance_info)
         self.m_c_iface.add_ip.assert_called_once_with('192.168.0.2/24')
+        if report:
+            report.assert_called_once()
 
     @mock.patch('os_vif.unplug')
-    def _test_disconnect(self, m_vif_unplug):
-        base.disconnect(self.vif, self.instance_info, self.ifname, self.netns)
+    def _test_disconnect(self, m_vif_unplug, report=None):
+        base.disconnect(self.vif, self.instance_info, self.ifname, self.netns,
+                        report)
         m_vif_unplug.assert_called_once_with(self.vif, self.instance_info)
+        if report:
+            report.assert_called_once()
 
 
 class TestOpenVSwitchDriver(TestDriverMixin, test_base.TestCase):
@@ -98,11 +104,13 @@ class TestOpenVSwitchDriver(TestDriverMixin, test_base.TestCase):
         super(TestOpenVSwitchDriver, self).setUp()
         self.vif = fake._fake_vif(osv_objects.vif.VIFOpenVSwitch)
 
+    @mock.patch('kuryr_kubernetes.cni.daemon.service.K8sCNIRegistryPlugin.'
+                'report_drivers_health')
     @mock.patch('os.getpid', mock.Mock(return_value=123))
     @mock.patch('kuryr_kubernetes.linux_net_utils.create_ovs_vif_port')
-    def test_connect(self, mock_create_ovs):
-        self._test_connect()
-        self.assertEqual(2, self.h_ipdb_exit.call_count)
+    def test_connect(self, mock_create_ovs, m_report):
+        self._test_connect(report=m_report)
+        self.assertEqual(3, self.h_ipdb_exit.call_count)
         self.assertEqual(2, self.c_ipdb_exit.call_count)
         self.c_ipdb.create.assert_called_once_with(
             ifname=self.ifname, peer='h_interface', kind='veth')
@@ -118,9 +126,11 @@ class TestOpenVSwitchDriver(TestDriverMixin, test_base.TestCase):
             'bridge', 'h_interface', '89eccd45-43e9-43d8-b4cc-4c13db13f782',
             '3e:94:b7:31:a0:83', 'kuryr')
 
+    @mock.patch('kuryr_kubernetes.cni.daemon.service.K8sCNIRegistryPlugin.'
+                'report_drivers_health')
     @mock.patch('kuryr_kubernetes.linux_net_utils.delete_ovs_vif_port')
-    def test_disconnect(self, mock_delete_ovs):
-        self._test_disconnect()
+    def test_disconnect(self, mock_delete_ovs, m_report):
+        self._test_disconnect(report=m_report)
         mock_delete_ovs.assert_called_once_with('bridge', 'h_interface')
 
 

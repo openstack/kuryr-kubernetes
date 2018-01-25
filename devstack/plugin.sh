@@ -121,6 +121,9 @@ function configure_kuryr {
 }
 
 function generate_containerized_kuryr_resources {
+    local cni_daemon
+    cni_daemon=$1
+
     # Containerized deployment will use tokens provided by k8s itself.
     inicomment "$KURYR_CONFIG" kubernetes ssl_client_crt_file
     inicomment "$KURYR_CONFIG" kubernetes ssl_client_key_file
@@ -138,7 +141,7 @@ function generate_containerized_kuryr_resources {
     generate_kuryr_configmap $output_dir $KURYR_CONFIG $KURYR_CNI_CONFIG
     generate_kuryr_service_account $output_dir
     generate_controller_deployment $output_dir $KURYR_HEALTH_SERVER_PORT
-    generate_cni_daemon_set $output_dir $CNI_BIN_DIR $CNI_CONF_DIR
+    generate_cni_daemon_set $output_dir $KURYR_CNI_HEALTH_SERVER_PORT $cni_daemon $CNI_BIN_DIR $CNI_CONF_DIR
 }
 
 function run_containerized_kuryr_resources {
@@ -712,10 +715,11 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
         else
             if is_service_enabled kuryr-daemon; then
                 build_kuryr_containers $CNI_BIN_DIR $CNI_CONF_DIR True
+                generate_containerized_kuryr_resources True
             else
                 build_kuryr_containers $CNI_BIN_DIR $CNI_CONF_DIR False
+                generate_containerized_kuryr_resources False
             fi
-            generate_containerized_kuryr_resources
             run_containerized_kuryr_resources
         fi
     fi

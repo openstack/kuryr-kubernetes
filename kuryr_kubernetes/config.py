@@ -70,6 +70,11 @@ daemon_opts = [
                       "host network namespaces, which is essential for Kuryr "
                       "to work."),
                default=None),
+    cfg.IntOpt('cni_failures_count',
+               help=_('Maximum number of consecutive failures of kuryr-daemon '
+                      'when processing requests. If this number is exceeded, '
+                      'kuryr-daemon will be marked as unhealthy.'),
+               default=3),
 ]
 
 k8s_opts = [

@@ -12,18 +12,23 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 import os
-
+from oslo_config import cfg
 from oslo_log import log
 
 from kuryr_kubernetes.cni.binding import base as b_base
+from kuryr_kubernetes.handlers import health
 from kuryr_kubernetes import linux_net_utils as net_utils
 
 LOG = log.getLogger(__name__)
+CONF = cfg.CONF
 
 
-class BaseBridgeDriver(object):
+class BaseBridgeDriver(health.HealthHandler):
+
+    def __init__(self):
+        super(BaseBridgeDriver, self).__init__()
+
     def connect(self, vif, ifname, netns):
         host_ifname = vif.vif_name
 
@@ -59,6 +64,9 @@ class BaseBridgeDriver(object):
 
 
 class BridgeDriver(BaseBridgeDriver):
+    def __init__(self):
+        super(BridgeDriver, self).__init__()
+
     def connect(self, vif, ifname, netns):
         super(BridgeDriver, self).connect(vif, ifname, netns)
         host_ifname = vif.vif_name
@@ -75,6 +83,10 @@ class BridgeDriver(BaseBridgeDriver):
 
 
 class VIFOpenVSwitchDriver(BaseBridgeDriver):
+
+    def __init__(self):
+        super(VIFOpenVSwitchDriver, self).__init__()
+
     def connect(self, vif, ifname, netns):
         super(VIFOpenVSwitchDriver, self).connect(vif, ifname, netns)
         # FIXME(irenab) use pod_id (neutron port device_id)
@@ -86,3 +98,13 @@ class VIFOpenVSwitchDriver(BaseBridgeDriver):
     def disconnect(self, vif, ifname, netns):
         super(VIFOpenVSwitchDriver, self).disconnect(vif, ifname, netns)
         net_utils.delete_ovs_vif_port(vif.bridge_name, vif.vif_name)
+
+    def is_healthy(self):
+        bridge_name = CONF.neutron_defaults.ovs_bridge
+        try:
+            with b_base.get_ipdb() as h_ipdb:
+                h_ipdb.interfaces[bridge_name]
+            return True
+        except Exception:
+            LOG.debug("Reporting Driver not healthy.")
+            return False
