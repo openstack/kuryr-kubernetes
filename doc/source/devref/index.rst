@@ -40,6 +40,7 @@ Design documents
     port_manager
     vif_handler_drivers_design
     health_manager
+    kuryr_kubernetes_ingress_design
 
 Indices and tables
 ------------------
