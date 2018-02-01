@@ -40,6 +40,7 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
     OBJECT_KIND = k_const.K8S_OBJ_SERVICE
 
     def __init__(self):
+        super(LBaaSSpecHandler, self).__init__()
         self._drv_project = drv_base.ServiceProjectDriver.get_instance()
         self._drv_subnets = drv_base.ServiceSubnetsDriver.get_instance()
         self._drv_sg = drv_base.ServiceSecurityGroupsDriver.get_instance()
@@ -219,6 +220,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
     OBJECT_KIND = k_const.K8S_OBJ_ENDPOINTS
 
     def __init__(self):
+        super(LoadBalancerHandler, self).__init__()
         self._drv_lbaas = drv_base.LBaaSDriver.get_instance()
         self._drv_pod_project = drv_base.PodProjectDriver.get_instance()
         self._drv_pod_subnets = drv_base.PodSubnetsDriver.get_instance()

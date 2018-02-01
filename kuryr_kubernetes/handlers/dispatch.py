@@ -72,6 +72,9 @@ class EventConsumer(h_base.EventHandler):
     registered by the `EventPipeline`.
     """
 
+    def __init__(self):
+        super(EventConsumer, self).__init__()
+
     @abc.abstractproperty
     def consumes(self):
         """Predicates determining events supported by this handler.

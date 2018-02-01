@@ -40,6 +40,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
     OBJECT_KIND = constants.K8S_OBJ_POD
 
     def __init__(self):
+        super(VIFHandler, self).__init__()
         self._drv_project = drivers.PodProjectDriver.get_instance()
         self._drv_subnets = drivers.PodSubnetsDriver.get_instance()
         self._drv_sg = drivers.PodSecurityGroupsDriver.get_instance()

@@ -13,14 +13,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo_log import log as logging
-
 from kuryr_kubernetes import clients
+from kuryr_kubernetes.handlers import health
+from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 
 
-class Watcher(object):
+class Watcher(health.HealthHandler):
     """Observes K8s resources' events using K8s '?watch=true' API.
 
     The `Watcher` maintains a list of K8s resources and manages the event
@@ -65,11 +65,11 @@ class Watcher(object):
                              specified, the `Watcher` will operate in a
                              synchronous mode.
         """
+        super(Watcher, self).__init__()
         self._client = clients.get_kubernetes_client()
         self._handler = handler
         self._thread_group = thread_group
         self._running = False
-
         self._resources = set()
         self._watching = {}
         self._idle = {}
@@ -141,6 +141,8 @@ class Watcher(object):
                 self._idle[path] = True
                 if not (self._running and path in self._resources):
                     return
+        except Exception:
+            self._healthy = False
         finally:
             self._watching.pop(path)
             self._idle.pop(path)

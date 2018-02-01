@@ -64,6 +64,12 @@ class Retry(base.EventHandler):
                 with excutils.save_and_reraise_exception() as ex:
                     if self._sleep(deadline, attempt, ex.value):
                         ex.reraise = False
+                    else:
+                        LOG.debug('Report handler unhealthy %s', self._handler)
+                        self._handler.set_health_status(healthy=False)
+            except Exception:
+                LOG.debug('Report handler unhealthy %s', self._handler)
+                self._handler.set_health_status(healthy=False)
 
     def _sleep(self, deadline, attempt, exception):
         now = time.time()

@@ -137,14 +137,15 @@ class TestRetryHandler(test_base.TestCase):
 
     @mock.patch('itertools.count')
     @mock.patch.object(h_retry.Retry, '_sleep')
-    def test_call_raises_no_retry(self, m_sleep, m_count):
+    def test_call_should_not_raise(self, m_sleep, m_count):
         event = mock.sentinel.event
         m_handler = mock.Mock()
         m_handler.side_effect = _EX1()
         m_count.return_value = list(range(1, 5))
         retry = h_retry.Retry(m_handler, exceptions=(_EX11, _EX2))
 
-        self.assertRaises(_EX1, retry, event)
+        retry(event)
 
-        m_handler.assert_called_once_with(event)
+        m_handler.assert_called_with(event)
+        m_handler.set_health_status.assert_called_with(healthy=False)
         m_sleep.assert_not_called()
