@@ -445,7 +445,7 @@ The services and pods subnets should be created.
 
   and then create k8s service with type=LoadBalancer and load-balancer-ip=<floating_ip> (e.g: 172.24.4.13)
 
-  In both 'User' and 'Pool' methods, the extrenal IP address could be find
+  In both 'User' and 'Pool' methods, the external IP address could be found
   in k8s service status information (under loadbalancer/ingress/ip)
 
 Alternative configuration
