@@ -148,20 +148,6 @@ class DaemonServer(object):
                         'Connection': 'close'}
 
     def _prepare_request(self):
-        if CONF.cni_daemon.docker_mode:
-            # FIXME(dulek): This is an awful hack to make os_vif's privsep
-            #               daemon to run in FORK mode. This is required,
-            #               as it's assumed kuryr-daemon is run as root, but
-            #               it's not assumed that system it's running on has
-            #               sudo command. Once os_vif allows to configure the
-            #               mode, switch this to nicer method. It's placed
-            #               here, because we need to repeat it for each process
-            #               spawned by HTTP server.
-            ovs = os_vif._EXT_MANAGER['ovs'].obj
-            ovs_mod = sys.modules[ovs.__module__]
-            ovs_mod.linux_net.privsep.vif_plug.start(
-                ovs_mod.linux_net.privsep.priv_context.Method.FORK)
-
         params = utils.CNIParameters(flask.request.get_json())
         LOG.debug('Received %s request. CNI Params: %s',
                   params.CNI_COMMAND, params)

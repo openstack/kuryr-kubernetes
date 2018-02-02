@@ -70,13 +70,24 @@ function configure_kuryr {
 
     iniset "$KURYR_CONFIG" kubernetes port_debug "$KURYR_PORT_DEBUG"
 
+    KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
+    if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
+        # This works around the issue of being unable to set oslo.privsep mode
+        # to FORK in os-vif. When running in a container we disable `sudo` that
+        # was prefixed before `privsep-helper` command. This let's us run in
+        # envs without sudo and keep the same python environment as the parent
+        # process.
+        iniset "$KURYR_CONFIG" vif_plug_ovs_privileged helper_command privsep-helper
+        iniset "$KURYR_CONFIG" vif_plug_linux_bridge_privileged helper_command privsep-helper
+    fi
+
     if is_service_enabled kuryr-daemon; then
         iniset "$KURYR_CONFIG" cni_daemon daemon_enabled True
         iniset "$KURYR_CONFIG" oslo_concurrency lock_path "$KURYR_LOCK_DIR"
         create_kuryr_lock_dir
-        KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
         if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
-            # When running kuryr-daemon in container we need to set up configs.
+            # When running kuryr-daemon in container we need to set up some
+            # configs.
             iniset "$KURYR_CONFIG" cni_daemon docker_mode True
             iniset "$KURYR_CONFIG" cni_daemon netns_proc_dir "/host_proc"
         fi

@@ -3,26 +3,11 @@
 CNI_BIN_DIR=$1
 CNI_CONF_DIR=$2
 CNI_DAEMON=${3:-"False"}
-BUILDER_TAG="kuryr/cni-builder"
 CNI_TAG="kuryr/cni"
-
-# build the cni image
-if [ -z "$CNI_BIN_DIR" ] && [ -z "$CNI_CONF_DIR" ]; then
-    docker build -t "$BUILDER_TAG" -f cni_builder.Dockerfile .
-else
-    docker build -t "$BUILDER_TAG" \
-        --build-arg "CNI_BIN_DIR_PATH=$CNI_BIN_DIR" \
-        --build-arg "CNI_CONFIG_DIR_PATH=$CNI_CONF_DIR" \
-        --build-arg "CNI_DAEMON=$CNI_DAEMON" \
-        -f cni_builder.Dockerfile .
-fi
-docker run \
-    --rm \
-    -v $(pwd):/opt/kuryr-kubernetes \
-    "$BUILDER_TAG":latest
 
 # create cni daemonset image
 docker build -t "$CNI_TAG" \
+    --build-arg "CNI_BIN_DIR_PATH=$CNI_BIN_DIR" \
+    --build-arg "CNI_CONFIG_DIR_PATH=$CNI_CONF_DIR" \
     --build-arg "CNI_DAEMON=$CNI_DAEMON" \
     -f cni.Dockerfile .
-
