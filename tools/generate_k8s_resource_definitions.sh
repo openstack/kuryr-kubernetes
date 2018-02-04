@@ -86,6 +86,10 @@ api_root = $api_root
 token_file = /etc/kuryr/token
 ssl_ca_crt_file = /etc/kuryr/ca.crt
 ssl_verify_server_crt = true
+[vif_plug_ovs_privileged]
+helper_command=privsep-helper
+[vif_plug_linux_bridge_privileged]
+helper_command=privsep-helper
 EOF
 
     if [ ! -z $binding_driver ]; then

@@ -67,6 +67,22 @@ Below is the list of available variables:
 * ``$KURYR_K8S_BINDING_DRIVER`` - ``[binding]driver`` (default: ``kuryr.lib.binding.drivers.vlan``)
 * ``$KURYR_K8S_BINDING_IFACE`` - ``[binding]link_iface`` (default: eth0)
 
+.. note::
+  kuryr-daemon will be started in the CNI container. It is using ``os-vif`` and
+  ``oslo.privsep`` to do pod wiring tasks. By default it'll call ``sudo`` to
+  raise privileges, even though container is priviledged by itself or ``sudo``
+  is missing from container OS (e.g. default CentOS 7). To prevent that make
+  sure to set following options in kuryr.conf used for kuryr-daemon::
+
+    [vif_plug_ovs_privileged]
+    helper_command=privsep-helper
+    [vif_plug_linux_bridge_privileged]
+    helper_command=privsep-helper
+
+  Those options will prevent oslo.privsep from doing that. If rely on
+  aformentioned script to generate config files, those options will be added
+  automatically.
+
 In case of using ports pool functionality, we may want to make the
 kuryr-controller not ready until the pools are populated with the existing
 ports. To achive this a readiness probe must be added to the kuryr-controller
