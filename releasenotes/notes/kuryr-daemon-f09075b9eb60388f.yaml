@@ -1,0 +1,10 @@
+---
+features:
+  - |
+    Introduced kuryr-daemon service. Daemon is an optional service that should
+    run on every Kubernetes node. It is responsible for watching pod events on
+    the node it’s running on, answering calls from CNI Driver and attaching
+    VIFs when they are ready. This helps to limit the number of processes
+    spawned when creating multiple Pods, as a single Watcher is enough for each
+    node and CNI Driver will only wait on local network socket for response
+    from the Daemon.
