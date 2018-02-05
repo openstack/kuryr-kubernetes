@@ -170,7 +170,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                           trunk_ip)
                 raise ex
             except n_exc.NeutronClientException as ex:
-                LOG.error("Error happended during subports addition at trunk: "
+                LOG.error("Error happened during subports addition at trunk: "
                           " %s", trunk_ip)
                 raise ex
 
