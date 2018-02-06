@@ -68,7 +68,7 @@ Kuryr Controller Design
 -----------------------
 Controller is responsible for watching Kubernetess API endpoints to make sure
 that the corresponding model is maintained in Neutron. Controller updates K8s
-resources  endpoints’ annotations to keep neutron details required by the CNI
+resources  endpoints' annotations to keep neutron details required by the CNI
 driver as well as for the model mapping persistency.
 
 Controller is composed from the following components:
@@ -76,7 +76,7 @@ Controller is composed from the following components:
 Watcher
 ~~~~~~~
 Watcher is a common software component used by both the  Controller and the CNI
-driver. Watcher connects to Kubernetes API. Watcher’s responsibility is to observe the
+driver. Watcher connects to Kubernetes API. Watcher's responsibility is to observe the
 registered (either on startup or dynamically during its runtime) endpoints and
 invoke registered callback handler (pipeline) to pass all events from
 registered endpoints.
@@ -88,15 +88,15 @@ several 'wrapper' event handlers that can be composed to implement Controller
 handling pipeline.
 
 **Retry** Event Handler is used for handling specified failures during event
-processing. It can be used to ‘wrap’ another EventHandler and in case of
+processing. It can be used to 'wrap' another EventHandler and in case of
 specified error will retry the wrapped event handler invocation within
 specified timeout. In case of persistent failure, Retry will raise the wrapped
 EventHandler exception.
 
 **Async** Event Handler is used to execute event handling asynchronously.
-Events are grouped based on the specified ‘thread_groups’. Events of the same
+Events are grouped based on the specified 'thread_groups'. Events of the same
 group are processed in order of arrival. Thread group maps to an unique K8s
-resource (each Pod, Service, etc.). Async can be used to ‘wrap’ another
+resource (each Pod, Service, etc.). Async can be used to 'wrap' another
 EventHandler. Queues per thread group are added dynamically once relevant
 events arrive and removed once queue is empty.
 
@@ -135,7 +135,7 @@ setting OBJECT_KIND) and  is expected to implement at least one of the methods
 of the base class to handle at least one of the ADDED/MODIFIED/DELETED events
 of the Kubernetes object. For details, see `k8s-api  <https://github.com/kubernetes/kubernetes/blob/release-1.4/docs/devel/api-conventions.md#types-kinds>`_.
 Since both ADDED and MODIFIED event types trigger very similar sequence of
-actions, Handler has ‘on_present’ method that is invoked for both event types.
+actions, Handler has 'on_present' method that is invoked for both event types.
 The specific Handler implementation should strive to put all the common ADDED
 and MODIFIED event handling logic in this method to avoid code duplication.
 
@@ -160,7 +160,7 @@ NeutronPodVifDriver
 ~~~~~~~~~~~~~~~~~~~
 PodVifDriver subclass should implement request_vif, release_vif and
 activate_vif methods. In case request_vif returns Vif object in down state,
-Controller will invoke activate_vif.  Vif ‘active’ state is required by the
+Controller will invoke activate_vif.  Vif 'active' state is required by the
 CNI driver to complete pod handling.
 The NeutronPodVifDriver is the default driver that creates neutron port upon
 Pod addition and deletes port upon Pod removal.
@@ -183,9 +183,9 @@ With VIF object loaded from the Pod object annotation, the CNI driver performs
 Pod plugging. Kuryr-K8s CNI driver uses ov_vif library to perform Pod plug and
 unplug operations. The CNI driver should complete its job and return control to
 Kubelet when all the network plugging is completed.
-In the cases when Neutron initially creates port in ‘Down’ state, CNI driver
+In the cases when Neutron initially creates port in 'Down' state, CNI driver
 will plug the Pod, but will have to watch the Pod annotations for vif state
-change to ‘Active’ before returning the control to the caller.
+change to 'Active' before returning the control to the caller.
 
 .. image:: ../../images/pod_creation_flow.png
     :alt: Controller-CNI interaction

@@ -46,7 +46,7 @@ Each network policy has 3 main parts [2]_:
 In order to support network-policy, kuryr-kubernetes should handle all the
 events that are related to the network-policies and translate them into
 Neutron objects for apply an equivalent network-topology to the one defined by
-the Kubernetes policies. Neutron doesn’t have a security API that is equivalent
+the Kubernetes policies. Neutron doesn't have a security API that is equivalent
 to the the kubernetes-network-policy. The translation should be done carefully
 in order to achieve eventually consistent required topology, and avoid
 corner-cases and race conditions.
@@ -82,7 +82,7 @@ the Kuryr controller.
 Translate Kubernetes policy to Neutron security-group
 -----------------------------------------------------
 
-‘Allow all’ policy [3]_
+'Allow all' policy [3]_
 #######################
 Network policy that allows all traffic, should be translated to
 Security group with one rule that allows all traffic.
@@ -99,7 +99,7 @@ Example for allow all egress traffic:
     }
   }
 
-‘Deny all’ policy [6]_
+'Deny all' policy [6]_
 ######################
 
 Translate to an empty-security-group.
@@ -112,11 +112,11 @@ Can be translated to security-group-rules ingress/egress traits.
 IpBlock:
 ########
 
-Can be done by “remote ip prefix” trait in security-group-rule as both
+Can be done by "remote ip prefix" trait in security-group-rule as both
 use CIDRs. In case of Exceptions (It's an inner CIDR's of the ipBlock, that
 should be excluded from the rule), the ip-range should be broken into pieces
 that cover the all ip-block without the exception.
-For example, if there is Ip-block :”1.1.1.0/24 except 1.1.1.0/26”, Kuryr should
+For example, if there is Ip-block :"1.1.1.0/24 except 1.1.1.0/26", Kuryr should
 create security-groups-rules with 1.1.1.128/25 an 1.1.1.64/26).
 
 podSelectors
@@ -422,13 +422,13 @@ Let's assume that following policy is created (taken from k8s tutorial [8]_):
 
         * Attach the annotation with security-policy-id to p1.
 
-      * Set a watch on the query - “Match-label : {role:db}” , the watch
+      * Set a watch on the query - "Match-label : {role:db}" , the watch
         callback of this watch will update the security-group annotation on
         the updated/new pods that are selected by this query.
 
     * Create a match for the ingress/egress group:
 
-      * Set watch on the query : “match-labels {role:frontend}” , watch
+      * Set watch on the query : "match-labels {role:frontend}" , watch
         callback will add all pods that are selected by this query to the
         security-group [test-network-policy-uid]_in.
 

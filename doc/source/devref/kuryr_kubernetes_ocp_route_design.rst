@@ -102,7 +102,7 @@ This section describes in details the following scenarios:
       'mynamespace_s1'.
 
     * The OCP-Route handler will create L7 rule and L7 policy, the L7
-      policy direct it's filtered traffic towards ‘mynamespace_s1’ pool.
+      policy direct it's filtered traffic towards 'mynamespace_s1' pool.
 
   * Service/Endpoints is created under namespace 'mynamespace'
 
