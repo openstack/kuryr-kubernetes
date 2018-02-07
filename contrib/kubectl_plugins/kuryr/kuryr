@@ -1,0 +1,182 @@
+#!/usr/bin/env python
+
+import argparse
+import base64
+import json
+import os
+from os.path import expanduser
+import sys
+import tempfile
+import urllib
+
+import yaml
+import requests
+from pprint import pprint
+
+
+def _get_session_from_kubeconfig():
+    kubeconfig = expanduser('~/.kube/config')
+    with open(kubeconfig, 'r') as f:
+        conf = yaml.safe_load(f.read())
+
+    for context in conf['contexts']:
+        if context['name'] == conf['current-context']:
+            current_context = context
+            break
+
+    cluster_name = current_context['context']['cluster']
+    for cluster in conf['clusters']:
+        if cluster['name'] == cluster_name:
+            current_cluster = cluster
+            break
+    server = current_cluster['cluster']['server']
+
+    if server.startswith('https'):
+        ca_cert_data = current_cluster['cluster']['certificate-authority-data']
+
+        for user in conf['users']:
+            if user['name'] == current_context['context']['user']:
+                current_user = user
+                break
+        client_cert_data = current_user['user']['client-certificate-data']
+        client_key_data = current_user['user']['client-key-data']
+
+        client_cert_file = tempfile.NamedTemporaryFile(delete=False)
+        client_key_file = tempfile.NamedTemporaryFile(delete=False)
+        ca_cert_file = tempfile.NamedTemporaryFile(delete=False)
+
+        client_cert_file.write(base64.decodestring(client_cert_data.encode()))
+        client_cert_file.close()
+
+        client_key_file.write(base64.decodestring(client_key_data.encode()))
+        client_key_file.close()
+
+        ca_cert_file.write(base64.decodestring(ca_cert_data.encode()))
+        ca_cert_file.close()
+
+        session = requests.Session()
+        session.cert = (client_cert_file.name, client_key_file.name)
+        session.verify = ca_cert_file.name
+    else:
+        session = requests.Session()
+
+    return session, server
+
+
+def get(args):
+    session, server = _get_session_from_kubeconfig()
+    namespace = os.getenv('KUBECTL_PLUGINS_CURRENT_NAMESPACE')
+    if args.resource in ('vif', 'vifs'):
+        vifs(session, server, namespace, args)
+
+
+def _vif_formatted_output(vif_data, wide=False):
+    max_len = 12
+    padding = 4
+    vif_data.insert(0,
+                    {'pod_name': 'POD NAME',
+                     'vif_name': 'VIF NAME',
+                     'host_ip': 'HOST IP',
+                     'plugin': 'BINDING',
+                     'active': 'ACTIVE',
+                     'address': 'IP ADDRESS',
+                     'port_id': 'PORT ID',
+                     'mac_address': 'MAC ADDRESS',
+                     'vlan_id': 'VLAN'})
+    short_format = ('{pod_name:{tab_len:d}s} {vif_name:{tab_len:d}s} '
+                    '{plugin:10s} {address:{tab_len:d}s} {vlan_id:4}')
+
+    long_format = ('{pod_name:{tab_len:d}s} {vif_name:{tab_len:d}s} '
+                   '{plugin:10s} {address:{tab_len:d}s} {vlan_id:4}  '
+                   '{active:6} {host_ip:{tab_len:d}s} '
+                   '{mac_address:{tab_len:d}s}  {port_id:{tab_len:d}s}')
+    for vif in vif_data:
+        active = vif['active']
+        if type(active) == bool:
+            vif['active'] = 'yes' if active else 'no'
+        if 'vlan_id' not in vif:
+            vif['vlan_id'] = ''
+
+        if wide:
+            print(long_format.format(tab_len=max_len+padding, **vif))
+        else:
+            print(short_format.format(tab_len=max_len+padding, **vif))
+
+
+def vifs(session, server, namespace, args):
+    url = '%s/api/v1/namespaces/%s/pods' % (server, namespace)
+    selector = os.getenv('KUBECTL_PLUGINS_LOCAL_FLAG_SELECTOR')
+    if selector:
+        url += '?labelSelector=' + urllib.quote(selector)
+
+    output = os.getenv('KUBECTL_PLUGINS_LOCAL_FLAG_OUTPUT')
+
+    response = session.get(url)
+
+    if response.ok:
+        pods = response.json()
+    else:
+        sys.stderr.write('Failed to retrieve pod data')
+        sys.exit(1)
+
+    vif_data = []
+    for pod in pods['items']:
+        data = {'pod_name': pod['metadata']['name']}
+
+        if 'hostIP' in pod['status']:
+            data['host_ip'] = pod['status']['hostIP']
+
+        vif = pod['metadata']['annotations'].get('openstack.org/kuryr-vif')
+        if vif is None:
+            continue  # not kuryr annotated
+        else:
+            vif = json.loads(vif)
+
+        network = (vif['versioned_object.data']['network']
+                   ['versioned_object.data'])
+        first_subnet = (network['subnets']['versioned_object.data']
+                        ['objects'][0]['versioned_object.data'])
+        first_subnet_ip = (first_subnet['ips']['versioned_object.data']
+                           ['objects'][0]['versioned_object.data']['address'])
+        first_subnet_prefix = first_subnet['cidr'].split('/')[1]
+
+        data['vif_name'] = vif['versioned_object.data']['vif_name']
+        data['plugin'] = vif['versioned_object.data']['plugin']
+        data['active'] = vif['versioned_object.data']['active']
+        data['address'] = '%s/%s' % (first_subnet_ip, first_subnet_prefix)
+        data['port_id'] = vif['versioned_object.data']['id']
+        data['mac_address'] = vif['versioned_object.data']['address']
+
+        vlan_id = vif['versioned_object.data'].get('vlan_id')
+        if vlan_id is not None:
+            data['vlan_id'] = vlan_id
+
+        vif_data.append(data)
+
+    if output == 'json':
+        pprint(vif_data)
+    elif output == 'tabular':
+        _vif_formatted_output(vif_data)
+    elif output == 'wide':
+        _vif_formatted_output(vif_data, wide=True)
+    else:
+        sys.stderr.write('Unrecognized output format')
+        sys.exit(1)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(usage='kuryr [command] [options]')
+    subparsers = parser.add_subparsers(title='Available commands', metavar='')
+
+    get_parser = subparsers.add_parser(
+        'get',
+        usage='kuryr get [resource] [options]',
+        help='Gets Kuryr managed resource information.')
+    get_parser.add_argument(
+        'resource',
+        action='store',
+        choices=('vif',),
+        help='Resource to return info for.')
+    get_parser.set_defaults(func=get)
+    args = parser.parse_args()
+
+    args.func(args)
