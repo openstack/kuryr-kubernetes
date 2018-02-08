@@ -9,3 +9,4 @@ Contents
 
    README.rst
    unreleased
+   queens
