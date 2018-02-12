@@ -26,16 +26,20 @@ IDENTITY_API_VERSION=3
 # which services we enable
 ENABLED_SERVICES=""
 
+# OVN components
+enable_plugin networking-ovn https://git.openstack.org/openstack/networking-ovn
+enable_service ovn-northd
+enable_service ovn-controller
+enable_service networking-ovn-metadata-agent
+
 # Neutron services
 enable_service neutron
-enable_service q-agt
-enable_service q-dhcp
-enable_service q-l3
 enable_service q-svc
 
 # OVS HOST PATH
 # =============
 # OVS_HOST_PATH=/var/run/openvswitch
+OVS_HOST_PATH=/usr/local/var/run/openvswitch
 
 # OCTAVIA
 KURYR_K8S_LBAAS_USE_OCTAVIA=True
@@ -188,7 +192,7 @@ enable_service kuryr-kubernetes
 # API requests (as only Kuryr Daemon will watch for new pod events) and should
 # increase scalability in environments that often delete and create pods.
 # To enable kuryr-daemon uncomment next line.
-# enable_service kuryr-daemon
+enable_service kuryr-daemon
 
 
 # Containerized Kuryr
@@ -197,7 +201,7 @@ enable_service kuryr-kubernetes
 # Kuryr can be installed on Kubernetes as a pair of Deployment
 # (kuryr-controller) and DaemonSet (kuryr-cni). If you want DevStack to deploy
 # Kuryr services as pods on Kubernetes uncomment next line.
-# KURYR_K8S_CONTAINERIZED_DEPLOYMENT=True
+KURYR_K8S_CONTAINERIZED_DEPLOYMENT=True
 
 # Kuryr POD VIF Driver
 # ====================
