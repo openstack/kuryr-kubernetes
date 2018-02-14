@@ -18,6 +18,7 @@ from kuryr_kubernetes import config
 from kuryr_kubernetes.controller.drivers import default_subnet
 from kuryr_kubernetes.controller.drivers import nested_vif
 from kuryr_kubernetes.controller.drivers import vif_pool
+from kuryr_kubernetes.controller.managers import health
 from kuryr_kubernetes.controller.managers import pool
 
 _kuryr_k8s_opts = [
@@ -31,6 +32,7 @@ _kuryr_k8s_opts = [
     ('subnet_caching', default_subnet.subnet_caching_opts),
     ('pool_manager', pool.pool_manager_opts),
     ('cni_daemon', config.daemon_opts),
+    ('health_server', health.health_server_opts),
 ]
 
 
