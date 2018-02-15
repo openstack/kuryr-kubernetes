@@ -34,6 +34,7 @@ ML2 drivers.
     nested-vlan
     nested-macvlan
     odl_support
+    ovn_support
     dragonflow_support
     containerized
     ports-pool

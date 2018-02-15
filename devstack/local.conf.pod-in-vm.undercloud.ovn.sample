@@ -1,0 +1,47 @@
+[[local|localrc]]
+
+# If you do not want stacking to clone new versions of the enabled services,
+# like for example when you did local modifications and need to ./unstack.sh
+# and ./stack.sh again, uncomment the following
+# RECLONE="no"
+
+# Log settings for better readability
+LOGFILE=devstack.log
+LOG_COLOR=False
+
+MULTI_HOST=1
+
+# Credentials
+ADMIN_PASSWORD=pass
+DATABASE_PASSWORD=pass
+RABBIT_PASSWORD=pass
+SERVICE_PASSWORD=pass
+SERVICE_TOKEN=pass
+# Enable Keystone v3
+IDENTITY_API_VERSION=3
+
+enable_plugin networking-ovn https://git.openstack.org/openstack/networking-ovn
+enable_service ovn-northd
+enable_service ovn-controller
+enable_service networking-ovn-metadata-agent
+
+# Use Neutron instead of nova-network
+disable_service n-net
+enable_service q-svc
+
+# Disable Neutron agents not used with OVN.
+disable_service q-agt
+disable_service q-l3
+disable_service q-dhcp
+disable_service q-meta
+
+# Enable services, these services depend on neutron plugin.
+enable_plugin neutron https://git.openstack.org/openstack/neutron
+enable_service q-trunk
+
+
+# LBaaSv2 service and Haproxy agent
+enable_plugin neutron-lbaas \
+    git://git.openstack.org/openstack/neutron-lbaas
+enable_service q-lbaasv2
+NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"

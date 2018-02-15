@@ -531,7 +531,7 @@ spec:
             path: /proc
         - name: openvswitch
           hostPath:
-            path: /var/run/openvswitch
+            path: ${OVS_HOST_PATH}
 EOF
 }
 
