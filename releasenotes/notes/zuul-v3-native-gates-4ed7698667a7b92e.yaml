@@ -1,0 +1,7 @@
+---
+features:
+  - |
+    Migrated all upstream gates to Zuul V3 [1] native format. This commit also
+    introduces several new (for now) experimental gates such as multinode and
+    centos-7 based. These will be moved to check and voting once they have been
+    behaving at a stable pace for some time.
