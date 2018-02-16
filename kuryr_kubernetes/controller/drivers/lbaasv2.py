@@ -22,6 +22,7 @@ from oslo_utils import excutils
 from oslo_utils import timeutils
 
 from kuryr_kubernetes import clients
+from kuryr_kubernetes import constants as const
 from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.objects import lbaas as obj_lbaas
@@ -48,8 +49,22 @@ class LBaaSv2Driver(base.LBaaSDriver):
             # deleted externally between 'create' and 'find'
             raise k_exc.ResourceNotReady(request)
 
-        # TODO(ivc): handle security groups
-
+        # We only handle SGs for legacy LBaaSv2, Octavia handles it dynamically
+        # according to listener ports.
+        if response.provider == const.NEUTRON_LBAAS_HAPROXY_PROVIDER:
+            vip_port_id = response.port_id
+            neutron = clients.get_neutron_client()
+            try:
+                neutron.update_port(
+                    vip_port_id,
+                    {'port': {'security_groups': security_groups_ids}})
+            except n_exc.NeutronClientException:
+                LOG.exception('Failed to set SG for LBaaS v2 VIP port %s.',
+                              vip_port_id)
+                # NOTE(dulek): `endpoints` arguments on release_loadbalancer()
+                #              is ignored for some reason, so just pass None.
+                self.release_loadbalancer(None, response)
+                raise
         return response
 
     def release_loadbalancer(self, endpoints, loadbalancer):
@@ -136,6 +151,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             'vip_subnet_id': loadbalancer.subnet_id}})
         loadbalancer.id = response['loadbalancer']['id']
         loadbalancer.port_id = self._get_vip_port_id(loadbalancer)
+        loadbalancer.provider = response['loadbalancer']['provider']
         return loadbalancer
 
     def _find_loadbalancer(self, loadbalancer):
@@ -150,6 +166,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         try:
             loadbalancer.id = response['loadbalancers'][0]['id']
             loadbalancer.port_id = self._get_vip_port_id(loadbalancer)
+            loadbalancer.provider = response['loadbalancers'][0]['provider']
         except (KeyError, IndexError):
             return None
 
