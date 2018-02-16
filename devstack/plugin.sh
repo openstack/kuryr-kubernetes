@@ -284,6 +284,9 @@ function configure_neutron_defaults {
     sg_ids=$(echo $(neutron security-group-list \
         --project-id "$project_id" -c id -f value) | tr ' ' ',')
 
+    ext_svc_net_id="$(neutron net-show -c id -f value \
+        "${KURYR_NEUTRON_DEFAULT_EXT_SVC_NET}")"
+
     ext_svc_subnet_id="$(neutron subnet-show -c id -f value \
         "${KURYR_NEUTRON_DEFAULT_EXT_SVC_SUBNET}")"
 
@@ -340,7 +343,7 @@ function configure_neutron_defaults {
     if [ -n "$OVS_BRIDGE" ]; then
         iniset "$KURYR_CONFIG" neutron_defaults ovs_bridge "$OVS_BRIDGE"
     fi
-    iniset "$KURYR_CONFIG" neutron_defaults external_svc_subnet "$ext_svc_subnet_id"
+    iniset "$KURYR_CONFIG" neutron_defaults external_svc_net "$ext_svc_net_id"
     iniset "$KURYR_CONFIG" octavia_defaults member_mode "$KURYR_K8S_OCTAVIA_MEMBER_MODE"
 }
 

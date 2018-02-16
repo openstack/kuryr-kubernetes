@@ -272,8 +272,11 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         return sorted(ep_ports) == sorted(spec_ports)
 
     def _has_pods(self, endpoints):
+        ep_subsets = endpoints.get('subsets', [])
+        if not ep_subsets:
+            return False
         return any(True
-                   for subset in endpoints.get('subsets', [])
+                   for subset in ep_subsets
                    for address in subset.get('addresses', [])
                    if address.get('targetRef', {}).get('kind') == 'Pod')
 

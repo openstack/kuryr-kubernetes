@@ -1,0 +1,24 @@
+---
+upgrade:
+  - |
+
+   For the external services (type=LoadBalancer) case,
+   a new field 'external_svc_net' was added and the 'external_svc_subnet'
+   field become optional.
+   The following should be modified at kuryr.conf::
+
+
+         [neutron_defaults]
+         external_svc_net= <id of external network>
+         # 'external_svc_subnet' field is optional, set this field in case
+         # multiple subnets attached to 'external_svc_net'
+         external_svc_subnet= <id of external subnet>
+
+fixes:
+  - |
+    It is very common for production environments to only allow access
+    to the public network and not the associated public subnets.
+    In that case, we fail to allocate a floating IP to the Loadbalancer service
+    type.
+    In order to fix it, we added an option for specifying the network id instead
+    and switch the subnet config option to being optional.

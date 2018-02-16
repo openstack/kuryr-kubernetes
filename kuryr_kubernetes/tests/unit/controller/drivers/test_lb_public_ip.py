@@ -12,7 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from kuryr.lib import exceptions as kl_exc
 import mock
 from neutronclient.common import exceptions as n_exc
 
@@ -97,10 +96,10 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
                            spec_lb_ip,  project_id))
 
     @mock.patch('kuryr_kubernetes.config.CONF')
-    def test_acquire_service_pub_ip_info_pool_subnet_not_defined(self, m_cfg):
+    def test_acquire_service_pub_ip_info_pool_net_not_defined(self, m_cfg):
         driver = d_lb_public_ip.FloatingIpServicePubIPDriver()
-        public_subnet = ''
-        m_cfg.neutron_defaults.external_svc_subnet = public_subnet
+        public_net = ''
+        m_cfg.neutron_defaults.external_svc_net = public_net
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
         neutron.list_floatingips.return_value = {}
         project_id = mock.sentinel.project_id
@@ -113,22 +112,32 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
             spec_type, spec_lb_ip, project_id)
 
     @mock.patch('kuryr_kubernetes.config.CONF')
-    def test_acquire_service_pub_ip_info_pool_subnet_not_exist(self, m_cfg):
-        driver = d_lb_public_ip.FloatingIpServicePubIPDriver()
+    def test_acquire_service_pub_ip_info_pool_subnet_is_none(self, m_cfg):
+        cls = d_lb_public_ip.FloatingIpServicePubIPDriver
+        m_driver = mock.Mock(spec=cls)
+        m_driver._drv_pub_ip = public_ip.FipPubIpDriver()
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
-        public_subnet = mock.sentinel.public_subnet
-        m_cfg.neutron_defaults.external_svc_subnet = public_subnet
+        public_net = mock.sentinel.public_subnet
+        m_cfg.neutron_defaults.external_svc_net = public_net
+        m_cfg.neutron_defaults.external_svc_subnet = None
 
-        neutron.show_subnet.return_value = {}
+        neutron.show_subnet.return_value =\
+            {'subnet': {'network_id': 'ec29d641-fec4-4f67-928a-124a76b3a8e6'}}
+        floating_ip = {'floating_ip_address': '1.2.3.5',
+                       'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'}
+        neutron.create_floatingip.return_value = {'floatingip': floating_ip}
 
         project_id = mock.sentinel.project_id
         spec_type = 'LoadBalancer'
         spec_lb_ip = None
 
-        self.assertRaises(
-            kl_exc.NoResourceException,
-            driver.acquire_service_pub_ip_info,
-            spec_type, spec_lb_ip, project_id)
+        expected_resp = \
+            obj_lbaas.LBaaSPubIp(ip_id=floating_ip['id'],
+                                 ip_addr=floating_ip['floating_ip_address'],
+                                 alloc_method='pool')
+
+        self.assertEqual(expected_resp, cls.acquire_service_pub_ip_info
+                         (m_driver, spec_type, spec_lb_ip,  project_id))
 
     @mock.patch('kuryr_kubernetes.config.CONF')
     def test_acquire_service_pub_ip_info_alloc_from_pool(self, m_cfg):

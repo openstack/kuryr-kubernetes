@@ -412,10 +412,13 @@ The services and pods subnets should be created.
    A. Create an external/provider network
    B. Create subnet/pool range of external CIDR
    C. Connect external subnet to kuryr-kubernetes router
-   D. Configure Kuryr.conf public ip subnet to point to the external subnet::
+   D. Configure external network details in Kuryr.conf as follows::
 
          [neutron_defaults]
-         external_svc_subnet=  external_subnet_id
+         external_svc_net= <id of external network>
+         # 'external_svc_subnet' field is optional, set this field in case
+         # multiple subnets attached to 'external_svc_net'
+         external_svc_subnet= <id of external subnet>
 
    From this point for each K8s service of type=LoadBalancer and in which
    'load-balancer-ip' is not specified, an external IP from

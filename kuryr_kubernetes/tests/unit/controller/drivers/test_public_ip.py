@@ -101,7 +101,7 @@ class TestFipPubIpDriver(test_base.TestCase):
         neutron.create_floatingip.return_value = {'floatingip': floating_ip}
 
         fip_id, fip_addr = cls.allocate_ip(
-            m_driver, pub_net_id, pub_subnet_id, project_id, description)
+            m_driver, pub_net_id, project_id, pub_subnet_id, description)
         self.assertEqual(fip_id, floating_ip['id'])
         self.assertEqual(fip_addr, floating_ip['floating_ip_address'])
 
@@ -118,7 +118,7 @@ class TestFipPubIpDriver(test_base.TestCase):
 
         self.assertRaises(
             n_exc.NeutronClientException, cls.allocate_ip,
-            m_driver, pub_net_id, pub_subnet_id, project_id, description)
+            m_driver, pub_net_id, project_id, pub_subnet_id, description)
 
     def test_free_ip_neutron_exception(self):
         cls = d_public_ip.FipPubIpDriver

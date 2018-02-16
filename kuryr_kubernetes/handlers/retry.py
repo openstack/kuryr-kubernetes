@@ -70,6 +70,7 @@ class Retry(base.EventHandler):
             except Exception:
                 LOG.debug('Report handler unhealthy %s', self._handler)
                 self._handler.set_health_status(healthy=False)
+                raise
 
     def _sleep(self, deadline, attempt, exception):
         now = time.time()

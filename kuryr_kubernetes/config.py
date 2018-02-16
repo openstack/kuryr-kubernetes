@@ -153,8 +153,11 @@ neutron_defaults = [
                sample_default="br-int"),
     cfg.StrOpt('service_subnet',
                help=_("Default Neutron subnet ID for Kubernetes services")),
+    cfg.StrOpt('external_svc_net',
+               help=_("Default external network ID for Kubernetes services")),
     cfg.StrOpt('external_svc_subnet',
-               help=_("Default external subnet for Kubernetes services")),
+               help=_("Optional external subnet ID for Kubernetes services"),
+               default=None),
 ]
 
 octavia_defaults = [

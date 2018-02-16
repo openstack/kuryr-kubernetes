@@ -12,8 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-from kuryr.lib import exceptions as kl_exc
-from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes.controller.drivers import public_ip
@@ -63,27 +61,17 @@ class FloatingIpServicePubIPDriver(base.ServicePubIpDriver):
         else:
             LOG.debug("Trying to allocate public ip from pool")
 
-        # get public subnet id from kuryr.conf
-        external_svc_subnet = config.CONF.neutron_defaults.external_svc_subnet
-        if not external_svc_subnet:
-            raise cfg.RequiredOptError('external_svc_subnet',
+        # get public network/subnet ids from kuryr.conf
+        public_network_id = config.CONF.neutron_defaults.external_svc_net
+        public_subnet_id = config.CONF.neutron_defaults.external_svc_subnet
+        if not public_network_id:
+            raise cfg.RequiredOptError('external_svc_net',
                                        cfg.OptGroup('neutron_defaults'))
 
-        neutron = clients.get_neutron_client()
-        n_subnet = neutron.show_subnet(external_svc_subnet).get('subnet')
-        if not n_subnet:
-            LOG.error(
-                "No subnet found for external_svc_subnet=%s",
-                external_svc_subnet)
-            raise kl_exc.NoResourceException
-
-        public_network_id = n_subnet['network_id']
-
-        res_id, alloc_ip_addr = (self._drv_pub_ip.allocate_ip
-                                 (public_network_id,
-                                  external_svc_subnet,
-                                  project_id,
-                                  'kuryr_lb'))
+        res_id, alloc_ip_addr = (
+            self._drv_pub_ip.allocate_ip(public_network_id, project_id,
+                                         pub_subnet_id=public_subnet_id,
+                                         description='kuryr_lb'))
         service_pub_ip_info = obj_lbaas.LBaaSPubIp(ip_id=res_id,
                                                    ip_addr=alloc_ip_addr,
                                                    alloc_method='pool')
