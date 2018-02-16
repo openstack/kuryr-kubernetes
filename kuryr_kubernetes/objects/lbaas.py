@@ -22,7 +22,9 @@ from kuryr_kubernetes.objects import fields as k_fields
 
 @obj_base.VersionedObjectRegistry.register
 class LBaaSLoadBalancer(k_obj.KuryrK8sObjectBase):
-    VERSION = '1.0'
+    # Version 1.0: Initial version
+    # Version 1.1: Added provider field
+    VERSION = '1.1'
 
     fields = {
         'id': obj_fields.UUIDField(),
@@ -31,6 +33,7 @@ class LBaaSLoadBalancer(k_obj.KuryrK8sObjectBase):
         'ip': obj_fields.IPAddressField(),
         'subnet_id': obj_fields.UUIDField(),
         'port_id': obj_fields.UUIDField(),
+        'provider': obj_fields.StringField(),
     }
 
 
