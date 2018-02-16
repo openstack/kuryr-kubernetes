@@ -36,13 +36,14 @@ class BasePubIpDriver(object):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def allocate_ip(self, pub_net_id, pub_subnet_id, project_id, description):
+    def allocate_ip(self, pub_net_id, project_id, pub_subnet_id=None,
+                    description=None):
         """allocate ip address from public network id
 
         :param pub_net_id: public network id
-        :param pub_subnet_id: public subnet id
         :param project_id:
-        :param description: string describing request
+        :param pub_subnet_id: public subnet id (Optional)
+        :param description: string describing request (Optional)
         :returns res_id , ip_addr
                 :res_id - resource id
                 :ip_addr - ip aaddress
@@ -100,19 +101,23 @@ class FipPubIpDriver(BasePubIpDriver):
             LOG.error("Invalid parameter ip_addr=%s", ip_addr)
         return None
 
-    def allocate_ip(self, pub_net_id, pub_subnet_id, project_id, description):
-
+    def allocate_ip(self, pub_net_id, project_id, pub_subnet_id=None,
+                    description=None):
         neutron = clients.get_neutron_client()
+        request = {'floatingip': {
+            'tenant_id': project_id,
+            'project_id': project_id,
+            'floating_network_id': pub_net_id}}
+
+        if pub_subnet_id is not None:
+            request['floatingip']['subnet_id'] = pub_subnet_id
+        if description is not None:
+            request['floatingip']['description'] = description
+
         try:
-            response = neutron.create_floatingip({'floatingip': {
-                'tenant_id': project_id,
-                'project_id': project_id,
-                'floating_network_id': pub_net_id,
-                'subnet_id': pub_subnet_id,
-                'description': description}})
+            response = neutron.create_floatingip(request)
         except n_exc.NeutronClientException as ex:
-            LOG.error("Failed to create floating IP - subnetid=%s ",
-                      pub_subnet_id)
+            LOG.error("Failed to create floating IP - netid=%s ", pub_net_id)
             raise ex
         return response['floatingip']['id'], response[
             'floatingip']['floating_ip_address']
