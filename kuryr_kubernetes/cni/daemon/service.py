@@ -256,7 +256,8 @@ class CNIDaemonWatcherService(cotyledon.Service):
 
     def run(self):
         self.pipeline = h_cni.CNIPipeline()
-        self.pipeline.register(h_cni.CallbackHandler(self.on_done))
+        self.pipeline.register(h_cni.CallbackHandler(self.on_done,
+                                                     self.on_deleted))
         self.watcher = k_watcher.Watcher(self.pipeline)
         self.watcher.add(
             "%(base)s/pods?fieldSelector=spec.nodeName=%(node_name)s" % {
@@ -282,6 +283,18 @@ class CNIDaemonWatcherService(cotyledon.Service):
                     pod_dict = self.registry[pod_name]
                     pod_dict['vif'] = vif_dict
                     self.registry[pod_name] = pod_dict
+
+    def on_deleted(self, pod):
+        pod_name = pod['metadata']['name']
+        try:
+            if pod_name in self.registry:
+                # NOTE(dulek): del on dict is atomic as long as we use standard
+                #              types as keys. This is the case, so we don't
+                #              need to lock here.
+                del self.registry[pod_name]
+        except KeyError:
+            # This means someone else removed it. It's odd but safe to ignore.
+            pass
 
     def terminate(self):
         if self.watcher:
