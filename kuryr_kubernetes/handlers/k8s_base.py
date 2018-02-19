@@ -24,9 +24,9 @@ def object_kind(event):
         return None
 
 
-def object_link(event):
+def object_uid(event):
     try:
-        return event['object']['metadata']['selfLink']
+        return event['object']['metadata']['uid']
     except KeyError:
         return None
 
