@@ -99,7 +99,7 @@ class Async(base.EventHandler):
             self._handler(event)
 
     def _done(self, thread, group):
-        LOG.debug("Asynchronous handler stopped processing %s", group)
+        LOG.debug("Asynchronous handler stopped processing group %s", group)
         queue = self._queues.pop(group)
 
         if not queue.empty():
