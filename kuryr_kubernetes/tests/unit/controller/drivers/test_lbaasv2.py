@@ -17,7 +17,6 @@ import mock
 
 from neutronclient.common import exceptions as n_exc
 
-from kuryr_kubernetes import constants as const
 from kuryr_kubernetes.controller.drivers import lbaasv2 as d_lbaasv2
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.objects import lbaas as obj_lbaas
@@ -31,7 +30,8 @@ class TestLBaaSv2Driver(test_base.TestCase):
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         expected_resp = obj_lbaas.LBaaSLoadBalancer(
-            provider='octavia', port_id='D3FA400A-F543-4B91-9CD3-047AF0CE42E2')
+            provider='octavia', port_id='D3FA400A-F543-4B91-9CD3-047AF0CE42E2',
+            security_groups=[])
         namespace = 'TEST_NAMESPACE'
         name = 'TEST_NAME'
         project_id = 'TEST_PROJECT'
@@ -43,7 +43,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         m_driver._ensure.return_value = expected_resp
         neutron.update_port = mock.Mock()
         resp = cls.ensure_loadbalancer(m_driver, endpoints, project_id,
-                                       subnet_id, ip, sg_ids)
+                                       subnet_id, ip, sg_ids, 'ClusterIP')
         m_driver._ensure.assert_called_once_with(mock.ANY,
                                                  m_driver._create_loadbalancer,
                                                  m_driver._find_loadbalancer)
@@ -54,73 +54,6 @@ class TestLBaaSv2Driver(test_base.TestCase):
         self.assertEqual(ip, str(req.ip))
         self.assertEqual(expected_resp, resp)
         neutron.update_port.assert_not_called()
-
-    def test_ensure_loadbalancer_sg_updated(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
-        cls = d_lbaasv2.LBaaSv2Driver
-        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
-        expected_resp = obj_lbaas.LBaaSLoadBalancer(
-            provider=const.NEUTRON_LBAAS_HAPROXY_PROVIDER,
-            port_id='D3FA400A-F543-4B91-9CD3-047AF0CE42E2')
-        namespace = 'TEST_NAMESPACE'
-        name = 'TEST_NAME'
-        project_id = 'TEST_PROJECT'
-        subnet_id = 'D3FA400A-F543-4B91-9CD3-047AF0CE42D1'
-        ip = '1.2.3.4'
-        sg_ids = ['foo', 'bar']
-        endpoints = {'metadata': {'namespace': namespace, 'name': name}}
-
-        m_driver._ensure.return_value = expected_resp
-        neutron.update_port = mock.Mock()
-        resp = cls.ensure_loadbalancer(m_driver, endpoints, project_id,
-                                       subnet_id, ip, sg_ids)
-        m_driver._ensure.assert_called_once_with(mock.ANY,
-                                                 m_driver._create_loadbalancer,
-                                                 m_driver._find_loadbalancer)
-        req = m_driver._ensure.call_args[0][0]
-        self.assertEqual("%s/%s" % (namespace, name), req.name)
-        self.assertEqual(project_id, req.project_id)
-        self.assertEqual(subnet_id, req.subnet_id)
-        self.assertEqual(ip, str(req.ip))
-        self.assertEqual(expected_resp, resp)
-        neutron.update_port.assert_called_once_with(
-            'D3FA400A-F543-4B91-9CD3-047AF0CE42E2',
-            {'port': {'security_groups': ['foo', 'bar']}})
-
-    def test_ensure_loadbalancer_neutron_error(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
-        cls = d_lbaasv2.LBaaSv2Driver
-        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
-        expected_resp = obj_lbaas.LBaaSLoadBalancer(
-            provider=const.NEUTRON_LBAAS_HAPROXY_PROVIDER,
-            port_id='D3FA400A-F543-4B91-9CD3-047AF0CE42E2')
-        namespace = 'TEST_NAMESPACE'
-        name = 'TEST_NAME'
-        project_id = 'TEST_PROJECT'
-        subnet_id = 'D3FA400A-F543-4B91-9CD3-047AF0CE42D1'
-        ip = '1.2.3.4'
-        sg_ids = ['foo', 'bar']
-        endpoints = {'metadata': {'namespace': namespace, 'name': name}}
-
-        m_driver._ensure.return_value = expected_resp
-        neutron.update_port = mock.Mock(
-            side_effect=n_exc.NeutronClientException)
-        self.assertRaises(n_exc.NeutronClientException,
-                          cls.ensure_loadbalancer, m_driver, endpoints,
-                          project_id, subnet_id, ip, sg_ids)
-        m_driver._ensure.assert_called_once_with(mock.ANY,
-                                                 m_driver._create_loadbalancer,
-                                                 m_driver._find_loadbalancer)
-        req = m_driver._ensure.call_args[0][0]
-        self.assertEqual("%s/%s" % (namespace, name), req.name)
-        self.assertEqual(project_id, req.project_id)
-        self.assertEqual(subnet_id, req.subnet_id)
-        self.assertEqual(ip, str(req.ip))
-        neutron.update_port.assert_called_once_with(
-            'D3FA400A-F543-4B91-9CD3-047AF0CE42E2',
-            {'port': {'security_groups': ['foo', 'bar']}})
-        m_driver.release_loadbalancer.assert_called_once_with(None,
-                                                              expected_resp)
 
     def test_ensure_loadbalancer_not_ready(self):
         cls = d_lbaasv2.LBaaSv2Driver
@@ -137,7 +70,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         m_driver._ensure.return_value = None
         self.assertRaises(k_exc.ResourceNotReady, cls.ensure_loadbalancer,
                           m_driver, endpoints, project_id, subnet_id, ip,
-                          sg_ids)
+                          sg_ids, 'ClusterIP')
 
     def test_release_loadbalancer(self):
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -188,6 +121,8 @@ class TestLBaaSv2Driver(test_base.TestCase):
 
     def test_release_listener(self):
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        neutron.list_security_group_rules.return_value = {
+            'security_group_rules': []}
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         endpoints = mock.sentinel.endpoints
@@ -291,7 +226,8 @@ class TestLBaaSv2Driver(test_base.TestCase):
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         loadbalancer = obj_lbaas.LBaaSLoadBalancer(
             name='TEST_NAME', project_id='TEST_PROJECT', ip='1.2.3.4',
-            subnet_id='D3FA400A-F543-4B91-9CD3-047AF0CE42D1')
+            subnet_id='D3FA400A-F543-4B91-9CD3-047AF0CE42D1',
+            security_groups=[])
         loadbalancer_id = '00EE9E11-91C2-41CF-8FD4-7970579E5C4C'
         req = {'loadbalancer': {
             'name': loadbalancer.name,
@@ -317,7 +253,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         loadbalancer = obj_lbaas.LBaaSLoadBalancer(
             name='TEST_NAME', project_id='TEST_PROJECT', ip='1.2.3.4',
             subnet_id='D3FA400A-F543-4B91-9CD3-047AF0CE42D1',
-            provider='haproxy')
+            provider='haproxy', security_groups=[])
         loadbalancer_id = '00EE9E11-91C2-41CF-8FD4-7970579E5C4C'
         resp = {'loadbalancers': [{'id': loadbalancer_id,
                                    'provider': 'haproxy'}]}

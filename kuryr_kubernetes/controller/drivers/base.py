@@ -305,7 +305,7 @@ class LBaaSDriver(DriverBase):
 
     @abc.abstractmethod
     def ensure_loadbalancer(self, endpoints, project_id, subnet_id, ip,
-                            security_groups_ids):
+                            security_groups_ids, service_type):
         """Get or create load balancer.
 
         :param endpoints: dict containing K8s Endpoints object
@@ -314,6 +314,7 @@ class LBaaSDriver(DriverBase):
         :param ip: IP of the load balancer
         :param security_groups_ids: security groups that should be allowed
                                     access to the load balancer
+        :param service_type: K8s service type (ClusterIP or LoadBalancer)
         """
         raise NotImplementedError()
 

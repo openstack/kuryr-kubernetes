@@ -16,6 +16,8 @@
 import random
 import time
 
+import requests
+
 from neutronclient.common import exceptions as n_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -35,42 +37,95 @@ class LBaaSv2Driver(base.LBaaSDriver):
     """LBaaSv2Driver implements LBaaSDriver for Neutron LBaaSv2 API."""
 
     def ensure_loadbalancer(self, endpoints, project_id, subnet_id, ip,
-                            security_groups_ids):
+                            security_groups_ids, service_type):
         name = "%(namespace)s/%(name)s" % endpoints['metadata']
-        request = obj_lbaas.LBaaSLoadBalancer(name=name,
-                                              project_id=project_id,
-                                              subnet_id=subnet_id,
-                                              ip=ip)
-        response = self._ensure(request,
-                                self._create_loadbalancer,
+        request = obj_lbaas.LBaaSLoadBalancer(
+            name=name, project_id=project_id, subnet_id=subnet_id, ip=ip,
+            security_groups=security_groups_ids)
+        response = self._ensure(request, self._create_loadbalancer,
                                 self._find_loadbalancer)
         if not response:
             # NOTE(ivc): load balancer was present before 'create', but got
             # deleted externally between 'create' and 'find'
             raise k_exc.ResourceNotReady(request)
 
-        # We only handle SGs for legacy LBaaSv2, Octavia handles it dynamically
-        # according to listener ports.
-        if response.provider == const.NEUTRON_LBAAS_HAPROXY_PROVIDER:
-            vip_port_id = response.port_id
-            neutron = clients.get_neutron_client()
-            try:
-                neutron.update_port(
-                    vip_port_id,
-                    {'port': {'security_groups': security_groups_ids}})
-            except n_exc.NeutronClientException:
-                LOG.exception('Failed to set SG for LBaaS v2 VIP port %s.',
-                              vip_port_id)
-                # NOTE(dulek): `endpoints` arguments on release_loadbalancer()
-                #              is ignored for some reason, so just pass None.
-                self.release_loadbalancer(None, response)
-                raise
+        try:
+            self.ensure_security_groups(endpoints, response,
+                                        security_groups_ids, service_type)
+        except n_exc.NeutronClientException:
+            # NOTE(dulek): `endpoints` arguments on release_loadbalancer()
+            #              is ignored for some reason, so just pass None.
+            self.release_loadbalancer(None, response)
+            raise
+
         return response
 
     def release_loadbalancer(self, endpoints, loadbalancer):
         neutron = clients.get_neutron_client()
         self._release(loadbalancer, loadbalancer,
                       neutron.delete_loadbalancer, loadbalancer.id)
+
+        sg_id = self._find_listeners_sg(loadbalancer)
+        if sg_id:
+            try:
+                neutron.delete_security_group(sg_id)
+            except n_exc.NeutronClientException:
+                LOG.exception('Error when deleting loadbalancer security '
+                              'group. Leaving it orphaned.')
+
+    def ensure_security_groups(self, endpoints, loadbalancer,
+                               security_groups_ids, service_type):
+        # We only handle SGs for legacy LBaaSv2, Octavia handles it dynamically
+        # according to listener ports.
+        if loadbalancer.provider == const.NEUTRON_LBAAS_HAPROXY_PROVIDER:
+            neutron = clients.get_neutron_client()
+            sg_id = None
+            try:
+                # NOTE(dulek): We're creating another security group to
+                #              overcome LBaaS v2 limitations and handle SGs
+                #              ourselves.
+                if service_type == 'LoadBalancer':
+                    sg_id = self._find_listeners_sg(loadbalancer)
+                    if not sg_id:
+                        sg = neutron.create_security_group({
+                            'security_group': {
+                                'name': loadbalancer.name,
+                                'project_id': loadbalancer.project_id,
+                            },
+                        })
+                        sg_id = sg['security_group']['id']
+                    loadbalancer.security_groups.append(sg_id)
+
+                neutron.update_port(
+                    loadbalancer.port_id,
+                    {'port': {
+                        'security_groups': loadbalancer.security_groups}})
+            except n_exc.NeutronClientException:
+                LOG.exception('Failed to set SG for LBaaS v2 VIP port %s.',
+                              loadbalancer.port_id)
+                if sg_id:
+                    neutron.delete_security_group(sg_id)
+                raise
+
+    def ensure_security_group_rules(self, endpoints, loadbalancer, listener):
+        sg_id = self._find_listeners_sg(loadbalancer)
+        if sg_id:
+            try:
+                neutron = clients.get_neutron_client()
+                neutron.create_security_group_rule({
+                    'security_group_rule': {
+                        'direction': 'ingress',
+                        'port_range_min': listener.port,
+                        'port_range_max': listener.port,
+                        'protocol': listener.protocol,
+                        'security_group_id': sg_id,
+                        'description': listener.name,
+                    },
+                })
+            except n_exc.NeutronClientException as ex:
+                if ex.status_code != requests.codes.conflict:
+                    LOG.exception('Failed when creating security group rule '
+                                  'for listener %s.', listener.name)
 
     def ensure_listener(self, endpoints, loadbalancer, protocol, port):
         name = "%(namespace)s/%(name)s" % endpoints['metadata']
@@ -80,15 +135,30 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                            loadbalancer_id=loadbalancer.id,
                                            protocol=protocol,
                                            port=port)
-        return self._ensure_provisioned(loadbalancer, listener,
-                                        self._create_listener,
-                                        self._find_listener)
+        result = self._ensure_provisioned(loadbalancer, listener,
+                                          self._create_listener,
+                                          self._find_listener)
+
+        self.ensure_security_group_rules(endpoints, loadbalancer, result)
+
+        return result
 
     def release_listener(self, endpoints, loadbalancer, listener):
         neutron = clients.get_neutron_client()
         self._release(loadbalancer, listener,
                       neutron.delete_listener,
                       listener.id)
+
+        sg_id = self._find_listeners_sg(loadbalancer)
+        if sg_id:
+            rules = neutron.list_security_group_rules(
+                security_group_id=sg_id, description=listener.name)
+            rules = rules['security_group_rules']
+            if len(rules):
+                neutron.delete_security_group_rule(rules[0]['id'])
+            else:
+                LOG.warning('Cannot find SG rule for %s (%s) listener.',
+                            listener.id, listener.name)
 
     def ensure_pool(self, endpoints, loadbalancer, listener):
         pool = obj_lbaas.LBaaSPool(name=listener.name,
@@ -352,3 +422,18 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 interval = min(interval, timer.leftover())
                 if interval:
                     time.sleep(interval)
+
+    def _find_listeners_sg(self, loadbalancer):
+        neutron = clients.get_neutron_client()
+        try:
+            sgs = neutron.list_security_groups(
+                name=loadbalancer.name, project_id=loadbalancer.project_id)
+            for sg in sgs['security_groups']:
+                sg_id = sg['id']
+                if sg_id in loadbalancer.security_groups:
+                    return sg_id
+        except n_exc.NeutronClientException:
+            LOG.exception('Cannot list security groups for loadbalancer %s.',
+                          loadbalancer.name)
+
+        return None
