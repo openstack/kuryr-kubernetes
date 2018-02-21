@@ -423,6 +423,31 @@ class TestLoadBalancerHandler(test_base.TestCase):
         m_handler._set_lbaas_state.assert_called_once_with(
             endpoints, lbaas_state)
 
+    def test_on_present_rollback(self):
+        lbaas_spec = mock.sentinel.lbaas_spec
+        lbaas_state = mock.sentinel.lbaas_state
+        endpoints = mock.sentinel.endpoints
+
+        m_handler = mock.Mock(spec=h_lbaas.LoadBalancerHandler)
+        m_handler._get_lbaas_spec.return_value = lbaas_spec
+        m_handler._should_ignore.return_value = False
+        m_handler._get_lbaas_state.return_value = lbaas_state
+        m_handler._sync_lbaas_members.return_value = True
+        m_handler._set_lbaas_state.side_effect = (
+            k_exc.K8sResourceNotFound('ep'))
+
+        h_lbaas.LoadBalancerHandler.on_present(m_handler, endpoints)
+
+        m_handler._get_lbaas_spec.assert_called_once_with(endpoints)
+        m_handler._should_ignore.assert_called_once_with(endpoints, lbaas_spec)
+        m_handler._get_lbaas_state.assert_called_once_with(endpoints)
+        m_handler._sync_lbaas_members.assert_called_once_with(
+            endpoints, lbaas_state, lbaas_spec)
+        m_handler._set_lbaas_state.assert_called_once_with(
+            endpoints, lbaas_state)
+        m_handler.on_deleted.assert_called_once_with(
+            endpoints, lbaas_state)
+
     @mock.patch('kuryr_kubernetes.objects.lbaas'
                 '.LBaaSServiceSpec')
     def test_on_deleted(self, m_svc_spec_ctor):

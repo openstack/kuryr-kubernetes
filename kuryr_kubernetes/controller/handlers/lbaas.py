@@ -246,10 +246,19 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
             # required to deal with such situations (e.g. cleanup, or skip
             # failing items, or validate configuration) to prevent annotation
             # being out of sync with the actual Neutron state.
-            self._set_lbaas_state(endpoints, lbaas_state)
+            try:
+                self._set_lbaas_state(endpoints, lbaas_state)
+            except k_exc.K8sResourceNotFound:
+                # Note(yboaron) It's impossible to store neutron resources
+                # in K8S object since object was deleted. In that case
+                # we should rollback all neutron resources.
+                LOG.debug("LoadBalancerHandler failed to store Openstack "
+                          "resources in K8S object (not found)")
+                self.on_deleted(endpoints, lbaas_state)
 
-    def on_deleted(self, endpoints):
-        lbaas_state = self._get_lbaas_state(endpoints)
+    def on_deleted(self, endpoints, lbaas_state=None):
+        if lbaas_state is None:
+            lbaas_state = self._get_lbaas_state(endpoints)
         if not lbaas_state:
             return
         # NOTE(ivc): deleting pool deletes its members

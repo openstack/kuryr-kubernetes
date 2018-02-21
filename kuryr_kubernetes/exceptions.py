@@ -28,6 +28,12 @@ class ResourceNotReady(Exception):
                                                % resource)
 
 
+class K8sResourceNotFound(K8sClientException):
+    def __init__(self, resource):
+        super(K8sResourceNotFound, self).__init__("Resource not "
+                                                  "found: %r" % resource)
+
+
 class CNIError(Exception):
     pass
 
