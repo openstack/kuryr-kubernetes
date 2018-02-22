@@ -736,6 +736,9 @@ elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
         create_k8s_router_fake_service
         create_k8s_api_service
     fi
+    if is_service_enabled tempest && [[ "$KURYR_USE_PORT_POOLS" == "True" ]]; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes port_pool_enabled True
+    fi
 fi
 
 if [[ "$1" == "unstack" ]]; then
