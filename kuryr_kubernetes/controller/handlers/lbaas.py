@@ -519,7 +519,8 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                     project_id=lbaas_spec.project_id,
                     subnet_id=lbaas_spec.subnet_id,
                     ip=lbaas_spec.ip,
-                    security_groups_ids=lbaas_spec.security_groups_ids)
+                    security_groups_ids=lbaas_spec.security_groups_ids,
+                    service_type=lbaas_spec.type)
                 if lbaas_state.service_pub_ip_info is None:
                     service_pub_ip_info = (
                         self._drv_service_pub_ip.acquire_service_pub_ip_info(

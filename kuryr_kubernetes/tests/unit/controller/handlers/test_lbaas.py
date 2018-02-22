@@ -331,7 +331,7 @@ class TestLBaaSSpecHandler(test_base.TestCase):
 
 class FakeLBaaSDriver(drv_base.LBaaSDriver):
     def ensure_loadbalancer(self, endpoints, project_id, subnet_id, ip,
-                            security_groups_ids):
+                            security_groups_ids, service_type):
         name = str(ip)
         return obj_lbaas.LBaaSLoadBalancer(name=name,
                                            project_id=project_id,
@@ -510,7 +510,7 @@ class TestLoadBalancerHandler(test_base.TestCase):
         endpoints = mock.sentinel.endpoints
         drv = FakeLBaaSDriver()
         lb = drv.ensure_loadbalancer(
-            endpoints, project_id, subnet_id, vip, None)
+            endpoints, project_id, subnet_id, vip, None, 'ClusterIP')
         listeners = {}
         pools = {}
         members = {}
