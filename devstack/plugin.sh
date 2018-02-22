@@ -413,18 +413,14 @@ function wait_for {
     local url
     local cacert_path
     local flags
-    local timeout=$KURYR_WAIT_TIMEOUT
     name="$1"
     url="$2"
     cacert_path=${3:-}
+    timeout=${4:-$KURYR_WAIT_TIMEOUT}
 
     echo -n "Waiting for $name to respond"
 
-    if [ $# == 3 ]; then
-        extra_flags="--cacert ${cacert_path}"
-    else
-        extra_flags=""
-    fi
+    extra_flags=${cacert_path:+"--cacert ${cacert_path}"}
 
     local start_time=$(date +%s)
     until curl -o /dev/null -sf $extra_flags "$url"; do
