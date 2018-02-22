@@ -658,7 +658,8 @@ function run_openshift_node {
     command="/usr/local/bin/openshift start node \
         --kubeconfig=${OPENSHIFT_DATA_DIR}/master.kubelet-client.kubeconfig \
         --enable=kubelet,plugins \
-        --network-plugin=cni"
+        --network-plugin=cni \
+        --listen=https://0.0.0.0:8442"
 
     # Link master config necessary for bootstrapping
     # TODO: This needs to be generated so we don't depend on it on multinode

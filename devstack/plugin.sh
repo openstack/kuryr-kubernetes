@@ -427,7 +427,7 @@ function wait_for {
     fi
 
     local start_time=$(date +%s)
-    until curl -o /dev/null -sIf $extra_flags "$url"; do
+    until curl -o /dev/null -sf $extra_flags "$url"; do
         echo -n "."
         local curr_time=$(date +%s)
         local time_diff=$(($curr_time - $start_time))
