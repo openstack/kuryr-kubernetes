@@ -92,11 +92,17 @@ class DelHandler(CNIHandlerBase):
 
 class CallbackHandler(CNIHandlerBase):
 
-    def __init__(self, on_vif):
+    def __init__(self, on_vif, on_del=None):
         super(CallbackHandler, self).__init__(None, on_vif)
+        self._del_callback = on_del
 
     def on_vif(self, pod, vif):
         self._callback(pod, vif)
+
+    def on_deleted(self, pod):
+        LOG.debug("Got pod %s deletion event.", pod['metadata']['name'])
+        if self._del_callback:
+            self._del_callback(pod)
 
 
 class CNIPipeline(k_dis.EventPipeline):
