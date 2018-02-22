@@ -137,6 +137,9 @@ k8s_opts = [
     cfg.BoolOpt('enable_manager',
                 help=_("Enable Manager to manage the pools."),
                 default=False),
+    cfg.IntOpt('watch_retry_timeout',
+               help=_('Time (in seconds) the watcher retries watching for.'),
+               default=60),
 ]
 
 neutron_defaults = [

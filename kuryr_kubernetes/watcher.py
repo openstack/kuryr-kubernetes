@@ -13,11 +13,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import time
+
 from kuryr_kubernetes import clients
 from kuryr_kubernetes.handlers import health
+from kuryr_kubernetes import utils
+from oslo_config import cfg
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
+CONF = cfg.CONF
 
 
 class Watcher(health.HealthHandler):
@@ -50,7 +55,7 @@ class Watcher(health.HealthHandler):
     graceful=False)` for asynchronous `Watcher`).
     """
 
-    def __init__(self, handler, thread_group=None):
+    def __init__(self, handler, thread_group=None, timeout=None):
         """Initializes a new Watcher instance.
 
         :param handler: a `callable` object to be invoked for each observed
@@ -73,6 +78,10 @@ class Watcher(health.HealthHandler):
         self._resources = set()
         self._watching = {}
         self._idle = {}
+
+        if timeout is None:
+            timeout = CONF.kubernetes.watch_retry_timeout
+        self._timeout = timeout
 
     def add(self, path):
         """Adds ths K8s resource to the Watcher.
@@ -132,18 +141,46 @@ class Watcher(health.HealthHandler):
             if self._thread_group:
                 self._watching[path].stop()
 
-    def _watch(self, path):
+    def _graceful_watch_exit(self, path):
         try:
-            LOG.info("Started watching '%s'", path)
-            for event in self._client.watch(path):
-                self._idle[path] = False
-                self._handler(event)
-                self._idle[path] = True
-                if not (self._running and path in self._resources):
-                    return
-        except Exception:
-            self._healthy = False
-        finally:
             self._watching.pop(path)
             self._idle.pop(path)
             LOG.info("Stopped watching '%s'", path)
+        except KeyError:
+            LOG.error("Failed to exit watch gracefully")
+
+    def _watch(self, path):
+        attempts = 0
+        deadline = 0
+        while self._running and path in self._resources:
+            try:
+                retry = False
+                if attempts == 1:
+                    deadline = time.time() + self._timeout
+
+                if (attempts > 0 and
+                   utils.exponential_sleep(deadline, attempts) == 0):
+                    LOG.error("Failed watching '%s': deadline exceeded", path)
+                    self._healthy = False
+                    return
+
+                LOG.info("Started watching '%s'", path)
+                for event in self._client.watch(path):
+                    # NOTE(esevan): Watcher retries watching for
+                    # `self._timeout` duration with exponential backoff
+                    # algorithm to tolerate against temporal exception such as
+                    # temporal disconnection to the k8s api server.
+                    attempts = 0
+                    self._idle[path] = False
+                    self._handler(event)
+                    self._idle[path] = True
+                    if not (self._running and path in self._resources):
+                        return
+            except Exception as e:
+                LOG.warning("Restarting(%s) watching '%s': %s",
+                            attempts, path, e)
+                attempts += 1
+                retry = True
+            finally:
+                if not retry:
+                    self._graceful_watch_exit(path)
