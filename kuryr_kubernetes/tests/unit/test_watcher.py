@@ -210,8 +210,8 @@ class TestWatcher(test_base.TestCase):
         self.client.watch.side_effect = client_watch
 
     @staticmethod
-    def _test_watch_create_watcher(path, handler):
-        watcher_obj = watcher.Watcher(handler)
+    def _test_watch_create_watcher(path, handler, timeout=0):
+        watcher_obj = watcher.Watcher(handler, timeout=timeout)
         watcher_obj._running = True
         watcher_obj._resources.add(path)
         watcher_obj._idle[path] = True
@@ -232,6 +232,7 @@ class TestWatcher(test_base.TestCase):
 
         watcher_obj._watch(path)
 
+        self.assertEqual(0, watcher_obj._timeout)
         m_handler.assert_has_calls([mock.call(e) for e in events])
 
     def test_watch_stopped(self):
@@ -301,3 +302,23 @@ class TestWatcher(test_base.TestCase):
 
         self.client.watch.assert_called_once()
         self.assertFalse(watcher_obj._healthy)
+
+    def test_watch_retry(self):
+        path = '/test'
+        events = [{'e': i} for i in range(3)]
+        m_handler = mock.Mock()
+        watcher_obj = self._test_watch_create_watcher(path, m_handler, 10)
+
+        self.retry = True
+
+        def handler(event):
+            if self.retry:
+                self.retry = False
+                raise exceptions.ChunkedEncodingError("Connection Broken")
+
+        self.client.watch.side_effect = handler
+        self._test_watch_mock_events(watcher_obj, events)
+
+        watcher_obj._watch(path)
+
+        m_handler.assert_has_calls([mock.call(e) for e in events])
