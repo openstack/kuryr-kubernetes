@@ -61,7 +61,7 @@ The following scheme describes OCP-Route controller SW architecture:
     :align: center
     :width: 100%
 
-Similiar to Kubernetes Ingress, each OCP-Route object being translated to a L7
+Similar to Kubernetes Ingress, each OCP-Route object being translated to a L7
 policy in L7 router, and the rules on OCP-Route become L7 (URL) mapping rules
 in that L7 policy.
 The L7 policy is configured to forward the filtered traffic to LbaaS Pool.

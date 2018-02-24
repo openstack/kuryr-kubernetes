@@ -310,7 +310,7 @@ Possible optimization:
 
 Kubernetes label-selector divided into 2 types of queries "match-labels",
 and "match-expression" [10]_. "match-labels" selects a closed list of labels
-while "match-expression" selects all pods that match to paticular expression.
+while "match-expression" selects all pods that match to particular expression.
 
 This spec suggests to create a watch for each label-selector query, because in
 "match-expression" queries  it is not possible to determine if pod matches the

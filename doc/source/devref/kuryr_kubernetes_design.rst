@@ -38,7 +38,7 @@ Controller is a supervisor component responsible to maintain translation of
 networking relevant Kubernetes model into the OpenStack (i.e. Neutron) model.
 This can be considered as a centralized service (supporting HA mode in the
 future).
-CNI driver is responsible for binding kubernetess pods on worker nodes into
+CNI driver is responsible for binding kubernetes pods on worker nodes into
 Neutron ports ensuring requested level of isolation.
 Please see below the component view of the integrated system:
 
@@ -66,7 +66,7 @@ Design Principles
 
 Kuryr Controller Design
 -----------------------
-Controller is responsible for watching Kubernetess API endpoints to make sure
+Controller is responsible for watching Kubernetes API endpoints to make sure
 that the corresponding model is maintained in Neutron. Controller updates K8s
 resources  endpoints' annotations to keep neutron details required by the CNI
 driver as well as for the model mapping persistency.

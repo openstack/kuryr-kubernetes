@@ -85,7 +85,7 @@ Below is the list of available variables:
 
 In case of using ports pool functionality, we may want to make the
 kuryr-controller not ready until the pools are populated with the existing
-ports. To achive this a readiness probe must be added to the kuryr-controller
+ports. To achieve this a readiness probe must be added to the kuryr-controller
 deployment. To add the readiness probe, in addition to the above environment
 variables or the kuryr-controller configuration file, and extra environmental
 variable must be set:
