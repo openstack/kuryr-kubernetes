@@ -113,7 +113,7 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
                           m_driver, pod, project_id, subnets, security_groups)
         m_driver._get_port_request.assert_called_once_with(
             pod, project_id, subnets, security_groups)
-        neutron.create_port.assert_called_once_with(port_request)
+        neutron.create_port.assert_not_called()
         m_driver._get_parent_port.assert_called_once_with(neutron, pod)
         m_driver._add_to_allowed_address_pairs.assert_not_called()
         m_to_vif.assert_not_called()
