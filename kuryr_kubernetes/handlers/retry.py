@@ -68,7 +68,7 @@ class Retry(base.EventHandler):
                         LOG.debug('Report handler unhealthy %s', self._handler)
                         self._handler.set_health_status(healthy=False)
             except Exception:
-                LOG.debug('Report handler unhealthy %s', self._handler)
+                LOG.exception('Report handler unhealthy %s', self._handler)
                 self._handler.set_health_status(healthy=False)
                 raise
 
