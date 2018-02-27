@@ -39,3 +39,14 @@ def convert_netns(netns):
         return netns.replace('/proc', CONF.cni_daemon.netns_proc_dir)
     else:
         return netns
+
+
+def get_pod_unique_name(pod):
+    """Returns a unique name for the pod.
+
+    It returns a pod unique name for the pod composed of its name and the
+    namespace it is running on.
+
+    :returns: String with namespace/name of the pod
+    """
+    return "%(namespace)s/%(name)s" % pod['metadata']

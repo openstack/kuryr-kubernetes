@@ -36,11 +36,12 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes.cni import handlers as h_cni
 from kuryr_kubernetes.cni import health
 from kuryr_kubernetes.cni.plugins import k8s_cni_registry
-from kuryr_kubernetes.cni import utils
+from kuryr_kubernetes.cni import utils as cni_utils
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes import objects
+from kuryr_kubernetes import utils
 from kuryr_kubernetes import watcher as k_watcher
 
 LOG = logging.getLogger(__name__)
@@ -63,7 +64,7 @@ class DaemonServer(object):
                         'Connection': 'close'}
 
     def _prepare_request(self):
-        params = utils.CNIParameters(flask.request.get_json())
+        params = cni_utils.CNIParameters(flask.request.get_json())
         LOG.debug('Received %s request. CNI Params: %s',
                   params.CNI_COMMAND, params)
         return params
@@ -209,7 +210,7 @@ class CNIDaemonWatcherService(cotyledon.Service):
             time.sleep(HEALTH_CHECKER_DELAY)
 
     def on_done(self, pod, vif):
-        pod_name = pod['metadata']['name']
+        pod_name = utils.get_pod_unique_name(pod)
         vif_dict = vif.obj_to_primitive()
         # NOTE(dulek): We need a lock when modifying shared self.registry dict
         #              to prevent race conditions with other processes/threads.
@@ -228,7 +229,7 @@ class CNIDaemonWatcherService(cotyledon.Service):
                     self.registry[pod_name] = pod_dict
 
     def on_deleted(self, pod):
-        pod_name = pod['metadata']['name']
+        pod_name = utils.get_pod_unique_name(pod)
         try:
             if pod_name in self.registry:
                 # NOTE(dulek): del on dict is atomic as long as we use standard

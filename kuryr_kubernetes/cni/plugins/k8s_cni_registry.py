@@ -41,13 +41,16 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
         self.healthy = healthy
         self.registry = registry
 
-    def _get_name(self, pod):
-        return pod['metadata']['name']
+    def _get_pod_name(self, params):
+        return "%(namespace)s/%(name)s" % {
+            'namespace': params.args.K8S_POD_NAMESPACE,
+            'name': params.args.K8S_POD_NAME}
 
     def add(self, params):
         vif = self._do_work(params, b_base.connect)
 
-        pod_name = params.args.K8S_POD_NAME
+        pod_name = self._get_pod_name(params)
+
         # NOTE(dulek): Saving containerid to be able to distinguish old DEL
         #              requests that we should ignore. We need a lock to
         #              prevent race conditions and replace whole object in the
@@ -76,7 +79,7 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
         return vif
 
     def delete(self, params):
-        pod_name = params.args.K8S_POD_NAME
+        pod_name = self._get_pod_name(params)
         try:
             reg_ci = self.registry[pod_name]['containerid']
             LOG.debug('Read containerid = %s for pod %s', reg_ci, pod_name)
@@ -98,7 +101,7 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
                 self.healthy.value = driver_healthy
 
     def _do_work(self, params, fn):
-        pod_name = params.args.K8S_POD_NAME
+        pod_name = self._get_pod_name(params)
 
         timeout = CONF.cni_daemon.vif_annotation_timeout
 

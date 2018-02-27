@@ -25,13 +25,15 @@ from kuryr_kubernetes.tests import fake
 class TestK8sCNIRegistryPlugin(base.TestCase):
     def setUp(self):
         super(TestK8sCNIRegistryPlugin, self).setUp()
-        self.pod = {'metadata': {'name': 'foo', 'uid': 'bar'}}
+        self.pod = {'metadata': {'name': 'foo', 'uid': 'bar',
+                                 'namespace': 'default'}}
         self.vif = fake._fake_vif_dict()
-        registry = {'foo': {'pod': self.pod, 'vif': self.vif,
-                            'containerid': None}}
+        registry = {'default/foo': {'pod': self.pod, 'vif': self.vif,
+                                    'containerid': None}}
         healthy = mock.Mock()
         self.plugin = k8s_cni_registry.K8sCNIRegistryPlugin(registry, healthy)
-        self.params = mock.Mock(args=mock.Mock(K8S_POD_NAME='foo'),
+        self.params = mock.Mock(args=mock.Mock(K8S_POD_NAME='foo',
+                                               K8S_POD_NAMESPACE='default'),
                                 CNI_IFNAME='baz', CNI_NETNS=123,
                                 CNI_CONTAINERID='cont_id')
 
@@ -40,9 +42,10 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
     def test_add_present(self, m_connect, m_lock):
         self.plugin.add(self.params)
 
-        m_lock.assert_called_with('foo', external=True)
+        m_lock.assert_called_with('default/foo', external=True)
         m_connect.assert_called_with(mock.ANY, mock.ANY, 'baz', 123, mock.ANY)
-        self.assertEqual('cont_id', self.plugin.registry['foo']['containerid'])
+        self.assertEqual('cont_id',
+                         self.plugin.registry['default/foo']['containerid'])
 
     @mock.patch('kuryr_kubernetes.cni.binding.base.disconnect')
     def test_del_present(self, m_disconnect):
@@ -53,8 +56,8 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
 
     @mock.patch('kuryr_kubernetes.cni.binding.base.disconnect')
     def test_del_wrong_container_id(self, m_disconnect):
-        registry = {'foo': {'pod': self.pod, 'vif': self.vif,
-                            'containerid': 'different'}}
+        registry = {'default/foo': {'pod': self.pod, 'vif': self.vif,
+                                    'containerid': 'different'}}
         healthy = mock.Mock()
         self.plugin = k8s_cni_registry.K8sCNIRegistryPlugin(registry, healthy)
         self.plugin.delete(self.params)
@@ -75,10 +78,11 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
         self.plugin.registry = m_registry
         self.plugin.add(self.params)
 
-        m_lock.assert_called_with('foo', external=True)
-        m_setitem.assert_called_once_with('foo', {'pod': self.pod,
-                                                  'vif': self.vif,
-                                                  'containerid': 'cont_id'})
+        m_lock.assert_called_with('default/foo', external=True)
+        m_setitem.assert_called_once_with('default/foo',
+                                          {'pod': self.pod,
+                                           'vif': self.vif,
+                                           'containerid': 'cont_id'})
         m_connect.assert_called_with(mock.ANY, mock.ANY, 'baz', 123, mock.ANY)
 
     @mock.patch('time.sleep', mock.Mock())
