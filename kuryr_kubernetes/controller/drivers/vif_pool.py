@@ -223,6 +223,9 @@ class BaseVIFPool(base.VIFPoolDriver):
         except IOError:
             LOG.exception("I/O error creating the health check file.")
 
+    def _get_port_name(self, pod):
+        return "%(namespace)s/%(name)s" % pod['metadata']
+
 
 class NeutronVIFPool(BaseVIFPool):
     """Manages VIFs for Bare Metal Kubernetes Pods."""
@@ -241,7 +244,7 @@ class NeutronVIFPool(BaseVIFPool):
                 port_id,
                 {
                     "port": {
-                        'name': pod['metadata']['name'],
+                        'name': self._get_port_name(pod),
                         'device_id': pod['metadata']['uid']
                     }
                 })
@@ -370,7 +373,7 @@ class NestedVIFPool(BaseVIFPool):
                 port_id,
                 {
                     "port": {
-                        'name': pod['metadata']['name'],
+                        'name': self._get_port_name(pod),
                     }
                 })
         # check if the pool needs to be populated

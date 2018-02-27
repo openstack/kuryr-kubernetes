@@ -59,6 +59,10 @@ def get_pod_obj():
         }}
 
 
+def get_pod_name(pod):
+    return "%(namespace)s/%(name)s" % pod['metadata']
+
+
 def get_port_obj(port_id=None, device_owner=None, ip_address=None):
     port_obj = {
         'allowed_address_pairs': [],
@@ -333,6 +337,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver._available_ports_pools = {
             pool_key: collections.deque([port_id])}
         m_driver._existing_vifs = {port_id: port}
+        m_driver._get_port_name.return_value = get_pod_name(pod)
 
         oslo_cfg.CONF.set_override('ports_pool_min',
                                    5,
@@ -353,7 +358,7 @@ class NeutronVIFPool(test_base.TestCase):
             port_id,
             {
                 "port": {
-                    'name': pod['metadata']['name'],
+                    'name': get_pod_name(pod),
                     'device_id': pod['metadata']['uid']
                 }
             })
@@ -375,6 +380,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver._available_ports_pools = {
             pool_key: collections.deque([port_id])}
         m_driver._existing_vifs = {port_id: port}
+        m_driver._get_port_name.return_value = get_pod_name(pod)
 
         oslo_cfg.CONF.set_override('ports_pool_min',
                                    5,
@@ -392,7 +398,7 @@ class NeutronVIFPool(test_base.TestCase):
             port_id,
             {
                 "port": {
-                    'name': pod['metadata']['name'],
+                    'name': get_pod_name(pod),
                     'device_id': pod['metadata']['uid']
                 }
             })
@@ -713,6 +719,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._available_ports_pools = {
             pool_key: collections.deque([port_id])}
         m_driver._existing_vifs = {port_id: port}
+        m_driver._get_port_name.return_value = get_pod_name(pod)
 
         oslo_cfg.CONF.set_override('ports_pool_min',
                                    5,
@@ -730,7 +737,7 @@ class NestedVIFPool(test_base.TestCase):
             port_id,
             {
                 "port": {
-                    'name': pod['metadata']['name'],
+                    'name': get_pod_name(pod),
                 }
             })
         m_eventlet.assert_not_called()
@@ -751,6 +758,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._available_ports_pools = {
             pool_key: collections.deque([port_id])}
         m_driver._existing_vifs = {port_id: port}
+        m_driver._get_port_name.return_value = get_pod_name(pod)
 
         oslo_cfg.CONF.set_override('ports_pool_min',
                                    5,
@@ -768,7 +776,7 @@ class NestedVIFPool(test_base.TestCase):
             port_id,
             {
                 "port": {
-                    'name': pod['metadata']['name'],
+                    'name': get_pod_name(pod),
                 }
             })
         m_eventlet.assert_called_once()

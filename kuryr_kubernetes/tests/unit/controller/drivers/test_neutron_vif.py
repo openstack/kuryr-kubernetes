@@ -327,9 +327,10 @@ class NeutronPodVIFDriver(test_base.TestCase):
         cls = neutron_vif.NeutronPodVIFDriver
         m_driver = mock.Mock(spec=cls)
         pod_name = mock.sentinel.pod_name
-        pod = {'metadata': {'name': pod_name}}
+        port_name = 'default/' + str(pod_name)
+        pod = {'metadata': {'name': pod_name, 'namespace': 'default'}}
 
-        self.assertEqual(pod_name, cls._get_port_name(m_driver, pod))
+        self.assertEqual(port_name, cls._get_port_name(m_driver, pod))
 
     def test_get_device_id(self):
         cls = neutron_vif.NeutronPodVIFDriver
