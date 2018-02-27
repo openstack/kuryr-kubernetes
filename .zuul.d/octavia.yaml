@@ -1,0 +1,118 @@
+# Copyright 2018 Red Hat, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- job:
+    name: kuryr-kubernetes-tempest-octavia
+    parent: kuryr-kubernetes-tempest-base
+    description: |
+      Kuryr-Kubernetes tempest job using octavia
+    required-projects:
+      - openstack/barbican
+      - openstack/octavia
+      - openstack/python-barbicanclient
+      - openstack/python-octaviaclient
+    pre-run: playbooks/get_amphora_tarball.yaml
+    host-vars:
+      controller:
+        devstack_plugins:
+          octavia: https://git.openstack.org/openstack/octavia
+          barbican: https://git.openstack.org/openstack/barbican
+    vars:
+      devstack_localrc:
+        OCTAVIA_AMP_IMAGE_FILE: "/tmp/test-only-amphora-x64-haproxy-ubuntu-xenial.qcow2"
+        OCTAVIA_AMP_IMAGE_SIZE: 3
+        OCTAVIA_AMP_IMAGE_NAME: "test-only-amphora-x64-haproxy-ubuntu-xenial"
+      devstack_local_conf:
+        post-config:
+          $OCTAVIA_CONF:
+            controller_worker:
+              amp_active_retries: 9999
+      devstack_services:
+        octavia: true
+        o-api: true
+        o-cw: true
+        o-hk: true
+        o-hm: true
+
+- job:
+    name: kuryr-kubernetes-tempest-octavia-centos-7
+    parent: kuryr-kubernetes-tempest-octavia
+    nodeset: openstack-centos-7-single-node
+    voting: false
+
+- job:
+    name: kuryr-kubernetes-tempest-daemon-octavia
+    parent: kuryr-kubernetes-tempest-octavia
+    description: |
+        Kuryr-Kubernetes tempest job using octavia and CNI daemon
+    vars:
+      devstack_services:
+        kuryr-daemon: true
+
+- job:
+    name: kuryr-kubernetes-tempest-daemon-containerized-octavia
+    parent: kuryr-kubernetes-tempest-daemon-octavia
+    description: |
+        Kuryr-Kubernetes tempest job using octavia, kuryr containerized and CNI daemon
+    vars:
+      devstack_localrc:
+        KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
+
+- job:
+    name: kuryr-kubernetes-tempest-daemon-containerized-octavia-l2
+    parent: kuryr-kubernetes-tempest-daemon-containerized-octavia
+    description: |
+        Kuryr-Kubernetes tempest job using octavia in l2 mode, kuryr containerized and CNI daemon
+    vars:
+      devstack_localrc:
+        KURYR_K8S_OCTAVIA_MEMBER_MODE: L2
+
+- job:
+    name: kuryr-kubernetes-tempest-openshift-octavia
+    parent: kuryr-kubernetes-tempest-octavia
+    description: |
+      Kuryr-Kubernetes tempest job using octavia and OpenShift
+    vars:
+      devstack_localrc:
+        DOCKER_CGROUP_DRIVER: "systemd"
+      devstack_services:
+        kubernetes-api: false
+        kubernetes-controller-manager: false
+        kubernetes-scheduler: false
+        kubelet: false
+        openshift-master: true
+        openshift-node: true
+
+- job:
+    name: kuryr-kubernetes-tempest-daemon-openshift-octavia
+    parent: kuryr-kubernetes-tempest-openshift-octavia
+    description: |
+      Kuryr-Kubernetes tempest job using octavia, CNI daemon and OpenShift
+    vars:
+      devstack_services:
+        kuryr-daemon: true
+    voting: false
+
+- job:
+    name: kuryr-kubernetes-tempest-daemon-containerized-octavia-namespace
+    description: |
+      Tempest with Octavia, CNI daemon, containers and namespace subnet driver
+    parent: kuryr-kubernetes-tempest-daemon-containerized-octavia
+    vars:
+      tempest_test_regex: '^(kuryr_tempest_plugin.tests.scenario.test_namespace.TestNamespaceScenario.test_namespace)'
+      devstack_localrc:
+        KURYR_SUBNET_DRIVER: namespace
+        KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace
+    voting: false
+

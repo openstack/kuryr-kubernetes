@@ -1,0 +1,82 @@
+# Copyright 2018 Red Hat, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- job:
+    name: kuryr-kubernetes-tempest-base
+    parent: devstack-tempest
+    description: Base kuryr-kubernetes-job
+    required-projects:
+      - openstack-infra/devstack-gate
+      - openstack/devstack-plugin-container
+      - openstack/kuryr
+      - openstack/kuryr-kubernetes
+      - openstack/kuryr-tempest-plugin
+      - openstack/neutron-lbaas
+      - openstack/tempest
+    post-run: playbooks/copy-k8s-logs.yaml
+    host-vars:
+      controller:
+        devstack_plugins:
+          kuryr-kubernetes: https://git.openstack.org/openstack/kuryr
+          devstack-plugin-container: https://git.openstack.org/openstack/devstack-plugin-container
+    vars:
+      tempest_test_regex: '^(kuryr_tempest_plugin.tests.)'
+      tox_envlist: 'all'
+      devstack_localrc:
+        KURYR_K8S_API_PORT: 8080
+        TEMPEST_PLUGINS: '/opt/stack/kuryr-tempest-plugin'
+      devstack_services:
+        # TODO(dmellado):Temporary workaround until proper fix
+        base: false
+        s-account: false
+        s-container: false
+        s-object: false
+        s-proxy: false
+        c-api: false
+        c-bak: false
+        c-sch: false
+        c-vol: false
+        cinder: false
+        tempest: true
+        neutron: true
+        q-agt: true
+        q-dhcp: true
+        q-l3: true
+        q-svc: true
+        q-meta: true
+        key: true
+        mysql: true
+        rabbit: true
+        n-api: true
+        n-api-meta: true
+        n-cpu: true
+        n-cond: true
+        n-sch: true
+        placement-api: true
+        placement-client: true
+        g-api: true
+        g-reg: true
+        etcd3: true
+        kubernetes-api: true
+        kubernetes-controller-manager: true
+        kubernetes-scheduler: true
+        kubelet: true
+        kuryr-kubernetes: true
+      zuul_copy_output:
+        '{{ devstack_log_dir }}/kubernetes': 'logs'
+    irrelevant-files:
+      - ^.*\.rst$
+      - ^doc/.*$
+      - ^releasenotes/.*$
+      - ^contrib/.*$
