@@ -104,8 +104,8 @@ class TestOpenVSwitchDriver(TestDriverMixin, test_base.TestCase):
         super(TestOpenVSwitchDriver, self).setUp()
         self.vif = fake._fake_vif(osv_objects.vif.VIFOpenVSwitch)
 
-    @mock.patch('kuryr_kubernetes.cni.daemon.service.K8sCNIRegistryPlugin.'
-                'report_drivers_health')
+    @mock.patch('kuryr_kubernetes.cni.plugins.k8s_cni_registry.'
+                'K8sCNIRegistryPlugin.report_drivers_health')
     @mock.patch('os.getpid', mock.Mock(return_value=123))
     @mock.patch('kuryr_kubernetes.linux_net_utils.create_ovs_vif_port')
     def test_connect(self, mock_create_ovs, m_report):
@@ -126,8 +126,8 @@ class TestOpenVSwitchDriver(TestDriverMixin, test_base.TestCase):
             'bridge', 'h_interface', '89eccd45-43e9-43d8-b4cc-4c13db13f782',
             '3e:94:b7:31:a0:83', 'kuryr')
 
-    @mock.patch('kuryr_kubernetes.cni.daemon.service.K8sCNIRegistryPlugin.'
-                'report_drivers_health')
+    @mock.patch('kuryr_kubernetes.cni.plugins.k8s_cni_registry.'
+                'K8sCNIRegistryPlugin.report_drivers_health')
     @mock.patch('kuryr_kubernetes.linux_net_utils.delete_ovs_vif_port')
     def test_disconnect(self, mock_delete_ovs, m_report):
         self._test_disconnect(report=m_report)

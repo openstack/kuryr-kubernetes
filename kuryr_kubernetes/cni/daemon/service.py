@@ -24,10 +24,8 @@ import time
 import cotyledon
 import flask
 from pyroute2.ipdb import transactional
-import retrying
 
 import os_vif
-from os_vif import objects as obj_vif
 from os_vif.objects import base
 from oslo_concurrency import lockutils
 from oslo_config import cfg
@@ -35,10 +33,9 @@ from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
 from kuryr_kubernetes import clients
-from kuryr_kubernetes.cni import api
-from kuryr_kubernetes.cni.binding import base as b_base
 from kuryr_kubernetes.cni import handlers as h_cni
 from kuryr_kubernetes.cni import health
+from kuryr_kubernetes.cni.plugins import k8s_cni_registry
 from kuryr_kubernetes.cni import utils
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as k_const
@@ -48,103 +45,7 @@ from kuryr_kubernetes import watcher as k_watcher
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
-RETRY_DELAY = 1000  # 1 second in milliseconds
 HEALTH_CHECKER_DELAY = 5
-
-# TODO(dulek): Another corner case is (and was) when pod is deleted before it's
-#              annotated by controller or even noticed by any watcher. Kubelet
-#              will try to delete such vif, but we will have no data about it.
-#              This is currently worked around by returning succesfully in case
-#              of timing out in delete. To solve this properly we need to watch
-#              for pod deletes as well.
-
-
-class K8sCNIRegistryPlugin(api.CNIPlugin):
-    def __init__(self, registry, healthy):
-        self.healthy = healthy
-        self.registry = registry
-
-    def _get_name(self, pod):
-        return pod['metadata']['name']
-
-    def add(self, params):
-        vif = self._do_work(params, b_base.connect)
-
-        pod_name = params.args.K8S_POD_NAME
-        # NOTE(dulek): Saving containerid to be able to distinguish old DEL
-        #              requests that we should ignore. We need a lock to
-        #              prevent race conditions and replace whole object in the
-        #              dict for multiprocessing.Manager to notice that.
-        with lockutils.lock(pod_name, external=True):
-            d = self.registry[pod_name]
-            d['containerid'] = params.CNI_CONTAINERID
-            self.registry[pod_name] = d
-            LOG.debug('Saved containerid = %s for pod %s',
-                      params.CNI_CONTAINERID, pod_name)
-
-        # Wait for VIF to become active.
-        timeout = CONF.cni_daemon.vif_annotation_timeout
-
-        # Wait for timeout sec, 1 sec between tries, retry when vif not active.
-        @retrying.retry(stop_max_delay=timeout * 1000, wait_fixed=RETRY_DELAY,
-                        retry_on_result=lambda x: not x.active)
-        def wait_for_active(pod_name):
-            return base.VersionedObject.obj_from_primitive(
-                self.registry[pod_name]['vif'])
-
-        vif = wait_for_active(pod_name)
-        if not vif.active:
-            raise exceptions.ResourceNotReady(pod_name)
-
-        return vif
-
-    def delete(self, params):
-        pod_name = params.args.K8S_POD_NAME
-        try:
-            reg_ci = self.registry[pod_name]['containerid']
-            LOG.debug('Read containerid = %s for pod %s', reg_ci, pod_name)
-            if reg_ci and reg_ci != params.CNI_CONTAINERID:
-                # NOTE(dulek): This is a DEL request for some older (probably
-                #              failed) ADD call. We should ignore it or we'll
-                #              unplug a running pod.
-                LOG.warning('Received DEL request for unknown ADD call. '
-                            'Ignoring.')
-                return
-        except KeyError:
-            pass
-        self._do_work(params, b_base.disconnect)
-
-    def report_drivers_health(self, driver_healthy):
-        if not driver_healthy:
-            with self.healthy.get_lock():
-                LOG.debug("Reporting CNI driver not healthy.")
-                self.healthy.value = driver_healthy
-
-    def _do_work(self, params, fn):
-        pod_name = params.args.K8S_POD_NAME
-
-        timeout = CONF.cni_daemon.vif_annotation_timeout
-
-        # In case of KeyError retry for `timeout` s, wait 1 s between tries.
-        @retrying.retry(stop_max_delay=timeout * 1000, wait_fixed=RETRY_DELAY,
-                        retry_on_exception=lambda e: isinstance(e, KeyError))
-        def find():
-            return self.registry[pod_name]
-
-        try:
-            d = find()
-            pod = d['pod']
-            vif = base.VersionedObject.obj_from_primitive(d['vif'])
-        except KeyError:
-            raise exceptions.ResourceNotReady(pod_name)
-
-        fn(vif, self._get_inst(pod), params.CNI_IFNAME, params.CNI_NETNS,
-           self.report_drivers_health)
-        return vif
-
-    def _get_inst(self, pod):
-        return obj_vif.instance_info.InstanceInfo(
-            uuid=pod['metadata']['uid'], name=pod['metadata']['name'])
 
 
 class DaemonServer(object):
@@ -250,7 +151,8 @@ class CNIDaemonServerService(cotyledon.Service):
         self.run_queue_reading = False
         self.registry = registry
         self.healthy = healthy
-        self.plugin = K8sCNIRegistryPlugin(registry, self.healthy)
+        self.plugin = k8s_cni_registry.K8sCNIRegistryPlugin(registry,
+                                                            self.healthy)
         self.server = DaemonServer(self.plugin, self.healthy)
 
     def run(self):

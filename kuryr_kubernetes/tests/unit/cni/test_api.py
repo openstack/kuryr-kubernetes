@@ -22,7 +22,7 @@ from oslo_config import cfg
 from oslo_serialization import jsonutils
 
 from kuryr_kubernetes.cni import api
-from kuryr_kubernetes.cni import main
+from kuryr_kubernetes.cni.plugins import k8s_cni
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests import fake
 
@@ -54,9 +54,9 @@ class TestCNIRunnerMixin(object):
 class TestCNIStandaloneRunner(test_base.TestCase, TestCNIRunnerMixin):
     def setUp(self):
         super(TestCNIStandaloneRunner, self).setUp()
-        self.runner = api.CNIStandaloneRunner(main.K8sCNIPlugin())
+        self.runner = api.CNIStandaloneRunner(k8s_cni.K8sCNIPlugin())
 
-    @mock.patch('kuryr_kubernetes.cni.main.K8sCNIPlugin.add')
+    @mock.patch('kuryr_kubernetes.cni.plugins.k8s_cni.K8sCNIPlugin.add')
     def test_run_add(self, m_k8s_add):
         vif = fake._fake_vif()
         m_k8s_add.return_value = vif
@@ -76,7 +76,7 @@ class TestCNIStandaloneRunner(test_base.TestCase, TestCNIRunnerMixin):
              "ip4": {"gateway": "192.168.0.1", "ip": "192.168.0.2/24"}},
             result)
 
-    @mock.patch('kuryr_kubernetes.cni.main.K8sCNIPlugin.delete')
+    @mock.patch('kuryr_kubernetes.cni.plugins.k8s_cni.K8sCNIPlugin.delete')
     def test_run_del(self, m_k8s_delete):
         vif = fake._fake_vif()
         m_k8s_delete.return_value = vif

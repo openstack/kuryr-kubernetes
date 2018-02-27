@@ -22,47 +22,16 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
-from kuryr_kubernetes import clients
 from kuryr_kubernetes.cni import api as cni_api
-from kuryr_kubernetes.cni import handlers as h_cni
+from kuryr_kubernetes.cni.plugins import k8s_cni
 from kuryr_kubernetes.cni import utils
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes import objects as k_objects
-from kuryr_kubernetes import watcher as k_watcher
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 _CNI_TIMEOUT = 180
-
-
-class K8sCNIPlugin(cni_api.CNIPlugin):
-
-    def add(self, params):
-        self._setup(params)
-        self._pipeline.register(h_cni.AddHandler(params, self._done))
-        self._watcher.start()
-        return self._vif
-
-    def delete(self, params):
-        self._setup(params)
-        self._pipeline.register(h_cni.DelHandler(params, self._done))
-        self._watcher.start()
-
-    def _done(self, vif):
-        self._vif = vif
-        self._watcher.stop()
-
-    def _setup(self, params):
-        clients.setup_kubernetes_client()
-        self._pipeline = h_cni.CNIPipeline()
-        self._watcher = k_watcher.Watcher(self._pipeline)
-        self._watcher.add(
-            "%(base)s/namespaces/%(namespace)s/pods"
-            "?fieldSelector=metadata.name=%(pod)s" % {
-                'base': k_const.K8S_API_BASE,
-                'namespace': params.args.K8S_POD_NAMESPACE,
-                'pod': params.args.K8S_POD_NAME})
 
 
 def run():
@@ -87,7 +56,7 @@ def run():
     if CONF.cni_daemon.daemon_enabled:
         runner = cni_api.CNIDaemonizedRunner()
     else:
-        runner = cni_api.CNIStandaloneRunner(K8sCNIPlugin())
+        runner = cni_api.CNIStandaloneRunner(k8s_cni.K8sCNIPlugin())
     LOG.info("Using '%s' ", runner.__class__.__name__)
 
     def _timeout(signum, frame):

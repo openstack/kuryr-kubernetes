@@ -35,18 +35,6 @@ LOG = logging.getLogger(__name__)
 
 
 @six.add_metaclass(abc.ABCMeta)
-class CNIPlugin(object):
-
-    @abc.abstractmethod
-    def add(self, params):
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def delete(self, params):
-        raise NotImplementedError()
-
-
-@six.add_metaclass(abc.ABCMeta)
 class CNIRunner(object):
     # TODO(ivc): extend SUPPORTED_VERSIONS and format output based on
     # requested params.CNI_VERSION and/or params.config.cniVersion
