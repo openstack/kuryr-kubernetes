@@ -140,7 +140,7 @@
         Kuryr-Kubernetes tempest job using octavia and CNI daemon
     vars:
       devstack_services:
-        kuryr_daemon: true
+        kuryr-daemon: true
 
 - job:
     name: kuryr-kubernetes-tempest-openshift-octavia
@@ -165,7 +165,7 @@
       Kuryr-Kubernetes tempest job using octavia, CNI daemon and OpenShift
     vars:
       devstack_services:
-        kuryr_daemon: true
+        kuryr-daemon: true
     voting: false
 
 - job:
@@ -198,7 +198,7 @@
       Kuryr-Kubernetes tempest job using lbaasv2 and CNI daemon
     vars:
       devstack_services:
-        kuryr_daemon: true
+        kuryr-daemon: true
 
 - job:
     name: kuryr-kubernetes-tempest-openshift-lbaasv2
@@ -223,7 +223,7 @@
       Kuryr-Kubernetes tempest job using lbaasv2, CNI daemon and OpenShift
     vars:
       devstack_services:
-        kuryr_daemon: true
+        kuryr-daemon: true
     voting: false
 
 - job:
