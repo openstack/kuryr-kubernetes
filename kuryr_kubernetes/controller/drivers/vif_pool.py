@@ -149,13 +149,23 @@ class BaseVIFPool(base.VIFPoolDriver):
     def _get_host_addr(self, pod):
         return pod['status']['hostIP']
 
+    def _get_pool_key(self, host, project_id, security_groups, net_id=None,
+                      subnets=None):
+        if not net_id and subnets:
+            net_obj = list(subnets.values())[0]
+            net_id = net_obj.id
+        pool_key = (host, project_id, tuple(sorted(security_groups)),
+                    net_id)
+        return pool_key
+
     def request_vif(self, pod, project_id, subnets, security_groups):
         try:
             host_addr = self._get_host_addr(pod)
         except KeyError:
             LOG.warning("Pod has not been scheduled yet.")
             raise
-        pool_key = (host_addr, project_id, tuple(sorted(security_groups)))
+        pool_key = self._get_pool_key(host_addr, project_id, security_groups,
+                                      None, subnets)
 
         try:
             return self._get_port_from_pool(pool_key, pod, subnets)
@@ -195,7 +205,9 @@ class BaseVIFPool(base.VIFPoolDriver):
 
     def release_vif(self, pod, vif, project_id, security_groups):
         host_addr = self._get_host_addr(pod)
-        pool_key = (host_addr, project_id, tuple(sorted(security_groups)))
+
+        pool_key = self._get_pool_key(host_addr, project_id, security_groups,
+                                      vif.network.id, None)
 
         if not self._existing_vifs.get(vif.id):
             self._existing_vifs[vif.id] = vif
@@ -349,13 +361,16 @@ class NeutronVIFPool(BaseVIFPool):
                                if port['id'] not in in_use_ports]
 
         for port in available_ports:
-            pool_key = (port['binding:host_id'], port['project_id'],
-                        tuple(port['security_groups']))
             subnet_id = port['fixed_ips'][0]['subnet_id']
             subnet = {
                 subnet_id: default_subnet._get_subnet(subnet_id)}
             vif_plugin = self._drv_vif._get_vif_plugin(port)
             vif = ovu.neutron_to_osvif_vif(vif_plugin, port, subnet)
+            net_obj = subnet[subnet_id]
+            pool_key = self._get_pool_key(port['binding:host_id'],
+                                          port['project_id'],
+                                          port['security_groups'],
+                                          net_obj.id, None)
 
             self._existing_vifs[port['id']] = vif
             self._available_ports_pools.setdefault(
@@ -578,13 +593,16 @@ class NestedVIFPool(BaseVIFPool):
             for subport in parent_port.get('subports'):
                 kuryr_subport = available_subports.get(subport['port_id'])
                 if kuryr_subport:
-                    pool_key = (host_addr, kuryr_subport['project_id'],
-                                tuple(sorted(kuryr_subport['security_groups']))
-                                )
+                    subnet_id = kuryr_subport['fixed_ips'][0]['subnet_id']
+                    subnet = subnets[subnet_id]
+                    net_obj = subnet[subnet_id]
+                    pool_key = self._get_pool_key(host_addr,
+                                                  kuryr_subport['project_id'],
+                                                  kuryr_subport[
+                                                      'security_groups'],
+                                                  net_obj.id, None)
 
                     if action == 'recover':
-                        subnet_id = kuryr_subport['fixed_ips'][0]['subnet_id']
-                        subnet = subnets[subnet_id]
                         vif = ovu.neutron_to_osvif_vif_nested_vlan(
                             kuryr_subport, subnet, subport['segmentation_id'])
 
@@ -631,7 +649,8 @@ class NestedVIFPool(BaseVIFPool):
             num_ports=num_ports,
             trunk_ip=trunk_ip)
 
-        pool_key = (trunk_ip, project_id, tuple(sorted(security_groups)))
+        pool_key = self._get_pool_key(trunk_ip, project_id, security_groups,
+                                      None, subnets)
         for vif in vifs:
             self._existing_vifs[vif.id] = vif
             self._available_ports_pools.setdefault(pool_key,
