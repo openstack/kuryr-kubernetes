@@ -12,9 +12,9 @@
     '''''''  Heading 4
     (Avoid deeper levels because they do not render well.)
 
-=========================================================
+====================================================
 Kuryr Kubernetes Openshift Routes integration design
-=========================================================
+====================================================
 
 Purpose
 -------
@@ -22,7 +22,7 @@ The purpose of this document is to present how Openshift Routes are supported
 by kuryr-kubernetes.
 
 Overview
-----------
+--------
 OpenShift Origin [1]_ is an open source cloud application development and
 hosting platform that automates the provisioning, management and scaling
 of applications.
@@ -51,7 +51,7 @@ Controller Handlers impact:
 The controller handlers should be extended to support OCP-Route resource.
 
 The OCP-Route handler
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 The OCP-Route handler watches the apiserver's for updates to Openshift
 Route resources.
 The following scheme describes OCP-Route controller SW architecture:

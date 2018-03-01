@@ -32,7 +32,7 @@ VIF-handler should stay clean whereas parsing of specific pod information
 should be moved to Multi-vif driver.
 
 Multi-vif driver
-~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
 The main driver that is authorized to call other drivers. The main aim of
 this driver is to get list of enabled drivers, parse pod annotations, pass
 pod object to enabled drivers and get vif objects from them to pass these

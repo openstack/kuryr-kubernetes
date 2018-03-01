@@ -31,7 +31,7 @@ testing infrastructure.
 
 
 Design documents
------------------
+----------------
 .. toctree::
     :maxdepth: 3
 

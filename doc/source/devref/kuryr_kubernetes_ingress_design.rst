@@ -12,9 +12,9 @@
     '''''''  Heading 4
     (Avoid deeper levels because they do not render well.)
 
-=========================================================
+===========================================
 Kuryr Kubernetes Ingress integration design
-=========================================================
+===========================================
 
 Purpose
 -------
@@ -22,7 +22,7 @@ The purpose of this document is to present how Kubernetes Ingress controller
 is supported by the kuryr integration.
 
 Overview
-----------
+--------
 A Kubernetes Ingress [1]_ is used to give services externally-reachable URLs,
 load balance traffic, terminate SSL, offer name based virtual
 hosting, and more.
@@ -49,7 +49,7 @@ Kuryr will use neutron LBaaS L7 policy capability [3]_ to perform
 the L7 routing task.
 
 SW architecture:
------------------
+----------------
 The following scheme describes the SW modules that provides Ingress controller
 capability in Kuryr Kubernetes context:
 
@@ -69,7 +69,7 @@ modules:
 Each one of this modules is detailed described below.
 
 Ingress resource creation
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
 The kuryr-kubernetes controller will create the L7 router,
 and both Ingress and Service/Endpoints handlers should update the L7
 rules database of the L7 router.
@@ -83,7 +83,7 @@ ingress controller SW :
     :width: 100%
 
 The L7 Router
-~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
 In Kuryr context, a L7 router is actually an externally reachable
 loadbalancer with L7 capabilities.
 For achieving external connectivity the L7 router is attached to a floating
@@ -128,7 +128,7 @@ pointing to it, the Ingress handler should trigger this notification,
 the notification will be implemented using annotation.
 
 Service/Endpoints Handler
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
 The Service/Endpoints handler should be **extended** to support the flows
 involving Ingress resources.
 The Service/Endpoints handler should add/delete all its members to/from the
@@ -136,7 +136,7 @@ LBaaS pool mentioned above, in case an Ingress is pointing this
 Service/Endpoints as its destination.
 
 The L7 router driver
-~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 The L7 router, Ingress handler and Service/Endpoints handler will
 call the L7 router driver services to create the L7 routing entities chain.
 The L7 router driver will rely on neutron LBaaS functionality.
