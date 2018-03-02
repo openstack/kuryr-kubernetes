@@ -205,3 +205,30 @@ Run kuryr-daemon::
 Alternatively you may run it in screen::
 
     $ screen -dm kuryr-daemon --config-file /etc/kuryr/kuryr.conf -d
+
+Kuryr CNI Daemon health checks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The CNI daemon health checks allow the deployer or the orchestration layer
+(like for example Kubernetes or OpenShift) to probe the CNI daemon for liveness
+and readiness.
+
+If you want to make use of all of its facilities, you should run the
+kuryr-daemon in its own cgroup. It will get its own cgroup if you:
+* Run it as a systemd service,
+* run it containerized,
+* create a memory cgroup for it.
+
+In order to make the daemon run in its own cgroup, you can do the following::
+
+    systemd-run --unit=kuryr-daemon --scope --slice=kuryr-cni \
+        kuryr-daemon --config-file /etc/kuryr/kuryr.conf -d
+
+After this, with the CNI daemon running inside its own cgroup, we can enable
+the CNI daemon memory health check. This health check allows us to limit the
+memory consumption of the CNI Daemon. The health checks will fail if CNI starts
+taking more memory that it is set and the orchestration layer should restart.
+The setting is::
+
+    [cni_health_server]
+    max_memory_usage = 4096  # Set the memory limit to 4GiB

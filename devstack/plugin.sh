@@ -90,6 +90,9 @@ function configure_kuryr {
             # configs.
             iniset "$KURYR_CONFIG" cni_daemon docker_mode True
             iniset "$KURYR_CONFIG" cni_daemon netns_proc_dir "/host_proc"
+        else
+            iniset "$KURYR_CONFIG" cni_health_server cg_path \
+                "/system.slice/system-devstack.slice/devstack@kuryr-daemon.service"
         fi
     fi
 

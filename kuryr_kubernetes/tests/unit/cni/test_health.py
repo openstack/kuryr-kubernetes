@@ -15,13 +15,10 @@ from kuryr_kubernetes.cni import health
 from kuryr_kubernetes.tests import base
 import mock
 import multiprocessing
+import os
 import tempfile
 
 from oslo_config import cfg
-
-
-class TestResourceUsage(object):
-    pass
 
 
 class TestCNIHealthServer(base.TestCase):
@@ -79,13 +76,12 @@ class TestCNIHealthServer(base.TestCase):
         resp = self.test_client.get('/alive')
         self.assertEqual(500, resp.status_code)
 
-    @mock.patch('psutil.Process.memory_info')
-    def test_liveness_status_mem_usage_error(self, m_resource):
+    @mock.patch('kuryr_kubernetes.cni.health._get_memsw_usage')
+    def test_liveness_status_mem_usage_error(self, get_memsw_usage):
+        get_memsw_usage.return_value = 5368709120 / health.BYTES_AMOUNT
         cfg.CONF.set_override('max_memory_usage', 4096,
                               group='cni_health_server')
-        cls = TestResourceUsage()
-        cls.rss = 5368709120
-        m_resource.return_value = cls
+
         resp = self.test_client.get('/alive')
         self.assertEqual(500, resp.status_code)
 
@@ -102,3 +98,30 @@ class TestCNIHealthUtils(base.TestCase):
                 health._has_cap(health.CAP_NET_ADMIN,
                                 'CapBnd:\t',
                                 fake_status.name))
+
+    def test__get_mem_usage(self):
+        mem_usage = 500  # Arbitrary mem usage amount
+        fake_cg_path = tempfile.mkdtemp(suffix='kuryr')
+        usage_in_bytes_path = os.path.join(fake_cg_path, health.MEMSW_FILENAME)
+        try:
+            with open(usage_in_bytes_path, 'w') as cgroup_mem_usage:
+                cgroup_mem_usage.write('{}\n'.format(
+                    mem_usage * health.BYTES_AMOUNT))
+            self.assertEqual(health._get_memsw_usage(fake_cg_path), mem_usage)
+        finally:
+            os.unlink(usage_in_bytes_path)
+            os.rmdir(fake_cg_path)
+
+    @mock.patch('kuryr_kubernetes.cni.utils.running_under_container_runtime')
+    def test__get_cni_cgroup_path_system(self, running_containerized):
+        running_containerized.return_value = False
+        fake_path = '/kuryr/rules'
+        cfg.CONF.set_override('cg_path', fake_path,
+                              group='cni_health_server')
+        self.assertEqual(health._get_cni_cgroup_path(), fake_path)
+
+    @mock.patch('kuryr_kubernetes.cni.utils.running_under_container_runtime')
+    def test__get_cni_cgroup_path_container(self, running_containerized):
+        running_containerized.return_value = True
+        self.assertEqual(health._get_cni_cgroup_path(),
+                         health.TOP_CGROUP_MEMORY_PATH)

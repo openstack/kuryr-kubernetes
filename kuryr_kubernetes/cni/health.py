@@ -10,9 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import gc
 import os
-import psutil
 import requests
 from six.moves import http_client as httplib
 
@@ -20,6 +18,7 @@ from flask import Flask
 from pyroute2 import IPDB
 
 from kuryr.lib._i18n import _
+from kuryr_kubernetes.cni import utils
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -35,10 +34,18 @@ cni_health_server_opts = [
                       'process. If this value is exceeded kuryr-daemon '
                       'will be marked as unhealthy.'),
                default=-1),
+    cfg.StrOpt(
+        'cg_path',
+        help=_('sysfs path to the CNI cgroup. This is used for resource'
+               'tracking and as such should point to the cgroup hierarchy '
+               'leaf. It only applies when non containerized'),
+        default='/sys/fs/cgroup/memory/system.slice/kuryr-cni.service')
 ]
 
 CONF.register_opts(cni_health_server_opts, "cni_health_server")
 
+TOP_CGROUP_MEMORY_PATH = '/sys/fs/cgroup/memory'
+MEMSW_FILENAME = 'memory.memsw.usage_in_bytes'
 BYTES_AMOUNT = 1048576
 CAP_NET_ADMIN = 12  # Taken from linux/capabilities.h
 EFFECTIVE_CAPS = 'CapEff:\t'
@@ -59,6 +66,25 @@ def _has_cap(capability, entry, proc_status_path='/proc/self/status'):
             if line.startswith(entry):
                 caps = int(line[len(entry):], 16)
     return (caps & (1 << capability)) != 0
+
+
+def _get_cni_cgroup_path():
+    """Returns the path to the CNI process cgroup memory directory."""
+    if utils.running_under_container_runtime():
+        # We are running inside a container. This means the root cgroup
+        # is the one we need to track as it will be the CNI parent proc
+        cg_memsw_path = TOP_CGROUP_MEMORY_PATH
+    else:
+        cg_memsw_path = CONF.cni_health_server.cg_path
+
+    return cg_memsw_path
+
+
+def _get_memsw_usage(cgroup_mem_path):
+    """Returns the group's resident memory plus swap usage."""
+    with open(os.path.join(cgroup_mem_path, MEMSW_FILENAME)) as memsw:
+        memsw_in_bytes = int(memsw.read())
+    return memsw_in_bytes / BYTES_AMOUNT
 
 
 class CNIHealthServer(object):
@@ -108,11 +134,8 @@ class CNIHealthServer(object):
             return error_message, httplib.INTERNAL_SERVER_ERROR, self.headers
 
         if CONF.cni_health_server.max_memory_usage != no_limit:
-            # Force gc to release unreferenced memory before actually checking
-            # the memory.
-            gc.collect()
-            process = psutil.Process(os.getpid())
-            mem_usage = process.memory_info().rss / BYTES_AMOUNT
+            mem_usage = _get_memsw_usage(_get_cni_cgroup_path())
+
             if mem_usage > CONF.cni_health_server.max_memory_usage:
                 err_message = 'CNI daemon exceeded maximum memory usage.'
                 LOG.debug(err_message)

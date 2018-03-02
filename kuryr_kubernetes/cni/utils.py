@@ -12,6 +12,19 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+PROC_ONE_CGROUP_PATH = '/proc/1/cgroup'
+CONTAINER_RUNTIME_CGROUP_IDS = (
+    'docker',  # This is set by docker/moby
+    'libpod',  # This is set by podman
+)
+
+
+def running_under_container_runtime(proc_one_cg_path=PROC_ONE_CGROUP_PATH):
+    """Returns True iff the CNI process is under a known container runtime."""
+    with open(proc_one_cg_path, 'r') as cgroup_info:
+        proc_one_cg_info = cgroup_info.read()
+    return any(runtime in proc_one_cg_info for runtime in
+               CONTAINER_RUNTIME_CGROUP_IDS)
 
 
 class CNIConfig(dict):
