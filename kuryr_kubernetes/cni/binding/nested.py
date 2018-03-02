@@ -17,6 +17,7 @@ import six
 
 from kuryr_kubernetes.cni.binding import base as b_base
 from kuryr_kubernetes import config
+from kuryr_kubernetes.handlers import health
 from kuryr_kubernetes import utils
 
 VLAN_KIND = 'vlan'
@@ -25,7 +26,10 @@ MACVLAN_MODE_BRIDGE = 'bridge'
 
 
 @six.add_metaclass(abc.ABCMeta)
-class NestedDriver(object):
+class NestedDriver(health.HealthHandler):
+
+    def __init__(self):
+        super(NestedDriver, self).__init__()
 
     @abc.abstractmethod
     def _get_iface_create_args(self, vif):
@@ -65,10 +69,18 @@ class NestedDriver(object):
 
 
 class VlanDriver(NestedDriver):
+
+    def __init__(self):
+        super(VlanDriver, self).__init__()
+
     def _get_iface_create_args(self, vif):
         return {'kind': VLAN_KIND, 'vlan_id': vif.vlan_id}
 
 
 class MacvlanDriver(NestedDriver):
+
+    def __init__(self):
+        super(MacvlanDriver, self).__init__()
+
     def _get_iface_create_args(self, vif):
         return {'kind': MACVLAN_KIND, 'macvlan_mode': MACVLAN_MODE_BRIDGE}

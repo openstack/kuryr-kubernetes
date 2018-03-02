@@ -107,4 +107,5 @@ generate_kuryr_configmap $OUTPUT_DIR $CONTROLLER_CONF_PATH $CNI_CONF_PATH
 generate_kuryr_service_account $OUTPUT_DIR
 health_server_port=${KURYR_HEALTH_SERVER_PORT:-8082}
 generate_controller_deployment $OUTPUT_DIR $health_server_port
-generate_cni_daemon_set $OUTPUT_DIR
+cni_health_server_port=${KURYR_CNI_HEALTH_SERVER_PORT:-8090}
+generate_cni_daemon_set $OUTPUT_DIR $cni_health_server_port

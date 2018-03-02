@@ -75,14 +75,18 @@ def _configure_l3(vif, ifname, netns):
                            dst='default').commit()
 
 
-def connect(vif, instance_info, ifname, netns=None):
+def connect(vif, instance_info, ifname, netns=None, report_health=None):
     driver = _get_binding_driver(vif)
+    if report_health:
+        report_health(driver.is_healthy())
     os_vif.plug(vif, instance_info)
     driver.connect(vif, ifname, netns)
     _configure_l3(vif, ifname, netns)
 
 
-def disconnect(vif, instance_info, ifname, netns=None):
+def disconnect(vif, instance_info, ifname, netns=None, report_health=None):
     driver = _get_binding_driver(vif)
+    if report_health:
+        report_health(driver.is_healthy())
     driver.disconnect(vif, ifname, netns)
     os_vif.unplug(vif, instance_info)

@@ -461,8 +461,10 @@ EOF
 
 function generate_cni_daemon_set() {
     output_dir=$1
-    cni_bin_dir=${2:-/opt/cni/bin}
-    cni_conf_dir=${3:-/etc/cni/net.d}
+    cni_health_server_port=$2
+    cni_daemon=${3:-False}
+    cni_bin_dir=${4:-/opt/cni/bin}
+    cni_conf_dir=${5:-/etc/cni/net.d}
     mkdir -p "$output_dir"
     rm -f ${output_dir}/cni_ds.yml
     cat >> "${output_dir}/cni_ds.yml" << EOF
@@ -513,6 +515,24 @@ spec:
           mountPath: /host_proc
         - name: openvswitch
           mountPath: /var/run/openvswitch
+EOF
+    if [ "$cni_daemon" == "True" ]; then
+        cat >> "${output_dir}/cni_ds.yml" << EOF
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: ${cni_health_server_port}
+            scheme: HTTP
+          initialDelaySeconds: 15
+          timeoutSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /alive
+            port: ${cni_health_server_port}
+          initialDelaySeconds: 15
+EOF
+    fi
+    cat >> "${output_dir}/cni_ds.yml" << EOF
       volumes:
         - name: bin
           hostPath:
