@@ -32,30 +32,30 @@ class TestCNIHealthServer(base.TestCase):
         self.srv.application.testing = True
         self.test_client = self.srv.application.test_client()
 
-    @mock.patch('subprocess.call')
+    @mock.patch('kuryr_kubernetes.cni.health._has_cap')
     @mock.patch('kuryr_kubernetes.cni.health.CNIHealthServer.'
                 'verify_k8s_connection')
-    def test_readiness_status(self, m_verify_k8s_conn, m_subprocess):
-        m_subprocess.return_value = 0
+    def test_readiness_status(self, m_verify_k8s_conn, cap_tester):
+        cap_tester.return_value = True
         m_verify_k8s_conn.return_value = True, 200
         resp = self.test_client.get('/ready')
         self.assertEqual(200, resp.status_code)
 
-    @mock.patch('subprocess.call')
+    @mock.patch('kuryr_kubernetes.cni.health._has_cap')
     @mock.patch('kuryr_kubernetes.cni.health.CNIHealthServer.'
                 'verify_k8s_connection')
     def test_readiness_status_net_admin_error(self, m_verify_k8s_conn,
-                                              m_subprocess):
-        m_subprocess.return_value = 1
+                                              cap_tester):
+        cap_tester.return_value = False
         m_verify_k8s_conn.return_value = True, 200
         resp = self.test_client.get('/ready')
         self.assertEqual(500, resp.status_code)
 
-    @mock.patch('subprocess.call')
+    @mock.patch('kuryr_kubernetes.cni.health._has_cap')
     @mock.patch('kuryr_kubernetes.cni.health.CNIHealthServer.'
                 'verify_k8s_connection')
-    def test_readiness_status_k8s_error(self, m_verify_k8s_conn, m_subprocess):
-        m_subprocess.return_value = 0
+    def test_readiness_status_k8s_error(self, m_verify_k8s_conn, cap_tester):
+        cap_tester.return_value = True
         m_verify_k8s_conn.return_value = False, 503
         resp = self.test_client.get('/ready')
         self.assertEqual(503, resp.status_code)
@@ -87,3 +87,8 @@ class TestCNIHealthServer(base.TestCase):
         m_resource.return_value = cls
         resp = self.test_client.get('/alive')
         self.assertEqual(500, resp.status_code)
+
+
+class TestCNIHealthUtils(base.TestCase):
+    def test_has_cap(self):
+        self.assertTrue(health._has_cap(health.CAP_NET_ADMIN, 'CapBnd:\t'))
