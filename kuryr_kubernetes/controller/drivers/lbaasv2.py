@@ -31,6 +31,7 @@ from kuryr_kubernetes.objects import lbaas as obj_lbaas
 
 LOG = logging.getLogger(__name__)
 _ACTIVATION_TIMEOUT = 300
+_SUPPORTED_LISTENER_PROT = ('HTTP', 'HTTPS', 'TCP')
 
 
 class LBaaSv2Driver(base.LBaaSDriver):
@@ -128,6 +129,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                   'for listener %s.', listener.name)
 
     def ensure_listener(self, endpoints, loadbalancer, protocol, port):
+        if protocol not in _SUPPORTED_LISTENER_PROT:
+            LOG.info("Protocol: %(prot)s: is not supported by LBaaSV2", {
+                'prot': protocol})
+            return None
         name = "%(namespace)s/%(name)s" % endpoints['metadata']
         name += ":%s:%s" % (protocol, port)
         listener = obj_lbaas.LBaaSListener(name=name,
