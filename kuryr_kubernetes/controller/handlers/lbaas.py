@@ -301,8 +301,18 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         pool_by_lsnr_port = {(lsnr_by_id[p.listener_id].protocol,
                               lsnr_by_id[p.listener_id].port): p
                              for p in lbaas_state.pools}
-        pool_by_tgt_name = {p.name: pool_by_lsnr_port[p.protocol, p.port]
-                            for p in lbaas_spec.ports}
+        # NOTE(yboaron): Since LBaaSv2 doesn't support UDP load balancing,
+        #              the LBaaS driver will return 'None' in case of UDP port
+        #              listener creation.
+        #              we should consider the case in which
+        #              'pool_by_lsnr_port[p.protocol, p.port]' is missing
+        pool_by_tgt_name = {}
+        for p in lbaas_spec.ports:
+            try:
+                pool_by_tgt_name[p.name] = pool_by_lsnr_port[p.protocol,
+                                                             p.port]
+            except KeyError:
+                continue
         current_targets = {(str(m.ip), m.port) for m in lbaas_state.members}
 
         for subset in endpoints.get('subsets', []):
@@ -454,8 +464,9 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                 loadbalancer=lbaas_state.loadbalancer,
                 protocol=protocol,
                 port=port)
-            lbaas_state.listeners.append(listener)
-            changed = True
+            if listener is not None:
+                lbaas_state.listeners.append(listener)
+                changed = True
         return changed
 
     def _remove_unused_listeners(self, endpoints, lbaas_state, lbaas_spec):
