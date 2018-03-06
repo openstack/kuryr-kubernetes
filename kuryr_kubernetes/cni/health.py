@@ -15,7 +15,6 @@ import os
 import psutil
 import requests
 from six.moves import http_client as httplib
-import subprocess
 
 from flask import Flask
 from pyroute2 import IPDB
@@ -41,6 +40,16 @@ cni_health_server_opts = [
 CONF.register_opts(cni_health_server_opts, "cni_health_server")
 
 BYTES_AMOUNT = 1048576
+CAP_NET_ADMIN = 12  # Taken from linux/capabilities.h
+EFFECTIVE_CAPS = 'CapEff:\t'
+
+
+def _has_cap(capability, entry):
+    with open('/proc/self/status', 'r') as pstat:
+        for line in pstat:
+            if line.startswith(entry):
+                caps = int(line[len(entry):], 16)
+    return (caps & (1 << capability)) != 0
 
 
 class CNIHealthServer(object):
@@ -63,13 +72,10 @@ class CNIHealthServer(object):
         self.headers = {'Connection': 'close'}
 
     def readiness_status(self):
-        net_admin_command = 'capsh --print | grep "Current:" | ' \
-                            'cut -d" " -f3 | grep -q cap_net_admin'
-        return_code = subprocess.call(net_admin_command, shell=True)
         data = 'ok'
         k8s_conn, k8s_status = self.verify_k8s_connection()
 
-        if return_code != 0:
+        if not _has_cap(CAP_NET_ADMIN, EFFECTIVE_CAPS):
             error_message = 'NET_ADMIN capabilities not present.'
             LOG.error(error_message)
             return error_message, httplib.INTERNAL_SERVER_ERROR, self.headers
