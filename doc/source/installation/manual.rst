@@ -15,10 +15,9 @@ Install ``kuryr-k8s-controller`` in a virtualenv::
 
 
 In neutron or in horizon create subnet for pods, subnet for services and a
-security-group for pods. You may use existing if you like.
-
-.. todo::
-    Add reference neutron cli commands
+security-group for pods. You may use existing if you like. In case that you
+decide to create new networks and subnets with the cli, you can follow the
+services guide, specifically its :ref:`k8s_default_configuration` section.
 
 Create ``/etc/kuryr/kuryr.conf``::
 
