@@ -161,6 +161,10 @@ neutron_defaults = [
     cfg.StrOpt('external_svc_subnet',
                help=_("Optional external subnet ID for Kubernetes services"),
                default=None),
+    cfg.IntOpt('lbaas_activation_timeout',
+               help=_("Time (in seconds) that kuryr controller waits for "
+                      "neutron LBaaS to be activated"),
+               default=300),
 ]
 
 octavia_defaults = [

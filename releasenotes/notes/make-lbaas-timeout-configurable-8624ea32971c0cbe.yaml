@@ -1,0 +1,7 @@
+---
+upgrade:
+  - |
+    As the openstack performance differs in production environments,
+    fixed timeout of LBaaS activation might create the kuryr-kubernetes error.
+    In order to adapt to the environment, a new option
+    ``[neutron_defaults]lbaas_activation_timeout`` was added.
