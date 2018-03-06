@@ -15,6 +15,7 @@ from kuryr_kubernetes.cni import health
 from kuryr_kubernetes.tests import base
 import mock
 import multiprocessing
+import tempfile
 
 from oslo_config import cfg
 
@@ -91,4 +92,13 @@ class TestCNIHealthServer(base.TestCase):
 
 class TestCNIHealthUtils(base.TestCase):
     def test_has_cap(self):
-        self.assertTrue(health._has_cap(health.CAP_NET_ADMIN, 'CapBnd:\t'))
+        with tempfile.NamedTemporaryFile() as fake_status:
+            fake_status.write(b'CapInh:\t0000000000000000\n'
+                              b'CapPrm:\t0000000000000000\n'
+                              b'CapEff:\t0000000000000000\n'
+                              b'CapBnd:\t0000003fffffffff\n')
+            fake_status.flush()
+            self.assertTrue(
+                health._has_cap(health.CAP_NET_ADMIN,
+                                'CapBnd:\t',
+                                fake_status.name))

@@ -44,8 +44,17 @@ CAP_NET_ADMIN = 12  # Taken from linux/capabilities.h
 EFFECTIVE_CAPS = 'CapEff:\t'
 
 
-def _has_cap(capability, entry):
-    with open('/proc/self/status', 'r') as pstat:
+def _has_cap(capability, entry, proc_status_path='/proc/self/status'):
+    """Returns true iff the process has the specified capability.
+
+    :param capability: the bit number for the capability to check as seen
+                       in linux/capabilities.h.
+    :param entry: Whether to check CapInh, CapEff or CapBnd.
+    :param proc_status_path: Which process status should be checked. If none
+                             is passed, it will check the current process.
+    :return: Whether the specified process has the capability bit set
+    """
+    with open(proc_status_path, 'r') as pstat:
         for line in pstat:
             if line.startswith(entry):
                 caps = int(line[len(entry):], 16)
