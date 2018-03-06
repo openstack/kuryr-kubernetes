@@ -157,20 +157,15 @@ to work correctly::
     deactivate
     sudo pip install 'oslo.privsep>=1.20.0' 'os-vif>=1.5.0'
 
-Configure Kuryr CNI Daemon (optional)
+Configure Kuryr CNI Daemon
 -------------------------------------
 
-Kuryr CNI Daemon is an optional service designed to increased scalability of
-the Kuryr operations done on Kubernetes nodes. More information can be found on
+Kuryr CNI Daemon is a service designed to increased scalability of the Kuryr
+operations done on Kubernetes nodes. More information can be found on
 :ref:`cni-daemon` page.
 
-If you want to use Kuryr CNI Daemon, it needs to be installed on every
-Kubernetes node, so following steps need to be repeated.
-
-Edit ``kuryr.conf``::
-
-    [cni_daemon]
-    daemon_enabled=True
+Kuryr CNI Daemon, should be installed on every Kubernetes node, so following
+steps need to be repeated.
 
 .. note::
   You can tweak configuration of some timeouts to match your environment. It's

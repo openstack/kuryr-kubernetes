@@ -1,0 +1,18 @@
+---
+upgrade:
+  - |
+    Legacy Kuryr deployment without running kuryr-daemon is now considered
+    deprecated. That possibility will be completely removed in one of the next
+    releases. Please note that this means that ``[cni_daemon]daemon_enabled``
+    option will default to ``True``.
+deprecations:
+  - |
+    Running Kuryr-Kubernetes without kuryr-daemon service is now deprecated.
+    Motivations for that move include:
+
+    * Discoveries of bugs that are much easier to fix in kuryr-daemon.
+    * Further improvements in Kuryr scalability (e.g. moving choosing VIF from
+      pool into kuryr-daemon) are only possible when kuryr-daemon is present.
+
+    Possibility of running Kuryr-Kubernetes without kuryr-daemon will be
+    removed in one of the future releases.

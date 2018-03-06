@@ -82,7 +82,6 @@ function configure_kuryr {
     fi
 
     if is_service_enabled kuryr-daemon; then
-        iniset "$KURYR_CONFIG" cni_daemon daemon_enabled True
         iniset "$KURYR_CONFIG" oslo_concurrency lock_path "$KURYR_LOCK_DIR"
         create_kuryr_lock_dir
         if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
@@ -91,6 +90,8 @@ function configure_kuryr {
             iniset "$KURYR_CONFIG" cni_daemon docker_mode True
             iniset "$KURYR_CONFIG" cni_daemon netns_proc_dir "/host_proc"
         fi
+    else
+        iniset "$KURYR_CONFIG" cni_daemon daemon_enabled False
     fi
 
     create_kuryr_cache_dir

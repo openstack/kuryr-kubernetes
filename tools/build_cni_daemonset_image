@@ -2,7 +2,7 @@
 
 CNI_BIN_DIR=$1
 CNI_CONF_DIR=$2
-CNI_DAEMON=${3:-"False"}
+CNI_DAEMON=${3:-"True"}
 CNI_TAG="kuryr/cni"
 
 # create cni daemonset image

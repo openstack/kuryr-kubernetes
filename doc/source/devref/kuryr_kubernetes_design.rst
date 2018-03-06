@@ -165,45 +165,19 @@ CNI driver to complete pod handling.
 The NeutronPodVifDriver is the default driver that creates neutron port upon
 Pod addition and deletes port upon Pod removal.
 
-CNI Driver
-----------
-Kuryr kubernetes integration takes advantage of the kubernetes `CNI plugin <http://kubernetes.io/docs/admin/network-plugins/#cni>`_
-and introduces Kuryr-K8s CNI Driver. Based on design decision, kuryr-kubernetes
-CNI Driver should get all information required to plug and bind Pod via
-kubernetes control plane and should not depend on Neutron. CNI plugin/driver
-is invoked in a blocking manner by kubelet (Kubernetes node agent), therefore it is
-expected to return when either success or error state determined.
-
-Kuryr-K8s CNI Driver has 2 sources for Pod binding information: kubelet/node
-environment and Kubernetes API. The Kuryr-K8s Controller Service and CNI share the
-contract that defines Pod annotation that Controller Server adds and CNI
-driver reads. The contract is `os_vif VIF <https://github.com/openstack/os-vif/blob/master/os_vif/objects/vif.py>`_
-
-With VIF object loaded from the Pod object annotation, the CNI driver performs
-Pod plugging. Kuryr-K8s CNI driver uses ov_vif library to perform Pod plug and
-unplug operations. The CNI driver should complete its job and return control to
-Kubelet when all the network plugging is completed.
-In the cases when Neutron initially creates port in 'Down' state, CNI driver
-will plug the Pod, but will have to watch the Pod annotations for vif state
-change to 'Active' before returning the control to the caller.
-
-.. image:: ../../images/pod_creation_flow.png
-    :alt: Controller-CNI interaction
-    :align: center
-    :width: 100%
-
 .. _cni-daemon:
 
 CNI Daemon
 ----------
 
-CNI Daemon is an optional service that should run on every Kubernetes node. It
-is responsible for watching pod events on the node it's running on, answering
-calls from CNI Driver and attaching VIFs when they are ready. In the future
-it will also keep information about pooled ports in memory. This helps to limit
-the number of processes spawned when creating multiple Pods, as a single
-Watcher is enough for each node and CNI Driver will only wait on local network
-socket for response from the Daemon.
+CNI Daemon is a service that should run on every Kubernetes node. Starting from
+Rocky release it should be seen as a default supported deployment option.
+It is responsible for watching pod events on the node it's running on,
+answering calls from CNI Driver and attaching VIFs when they are ready. In the
+future it will also keep information about pooled ports in memory. This helps
+to limit the number of processes spawned when creating multiple Pods, as a
+single Watcher is enough for each node and CNI Driver will only wait on local
+network socket for response from the Daemon.
 
 Currently CNI Daemon consists of two processes i.e. Watcher and Server.
 Processes communicate between each other using Python's
@@ -251,6 +225,44 @@ deserialized using o.vo's ``obj_from_primitive()`` method.
 
 When running in daemonized mode, CNI Driver will call CNI Daemon over those APIs
 to perform its tasks and wait on socket for result.
+
+CNI Driver (deprecated)
+-----------------------
+
+.. warning::
+    Running with CNI Driver in this mode is deprecated since Rocky release.
+    Currently the preferred way of deploying kuryr-kubernetes is with
+    kuryr-daemon that takes over most of the CNI Driver tasks. In that case CNI
+    driver becomes a thin client that passes CNI ADD and DEL requests to
+    kuryr-daemon instance via its HTTP API.
+
+Kuryr kubernetes integration takes advantage of the kubernetes `CNI plugin
+<http://kubernetes.io/docs/admin/network-plugins/#cni>`_ and introduces
+Kuryr-K8s CNI Driver. Based on design decision, kuryr-kubernetes
+CNI Driver should get all information required to plug and bind Pod via
+kubernetes control plane and should not depend on Neutron. CNI plugin/driver
+is invoked in a blocking manner by kubelet (Kubernetes node agent), therefore
+it is expected to return when either success or error state determined.
+
+Kuryr-K8s CNI Driver has 2 sources for Pod binding information: kubelet/node
+environment and Kubernetes API. The Kuryr-K8s Controller Service and CNI share the
+contract that defines Pod annotation that Controller Server adds and CNI
+driver reads. The contract is `os_vif VIF
+<https://github.com/openstack/os-vif/blob/master/os_vif/objects/vif.py>`_
+
+With VIF object loaded from the Pod object annotation, the CNI driver performs
+Pod plugging. Kuryr-K8s CNI driver uses ov_vif library to perform Pod plug and
+unplug operations. The CNI driver should complete its job and return control to
+Kubelet when all the network plugging is completed.
+In the cases when Neutron initially creates port in 'Down' state, CNI driver
+will plug the Pod, but will have to watch the Pod annotations for vif state
+change to 'Active' before returning the control to the caller.
+
+.. image:: ../../images/pod_creation_flow.png
+    :alt: Controller-CNI interaction
+    :align: center
+    :width: 100%
+
 
 Kubernetes Documentation
 ------------------------
