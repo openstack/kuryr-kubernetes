@@ -177,6 +177,10 @@ neutron_defaults = [
     cfg.IntOpt('network_device_mtu',
                help='Default MTU setting for network interface.',
                default=1500,),
+    cfg.IntOpt('lbaas_activation_timeout',
+               help=_("Time (in seconds) that kuryr controller waits for "
+                      "neutron LBaaS to be activated"),
+               default=300),
 ]
 
 octavia_defaults = [

@@ -838,7 +838,7 @@ function create_load_balancer_listener {
     port="$3"
     lb="$4"
 
-    max_timeout=600
+    max_timeout=1200
     # Octavia needs the LB to be active for the listener
     wait_for_lb $lb $max_timeout
 
