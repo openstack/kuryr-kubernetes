@@ -1,0 +1,16 @@
+---
+features:
+  - |
+    The CNI daemon now provides health checks allowing the deployer or the
+    orchestration layer to probe it for readiness and liveness.
+
+    These health checks are served and executed by a Manager that runs
+    as part of CNI daemon, and offers two endpoints indicating whether
+    it is ready and alive.
+
+    The Manager validates presence of NET_ADMIN capabilities, health status
+    of a transactional database, connectivity with Kubernetes API, quantity of
+    CNI add failures, health of CNI components and amount of memory
+    being consumed. The health checks fails if any of the presented checks
+    are not validated, causing the orchestration layer to restart.
+    More information can be found in the kuryr-kubernetes documentation.
