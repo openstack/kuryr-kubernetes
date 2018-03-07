@@ -22,6 +22,7 @@ import time
 from kuryr.lib._i18n import _
 from kuryr.lib import constants as kl_const
 from neutronclient.common import exceptions as n_exc
+from oslo_cache import core as cache
 from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
@@ -34,6 +35,7 @@ from kuryr_kubernetes.controller.drivers import default_subnet
 from kuryr_kubernetes.controller.managers import pool
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes import os_vif_util as ovu
+from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -53,9 +55,30 @@ vif_pool_driver_opts = [
                     help=_("Minimun interval (in seconds) "
                            "between pool updates"),
                     default=20),
+    oslo_cfg.DictOpt('pools_vif_drivers',
+                     help=_("Dict with the pool driver and pod driver to be "
+                            "used. If not set, it will take them from the "
+                            "kubernetes driver options for pool and pod "
+                            "drivers respectively"),
+                     default={}),
 ]
 
 oslo_cfg.CONF.register_opts(vif_pool_driver_opts, "vif_pool")
+
+node_vif_driver_caching_opts = [
+    oslo_cfg.BoolOpt('caching', default=True),
+    oslo_cfg.IntOpt('cache_time', default=3600),
+]
+
+oslo_cfg.CONF.register_opts(node_vif_driver_caching_opts,
+                            "node_driver_caching")
+
+cache.configure(oslo_cfg.CONF)
+node_driver_cache_region = cache.create_region()
+MEMOIZE = cache.get_memoization_decorator(
+    oslo_cfg.CONF, node_driver_cache_region, "node_driver_caching")
+
+cache.configure_cache_region(oslo_cfg.CONF, node_driver_cache_region)
 
 
 class NoopVIFPool(base.VIFPoolDriver):
@@ -618,3 +641,68 @@ class NestedVIFPool(BaseVIFPool):
         no trunk is specified).
         """
         self._remove_precreated_ports(trunk_ips)
+
+
+class MultiVIFPool(base.VIFPoolDriver):
+    """Manages pools with different VIF types.
+
+    It manages hybrid deployments containing both Bare Metal and Nested
+    Kubernetes Pods. To do that it creates a pool per node with a different
+    pool driver depending on the vif driver that the node is using.
+
+    It assumes a label pod_vif is added to each node to inform about the
+    driver set for that node. If no label is added, it assumes the default pod
+    vif: the one specified at kuryr.conf
+    """
+
+    def set_vif_driver(self):
+        self._vif_drvs = {}
+        pools_vif_drivers = oslo_cfg.CONF.vif_pool.pools_vif_drivers
+        if not pools_vif_drivers:
+            pod_vif = oslo_cfg.CONF.kubernetes.pod_vif_driver
+            drv_vif = base.PodVIFDriver.get_instance()
+            drv_pool = base.VIFPoolDriver.get_instance()
+            drv_pool.set_vif_driver(drv_vif)
+            self._vif_drvs[pod_vif] = drv_pool
+            return
+        for pool_driver, pod_driver in pools_vif_drivers.items():
+            if not utils.check_suitable_multi_pool_driver_opt(pool_driver,
+                                                              pod_driver):
+                LOG.ERROR("The pool and pod driver selected are not "
+                          "compatible. They will be skipped")
+                raise exceptions.MultiPodDriverPoolConfigurationNotSupported()
+            drv_vif = base.PodVIFDriver.get_instance(driver_alias=pod_driver)
+            drv_pool = base.VIFPoolDriver.get_instance(
+                driver_alias=pool_driver)
+            drv_pool.set_vif_driver(drv_vif)
+            self._vif_drvs[pod_driver] = drv_pool
+
+    def request_vif(self, pod, project_id, subnets, security_groups):
+        pod_vif_type = self._get_pod_vif_type(pod)
+        return self._vif_drvs[pod_vif_type].request_vif(
+            pod, project_id, subnets, security_groups)
+
+    def release_vif(self, pod, vif, *argv):
+        pod_vif_type = self._get_pod_vif_type(pod)
+        self._vif_drvs[pod_vif_type].release_vif(pod, vif, *argv)
+
+    def activate_vif(self, pod, vif):
+        pod_vif_type = self._get_pod_vif_type(pod)
+        self._vif_drvs[pod_vif_type].activate_vif(pod, vif)
+
+    def _get_pod_vif_type(self, pod):
+        node_name = pod['spec']['nodeName']
+        return self._get_node_vif_driver(node_name)
+
+    @MEMOIZE
+    def _get_node_vif_driver(self, node_name):
+        kubernetes = clients.get_kubernetes_client()
+        node_info = kubernetes.get(
+            constants.K8S_API_BASE + '/nodes/' + node_name)
+
+        labels = node_info['metadata'].get('labels', None)
+        if labels:
+            pod_vif = labels.get('pod_vif',
+                                 oslo_cfg.CONF.kubernetes.pod_vif_driver)
+            return pod_vif
+        return oslo_cfg.CONF.kubernetes.pod_vif_driver

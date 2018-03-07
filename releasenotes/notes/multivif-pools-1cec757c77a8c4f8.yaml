@@ -1,0 +1,34 @@
+---
+features:
+  - |
+    Adds a new multi pool driver to support hybrid environments where some
+    nodes are Bare Metal while others are running inside VMs, therefore
+    having different VIF drivers (e.g., neutron and nested-vlan)
+
+    This new multi pool driver is the default pool driver used even if a
+    different vif_pool_driver is set at the config option. However if the
+    configuration about the mappings between the different pools and pod vif
+    drivers is not provided at the pools_vif_drivers config option of vif_pool
+    configuration section only one pool driver will be loaded -- using the
+    standard vif_pool_driver and pod_vif_driver config options, i.e., using
+    the one selected at kuryr.conf options.
+
+    To enable the option of having different pools depending on the node's pod
+    vif types, you need to state the type of pool that you want for each pod
+    vif driver, e.g.:
+
+    .. code-block:: ini
+
+      [vif_pool]
+      pools_vif_drivers=nested:nested-vlan,neutron:neutron-vif
+
+
+    This will use a pool driver nested to handle the pods whose vif driver is
+    nested-vlan, and a pool driver neutron to handle the pods whose vif driver
+    is neutron-vif. When the controller is requesting a vif for a pod in
+    node X, it will first read the node's annotation about pod_vif driver to
+    use, e.g., pod_vif: nested-vlan, and then use the corresponding pool
+    driver -- which has the right pod-vif driver set.
+
+    Note that if no annotation is set on a node, the default pod_vif_driver
+    is used.

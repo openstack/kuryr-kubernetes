@@ -44,13 +44,13 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         self._drv_project = drivers.PodProjectDriver.get_instance()
         self._drv_subnets = drivers.PodSubnetsDriver.get_instance()
         self._drv_sg = drivers.PodSecurityGroupsDriver.get_instance()
-        self._drv_vif = drivers.PodVIFDriver.get_instance()
         # REVISIT(ltomasbo): The VIF Handler should not be aware of the pool
         # directly. Due to the lack of a mechanism to load and set the
         # VIFHandler driver, for now it is aware of the pool driver, but this
         # will be reverted as soon as a mechanism is in place.
-        self._drv_vif_pool = drivers.VIFPoolDriver.get_instance()
-        self._drv_vif_pool.set_vif_driver(self._drv_vif)
+        self._drv_vif_pool = drivers.VIFPoolDriver.get_instance(
+            driver_alias='multi_pool')
+        self._drv_vif_pool.set_vif_driver()
 
     def on_present(self, pod):
         if self._is_host_network(pod) or not self._is_pending_node(pod):

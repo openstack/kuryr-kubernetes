@@ -64,7 +64,7 @@ class TestDriverBase(test_base.TestCase):
         m_cfg.kubernetes.__getitem__.assert_called_with(cfg_name)
         m_stv_mgr.assert_called_with(namespace=namespace, name=drv_name,
                                      invoke_on_load=True)
-        m_mgrs.__setitem__.assert_called_once_with(alias, m_mgr)
+        m_mgrs.__setitem__.assert_called_once_with(cfg_name, m_mgr)
 
     @mock.patch.object(d_base, '_DRIVER_MANAGERS')
     @mock.patch('kuryr_kubernetes.config.CONF')
