@@ -576,7 +576,8 @@ class NestedVIFPool(BaseVIFPool):
                 kuryr_subport = available_subports.get(subport['port_id'])
                 if kuryr_subport:
                     pool_key = (host_addr, kuryr_subport['project_id'],
-                                tuple(kuryr_subport['security_groups']))
+                                tuple(sorted(kuryr_subport['security_groups']))
+                                )
 
                     if action == 'recover':
                         subnet_id = kuryr_subport['fixed_ips'][0]['subnet_id']
