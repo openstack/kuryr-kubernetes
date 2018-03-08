@@ -1,4 +1,4 @@
-parameters:
+parameter_defaults:
   image: centos7
   flavor: m1.medium
   public_net: public

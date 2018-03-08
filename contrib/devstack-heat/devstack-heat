@@ -7,14 +7,53 @@ CURR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "${CURR_DIR}/lib/devstack-heat"
 
 function sub_stack() {
-    local deployment=${1:-master_}
+    local deployment
+    local environment
+    local key
+    local parameters
+    local positional
+
+    parameters=()
+    positional=()
+    while [[ $# -gt 0 ]]; do
+        key="$1"
+        case $key in
+            -e|--environment)
+                environment="$2"
+                shift
+                shift
+                ;;
+            --parameter)
+                parameters+=("$key")
+                parameters+=("$2")
+                shift
+                shift
+                ;;
+            *)
+                positional+=("$1")
+                shift
+                ;;
+        esac
+    done
+    if [[ ${#positional[@]} -eq 0 ]]; then
+        deployment=master_
+    else
+        deployment="${positional[0]}"
+    fi
     deployment=$(_generate_deployment_name "${deployment}")
+
+    if [[ -z "$environment" ]]; then
+        environment="hot/parameters.yml"
+    fi
 
     # create stack
     _confirm_or_exit "Deploying the stack ${deployment}"
     echo "Starting..."
 
-    openstack stack create -e hot/parameters.yml -t hot/devstack_heat_template.yml "$deployment"
+    set -- "${parameters[@]}"
+    set -x
+    openstack stack create -e "$environment" -t hot/devstack_heat_template.yml "$@" "$deployment"
+    set +x
 
     sub_show "$deployment"
 }
