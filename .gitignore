@@ -65,6 +65,9 @@ contrib/vagrant/user_local.conf
 # Log files
 *.log
 
+# devstack-heat
+*.pem
+
 # Binaries from docker images builds
 kuryr-cni-bin
 kuryr-cni
