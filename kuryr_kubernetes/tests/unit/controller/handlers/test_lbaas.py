@@ -712,6 +712,48 @@ class TestLoadBalancerHandler(test_base.TestCase):
         self.assertEqual([], observed_targets)
         self.assertEqual(expected_ip, str(state.loadbalancer.ip))
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.base'
+                '.PodSubnetsDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base'
+                '.PodProjectDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base'
+                '.LBaaSDriver.get_instance')
+    def test_sync_lbaas_members_svc_listener_port_edit(
+            self, m_get_drv_lbaas, m_get_drv_project, m_get_drv_subnets):
+        # REVISIT(ivc): test methods separately and verify ensure/release
+        project_id = uuidutils.generate_uuid()
+        subnet_id = uuidutils.generate_uuid()
+        current_ip = '1.1.1.1'
+        current_targets = {
+            '1.1.1.101': (1001, 10001)}
+        expected_ip = '1.1.1.1'
+        expected_targets = {
+            '1.1.1.101': (1201, 10001)}
+        endpoints = self._generate_endpoints(expected_targets)
+        state = self._generate_lbaas_state(
+            current_ip, current_targets, project_id, subnet_id)
+        spec = self._generate_lbaas_spec(expected_ip, expected_targets,
+                                         project_id, subnet_id)
+
+        m_drv_lbaas = mock.Mock(wraps=FakeLBaaSDriver())
+        m_drv_project = mock.Mock()
+        m_drv_project.get_project.return_value = project_id
+        m_drv_subnets = mock.Mock()
+        m_drv_subnets.get_subnets.return_value = {
+            subnet_id: mock.sentinel.subnet}
+        m_get_drv_lbaas.return_value = m_drv_lbaas
+        m_get_drv_project.return_value = m_drv_project
+        m_get_drv_subnets.return_value = m_drv_subnets
+
+        handler = h_lbaas.LoadBalancerHandler()
+
+        with mock.patch.object(handler, '_get_pod_subnet') as m_get_pod_subnet:
+            m_get_pod_subnet.return_value = subnet_id
+            handler._sync_lbaas_members(endpoints, state, spec)
+
+        self.assertEqual(expected_ip, str(state.loadbalancer.ip))
+        m_drv_lbaas.release_pool.assert_called_once()
+
     def test_get_lbaas_spec(self):
         self.skipTest("skipping until generalised annotation handling is "
                       "implemented")
