@@ -429,11 +429,23 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
 
         return changed
 
+    def _is_pool_in_spec(self, pool, lbaas_state, lbaas_spec):
+        # NOTE(yboaron): in order to check if a specific pool is in lbaas_spec
+        # we should:
+        #  1. get the listener that pool is attached to
+        #  2. check if listener's attributes appear in lbaas_spec.
+        for l in lbaas_state.listeners:
+            if l.id != pool.listener_id:
+                continue
+            for port in lbaas_spec.ports:
+                if l.port == port.port and l.protocol == port.protocol:
+                    return True
+        return False
+
     def _remove_unused_pools(self, endpoints, lbaas_state, lbaas_spec):
-        current_pools = {m.pool_id for m in lbaas_state.members}
         removed_ids = set()
         for pool in lbaas_state.pools:
-            if pool.id in current_pools:
+            if self._is_pool_in_spec(pool, lbaas_state, lbaas_spec):
                 continue
             self._drv_lbaas.release_pool(endpoints,
                                          lbaas_state.loadbalancer,
