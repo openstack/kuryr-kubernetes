@@ -24,9 +24,11 @@ be implemented in the following way:
   default configuration (bottom)
 
 If you are paying attention and are familiar with the `LBaaS API`_ you probably
-noticed that we have separate pools for each exposed pool in a service. This is
+noticed that we have separate pools for each exposed port in a service. This is
 probably not optimal and we would probably benefit from keeping a single Neutron
 pool that lists each of the per port listeners.
+Since `LBaaS API`_ doesn't support UDP load balancing, service exported UDP
+ports will be ignored.
 
 When installing you can decide to use the legacy Neutron HAProxy driver for
 LBaaSv2 or install and configure OpenStack Octavia, which as of Pike implements

@@ -26,6 +26,8 @@ from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.objects import lbaas as obj_lbaas
 from kuryr_kubernetes.tests import base as test_base
 
+_SUPPORTED_LISTENER_PROT = ('HTTP', 'HTTPS', 'TCP')
+
 
 class TestLBaaSSpecHandler(test_base.TestCase):
 
@@ -304,6 +306,23 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         m_handler._get_service_ports.assert_called_once_with(
             mock.sentinel.service)
 
+    def test_generate_lbaas_port_specs_udp(self):
+        m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
+        m_handler._get_service_ports.return_value = [
+            {'port': 1, 'name': 'X', 'protocol': 'TCP'},
+            {'port': 2, 'name': 'Y', 'protocol': 'UDP'}
+        ]
+        expected_ports = [
+            obj_lbaas.LBaaSPortSpec(name='X', protocol='TCP', port=1),
+            obj_lbaas.LBaaSPortSpec(name='Y', protocol='UDP', port=2),
+        ]
+
+        ret = h_lbaas.LBaaSSpecHandler._generate_lbaas_port_specs(
+            m_handler, mock.sentinel.service)
+        self.assertEqual(expected_ports, ret)
+        m_handler._get_service_ports.assert_called_once_with(
+            mock.sentinel.service)
+
     def test_get_endpoints_link(self):
         m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
         service = {'metadata': {
@@ -330,6 +349,7 @@ class TestLBaaSSpecHandler(test_base.TestCase):
 
 
 class FakeLBaaSDriver(drv_base.LBaaSDriver):
+
     def ensure_loadbalancer(self, endpoints, project_id, subnet_id, ip,
                             security_groups_ids, service_type):
         name = str(ip)
@@ -340,6 +360,9 @@ class FakeLBaaSDriver(drv_base.LBaaSDriver):
                                            id=uuidutils.generate_uuid())
 
     def ensure_listener(self, endpoints, loadbalancer, protocol, port):
+        if protocol not in _SUPPORTED_LISTENER_PROT:
+            return None
+
         name = "%s:%s:%s" % (loadbalancer.name, protocol, port)
         return obj_lbaas.LBaaSListener(name=name,
                                        project_id=loadbalancer.project_id,
@@ -554,13 +577,14 @@ class TestLoadBalancerHandler(test_base.TestCase):
             pools=list(pools.values()),
             members=list(members.values()))
 
-    def _generate_lbaas_spec(self, vip, targets, project_id, subnet_id):
+    def _generate_lbaas_spec(self, vip, targets, project_id,
+                             subnet_id, prot='TCP'):
         return obj_lbaas.LBaaSServiceSpec(
             ip=vip,
             project_id=project_id,
             subnet_id=subnet_id,
             ports=[obj_lbaas.LBaaSPortSpec(name=str(port),
-                                           protocol='TCP',
+                                           protocol=prot,
                                            port=port)
                    for port in set(t[0] for t in targets.values())])
 
@@ -592,6 +616,34 @@ class TestLoadBalancerHandler(test_base.TestCase):
             ]
         }
 
+    def _sync_lbaas_members_impl(self, m_get_drv_lbaas, m_get_drv_project,
+                                 m_get_drv_subnets, subnet_id, project_id,
+                                 endpoints, state, spec):
+        m_drv_lbaas = mock.Mock(wraps=FakeLBaaSDriver())
+        m_drv_project = mock.Mock()
+        m_drv_project.get_project.return_value = project_id
+        m_drv_subnets = mock.Mock()
+        m_drv_subnets.get_subnets.return_value = {
+            subnet_id: mock.sentinel.subnet}
+        m_get_drv_lbaas.return_value = m_drv_lbaas
+        m_get_drv_project.return_value = m_drv_project
+        m_get_drv_subnets.return_value = m_drv_subnets
+
+        handler = h_lbaas.LoadBalancerHandler()
+
+        with mock.patch.object(handler, '_get_pod_subnet') as m_get_pod_subnet:
+            m_get_pod_subnet.return_value = subnet_id
+            handler._sync_lbaas_members(endpoints, state, spec)
+
+        lsnrs = {lsnr.id: lsnr for lsnr in state.listeners}
+        pools = {pool.id: pool for pool in state.pools}
+        observed_targets = sorted(
+            (str(member.ip), (
+                lsnrs[pools[member.pool_id].listener_id].port,
+                member.port))
+            for member in state.members)
+        return observed_targets
+
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.PodSubnetsDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
@@ -619,30 +671,45 @@ class TestLoadBalancerHandler(test_base.TestCase):
         spec = self._generate_lbaas_spec(expected_ip, expected_targets,
                                          project_id, subnet_id)
 
-        m_drv_lbaas = mock.Mock(wraps=FakeLBaaSDriver())
-        m_drv_project = mock.Mock()
-        m_drv_project.get_project.return_value = project_id
-        m_drv_subnets = mock.Mock()
-        m_drv_subnets.get_subnets.return_value = {
-            subnet_id: mock.sentinel.subnet}
-        m_get_drv_lbaas.return_value = m_drv_lbaas
-        m_get_drv_project.return_value = m_drv_project
-        m_get_drv_subnets.return_value = m_drv_subnets
+        observed_targets = self._sync_lbaas_members_impl(
+            m_get_drv_lbaas, m_get_drv_project, m_get_drv_subnets,
+            subnet_id, project_id, endpoints, state, spec)
 
-        handler = h_lbaas.LoadBalancerHandler()
-
-        with mock.patch.object(handler, '_get_pod_subnet') as m_get_pod_subnet:
-            m_get_pod_subnet.return_value = subnet_id
-            handler._sync_lbaas_members(endpoints, state, spec)
-
-        lsnrs = {lsnr.id: lsnr for lsnr in state.listeners}
-        pools = {pool.id: pool for pool in state.pools}
-        observed_targets = sorted(
-            (str(member.ip), (
-                lsnrs[pools[member.pool_id].listener_id].port,
-                member.port))
-            for member in state.members)
         self.assertEqual(sorted(expected_targets.items()), observed_targets)
+        self.assertEqual(expected_ip, str(state.loadbalancer.ip))
+
+    @mock.patch('kuryr_kubernetes.controller.drivers.base'
+                '.PodSubnetsDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base'
+                '.PodProjectDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base'
+                '.LBaaSDriver.get_instance')
+    def test_sync_lbaas_members_udp(self, m_get_drv_lbaas,
+                                    m_get_drv_project, m_get_drv_subnets):
+        # REVISIT(ivc): test methods separately and verify ensure/release
+        project_id = uuidutils.generate_uuid()
+        subnet_id = uuidutils.generate_uuid()
+        current_ip = '1.1.1.1'
+        current_targets = {
+            '1.1.1.101': (1001, 10001),
+            '1.1.1.111': (1001, 10001),
+            '1.1.1.201': (2001, 20001)}
+        expected_ip = '2.2.2.2'
+        expected_targets = {
+            '2.2.2.101': (1201, 12001),
+            '2.2.2.111': (1201, 12001),
+            '2.2.2.201': (2201, 22001)}
+        endpoints = self._generate_endpoints(expected_targets)
+        state = self._generate_lbaas_state(
+            current_ip, current_targets, project_id, subnet_id)
+        spec = self._generate_lbaas_spec(expected_ip, expected_targets,
+                                         project_id, subnet_id, 'UDP')
+
+        observed_targets = self._sync_lbaas_members_impl(
+            m_get_drv_lbaas, m_get_drv_project, m_get_drv_subnets,
+            subnet_id, project_id, endpoints, state, spec)
+
+        self.assertEqual([], observed_targets)
         self.assertEqual(expected_ip, str(state.loadbalancer.ip))
 
     def test_get_lbaas_spec(self):
