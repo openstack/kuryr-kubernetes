@@ -163,6 +163,9 @@ neutron_defaults = [
     cfg.StrOpt('external_svc_subnet',
                help=_("Optional external subnet ID for Kubernetes services"),
                default=None),
+    cfg.IntOpt('network_device_mtu',
+               help='Default MTU setting for network interface.',
+               default=1500,),
 ]
 
 octavia_defaults = [

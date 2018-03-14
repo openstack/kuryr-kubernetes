@@ -43,10 +43,18 @@ class BaseBridgeDriver(health.HealthHandler):
                 with h_ipdb.interfaces[host_ifname] as h_iface:
                     h_iface.remove()
 
+        if vif.network.mtu:
+            interface_mtu = vif.network.mtu
+        else:
+            LOG.info("Default mtu %(mtu)s is used for interface, "
+                     "for mtu of network if configured with 0",
+                     {"mtu": CONF.neutron_defaults.network_device_mtu})
+            interface_mtu = CONF.neutron_defaults.network_device_mtu
+
         with b_base.get_ipdb(netns) as c_ipdb:
             with c_ipdb.create(ifname=ifname, peer=host_ifname,
                                kind='veth') as c_iface:
-                c_iface.mtu = vif.network.mtu
+                c_iface.mtu = interface_mtu
                 c_iface.address = str(vif.address)
                 c_iface.up()
 
@@ -56,7 +64,7 @@ class BaseBridgeDriver(health.HealthHandler):
 
         with b_base.get_ipdb() as h_ipdb:
             with h_ipdb.interfaces[host_ifname] as h_iface:
-                h_iface.mtu = vif.network.mtu
+                h_iface.mtu = interface_mtu
                 h_iface.up()
 
     def disconnect(self, vif, ifname, netns):
