@@ -145,7 +145,11 @@ class K8sClient(object):
                       "content: %(content)s, text: %(text)s"
                       % {'headers': response.headers,
                          'content': response.content, 'text': response.text})
-            raise exc.K8sClientException(response.text)
+
+            if response.status_code == requests.codes.not_found:
+                raise exc.K8sResourceNotFound(response.text)
+            else:
+                raise exc.K8sClientException(response.text)
 
     def watch(self, path):
         params = {'watch': 'true'}
