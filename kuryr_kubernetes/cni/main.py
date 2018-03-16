@@ -20,6 +20,7 @@ import sys
 import os_vif
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_log import versionutils
 from oslo_serialization import jsonutils
 
 from kuryr_kubernetes.cni import api as cni_api
@@ -56,6 +57,13 @@ def run():
     if CONF.cni_daemon.daemon_enabled:
         runner = cni_api.CNIDaemonizedRunner()
     else:
+        # TODO(dulek): Switch that to versionutils.deprecation_warning once
+        #              bug 1754087 is fixed.
+        versionutils.report_deprecated_feature(
+            LOG,
+            'Deploying kuryr-kubernetes without kuryr-daemon service is '
+            'deprecated since Rocky release and may be removed in future '
+            'releases.')
         runner = cni_api.CNIStandaloneRunner(k8s_cni.K8sCNIPlugin())
     LOG.info("Using '%s' ", runner.__class__.__name__)
 

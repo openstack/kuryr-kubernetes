@@ -48,8 +48,9 @@ Now edit ``devstack/local.conf`` to set up some initial options:
   omitted.
 * If you already have Docker installed on the machine, you can comment out line
   starting with ``enable_plugin devstack-plugin-container``.
-* If you want to enable kuryr-daemon uncomment ``enable_service kuryr-daemon``
-  line.
+* If you want to disable kuryr-daemon add ``disable_service kuryr-daemon``
+  line. Please note that running without kuryr-daemon was deprecated in Rocky
+  release.
 
 Once ``local.conf`` is configured, you can start the installation: ::
 
