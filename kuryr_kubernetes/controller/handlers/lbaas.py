@@ -235,7 +235,14 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         if not lbaas_state:
             lbaas_state = obj_lbaas.LBaaSState()
 
+        prev_service_pub_ip_info = lbaas_state.service_pub_ip_info
         if self._sync_lbaas_members(endpoints, lbaas_state, lbaas_spec):
+            # For LoadBalancer service type, update k8s-service status with
+            # floating IP address if needed.
+            if (prev_service_pub_ip_info != lbaas_state.service_pub_ip_info
+                    and lbaas_state.service_pub_ip_info is not None):
+                self._update_lb_status(
+                    endpoints, lbaas_state.service_pub_ip_info.ip_addr)
             # REVISIT(ivc): since _sync_lbaas_members is responsible for
             # creating all lbaas components (i.e. load balancer, listeners,
             # pools, members), it is currently possible for it to fail (due
@@ -550,12 +557,8 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                     if service_pub_ip_info:
                         # if loadbalancerIP should be defined for lbaas,
                         #  associate it to lbaas VIP
-                        # and update k8s-service status with
-                        # loadbalancerIP address
                         self._drv_service_pub_ip.associate_pub_ip(
                             service_pub_ip_info, lb.port_id)
-                        self._update_lb_status(
-                            endpoints, service_pub_ip_info.ip_addr)
                         lbaas_state.service_pub_ip_info = service_pub_ip_info
                 changed = True
             elif lbaas_state.service_pub_ip_info:
