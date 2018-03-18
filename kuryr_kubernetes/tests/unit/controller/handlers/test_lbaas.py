@@ -428,6 +428,7 @@ class TestLoadBalancerHandler(test_base.TestCase):
     def test_on_present(self):
         lbaas_spec = mock.sentinel.lbaas_spec
         lbaas_state = mock.sentinel.lbaas_state
+        lbaas_state.service_pub_ip_info = None
         endpoints = mock.sentinel.endpoints
 
         m_handler = mock.Mock(spec=h_lbaas.LoadBalancerHandler)
@@ -445,10 +446,44 @@ class TestLoadBalancerHandler(test_base.TestCase):
             endpoints, lbaas_state, lbaas_spec)
         m_handler._set_lbaas_state.assert_called_once_with(
             endpoints, lbaas_state)
+        m_handler._update_lb_status.assert_not_called()
+
+    def _fake_sync_lbaas_members(self, endpoints, lbaas_state, lbaas_spec):
+        floating_ip = {'floating_ip_address': '1.2.3.5',
+                       'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'}
+
+        service_pub_ip_info = obj_lbaas.LBaaSPubIp(
+            ip_id=floating_ip['id'],
+            ip_addr=floating_ip['floating_ip_address'], alloc_method='kk')
+
+        lbaas_state.service_pub_ip_info = service_pub_ip_info
+        return True
+
+    def test_on_present_loadbalancer_service(self):
+        lbaas_spec = mock.sentinel.lbaas_spec
+        lbaas_state = mock.sentinel.lbaas_state
+        lbaas_state.service_pub_ip_info = None
+        endpoints = mock.sentinel.endpoints
+
+        m_handler = mock.Mock(spec=h_lbaas.LoadBalancerHandler)
+        m_handler._get_lbaas_spec.return_value = lbaas_spec
+        m_handler._should_ignore.return_value = False
+        m_handler._get_lbaas_state.return_value = lbaas_state
+        m_handler._sync_lbaas_members = self._fake_sync_lbaas_members
+
+        h_lbaas.LoadBalancerHandler.on_present(m_handler, endpoints)
+
+        m_handler._get_lbaas_spec.assert_called_once_with(endpoints)
+        m_handler._should_ignore.assert_called_once_with(endpoints, lbaas_spec)
+        m_handler._get_lbaas_state.assert_called_once_with(endpoints)
+        m_handler._set_lbaas_state.assert_called_once_with(
+            endpoints, lbaas_state)
+        m_handler._update_lb_status.assert_called()
 
     def test_on_present_rollback(self):
         lbaas_spec = mock.sentinel.lbaas_spec
         lbaas_state = mock.sentinel.lbaas_state
+        lbaas_state.service_pub_ip_info = None
         endpoints = mock.sentinel.endpoints
 
         m_handler = mock.Mock(spec=h_lbaas.LoadBalancerHandler)
