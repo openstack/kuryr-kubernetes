@@ -37,6 +37,7 @@
         - kuryr-kubernetes-tempest-lbaasv2-centos-7
         - kuryr-kubernetes-tempest-containerized-lbaasv2
         - kuryr-kubernetes-tempest-daemon-containerized-lbaasv2
+        - kuryr-kubernetes-tempest-daemon-pools-lbaasv2
 
 - nodeset:
     name: openstack-centos-7-single-node
@@ -112,6 +113,19 @@
       - ^.*\.rst$
       - ^doc/.*$
       - ^releasenotes/.*$
+
+- job:
+    name: kuryr-kubernetes-tempest-daemon-pools-lbaasv2
+    parent: kuryr-kubernetes-tempest-daemon-lbaasv2
+    description: |
+      Kuryr-Kubernetes tempest job using port-pool feature
+    vars:
+      tempest_test_regex: '^(kuryr_tempest_plugin.tests.scenario.test_port_pool.TestPortPoolScenario.test_port_pool)'
+      devstack_localrc:
+        KURYR_USE_PORT_POOLS: true
+        KURYR_POD_VIF_DRIVER: neutron-vif
+        KURYR_VIF_POOL_DRIVER: neutron
+        TEMPEST_CONCURRENCY: 1
 
 - job:
     name: kuryr-kubernetes-tempest-octavia
