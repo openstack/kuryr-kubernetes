@@ -280,6 +280,33 @@ class TestK8sClient(test_base.TestCase):
                                         headers=mock.ANY,
                                         cert=(None, None), verify=False)
 
+    @mock.patch('itertools.count')
+    @mock.patch('requests.patch')
+    def test_annotate_resource_not_found(self, m_patch, m_count):
+        m_count.return_value = list(range(1, 5))
+        path = '/test'
+        annotations = {'a1': 'v1', 'a2': 'v2'}
+        resource_version = "123"
+        annotate_obj = {'metadata': {
+            'annotations': annotations,
+            'resourceVersion': resource_version}}
+        annotate_data = jsonutils.dumps(annotate_obj, sort_keys=True)
+
+        m_resp_not_found = mock.MagicMock()
+        m_resp_not_found.ok = False
+        m_resp_not_found.status_code = requests.codes.not_found
+        m_patch.return_value = m_resp_not_found
+
+        self.assertRaises(exc.K8sResourceNotFound,
+                          self.client.annotate,
+                          path,
+                          annotations,
+                          resource_version=resource_version)
+        m_patch.assert_called_once_with(self.base_url + path,
+                                        data=annotate_data,
+                                        headers=mock.ANY,
+                                        cert=(None, None), verify=False)
+
     @mock.patch('requests.get')
     def test_watch(self, m_get):
         path = '/test'
