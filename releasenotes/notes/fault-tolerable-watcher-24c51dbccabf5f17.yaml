@@ -1,0 +1,21 @@
+---
+upgrade:
+  - |
+   For the kuryr kubernetes watcher,
+   a new option 'watch_retry_timeout' has been added.
+   The following should be modified at kuryr.conf::
+
+
+         [kubernetes]
+         # 'watch_retry_timeout' field is optional,
+         # default = 60 if not set.
+         watch_retry_timeout = <Time in seconds>
+
+fixes:
+  - |
+    K8s api server is often temporarily down and restored soon in production
+    environment. Since kuryr-kubernetes watches k8s resources by connecting
+    k8s api server, watcher fails to watch the resources if k8s api server is
+    down.
+    In order to fix it, we made watcher retry connecting to k8s api server for
+    specific time duration when an exception is raised.
