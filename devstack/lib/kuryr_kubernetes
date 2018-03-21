@@ -541,6 +541,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+        - name: KURYR_CNI_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         securityContext:
           privileged: true
         volumeMounts:
@@ -549,10 +553,8 @@ spec:
         - name: net-conf
           mountPath: /etc/cni/net.d
         - name: config-volume
-          mountPath: /tmp/kuryr/kuryr.conf
+          mountPath: /etc/kuryr/kuryr.conf
           subPath: kuryr-cni.conf
-        - name: etc
-          mountPath: /etc
         - name: proc
           mountPath: /host_proc
         - name: openvswitch
@@ -565,13 +567,13 @@ EOF
             path: /ready
             port: ${cni_health_server_port}
             scheme: HTTP
-          initialDelaySeconds: 15
-          timeoutSeconds: 5
+          initialDelaySeconds: 60
+          timeoutSeconds: 10
         livenessProbe:
           httpGet:
             path: /alive
             port: ${cni_health_server_port}
-          initialDelaySeconds: 15
+          initialDelaySeconds: 60
 EOF
     fi
     cat >> "${output_dir}/cni_ds.yml" << EOF
@@ -585,9 +587,6 @@ EOF
         - name: config-volume
           configMap:
             name: kuryr-config
-        - name: etc
-          hostPath:
-            path: /etc
         - name: proc
           hostPath:
             path: /proc
