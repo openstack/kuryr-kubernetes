@@ -20,6 +20,8 @@ function ovs_bind_for_kubelet() {
     local project_id
     local security_group
     local ifname
+    local service_subnet_cidr
+    local pod_subnet_gw
 
     project_id="$1"
     security_group=$(openstack security group list \
@@ -35,6 +37,12 @@ function ovs_bind_for_kubelet() {
         kubelet-"${HOSTNAME}")
     ifname="kubelet${port_id}"
     ifname="${ifname:0:14}"
+    service_subnet_cidr=$(openstack --os-cloud devstack-admin \
+                         --os-region "$REGION_NAME" \
+                         subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
+                         -c cidr -f value)
+    pod_subnet_gw=$(openstack subnet show "$KURYR_NEUTRON_DEFAULT_POD_SUBNET" \
+                    -c gateway_ip -f value)
 
     port_mac=$(openstack port show "$port_id" -c mac_address -f value)
     port_ips=($(openstack port show "$port_id" -f value -c fixed_ips | \
@@ -56,6 +64,7 @@ function ovs_bind_for_kubelet() {
             cut -f2 -d/)
         sudo ip addr add "${port_ips[$i]}/${prefix}" dev "$ifname"
     done
+    sudo ip route add "$service_subnet_cidr" via "$pod_subnet_gw" dev "$ifname"
 }
 
 # get_container
