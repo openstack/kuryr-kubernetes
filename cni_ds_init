@@ -3,27 +3,44 @@
 function cleanup() {
     rm -f "/etc/cni/net.d/10-kuryr.conf"
     rm -f "/opt/cni/bin/kuryr-cni"
-    rm -rf "/opt/cni/bin/kuryr-venv"
-    rm -rf /etc/kuryr
 }
 
 function deploy() {
     local serviceaccount_path
     serviceaccount_path="/var/run/secrets/kubernetes.io/serviceaccount"
 
-    mkdir -p /etc/kuryr
-    cp "${serviceaccount_path}/token" /etc/kuryr/token
-    cp "${serviceaccount_path}/ca.crt" /etc/kuryr/ca.crt
+    # Prepare token.
+    KUBE_TOKEN=$(<${serviceaccount_path}/token)
+    POD_NAMESPACE=$(<${serviceaccount_path}/namespace)
 
-    cp /opt/kuryr-kubernetes/etc/cni/net.d/* /etc/cni/net.d
-    cp -r /kuryr-kubernetes "/opt/cni/bin/kuryr-venv"
+    CONTAINERID=""
+    x=0
+    while [ -z ${CONTAINERID} ] && [ $x -lt 9 ]; do
+        sleep 5
+
+        CONTAINERID=$(curl -vvv -H "Authorization: Bearer $KUBE_TOKEN" --cacert ${serviceaccount_path}/ca.crt \
+          https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT_HTTPS}/api/v1/namespaces/${POD_NAMESPACE}/pods/${KURYR_CNI_POD_NAME} | jq -r '.["status"]["containerStatuses"][0]["containerID"]')
+
+        CONTAINERID=${CONTAINERID#*//}
+        ((x++)) || true
+    done;
+
+    # There's no point to run if we cannot get CONTAINERID.
+    if [ -z ${CONTAINERID} ]; then
+        exit 1
+    fi
+
+    # Write the script to a file.
     cat > /kuryr-cni << EOF
-#!/bin/bash
-${CNI_BIN_DIR_PATH}/kuryr-venv/bin/kuryr-cni
+#!/bin/bash -x
+envs=(\$(env | grep ^CNI_))
+docker exec \${envs[@]/#/--env } -i "${CONTAINERID}" kuryr-cni --config-file /etc/kuryr/kuryr.conf
 EOF
+
+    # Copy the script into the designated location
     cp /kuryr-cni "/opt/cni/bin/kuryr-cni"
     chmod +x /opt/cni/bin/kuryr-cni
-    cat /tmp/kuryr/* > /etc/kuryr/kuryr.conf
+    cp /opt/kuryr-kubernetes/etc/cni/net.d/* /etc/cni/net.d
 }
 
 cleanup
@@ -31,7 +48,7 @@ deploy
 
 # Start CNI daemon if required
 if [ "$CNI_DAEMON" == "True" ]; then
-    /kuryr-kubernetes/bin/kuryr-daemon --config-file /etc/kuryr/kuryr.conf
+    kuryr-daemon --config-file /etc/kuryr/kuryr.conf
 else
     sleep infinity
 fi

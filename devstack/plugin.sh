@@ -79,18 +79,17 @@ function configure_kuryr {
         # process.
         iniset "$KURYR_CONFIG" vif_plug_ovs_privileged helper_command privsep-helper
         iniset "$KURYR_CONFIG" vif_plug_linux_bridge_privileged helper_command privsep-helper
+
+        # When running kuryr-daemon or CNI in container we need to set up
+        # some configs.
+        iniset "$KURYR_CONFIG" cni_daemon docker_mode True
+        iniset "$KURYR_CONFIG" cni_daemon netns_proc_dir "/host_proc"
     fi
 
     if is_service_enabled kuryr-daemon; then
         iniset "$KURYR_CONFIG" cni_daemon daemon_enabled True
         iniset "$KURYR_CONFIG" oslo_concurrency lock_path "$KURYR_LOCK_DIR"
         create_kuryr_lock_dir
-        if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
-            # When running kuryr-daemon in container we need to set up some
-            # configs.
-            iniset "$KURYR_CONFIG" cni_daemon docker_mode True
-            iniset "$KURYR_CONFIG" cni_daemon netns_proc_dir "/host_proc"
-        fi
     fi
 
     create_kuryr_cache_dir
@@ -125,17 +124,12 @@ function generate_containerized_kuryr_resources {
     inicomment "$KURYR_CONFIG" kubernetes ssl_client_crt_file
     inicomment "$KURYR_CONFIG" kubernetes ssl_client_key_file
 
-    # kuryr-controller and kuryr-cni will have tokens in different dirs.
-    KURYR_CNI_CONFIG=${KURYR_CONFIG}-cni
-    cp $KURYR_CONFIG $KURYR_CNI_CONFIG
     iniset "$KURYR_CONFIG" kubernetes token_file /var/run/secrets/kubernetes.io/serviceaccount/token
     iniset "$KURYR_CONFIG" kubernetes ssl_ca_crt_file /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-    iniset "$KURYR_CNI_CONFIG" kubernetes token_file /etc/kuryr/token
-    iniset "$KURYR_CNI_CONFIG" kubernetes ssl_ca_crt_file /etc/kuryr/ca.crt
 
     # Generate kuryr resources in k8s formats.
     local output_dir="${DATA_DIR}/kuryr-kubernetes"
-    generate_kuryr_configmap $output_dir $KURYR_CONFIG $KURYR_CNI_CONFIG
+    generate_kuryr_configmap $output_dir $KURYR_CONFIG $KURYR_CONFIG
     generate_kuryr_service_account $output_dir
     generate_controller_deployment $output_dir $KURYR_HEALTH_SERVER_PORT
     generate_cni_daemon_set $output_dir $CNI_BIN_DIR $CNI_CONF_DIR
@@ -725,33 +719,42 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
                 build_kuryr_containers $CNI_BIN_DIR $CNI_CONF_DIR False
             fi
             generate_containerized_kuryr_resources
-            run_containerized_kuryr_resources
         fi
     fi
 
 elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
     if is_service_enabled kuryr-kubernetes; then
+        # NOTE(dulek): This is so late, because Devstack's Octavia is unable
+        #              to create loadbalancers until test-config phase.
         create_k8s_router_fake_service
         create_k8s_api_service
+
+        # FIXME(dulek): This is a very late phase to start Kuryr services.
+        #               We're doing it here because we need K8s API LB to be
+        #               created in order to run kuryr-cni container. Thing is
+        #               Octavia is unable to create LB until test-config phase.
+        #               We can revisit this once Octavia's DevStack plugin will
+        #               get improved.
+        if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
+            run_containerized_kuryr_resources
+        fi
     fi
 fi
 
 if [[ "$1" == "unstack" ]]; then
     KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
     if is_service_enabled kuryr-kubernetes; then
-        if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "False" ]; then
-            stop_process kuryr-kubernetes
-        else
+        if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
             $KURYR_HYPERKUBE_BINARY kubectl delete deploy/kuryr-controller
         fi
+        stop_process kuryr-kubernetes
     elif is_service_enabled kubelet; then
          $KURYR_HYPERKUBE_BINARY kubectl delete nodes ${HOSTNAME}
     fi
-    if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "False" ]; then
-        stop_process kuryr-daemon
-    else
+    if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
         $KURYR_HYPERKUBE_BINARY kubectl delete ds/kuryr-cni-ds
     fi
+    stop_process kuryr-daemon
 
     if is_service_enabled kubernetes-controller-manager; then
         stop_container kubernetes-controller-manager
