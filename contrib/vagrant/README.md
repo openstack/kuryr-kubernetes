@@ -41,7 +41,11 @@ the definition of the Virtual Machine spawned:
    Could be an example of a rpm-based option.
 
  * **VAGRANT\_KURYR\_VM\_MEMORY**: To modify the RAM of the VM. Defaulted to: 4096
- * **VAGRANT\_KURYR\_VM\_CPU**: To modify the cpus of the VM. Defaulted to: 2
+   If you configure your local.conf to use Octavia, you should increase the
+   setting to at least 12288.
+ * **VAGRANT\_KURYR\_VM\_CPU**: To modify the cpus of the VM. Defaulted to: 2.
+   If you configure your local.conf to use Octavia, you should increate this
+   setting to at least 4.
  * **VAGRANT\_KURYR\_RUN\_DEVSTACK**: Whether `vagrant up` should run devstack to
    have an environment ready to use. Set it to 'false' if you want to edit
    `local.conf` before run ./stack.sh manually in the VM. Defaulted to: true.
