@@ -135,6 +135,9 @@ function generate_containerized_kuryr_resources {
     # kuryr-controller and kuryr-cni will have tokens in different dirs.
     KURYR_CNI_CONFIG=${KURYR_CONFIG}-cni
     cp $KURYR_CONFIG $KURYR_CNI_CONFIG
+    # NOTE(dulek): In the container the CA bundle will be mounted in a standard
+    # directory, so we need to modify that.
+    iniset "$KURYR_CONFIG" neutron cafile /etc/ssl/certs/kuryr-ca-bundle.crt
     iniset "$KURYR_CONFIG" kubernetes token_file /var/run/secrets/kubernetes.io/serviceaccount/token
     iniset "$KURYR_CONFIG" kubernetes ssl_ca_crt_file /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
     iniset "$KURYR_CNI_CONFIG" kubernetes token_file /etc/kuryr/token
@@ -143,6 +146,7 @@ function generate_containerized_kuryr_resources {
     # Generate kuryr resources in k8s formats.
     local output_dir="${DATA_DIR}/kuryr-kubernetes"
     generate_kuryr_configmap $output_dir $KURYR_CONFIG $KURYR_CNI_CONFIG
+    generate_kuryr_certificates_secret $output_dir $SSL_BUNDLE_FILE
     generate_kuryr_service_account $output_dir
     generate_controller_deployment $output_dir $KURYR_HEALTH_SERVER_PORT
     generate_cni_daemon_set $output_dir $KURYR_CNI_HEALTH_SERVER_PORT $cni_daemon $CNI_BIN_DIR $CNI_CONF_DIR
@@ -153,6 +157,9 @@ function run_containerized_kuryr_resources {
     /usr/local/bin/kubectl create -f \
         "${k8s_data_dir}/config_map.yml" \
         || die $LINENO "Failed to create kuryr-kubernetes ConfigMap."
+    /usr/local/bin/kubectl create -f \
+        "${k8s_data_dir}/certificates_secret.yml" \
+        || die $LINENO "Failed to create kuryr-kubernetes certificates Secret."
     /usr/local/bin/kubectl create -f \
         "${k8s_data_dir}/service_account.yml" \
         || die $LINENO "Failed to create kuryr-kubernetes ServiceAccount."

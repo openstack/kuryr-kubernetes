@@ -39,12 +39,15 @@ kuryr-kubernetes includes a tool that lets you generate resource definitions
 that can be used to Deploy Kuryr on Kubernetes. The script is placed in
 ``tools/generate_k8s_resource_definitions.sh`` and takes up to 3 arguments: ::
 
-    $ ./tools/generate_k8s_resource_definitions <output_dir> [<controller_conf_path>] [<cni_conf_path>]
+    $ ./tools/generate_k8s_resource_definitions <output_dir> [<controller_conf_path>] [<cni_conf_path>] [<ca_certificate_path>]
 
 * ``output_dir`` - directory where to put yaml files with definitions.
 * ``controller_conf_path`` - path to custom kuryr-controller configuration file.
 * ``cni_conf_path`` - path to custom kuryr-cni configuration file (defaults to
   ``controller_conf_path``).
+* ``ca_certificate_path`` - path to custom CA certificate for OpenStack API. It
+  will be added into Kubernetes as a ``Secret`` and mounted into
+  kuryr-controller container. Defaults to no certificate.
 
 If no path to config files is provided, script automatically generates minimal
 configuration. However some of the options should be filled by the user. You can
@@ -109,6 +112,7 @@ Deploying Kuryr resources on Kubernetes
 To deploy the files on your Kubernetes cluster run: ::
 
     $ kubectl apply -f config_map.yml -n kube-system
+    $ kubectl apply -f certificates_secret.yml -n kube-system
     $ kubectl apply -f service_account.yml -n kube-system
     $ kubectl apply -f controller_deployment.yml -n kube-system
     $ kubectl apply -f cni_ds.yml -n kube-system

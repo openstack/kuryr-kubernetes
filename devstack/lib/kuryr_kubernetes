@@ -368,6 +368,31 @@ EOF
     cat $cni_conf_path | indent >> "${output_dir}/config_map.yml"
 }
 
+function generate_kuryr_certificates_secret() {
+    local output_dir
+    local certs_bundle_path
+    output_dir=$1
+    certs_bundle_path=${2:-""}
+
+    mkdir -p "$output_dir"
+    rm -f ${output_dir}/certificates_secret.yml
+
+    if [ -n $certs_bundle_path ]; then
+        CA_CERT=`cat $certs_bundle_path | base64 -w0`
+    fi
+
+    cat >> "${output_dir}/certificates_secret.yml" << EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kuryr-certificates
+  namespace: kube-system
+type: Opaque
+data:
+  kuryr-ca-bundle.crt: $CA_CERT
+EOF
+}
+
 function generate_kuryr_service_account() {
     output_dir=$1
     mkdir -p "$output_dir"
@@ -446,6 +471,9 @@ spec:
         - name: config-volume
           mountPath: "/etc/kuryr/kuryr.conf"
           subPath: kuryr.conf
+        - name: certificates-volume
+          mountPath: "/etc/ssl/certs"
+          readOnly: true
         readinessProbe:
           httpGet:
             path: /ready
@@ -464,6 +492,9 @@ EOF
       - name: config-volume
         configMap:
           name: kuryr-config
+      - name: certificates-volume
+        secret:
+          secretName: kuryr-certificates
       restartPolicy: Always
 EOF
 }

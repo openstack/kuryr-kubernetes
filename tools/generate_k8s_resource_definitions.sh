@@ -20,6 +20,7 @@ source "$DIR/../devstack/lib/kuryr_kubernetes"
 OUTPUT_DIR=${1:-.}
 CONTROLLER_CONF_PATH=${2:-""}
 CNI_CONF_PATH=${3:-$CONTROLLER_CONF_PATH}
+CA_CERTIFICATE_PATH=${4:-$CA_CERTIFICATE_PATH}
 
 if [ -z $CONTROLLER_CONF_PATH ]; then
     api_root=${KURYR_K8S_API_ROOT:-https://127.0.0.1:6443}
@@ -103,6 +104,7 @@ EOF
     fi
 fi
 
+generate_kuryr_certificates_secret $OUTPUT_DIR $CA_CERTIFICATE_PATH
 generate_kuryr_configmap $OUTPUT_DIR $CONTROLLER_CONF_PATH $CNI_CONF_PATH
 generate_kuryr_service_account $OUTPUT_DIR
 health_server_port=${KURYR_HEALTH_SERVER_PORT:-8082}
