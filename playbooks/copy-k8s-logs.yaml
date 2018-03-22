@@ -1,0 +1,14 @@
+- hosts: all
+  tasks:
+    - set_fact:
+        devstack_base_dir: /opt/stack
+      when: devstack_base_dir is not defined
+
+    - name: Copy Kubernetes resources and pods logs
+      shell:
+        cmd: "{{ devstack_base_dir }}/kuryr-kubernetes/tools/gate/copy_k8s_logs.sh"
+        executable: /bin/bash
+        chdir: "{{ zuul.project.src_dir }}"
+      environment:
+        DEVSTACK_BASE_DIR: "{{ devstack_base_dir }}"
+      become: true
