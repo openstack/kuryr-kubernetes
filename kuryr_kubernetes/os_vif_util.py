@@ -290,7 +290,7 @@ def neutron_to_osvif_vif_nested_macvlan(neutron_port, subnets):
         network=_make_vif_network(neutron_port, subnets),
         has_traffic_filtering=details.get('port_filter', False),
         preserve_on_delete=False,
-        active=_is_port_active(neutron_port),
+        active=True,
         plugin=const.K8S_OS_VIF_NOOP_PLUGIN,
         vif_name=_get_vif_name(neutron_port))
 
