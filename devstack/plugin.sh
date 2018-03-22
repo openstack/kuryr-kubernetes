@@ -665,6 +665,10 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
     if is_service_enabled openshift-node; then
         prepare_kubelet
         run_openshift_node
+        KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE=$(trueorfalse True KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE)
+        if [[ "$KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE" == "True" ]]; then
+            ovs_bind_for_kubelet "$KURYR_NEUTRON_DEFAULT_PROJECT"
+        fi
     fi
 
     if is_service_enabled kubernetes-api \
