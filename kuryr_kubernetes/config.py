@@ -149,6 +149,10 @@ k8s_opts = [
     cfg.IntOpt('watch_retry_timeout',
                help=_('Time (in seconds) the watcher retries watching for.'),
                default=60),
+    cfg.ListOpt('enabled_handlers',
+                help=_("The comma-separated handlers that should be "
+                       "registered for watching in the pipeline."),
+                default=['vif', 'lb', 'lbaasspec']),
 ]
 
 neutron_defaults = [

@@ -38,6 +38,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
     """
 
     OBJECT_KIND = constants.K8S_OBJ_POD
+    OBJECT_WATCH_PATH = "%s/%s" % (constants.K8S_API_BASE, "pods")
 
     def __init__(self):
         super(VIFHandler, self).__init__()

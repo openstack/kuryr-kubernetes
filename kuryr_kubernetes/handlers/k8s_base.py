@@ -34,9 +34,13 @@ def object_uid(event):
 class ResourceEventHandler(dispatch.EventConsumer, health.HealthHandler):
     """Base class for K8s event handlers.
 
-    Implementing classes should override the `OBJECT_KIND` attribute with a
-    valid Kubernetes object type name (e.g. 'Pod' or 'Namespace'; see [1]
-    for more details).
+    Implementing classes should override both `OBJECT_KIND` and
+    'OBJECT_WATCH_PATH' attributes.
+    The `OBJECT_KIND` should be set to a valid Kubernetes object type
+    name (e.g. 'Pod' or 'Namespace'; see [1] for more details).
+
+    The `OBJECT_WATCH_PATH` should point to object's watched path,
+    (e.g. for the 'Pod' case the OBJECT_WATCH_PATH should be '/api/v1/pods').
 
     Implementing classes are expected to override any or all of the
     `on_added`, `on_present`, `on_modified`, `on_deleted` methods that would
@@ -48,9 +52,13 @@ class ResourceEventHandler(dispatch.EventConsumer, health.HealthHandler):
     """
 
     OBJECT_KIND = None
+    OBJECT_WATCH_PATH = None
 
     def __init__(self):
         super(ResourceEventHandler, self).__init__()
+
+    def get_watch_path(self):
+        return self.OBJECT_WATCH_PATH
 
     @property
     def consumes(self):

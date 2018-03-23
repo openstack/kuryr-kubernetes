@@ -17,6 +17,8 @@ import mock
 
 from kuryr_kubernetes.controller import service
 from kuryr_kubernetes.tests import base as test_base
+from kuryr_kubernetes.tests.unit.controller.handlers import test_fake_handler
+from oslo_config import cfg
 
 
 class TestControllerService(test_base.TestCase):
@@ -39,3 +41,19 @@ class TestControllerService(test_base.TestCase):
         m_svc.assert_called()
         m_oslo_launch.assert_called()
         m_launcher.wait.assert_called()
+
+    def test_check_test_handler(self):
+        cfg.CONF.set_override('enabled_handlers', ['test_handler'],
+                              group='kubernetes')
+        handlers = service._load_kuryr_ctrlr_handlers()
+        for handler in handlers:
+            self.assertEqual(handler.get_watch_path(),
+                             test_fake_handler.TestHandler.OBJECT_WATCH_PATH)
+
+    @mock.patch('kuryr_kubernetes.controller.service._handler_not_found')
+    def test_handler_not_found(self, m_handler_not_found):
+
+        cfg.CONF.set_override('enabled_handlers', ['fake_handler'],
+                              group='kubernetes')
+        service._load_kuryr_ctrlr_handlers()
+        m_handler_not_found.assert_called()

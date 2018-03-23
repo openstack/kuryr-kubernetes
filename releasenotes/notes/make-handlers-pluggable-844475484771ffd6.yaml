@@ -1,0 +1,23 @@
+---
+features:
+  - |
+    Introduced a pluggable interface for the Kuryr controller handlers.
+    Each Controller handler associates itself with specific Kubernetes
+    object kind and is expected to process the events of the watched
+    Kubernetes API endpoints.
+    The pluggable handlers framework enable both using externally provided
+    handlers in Kuryr Controller and controlling which handlers
+    should be active.
+
+    To control which Kuryr Controller handlers should be active, the selected
+    handlers need to be included at the kuryr.conf at the 'kubernetes'
+    section.
+    If not specified, Kuryr Controller will run the default handlers.
+    For example, to enable only the 'vif' controller handler we should set
+    the following at kuryr.conf:
+
+    .. code-block:: ini
+
+      [kubernetes]
+      enabled_handlers=vif
+
