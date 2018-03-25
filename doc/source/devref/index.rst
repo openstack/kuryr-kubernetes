@@ -44,6 +44,7 @@ Design documents
     kuryr_kubernetes_ocp_route_design
     high_availability
     kuryr_kubernetes_versions
+    port_crd_usage
 
 Indices and tables
 ------------------
