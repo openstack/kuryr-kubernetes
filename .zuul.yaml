@@ -15,6 +15,7 @@
 - project:
     check:
       jobs:
+        - openstack-tox-lower-constraints
         - kuryr-kubernetes-tempest-octavia
         - kuryr-kubernetes-tempest-daemon-octavia
         - kuryr-kubernetes-tempest-daemon-openshift-octavia
@@ -25,6 +26,7 @@
         - kuryr-kubernetes-tempest-ovn
     gate:
       jobs:
+        - openstack-tox-lower-constraints
         - kuryr-kubernetes-tempest-octavia
         - kuryr-kubernetes-tempest-daemon-octavia
         - kuryr-kubernetes-tempest-lbaasv2
