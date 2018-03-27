@@ -54,9 +54,9 @@ class TestCNIHealthServer(base.TestCase):
                 'verify_k8s_connection')
     def test_readiness_status_k8s_error(self, m_verify_k8s_conn, cap_tester):
         cap_tester.return_value = True
-        m_verify_k8s_conn.return_value = False, 503
+        m_verify_k8s_conn.return_value = False
         resp = self.test_client.get('/ready')
-        self.assertEqual(503, resp.status_code)
+        self.assertEqual(500, resp.status_code)
 
     @mock.patch('pyroute2.IPDB.release')
     def test_liveness_status(self, m_ipdb):
