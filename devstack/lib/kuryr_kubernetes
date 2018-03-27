@@ -717,6 +717,7 @@ function run_openshift_node {
     local command
 
     #install required CNI loopback driver
+    sudo mkdir -p "$CNI_BIN_DIR"
     curl -L "$OPENSHIFT_CNI_BINARY_URL" | sudo tar -C "$CNI_BIN_DIR" -xzvf - ./loopback
     command="/usr/local/bin/openshift start node \
         --kubeconfig=${OPENSHIFT_DATA_DIR}/master.kubelet-client.kubeconfig \
