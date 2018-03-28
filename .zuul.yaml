@@ -40,6 +40,7 @@
         - kuryr-kubernetes-tempest-octavia-centos-7
         - kuryr-kubernetes-tempest-lbaasv2-centos-7
         - kuryr-kubernetes-tempest-containerized-lbaasv2
+        - kuryr-kubernetes-tempest-daemon-containerized-openshift-lbaasv2
         - kuryr-kubernetes-tempest-daemon-pools-lbaasv2
         - kuryr-kubernetes-tempest-daemon-containerized-octavia
         - kuryr-kubernetes-tempest-daemon-containerized-octavia-l2
@@ -360,6 +361,14 @@
 - job:
     name: kuryr-kubernetes-tempest-daemon-containerized-lbaasv2
     parent: kuryr-kubernetes-tempest-daemon-lbaasv2
+    vars:
+      devstack_localrc:
+        KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
+
+- job:
+    name: kuryr-kubernetes-tempest-daemon-containerized-openshift-lbaasv2
+    description: Tempest with LBaaS v2, CNI daemon enabled, containers and OpenShift
+    parent: kuryr-kubernetes-tempest-daemon-openshift-lbaasv2
     vars:
       devstack_localrc:
         KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true

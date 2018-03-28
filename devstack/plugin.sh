@@ -229,7 +229,7 @@ function create_k8s_api_service {
 
     local api_port
     if is_service_enabled openshift-master; then
-        api_port=8443
+        api_port=${OPENSHIFT_API_PORT}
     else
         api_port=6443
     fi
@@ -671,7 +671,7 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
         run_openshift_node
         KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE=$(trueorfalse True KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE)
         if [[ "$KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE" == "True" ]]; then
-            ovs_bind_for_kubelet "$KURYR_NEUTRON_DEFAULT_PROJECT"
+            ovs_bind_for_kubelet "$KURYR_NEUTRON_DEFAULT_PROJECT" ${OPENSHIFT_API_PORT}
         fi
     fi
 
@@ -708,7 +708,7 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
         run_k8s_kubelet
         KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE=$(trueorfalse True KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE)
         if [[ "$KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE" == "True" ]]; then
-            ovs_bind_for_kubelet "$KURYR_NEUTRON_DEFAULT_PROJECT"
+            ovs_bind_for_kubelet "$KURYR_NEUTRON_DEFAULT_PROJECT" 6443
         fi
     fi
 

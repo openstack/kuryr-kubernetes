@@ -50,7 +50,8 @@ KURYR_PORT_DEBUG=${KURYR_PORT_DEBUG:-True}
 OPENSHIFT_BINARY_URL=${OPENSHIFT_BINARY_URL:-https://github.com/openshift/origin/releases/download/v3.9.0/openshift-origin-server-v3.9.0-191fece-linux-64bit.tar.gz}
 OPENSHIFT_HOME=${OPENSHIFT_HOME:-$DEST/openshift}
 OPENSHIFT_DATA_DIR=${OPENSHIFT_DATA_DIR:-${DATA_DIR}/openshift}
-OPENSHIFT_API_URL=${OPENSHIFT_API_URL:-https://${HOST_IP}:8443}
+OPENSHIFT_API_PORT=${OPENSHIFT_API_PORT:-8443}
+OPENSHIFT_API_URL=${OPENSHIFT_API_URL:-https://${HOST_IP}:${OPENSHIFT_API_PORT}}
 OPENSHIFT_CNI_BINARY_URL=${OPENSHIFT_CNI_BINARY_URL:-https://github.com/containernetworking/cni/releases/download/v0.5.2/cni-v0.5.2.tgz}
 
 # Octavia
