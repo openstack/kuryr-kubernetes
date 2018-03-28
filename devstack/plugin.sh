@@ -634,9 +634,7 @@ if [[ "$1" == "stack" && "$2" == "install" ]]; then
     fi
 
 elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
-    if is_service_enabled kuryr-kubernetes; then
-        create_kuryr_account
-    fi
+    create_kuryr_account
     configure_kuryr
 fi
 
