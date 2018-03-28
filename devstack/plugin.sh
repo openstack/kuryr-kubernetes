@@ -796,6 +796,9 @@ if [[ "$1" == "unstack" ]]; then
     fi
     if is_service_enabled openshift-node; then
         stop_process openshift-node
+        # NOTE(dulek): We need to clean up the configuration as well, otherwise
+        # when doing stack.sh again, openshift-node will use old certificates.
+        sudo rm -rf ${OPENSHIFT_DATA_DIR}
     fi
     if is_service_enabled legacy_etcd; then
         stop_container etcd
