@@ -769,6 +769,27 @@ function lb_state {
     fi
 }
 
+function wait_for_lb {
+    local lb_name
+    local curr_time
+    local time_diff
+    local start_time
+
+    lb_name="$1"
+    timeout=${2:-$KURYR_WAIT_TIMEOUT}
+
+    echo -n "Waiting for LB:$lb_name"
+    start_time=$(date +%s)
+
+    while [[ "$(lb_state "$lb_name")" != "ACTIVE" ]]; do
+        echo -n "Waiting till LB=$lb_name is ACTIVE."
+        curr_time=$(date +%s)
+        time_diff=$((curr_time - start_time))
+        [[ $time_diff -le $timeout ]] || die "Timed out waiting for $lb_name"
+        sleep 5
+    done
+}
+
 # create_load_balancer
 #   Description: Creates an OpenStack Load Balancer with either neutron LBaaS
 #                or Octavia
@@ -809,16 +830,16 @@ function create_load_balancer_listener {
     local protocol
     local port
     local lb
+    local max_timeout
 
     name="$1"
     protocol="$2"
     port="$3"
     lb="$4"
 
+    max_timeout=600
     # Octavia needs the LB to be active for the listener
-    while [[ "$(lb_state $lb)" != "ACTIVE" ]]; do
-        sleep 1
-    done
+    wait_for_lb $lb $max_timeout
 
     if is_service_enabled octavia; then
         openstack loadbalancer listener create --name "$name" \
@@ -858,9 +879,7 @@ function create_load_balancer_pool {
     lb="$5"
 
     # We must wait for the LB to be active before we can put a Pool for it
-    while [[ "$(lb_state $lb)" != "ACTIVE" ]]; do
-        sleep 1
-    done
+    wait_for_lb $lb
 
     if is_service_enabled octavia; then
         openstack loadbalancer pool create --name "$name" \
@@ -901,9 +920,7 @@ function create_load_balancer_member {
     lb="$6"
 
     # We must wait for the pool creation update before we can add members
-    while [[ "$(lb_state $lb)" != "ACTIVE" ]]; do
-        sleep 1
-    done
+    wait_for_lb $lb
 
     if is_service_enabled octavia; then
         openstack loadbalancer member create --name "$name" \
