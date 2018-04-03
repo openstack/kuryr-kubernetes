@@ -377,7 +377,9 @@ function generate_kuryr_certificates_secret() {
     mkdir -p "$output_dir"
     rm -f ${output_dir}/certificates_secret.yml
 
-    if [ -n $certs_bundle_path ]; then
+    CA_CERT=\"\"  # It's a "" string that will be inserted into yaml file.
+
+    if [ -f $certs_bundle_path ]; then
         CA_CERT=`cat $certs_bundle_path | base64 -w0`
     fi
 
