@@ -63,6 +63,7 @@
       - openstack/kuryr-tempest-plugin
       - openstack/neutron-lbaas
       - openstack/tempest
+    post-run: playbooks/copy-k8s-logs.yaml
     vars:
       tempest_test_regex: '^(kuryr_tempest_plugin.tests.)'
       tox_envlist: 'all'
@@ -111,6 +112,8 @@
         kuryr-kubernetes: https://git.openstack.org/openstack/kuryr
         devstack-plugin-container: https://git.openstack.org/openstack/devstack-plugin-container
         neutron-lbaas: https://git.openstack.org/openstack/neutron-lbaas
+      zuul_copy_output:
+        '{{ devstack_log_dir }}/kubernetes': 'logs'
     irrelevant-files:
       - ^.*\.rst$
       - ^doc/.*$
