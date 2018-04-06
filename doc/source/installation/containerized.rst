@@ -49,6 +49,11 @@ that can be used to Deploy Kuryr on Kubernetes. The script is placed in
   will be added into Kubernetes as a ``Secret`` and mounted into
   kuryr-controller container. Defaults to no certificate.
 
+.. note::
+  Providing no or incorrect ``ca_certificate_path`` will still create the file
+  with ``Secret`` definition with empty CA certificate file. This file will
+  still be mounted in kuryr-controller ``Deployment`` definition.
+
 If no path to config files is provided, script automatically generates minimal
 configuration. However some of the options should be filled by the user. You can
 do that either by editing the file after the ConfigMap definition is generated
@@ -99,9 +104,10 @@ Example run: ::
 
     $ KURYR_K8S_API_ROOT="192.168.0.1:6443" ./tools/generate_k8s_resource_definitions /tmp
 
-This should generate 4 files in your ``<output_dir>``:
+This should generate 5 files in your ``<output_dir>``:
 
 * config_map.yml
+* certificates_secret.yml
 * service_account.yml
 * controller_deployment.yml
 * cni_ds.yml
