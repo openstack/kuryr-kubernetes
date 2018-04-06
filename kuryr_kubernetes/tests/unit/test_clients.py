@@ -32,6 +32,7 @@ class TestK8sClient(test_base.TestCase):
         openstacksdk_mock = mock.Mock()
         openstacksdk_mock.load_balancer = mock.Mock()
         openstacksdk_mock.network = mock.Mock()
+        openstacksdk_mock.compute = mock.Mock()
         k8s_dummy = object()
 
         m_cfg.kubernetes.api_root = k8s_api_root
@@ -49,3 +50,5 @@ class TestK8sClient(test_base.TestCase):
                       clients.get_loadbalancer_client())
         self.assertIs(openstacksdk_mock.network,
                       clients.get_network_client())
+        self.assertIs(openstacksdk_mock.compute,
+                      clients.get_compute_client())

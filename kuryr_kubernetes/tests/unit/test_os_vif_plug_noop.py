@@ -85,5 +85,9 @@ class TestNoOpPlugin(base.TestCase):
                     vif_object_name=k_vif.VIFMacvlanNested.__name__,
                     min_version="1.0",
                     max_version="1.0"),
+                objects.host_info.HostVIFInfo(
+                    vif_object_name=k_vif.VIFDPDKNested.__name__,
+                    min_version="1.0",
+                    max_version="1.0"),
             ])
         self.assertEqual(expected, result)

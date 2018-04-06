@@ -636,6 +636,8 @@ spec:
           mountPath: /etc/kuryr
         - name: proc
           mountPath: /host_proc
+        - name: var-pci
+          mountPath: /var/pci_address
 EOF
     if [[ -n "$VAR_RUN_PATH" ]]; then
         cat >> "${output_dir}/cni_ds.yml" << EOF
@@ -669,6 +671,9 @@ EOF
         - name: proc
           hostPath:
             path: /proc
+        - name: var-pci
+          hostPath:
+            path: /var/pci_address
 EOF
     if [[ -n "$VAR_RUN_PATH" ]]; then
         cat >> "${output_dir}/cni_ds.yml" << EOF

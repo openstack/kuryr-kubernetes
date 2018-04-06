@@ -121,7 +121,13 @@ def _configure_l3(vif, ifname, netns, is_default_gateway):
 
 def _need_configure_l3(vif):
     if not hasattr(vif, 'physnet'):
+        # NOTE(danil): non-sriov vif. Figure out if it is nested-dpdk
+        if vif.obj_attr_is_set('port_profile') and hasattr(vif.port_profile,
+                                                           'l3_setup'):
+            return vif.port_profile.l3_setup
+        # NOTE(danil): by default kuryr-kubernetes has to setup l3
         return True
+    # NOTE(danil): sriov vif. Figure out what driver should compute it
     physnet = vif.physnet
     mapping_res = config.CONF.sriov.physnet_resource_mappings
     try:
@@ -139,6 +145,7 @@ def _need_configure_l3(vif):
         LOG.info("_configure_l3 will not be called for vif %s "
                  "because of it's driver", vif)
         return False
+    # NOTE(danil): sriov vif computed by kernel driver
     return True
 
 

@@ -36,7 +36,8 @@ LOG = log.getLogger(__name__)
 VALID_MULTI_POD_POOLS_OPTS = {'noop': ['neutron-vif',
                                        'nested-vlan',
                                        'nested-macvlan',
-                                       'sriov'],
+                                       'sriov',
+                                       'nested-dpdk'],
                               'neutron': ['neutron-vif'],
                               'nested': ['nested-vlan'],
                               }

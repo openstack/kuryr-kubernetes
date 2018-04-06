@@ -83,3 +83,15 @@ class VIFSriov(obj_osvif.VIFDirect):
         'pod_name': obj_fields.StringField(),
         'pod_link': obj_fields.StringField(),
     }
+
+
+@obj_base.VersionedObjectRegistry.register
+class VIFDPDKNested(obj_osvif.VIFNestedDPDK):
+    # This is OVO based DPDK Nested vif.
+
+    VERSION = '1.0'
+
+    fields = {
+        # name of the VIF
+        'vif_name': obj_fields.StringField(),
+    }

@@ -11,7 +11,7 @@ ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/mas
 ARG OSLO_LOCK_PATH=/var/kuryr-lock
 
 RUN yum install -y epel-release https://rdoproject.org/repos/rdo-release.rpm \
-    && yum install -y --setopt=tsflags=nodocs python3-pip openvswitch sudo \
+    && yum install -y --setopt=tsflags=nodocs python3-pip openvswitch sudo iproute libstdc++ pciutils kmod-libs \
     && yum install -y --setopt=tsflags=nodocs gcc python3-devel git
 
 COPY . /opt/kuryr-kubernetes
