@@ -65,6 +65,8 @@ function ovs_bind_for_kubelet() {
         sudo ip addr add "${port_ips[$i]}/${prefix}" dev "$ifname"
     done
     sudo ip route add "$service_subnet_cidr" via "$pod_subnet_gw" dev "$ifname"
+    # Ignore the error if openstack-INPUT chain doesn't exist.
+    sudo iptables -I openstack-INPUT 1 -p tcp -s 0.0.0.0/0 -d 0.0.0.0/0 --dport 6443 -j ACCEPT || true
 }
 
 # get_container
