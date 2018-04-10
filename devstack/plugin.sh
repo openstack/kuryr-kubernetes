@@ -198,7 +198,7 @@ function create_k8s_api_service {
     # containerized kuryr controller or kube-dns) to talk to the K8s API
     # service
     local service_cidr
-    local router_ip
+    local kubelet_iface_ip
     local lb_name
 
     lb_name='default/kubernetes'
@@ -206,6 +206,8 @@ function create_k8s_api_service {
                              --os-region "$REGION_NAME" \
                              subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
                              -c cidr -f value)
+
+    kubelet_iface_ip=$(openstack port show kubelet-"${HOSTNAME}" -c fixed_ips -f value | cut -d \' -f 2)
 
     k8s_api_clusterip=$(_cidr_range "$service_cidr" | cut -f1)
 
@@ -237,17 +239,17 @@ function create_k8s_api_service {
     while [[ "$(_lb_state $lb_name)" != "ACTIVE" ]]; do
         sleep 1
     done
+
+    local api_port
     if is_service_enabled openshift-master; then
-        neutron lbaas-member-create  --subnet public-subnet \
-            --address "${HOST_IP}" \
-            --protocol-port 8443 \
-            default/kubernetes:443
+        api_port=8443
     else
-        neutron lbaas-member-create  --subnet public-subnet \
-            --address "${HOST_IP}" \
-            --protocol-port 6443 \
-            default/kubernetes:443
+        api_port=6443
     fi
+    neutron lbaas-member-create  --subnet public-subnet \
+        --address ${kubelet_iface_ip} \
+        --protocol-port ${api_port} \
+        default/kubernetes:443
 }
 
 function configure_neutron_defaults {
