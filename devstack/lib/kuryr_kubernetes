@@ -696,3 +696,172 @@ function run_openshift_node {
         run_process openshift-node "sudo $command"
     fi
 }
+
+# lb_state
+#   Description: Returns the state of the load balancer
+#   Params:
+#      id - Id or name of the loadbalancer the state of which needs to be
+#           retrieved.
+function lb_state {
+    local lb_id
+
+    lb_id="$1"
+    # Checks Neutron lbaas for the Load balancer state
+    if is_service_enabled octavia; then
+        openstack loadbalancer show "$lb_id" | \
+            awk '/provisioning_status/ {print $4}'
+    else
+        neutron lbaas-loadbalancer-show "$lb_id" | \
+            awk '/provisioning_status/ {print $4}'
+    fi
+}
+
+# create_load_balancer
+#   Description: Creates an OpenStack Load Balancer with either neutron LBaaS
+#                or Octavia
+#   Params:
+#       lb_name: Name to give to the load balancer.
+#       lb_vip: Virtual IP to give to the load balancer.
+#       lb_vip_subnet: Id or name of the subnet where lb_vip should be
+#                      allocated.
+function create_load_balancer {
+    local lb_name
+    local lb_vip
+    local lb_vip_subnet
+
+    lb_name="$1"
+    lb_vip="$2"
+    lb_vip_subnet="$3"
+    if is_service_enabled octavia; then
+        openstack loadbalancer create --name "$lb_name" \
+            --vip-address "$lb_vip" \
+            --vip-subnet-id "$lb_vip_subnet"
+    else
+        neutron lbaas-loadbalancer-create --name "$lb_name" \
+            --vip-address "$lb_vip" \
+            "$lb_vip_subnet"
+    fi
+}
+
+# create_load_balancer_listener
+#   Description: Creates an OpenStack Load Balancer Listener for the specified
+#                Load Balancer with either neutron LBaaS or Octavia
+#   Params:
+#       name: Name to give to the load balancer listener.
+#       protocol: Whether it is HTTP, HTTPS, TCP, etc.
+#       port: The TCP port number to listen to.
+#       lb: Id or name of the Load Balancer we want to add the Listener to.
+function create_load_balancer_listener {
+    local name
+    local protocol
+    local port
+    local lb
+
+    name="$1"
+    protocol="$2"
+    port="$3"
+    lb="$4"
+
+    # Octavia needs the LB to be active for the listener
+    while [[ "$(lb_state $lb)" != "ACTIVE" ]]; do
+        sleep 1
+    done
+
+    if is_service_enabled octavia; then
+        openstack loadbalancer listener create --name "$name" \
+            --protocol "$protocol" \
+            --protocol-port "$port" \
+            "$lb"
+    else
+        neutron lbaas-listener-create --name "$name" \
+            --protocol "$protocol" \
+            --protocol-port "$port" \
+            --loadbalancer "$lb"
+    fi
+}
+
+# create_load_balancer_pool
+#   Description: Creates an OpenStack Load Balancer Pool for the specified
+#                Load Balancer listener with either neutron LBaaS or Octavia
+#   Params:
+#       name: Name to give to the load balancer listener.
+#       protocol: Whether it is HTTP, HTTPS, TCP, etc.
+#       algorithm: Load Balancing algorithm to use.
+#       listener: Id or name of the Load Balancer Listener we want to add the
+#                 pool to.
+#       lb: Id or name of the Load Balancer we want to add the pool to
+#           (optional).
+function create_load_balancer_pool {
+    local name
+    local protocol
+    local algorithm
+    local listener
+    local lb
+
+    name="$1"
+    protocol="$2"
+    algorithm="$3"
+    listener="$4"
+    lb="$5"
+
+    # We must wait for the LB to be active before we can put a Pool for it
+    while [[ "$(lb_state $lb)" != "ACTIVE" ]]; do
+        sleep 1
+    done
+
+    if is_service_enabled octavia; then
+        openstack loadbalancer pool create --name "$name" \
+            --listener "$listener" \
+            --protocol "$protocol" \
+            --lb-algorithm "$algorithm"
+    else
+        neutron lbaas-pool-create --name "$name" \
+            --loadbalancer "$lb_name" \
+            --listener "$listener" \
+            --protocol "$protocol" \
+            --lb-algorithm "$algorithm"
+    fi
+}
+
+# create_load_balancer_member
+#   Description: Creates an OpenStack load balancer pool member
+#   Params:
+#       name: Name to give to the load balancer pool member.
+#       address: Whether it is HTTP, HTTPS, TCP, etc.
+#       port: Port number the pool member is listening on.
+#       pool: Id or name of the Load Balancer pool this member belongs to.
+#       subnet: Id or name of the subnet the member address belongs to.
+#       lb: Id or name of the load balancer the member belongs to.
+function create_load_balancer_member {
+    local name
+    local address
+    local port
+    local pool
+    local subnet
+    local lb
+
+    name="$1"
+    address="$2"
+    port="$3"
+    pool="$4"
+    subnet="$5"
+    lb="$6"
+
+    # We must wait for the pool creation update before we can add members
+    while [[ "$(lb_state $lb)" != "ACTIVE" ]]; do
+        sleep 1
+    done
+
+    if is_service_enabled octavia; then
+        openstack loadbalancer member create --name "$name" \
+            --address "$address" \
+            --protocol-port "$port" \
+            "$pool"
+    else
+        neutron lbaas-member-create --name "$name" \
+            --subnet "$subnet" \
+            --address "$address" \
+            --protocol-port "$port" \
+            "$pool"
+    fi
+}
