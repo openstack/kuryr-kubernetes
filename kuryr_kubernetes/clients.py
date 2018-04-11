@@ -17,14 +17,20 @@ from kuryr.lib import utils
 
 from kuryr_kubernetes import config
 from kuryr_kubernetes import k8s_client
+from neutronclient import client as n_client
 
 _clients = {}
 _NEUTRON_CLIENT = 'neutron-client'
+_LB_CLIENT = 'load-balancer-client'
 _KUBERNETES_CLIENT = 'kubernetes-client'
 
 
 def get_neutron_client():
     return _clients[_NEUTRON_CLIENT]
+
+
+def get_loadbalancer_client():
+    return _clients[_LB_CLIENT]
 
 
 def get_kubernetes_client():
@@ -33,11 +39,30 @@ def get_kubernetes_client():
 
 def setup_clients():
     setup_neutron_client()
+    setup_loadbalancer_client()
     setup_kubernetes_client()
 
 
 def setup_neutron_client():
     _clients[_NEUTRON_CLIENT] = utils.get_neutron_client()
+
+
+def setup_loadbalancer_client():
+    neutron_client = get_neutron_client()
+    if any(ext['alias'] == 'lbaasv2' for
+           ext in neutron_client.list_extensions()['extensions']):
+        _clients[_LB_CLIENT] = neutron_client
+    else:
+        # Since Octavia is lbaasv2 API compatible (A superset of it) we'll just
+        # wire an extra neutron client instance to point to it
+        lbaas_client = utils.get_neutron_client()
+        conf_group = utils.kuryr_config.neutron_group.name
+        auth_plugin = utils.get_auth_plugin(conf_group)
+        octo_httpclient = n_client.construct_http_client(
+            session=utils.get_keystone_session(conf_group, auth_plugin),
+            service_type='load-balancer')
+        lbaas_client.httpclient = octo_httpclient
+        _clients[_LB_CLIENT] = lbaas_client
 
 
 def setup_kubernetes_client():
