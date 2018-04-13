@@ -1,5 +1,5 @@
 FROM centos:7
-LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Vikas Choudhary<vichoudh@redhat.com>"
+LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redhat.com>"
 
 COPY . /opt/kuryr-kubernetes
 
