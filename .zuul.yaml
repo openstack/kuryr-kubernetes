@@ -89,7 +89,6 @@
         q-l3: true
         q-svc: true
         q-meta: true
-        q-lbaasv2: true
         key: true
         mysql: true
         rabbit: true
@@ -111,7 +110,6 @@
       devstack_plugins:
         kuryr-kubernetes: https://git.openstack.org/openstack/kuryr
         devstack-plugin-container: https://git.openstack.org/openstack/devstack-plugin-container
-        neutron-lbaas: https://git.openstack.org/openstack/neutron-lbaas
       zuul_copy_output:
         '{{ devstack_log_dir }}/kubernetes': 'logs'
     irrelevant-files:
@@ -143,6 +141,8 @@
       - openstack/python-barbicanclient
       - openstack/python-octaviaclient
     vars:
+      devstack_localrc:
+        LIBS_FROM_GIT: python-octaviaclient
       devstack_local_conf:
         post-config:
           $OCTAVIA_CONF:
@@ -215,6 +215,10 @@
     vars:
       devstack_localrc:
           NEUTRON_LBAAS_SERVICE_PROVIDERV2: 'LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default'
+      devstack_services:
+        q-lbaasv2: true
+      devstack_plugins:
+        neutron-lbaas: https://git.openstack.org/openstack/neutron-lbaas
 
 - job:
     name: kuryr-kubernetes-tempest-lbaasv2-centos-7

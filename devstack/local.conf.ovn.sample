@@ -70,11 +70,6 @@ if [[ "$KURYR_K8S_LBAAS_USE_OCTAVIA" == "True" ]]; then
     ### Glance
     enable_service g-api
     enable_service g-reg
-    ### Neutron-lbaas
-    #### In case Octavia is older than Pike, neutron-lbaas is needed
-    enable_plugin neutron-lbaas \
-        git://git.openstack.org/openstack/neutron-lbaas
-    enable_service q-lbaasv2
 else
     # LBaaSv2 service and Haproxy agent
     enable_plugin neutron-lbaas \

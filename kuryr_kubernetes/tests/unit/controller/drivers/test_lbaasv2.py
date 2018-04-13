@@ -73,7 +73,8 @@ class TestLBaaSv2Driver(test_base.TestCase):
                           sg_ids, 'ClusterIP')
 
     def test_release_loadbalancer(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         endpoints = mock.sentinel.endpoints
@@ -82,7 +83,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         cls.release_loadbalancer(m_driver, endpoints, loadbalancer)
 
         m_driver._release.assert_called_once_with(loadbalancer, loadbalancer,
-                                                  neutron.delete_loadbalancer,
+                                                  lbaas.delete_loadbalancer,
                                                   loadbalancer.id)
 
     def test_ensure_listener(self):
@@ -121,6 +122,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
 
     def test_release_listener(self):
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         neutron.list_security_group_rules.return_value = {
             'security_group_rules': []}
         cls = d_lbaasv2.LBaaSv2Driver
@@ -132,7 +134,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         cls.release_listener(m_driver, endpoints, loadbalancer, listener)
 
         m_driver._release.assert_called_once_with(loadbalancer, listener,
-                                                  neutron.delete_listener,
+                                                  lbaas.delete_listener,
                                                   listener.id)
 
     def test_ensure_pool(self):
@@ -162,7 +164,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         self.assertEqual(expected_resp, resp)
 
     def test_release_pool(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         endpoints = mock.sentinel.endpoints
@@ -172,7 +174,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         cls.release_pool(m_driver, endpoints, loadbalancer, pool)
 
         m_driver._release.assert_called_once_with(loadbalancer, pool,
-                                                  neutron.delete_lbaas_pool,
+                                                  lbaas.delete_lbaas_pool,
                                                   pool.id)
 
     def test_ensure_member(self):
@@ -207,7 +209,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         self.assertEqual(expected_resp, resp)
 
     def test_release_member(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         endpoints = mock.sentinel.endpoints
@@ -217,11 +219,11 @@ class TestLBaaSv2Driver(test_base.TestCase):
         cls.release_member(m_driver, endpoints, loadbalancer, member)
 
         m_driver._release.assert_called_once_with(loadbalancer, member,
-                                                  neutron.delete_lbaas_member,
+                                                  lbaas.delete_lbaas_member,
                                                   member.id, member.pool_id)
 
     def test_create_loadbalancer(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         loadbalancer = obj_lbaas.LBaaSLoadBalancer(
@@ -232,22 +234,21 @@ class TestLBaaSv2Driver(test_base.TestCase):
         req = {'loadbalancer': {
             'name': loadbalancer.name,
             'project_id': loadbalancer.project_id,
-            'tenant_id': loadbalancer.project_id,
             'vip_address': str(loadbalancer.ip),
             'vip_subnet_id': loadbalancer.subnet_id,
         }}
         resp = {'loadbalancer': {'id': loadbalancer_id, 'provider': 'haproxy'}}
-        neutron.create_loadbalancer.return_value = resp
+        lbaas.create_loadbalancer.return_value = resp
 
         ret = cls._create_loadbalancer(m_driver, loadbalancer)
-        neutron.create_loadbalancer.assert_called_once_with(req)
+        lbaas.create_loadbalancer.assert_called_once_with(req)
         for attr in loadbalancer.obj_fields:
             self.assertEqual(getattr(loadbalancer, attr),
                              getattr(ret, attr))
         self.assertEqual(loadbalancer_id, ret.id)
 
     def test_find_loadbalancer(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         loadbalancer = obj_lbaas.LBaaSLoadBalancer(
@@ -257,13 +258,12 @@ class TestLBaaSv2Driver(test_base.TestCase):
         loadbalancer_id = '00EE9E11-91C2-41CF-8FD4-7970579E5C4C'
         resp = {'loadbalancers': [{'id': loadbalancer_id,
                                    'provider': 'haproxy'}]}
-        neutron.list_loadbalancers.return_value = resp
+        lbaas.list_loadbalancers.return_value = resp
 
         ret = cls._find_loadbalancer(m_driver, loadbalancer)
-        neutron.list_loadbalancers.assert_called_once_with(
+        lbaas.list_loadbalancers.assert_called_once_with(
             name=loadbalancer.name,
             project_id=loadbalancer.project_id,
-            tenant_id=loadbalancer.project_id,
             vip_address=str(loadbalancer.ip),
             vip_subnet_id=loadbalancer.subnet_id)
         for attr in loadbalancer.obj_fields:
@@ -272,26 +272,25 @@ class TestLBaaSv2Driver(test_base.TestCase):
         self.assertEqual(loadbalancer_id, ret.id)
 
     def test_find_loadbalancer_not_found(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         loadbalancer = obj_lbaas.LBaaSLoadBalancer(
             name='TEST_NAME', project_id='TEST_PROJECT', ip='1.2.3.4',
             subnet_id='D3FA400A-F543-4B91-9CD3-047AF0CE42D1')
         resp = {'loadbalancers': []}
-        neutron.list_loadbalancers.return_value = resp
+        lbaas.list_loadbalancers.return_value = resp
 
         ret = cls._find_loadbalancer(m_driver, loadbalancer)
-        neutron.list_loadbalancers.assert_called_once_with(
+        lbaas.list_loadbalancers.assert_called_once_with(
             name=loadbalancer.name,
             project_id=loadbalancer.project_id,
-            tenant_id=loadbalancer.project_id,
             vip_address=str(loadbalancer.ip),
             vip_subnet_id=loadbalancer.subnet_id)
         self.assertIsNone(ret)
 
     def test_create_listener(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         listener = obj_lbaas.LBaaSListener(
@@ -301,22 +300,21 @@ class TestLBaaSv2Driver(test_base.TestCase):
         req = {'listener': {
             'name': listener.name,
             'project_id': listener.project_id,
-            'tenant_id': listener.project_id,
             'loadbalancer_id': listener.loadbalancer_id,
             'protocol': listener.protocol,
             'protocol_port': listener.port}}
         resp = {'listener': {'id': listener_id}}
-        neutron.create_listener.return_value = resp
+        lbaas.create_listener.return_value = resp
 
         ret = cls._create_listener(m_driver, listener)
-        neutron.create_listener.assert_called_once_with(req)
+        lbaas.create_listener.assert_called_once_with(req)
         for attr in listener.obj_fields:
             self.assertEqual(getattr(listener, attr),
                              getattr(ret, attr))
         self.assertEqual(listener_id, ret.id)
 
     def test_find_listener(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         listener = obj_lbaas.LBaaSListener(
@@ -324,13 +322,12 @@ class TestLBaaSv2Driver(test_base.TestCase):
             port=1234, loadbalancer_id='00EE9E11-91C2-41CF-8FD4-7970579E5C4C')
         listener_id = 'A57B7771-6050-4CA8-A63C-443493EC98AB'
         resp = {'listeners': [{'id': listener_id}]}
-        neutron.list_listeners.return_value = resp
+        lbaas.list_listeners.return_value = resp
 
         ret = cls._find_listener(m_driver, listener)
-        neutron.list_listeners.assert_called_once_with(
+        lbaas.list_listeners.assert_called_once_with(
             name=listener.name,
             project_id=listener.project_id,
-            tenant_id=listener.project_id,
             loadbalancer_id=listener.loadbalancer_id,
             protocol=listener.protocol,
             protocol_port=listener.port)
@@ -340,27 +337,26 @@ class TestLBaaSv2Driver(test_base.TestCase):
         self.assertEqual(listener_id, ret.id)
 
     def test_find_listener_not_found(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         listener = obj_lbaas.LBaaSListener(
             name='TEST_NAME', project_id='TEST_PROJECT', protocol='TCP',
             port=1234, loadbalancer_id='00EE9E11-91C2-41CF-8FD4-7970579E5C4C')
         resp = {'listeners': []}
-        neutron.list_listeners.return_value = resp
+        lbaas.list_listeners.return_value = resp
 
         ret = cls._find_listener(m_driver, listener)
-        neutron.list_listeners.assert_called_once_with(
+        lbaas.list_listeners.assert_called_once_with(
             name=listener.name,
             project_id=listener.project_id,
-            tenant_id=listener.project_id,
             loadbalancer_id=listener.loadbalancer_id,
             protocol=listener.protocol,
             protocol_port=listener.port)
         self.assertIsNone(ret)
 
     def test_create_pool(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         lb_algorithm = 'ROUND_ROBIN'
@@ -372,23 +368,22 @@ class TestLBaaSv2Driver(test_base.TestCase):
         req = {'pool': {
             'name': pool.name,
             'project_id': pool.project_id,
-            'tenant_id': pool.project_id,
             'listener_id': pool.listener_id,
             'loadbalancer_id': pool.loadbalancer_id,
             'protocol': pool.protocol,
             'lb_algorithm': lb_algorithm}}
         resp = {'pool': {'id': pool_id}}
-        neutron.create_lbaas_pool.return_value = resp
+        lbaas.create_lbaas_pool.return_value = resp
 
         ret = cls._create_pool(m_driver, pool)
-        neutron.create_lbaas_pool.assert_called_once_with(req)
+        lbaas.create_lbaas_pool.assert_called_once_with(req)
         for attr in pool.obj_fields:
             self.assertEqual(getattr(pool, attr),
                              getattr(ret, attr))
         self.assertEqual(pool_id, ret.id)
 
     def test_create_pool_conflict(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         lb_algorithm = 'ROUND_ROBIN'
@@ -399,17 +394,16 @@ class TestLBaaSv2Driver(test_base.TestCase):
         req = {'pool': {
             'name': pool.name,
             'project_id': pool.project_id,
-            'tenant_id': pool.project_id,
             'listener_id': pool.listener_id,
             'loadbalancer_id': pool.loadbalancer_id,
             'protocol': pool.protocol,
             'lb_algorithm': lb_algorithm}}
-        neutron.create_lbaas_pool.side_effect = n_exc.StateInvalidClient
+        lbaas.create_lbaas_pool.side_effect = n_exc.StateInvalidClient
 
         self.assertRaises(n_exc.StateInvalidClient, cls._create_pool, m_driver,
                           pool)
-        neutron.create_lbaas_pool.assert_called_once_with(req)
-        m_driver._cleanup_bogus_pool.assert_called_once_with(neutron, pool,
+        lbaas.create_lbaas_pool.assert_called_once_with(req)
+        m_driver._cleanup_bogus_pool.assert_called_once_with(lbaas, pool,
                                                              lb_algorithm)
 
     def test_cleanup_bogus_pool(self):
@@ -417,7 +411,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         self.skipTest("not implemented")
 
     def test_find_pool(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         pool = obj_lbaas.LBaaSPool(
@@ -427,13 +421,12 @@ class TestLBaaSv2Driver(test_base.TestCase):
         pool_id = 'D4F35594-27EB-4F4C-930C-31DD40F53B77'
         resp = {'pools': [{'id': pool_id,
                            'listeners': [{'id': pool.listener_id}]}]}
-        neutron.list_lbaas_pools.return_value = resp
+        lbaas.list_lbaas_pools.return_value = resp
 
         ret = cls._find_pool(m_driver, pool)
-        neutron.list_lbaas_pools.assert_called_once_with(
+        lbaas.list_lbaas_pools.assert_called_once_with(
             name=pool.name,
             project_id=pool.project_id,
-            tenant_id=pool.project_id,
             loadbalancer_id=pool.loadbalancer_id,
             protocol=pool.protocol)
         for attr in pool.obj_fields:
@@ -442,7 +435,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         self.assertEqual(pool_id, ret.id)
 
     def test_find_pool_not_found(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         pool = obj_lbaas.LBaaSPool(
@@ -450,19 +443,18 @@ class TestLBaaSv2Driver(test_base.TestCase):
             listener_id='A57B7771-6050-4CA8-A63C-443493EC98AB',
             loadbalancer_id='00EE9E11-91C2-41CF-8FD4-7970579E5C4C')
         resp = {'pools': []}
-        neutron.list_lbaas_pools.return_value = resp
+        lbaas.list_lbaas_pools.return_value = resp
 
         ret = cls._find_pool(m_driver, pool)
-        neutron.list_lbaas_pools.assert_called_once_with(
+        lbaas.list_lbaas_pools.assert_called_once_with(
             name=pool.name,
             project_id=pool.project_id,
-            tenant_id=pool.project_id,
             loadbalancer_id=pool.loadbalancer_id,
             protocol=pool.protocol)
         self.assertIsNone(ret)
 
     def test_create_member(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         member = obj_lbaas.LBaaSMember(
@@ -473,15 +465,14 @@ class TestLBaaSv2Driver(test_base.TestCase):
         req = {'member': {
             'name': member.name,
             'project_id': member.project_id,
-            'tenant_id': member.project_id,
             'subnet_id': member.subnet_id,
             'address': str(member.ip),
             'protocol_port': member.port}}
         resp = {'member': {'id': member_id}}
-        neutron.create_lbaas_member.return_value = resp
+        lbaas.create_lbaas_member.return_value = resp
 
         ret = cls._create_member(m_driver, member)
-        neutron.create_lbaas_member.assert_called_once_with(
+        lbaas.create_lbaas_member.assert_called_once_with(
             member.pool_id, req)
         for attr in member.obj_fields:
             self.assertEqual(getattr(member, attr),
@@ -489,7 +480,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         self.assertEqual(member_id, ret.id)
 
     def test_find_member(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         member = obj_lbaas.LBaaSMember(
@@ -498,14 +489,13 @@ class TestLBaaSv2Driver(test_base.TestCase):
             pool_id='D4F35594-27EB-4F4C-930C-31DD40F53B77')
         member_id = '3A70CEC0-392D-4BC1-A27C-06E63A0FD54F'
         resp = {'members': [{'id': member_id}]}
-        neutron.list_lbaas_members.return_value = resp
+        lbaas.list_lbaas_members.return_value = resp
 
         ret = cls._find_member(m_driver, member)
-        neutron.list_lbaas_members.assert_called_once_with(
+        lbaas.list_lbaas_members.assert_called_once_with(
             member.pool_id,
             name=member.name,
             project_id=member.project_id,
-            tenant_id=member.project_id,
             subnet_id=member.subnet_id,
             address=member.ip,
             protocol_port=member.port)
@@ -515,7 +505,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         self.assertEqual(member_id, ret.id)
 
     def test_find_member_not_found(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         member = obj_lbaas.LBaaSMember(
@@ -523,14 +513,13 @@ class TestLBaaSv2Driver(test_base.TestCase):
             port=1234, subnet_id='D3FA400A-F543-4B91-9CD3-047AF0CE42D1',
             pool_id='D4F35594-27EB-4F4C-930C-31DD40F53B77')
         resp = {'members': []}
-        neutron.list_lbaas_members.return_value = resp
+        lbaas.list_lbaas_members.return_value = resp
 
         ret = cls._find_member(m_driver, member)
-        neutron.list_lbaas_members.assert_called_once_with(
+        lbaas.list_lbaas_members.assert_called_once_with(
             member.pool_id,
             name=member.name,
             project_id=member.project_id,
-            tenant_id=member.project_id,
             subnet_id=member.subnet_id,
             address=member.ip,
             protocol_port=member.port)
@@ -670,7 +659,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         self.assertEqual(call_count, m_delete.call_count)
 
     def test_wait_for_provisioning(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         loadbalancer = mock.Mock()
@@ -678,14 +667,14 @@ class TestLBaaSv2Driver(test_base.TestCase):
         timer = [mock.sentinel.t0, mock.sentinel.t1]
         m_driver._provisioning_timer.return_value = timer
         resp = {'loadbalancer': {'provisioning_status': 'ACTIVE'}}
-        neutron.show_loadbalancer.return_value = resp
+        lbaas.show_loadbalancer.return_value = resp
 
         cls._wait_for_provisioning(m_driver, loadbalancer, timeout)
 
-        neutron.show_loadbalancer.assert_called_once_with(loadbalancer.id)
+        lbaas.show_loadbalancer.assert_called_once_with(loadbalancer.id)
 
     def test_wait_for_provisioning_not_ready(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         loadbalancer = mock.Mock()
@@ -693,12 +682,12 @@ class TestLBaaSv2Driver(test_base.TestCase):
         timer = [mock.sentinel.t0, mock.sentinel.t1]
         m_driver._provisioning_timer.return_value = timer
         resp = {'loadbalancer': {'provisioning_status': 'NOT_ACTIVE'}}
-        neutron.show_loadbalancer.return_value = resp
+        lbaas.show_loadbalancer.return_value = resp
 
         self.assertRaises(k_exc.ResourceNotReady, cls._wait_for_provisioning,
                           m_driver, loadbalancer, timeout)
 
-        self.assertEqual(len(timer), neutron.show_loadbalancer.call_count)
+        self.assertEqual(len(timer), lbaas.show_loadbalancer.call_count)
 
     def test_provisioning_timer(self):
         # REVISIT(ivc): add test if _provisioning_timer is to stay
