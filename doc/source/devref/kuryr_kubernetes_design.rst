@@ -139,6 +139,35 @@ actions, Handler has 'on_present' method that is invoked for both event types.
 The specific Handler implementation should strive to put all the common ADDED
 and MODIFIED event handling logic in this method to avoid code duplication.
 
+Pluggable Handlers
+~~~~~~~~~~~~~~~~~~
+Starting with the Rocky release, Kuryr-Kubernetes includes a pluggable
+interface for the Kuryr controller handlers.
+The pluggable handlers framework allows :
+
+- Using externally provided handlers.
+- Controlling which handlers should be active.
+
+To control which Kuryr Controller handlers should be active, the selected
+handlers need to be included in kuryr.conf at the 'kubernetes' section.
+If not specified, Kuryr Controller will run the default handlers, which
+currently includes the following:
+
+================  =========================
+  Handler             Kubernetes resource
+================  =========================
+vif               Pod
+lb                Endpoint
+lbaasspec         Service
+================  =========================
+
+For example, to enable only the 'vif' controller handler we should set the following
+at kuryr.conf::
+
+         [kubernetes]
+         enabled_handlers=vif
+
+
 Providers
 ~~~~~~~~~
 Provider (Drivers) are used by ResourceEventHandlers to manage specific aspects
