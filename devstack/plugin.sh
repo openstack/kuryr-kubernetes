@@ -282,11 +282,14 @@ function configure_neutron_defaults {
     pod_subnet_id="$(openstack subnet show -c id -f value \
         "${KURYR_NEUTRON_DEFAULT_POD_SUBNET}")"
 
+    local use_octavia
+    use_octavia=$(trueorfalse True KURYR_K8S_LBAAS_USE_OCTAVIA)
     create_k8s_subnet "$project_id" \
                       "$KURYR_NEUTRON_DEFAULT_SERVICE_NET" \
                       "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
                       "$subnetpool_id" \
-                      "$router"
+                      "$router" \
+                      "$use_octavia"
     service_subnet_id="$(openstack subnet show -c id -f value \
         "${KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET}")"
 
@@ -299,8 +302,6 @@ function configure_neutron_defaults {
     ext_svc_subnet_id="$(openstack subnet show -c id -f value \
         "${KURYR_NEUTRON_DEFAULT_EXT_SVC_SUBNET}")"
 
-    local use_octavia
-    use_octavia=$(trueorfalse True KURYR_K8S_LBAAS_USE_OCTAVIA)
     if [[ "$use_octavia" == "True" && \
           "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L3" ]]; then
         # In order for the pods to allow service traffic under Octavia L3 mode,
@@ -455,15 +456,21 @@ function wait_for {
 }
 
 function run_k8s_api {
+    local service_cidr
     local cluster_ip_range
 
     # Runs Hyperkube's Kubernetes API Server
     wait_for "etcd" "${KURYR_ETCD_ADVERTISE_CLIENT_URL}/v2/machines"
 
-    cluster_ip_range=$(openstack --os-cloud devstack-admin \
+    service_cidr=$(openstack --os-cloud devstack-admin \
                          --os-region "$REGION_NAME" \
                          subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
                          -c cidr -f value)
+    if is_service_enabled octavia; then
+        cluster_ip_range=$(split_subnet "$service_cidr" | cut -f1)
+    else
+        cluster_ip_range="$service_cidr"
+    fi
 
     run_container kubernetes-api \
         --net host \
@@ -755,7 +762,11 @@ elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
     if is_service_enabled kuryr-kubernetes; then
         # NOTE(dulek): This is so late, because Devstack's Octavia is unable
         #              to create loadbalancers until test-config phase.
-        create_k8s_router_fake_service
+        local use_octavia
+        use_octavia=$(trueorfalse True KURYR_K8S_LBAAS_USE_OCTAVIA)
+        if [[ "$use_octavia" == "False" ]]; then
+            create_k8s_router_fake_service
+        fi
         create_k8s_api_service
 
         # FIXME(dulek): This is a very late phase to start Kuryr services.

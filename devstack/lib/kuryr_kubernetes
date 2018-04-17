@@ -221,11 +221,13 @@ function create_k8s_icmp_sg_rules {
 # create_k8s_subnet
 #   Description: Creates a network and subnet for Kuryr-Kubernetes usage
 #   Params:
-#      project_id    - Kuryr's project uuid
-#      net_name      - Name of the network to create
-#      subnet_name   - Name of the subnet to create
-#      subnetpool_id - uuid of the subnet pool to use
-#      router        - name of the router to plug the subnet to
+#      project_id       - Kuryr's project uuid
+#      net_name         - Name of the network to create
+#      subnet_name      - Name of the subnet to create
+#      subnetpool_id    - uuid of the subnet pool to use
+#      router           - name of the router to plug the subnet to
+#      split_allocation - Whether to allocate on all the subnet or only the
+#                         latter half
 function create_k8s_subnet {
     # REVISIT(apuimedo): add support for IPv6
     local project_id=$1
@@ -235,6 +237,9 @@ function create_k8s_subnet {
     local router="$5"
     local subnet_params="--project $project_id "
     local subnet_cidr
+    local split_allocation
+
+    split_allocation="${6:-False}"
 
     subnet_params+="--ip-version 4 "
     subnet_params+="--no-dhcp --gateway none "
@@ -269,9 +274,16 @@ function create_k8s_subnet {
     local router_ip
     local allocation_start
     local allocation_end
+    local allocation_subnet
     router_ip=$(_cidr_range "$subnet_cidr" | cut -f2)
-    allocation_start=$(_allocation_range "$subnet_cidr" end | cut -f1)
-    allocation_end=$(_allocation_range "$subnet_cidr" end | cut -f2)
+    if [[ "$split_allocation" == "True" ]]; then
+        allocation_subnet=$(split_subnet "$subnet_cidr" | cut -f2)
+        allocation_start=$(_allocation_range "$allocation_subnet" end | cut -f1)
+        allocation_end=$(_allocation_range "$allocation_subnet" end | cut -f2)
+    else
+        allocation_start=$(_allocation_range "$subnet_cidr" end | cut -f1)
+        allocation_end=$(_allocation_range "$subnet_cidr" end | cut -f2)
+    fi
     die_if_not_set $LINENO router_ip \
         "Failed to determine K8s ${subnet_name} subnet router IP"
     openstack --os-cloud devstack-admin \
@@ -664,6 +676,7 @@ function run_openshift_master {
     local cmd
     local pod_subnet_cidr
     local service_subnet_cidr
+    local portal_net
 
     sudo install -d -o "$STACK_USER" "$OPENSHIFT_DATA_DIR"
 
@@ -676,11 +689,17 @@ function run_openshift_master {
                          subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
                          -c cidr -f value)
 
+    if is_service_enabled octavia; then
+        portal_net=$(split_subnet "$service_subnet_cidr" | cut -f1)
+    else
+        portal_net="$service_subnet_cidr"
+    fi
+
     # Generate master config
     "${OPENSHIFT_BIN}/openshift" start master \
         "--etcd=${KURYR_ETCD_ADVERTISE_CLIENT_URL}" \
         "--network-cidr=${pod_subnet_cidr}" \
-        "--portal-net=${service_subnet_cidr}" \
+        "--portal-net=${portal_net}" \
         "--listen=0.0.0.0:${OPENSHIFT_API_PORT}" \
         "--master=${OPENSHIFT_API_URL}" \
         "--write-config=${OPENSHIFT_DATA_DIR}"
@@ -961,4 +980,25 @@ function create_load_balancer_member {
             --protocol-port "$port" \
             "$pool"
     fi
+}
+
+# split_subnet
+#   Description: Splits a subnet in two subnets that constitute its halves
+#   Params:
+#       cidr: Subnet CIDR to split
+#   Returns: tab separated CIDRs of the two halves.
+function split_subnet {
+    # precondition: The passed cidr must be of a prefix <= 30
+    python - <<EOF "$@"
+import sys
+
+from ipaddress import ip_network
+import six
+
+
+n = ip_network(six.text_type(sys.argv[1]))
+first, last = n.subnets(prefixlen_diff=1)
+
+print("%s\\t%s" % (first, last))
+EOF
 }
