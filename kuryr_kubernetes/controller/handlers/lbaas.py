@@ -38,6 +38,7 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
     """
 
     OBJECT_KIND = k_const.K8S_OBJ_SERVICE
+    OBJECT_WATCH_PATH = "%s/%s" % (k_const.K8S_API_BASE, "services")
 
     def __init__(self):
         super(LBaaSSpecHandler, self).__init__()
@@ -218,6 +219,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
     """
 
     OBJECT_KIND = k_const.K8S_OBJ_ENDPOINTS
+    OBJECT_WATCH_PATH = "%s/%s" % (k_const.K8S_API_BASE, "endpoints")
 
     def __init__(self):
         super(LoadBalancerHandler, self).__init__()

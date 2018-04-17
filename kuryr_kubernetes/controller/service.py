@@ -16,20 +16,50 @@
 import sys
 
 import os_vif
+from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_service import service
+from stevedore.named import NamedExtensionManager
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
-from kuryr_kubernetes import constants
-from kuryr_kubernetes.controller.handlers import lbaas as h_lbaas
 from kuryr_kubernetes.controller.handlers import pipeline as h_pipeline
-from kuryr_kubernetes.controller.handlers import vif as h_vif
 from kuryr_kubernetes.controller.managers import health
 from kuryr_kubernetes import objects
 from kuryr_kubernetes import watcher
 
+
+CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
+
+
+def _handler_not_found(names):
+    LOG.exception('Handlers "%s" were not found.', names)
+    LOG.critical('Handlers "%s" were not found.', names)
+    raise SystemExit()
+
+
+def _handler_not_loaded(manager, entrypoint, exception):
+    LOG.exception('Exception when loading handlers %s.', entrypoint)
+    LOG.critical('Handlers entrypoint "%s" failed to load due to %s.',
+                 entrypoint, exception)
+    raise SystemExit()
+
+
+def _load_kuryr_ctrlr_handlers():
+    configured_handlers = CONF.kubernetes.enabled_handlers
+    LOG.info('Configured handlers: %s', configured_handlers)
+    handlers = NamedExtensionManager(
+        'kuryr_kubernetes.controller.handlers',
+        configured_handlers,
+        invoke_on_load=True,
+        on_missing_entrypoints_callback=_handler_not_found,
+        on_load_failure_callback=_handler_not_loaded)
+    LOG.info('Loaded handlers: %s', handlers.names())
+    ctrlr_handlers = []
+    for handler in handlers.extensions:
+        ctrlr_handlers.append(handler.obj)
+    return ctrlr_handlers
 
 
 class KuryrK8sService(service.Service):
@@ -42,12 +72,11 @@ class KuryrK8sService(service.Service):
         pipeline = h_pipeline.ControllerPipeline(self.tg)
         self.watcher = watcher.Watcher(pipeline, self.tg)
         self.health_manager = health.HealthServer()
-        # TODO(ivc): pluggable resource/handler registration
-        for resource in ["pods", "services", "endpoints"]:
-            self.watcher.add("%s/%s" % (constants.K8S_API_BASE, resource))
-        pipeline.register(h_vif.VIFHandler())
-        pipeline.register(h_lbaas.LBaaSSpecHandler())
-        pipeline.register(h_lbaas.LoadBalancerHandler())
+
+        handlers = _load_kuryr_ctrlr_handlers()
+        for handler in handlers:
+            self.watcher.add(handler.get_watch_path())
+            pipeline.register(handler)
 
     def start(self):
         LOG.info("Service '%s' starting", self.__class__.__name__)
