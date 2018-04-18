@@ -368,3 +368,29 @@ class TestK8sClient(test_base.TestCase):
 
         self.assertRaises(exc.K8sClientException,
                           self.client.post, path, body)
+
+    @mock.patch('requests.delete')
+    def test_delete(self, m_delete):
+        path = '/test'
+        ret = {'test': 'value'}
+
+        m_resp = mock.MagicMock()
+        m_resp.ok = True
+        m_resp.json.return_value = ret
+        m_delete.return_value = m_resp
+
+        self.assertEqual(ret, self.client.delete(path))
+        m_delete.assert_called_once_with(self.base_url + path,
+                                         headers=mock.ANY, cert=(None, None),
+                                         verify=False)
+
+    @mock.patch('requests.delete')
+    def test_delete_exception(self, m_delete):
+        path = '/test'
+
+        m_resp = mock.MagicMock()
+        m_resp.ok = False
+        m_delete.return_value = m_resp
+
+        self.assertRaises(exc.K8sClientException,
+                          self.client.delete, path)

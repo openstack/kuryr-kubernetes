@@ -57,6 +57,8 @@ class TestNamespaceHandler(test_base.TestCase):
 
         self._create_namespace_network = (
             self._handler._drv_subnets.create_namespace_network)
+        self._delete_namespace_subnet = (
+            self._handler._drv_subnets.delete_namespace_subnet)
         self._get_net_crd = self._handler._get_net_crd
         self._set_net_crd = self._handler._set_net_crd
         self._rollback_network_resources = (
@@ -169,3 +171,21 @@ class TestNamespaceHandler(test_base.TestCase):
             self._namespace_name)
         self._set_net_crd.assert_called_once_with(self._namespace, net_crd)
         self._rollback_network_resources.assert_called_once()
+
+    def test_on_deleted(self):
+        net_crd = self._get_crd()
+
+        self._get_net_crd.return_value = net_crd
+
+        namespace.NamespaceHandler.on_deleted(self._handler, self._namespace)
+
+        self._get_net_crd.assert_called_once_with(self._namespace)
+        self._delete_namespace_subnet.assert_called_once_with(net_crd)
+
+    def test_on_deleted_missing_crd_annotation(self):
+        self._get_net_crd.return_value = None
+
+        namespace.NamespaceHandler.on_deleted(self._handler, self._namespace)
+
+        self._get_net_crd.assert_called_once_with(self._namespace)
+        self._delete_namespace_subnet.assert_not_called()

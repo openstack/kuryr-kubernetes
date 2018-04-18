@@ -137,6 +137,14 @@ class PodSubnetsDriver(DriverBase):
         """
         raise NotImplementedError()
 
+    def delete_namespace_subnet(self, kuryr_net_crd):
+        """Delete network resources associated to a namespace.
+
+        :param kuryr_net_crd: kuryrnet CRD obj dict that contains Neutron's
+                              network resources associated to a namespace
+        """
+        raise NotImplementedError()
+
     def rollback_network_resources(self, router_id, net_id, subnet_id,
                                    namespace):
         """Rollback created network resources for a namespace.

@@ -52,7 +52,13 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
                 ns_name)
 
     def on_deleted(self, namespace):
-        pass
+        LOG.debug("Deleting namespace: %s", namespace)
+        net_crd = self._get_net_crd(namespace)
+        if not net_crd:
+            LOG.warning("There is no CRD annotated at the namespace %s",
+                        namespace)
+            return
+        self._drv_subnets.delete_namespace_subnet(net_crd)
 
     def _get_net_crd(self, namespace):
         try:
