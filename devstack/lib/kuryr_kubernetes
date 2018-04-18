@@ -35,6 +35,17 @@ function ovs_bind_for_kubelet() {
         --network "${KURYR_NEUTRON_DEFAULT_POD_NET}" \
         -f value -c id \
         kubelet-"${HOSTNAME}")
+    # Need to enable Amphorae subnet access to the kubelet iface for API
+    # access
+    local use_octavia
+    use_octavia=$(trueorfalse True KURYR_K8S_LBAAS_USE_OCTAVIA)
+    if [[ "$use_octavia" == "True" && \
+          "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L3" ]]; then
+        openstack port set "$port_id" --security-group service_pod_access
+    elif [[ "$use_octavia" == "True" && \
+            "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L2" ]]; then
+        openstack port set "$port_id" --security-group octavia_pod_access
+    fi
     ifname="kubelet${port_id}"
     ifname="${ifname:0:14}"
     service_subnet_cidr=$(openstack --os-cloud devstack-admin \
@@ -893,10 +904,18 @@ function create_load_balancer_member {
     wait_for_lb $lb
 
     if is_service_enabled octavia; then
-        openstack loadbalancer member create --name "$name" \
-            --address "$address" \
-            --protocol-port "$port" \
-            "$pool"
+        if [[ "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L3" ]]; then
+            openstack loadbalancer member create --name "$name" \
+                --address "$address" \
+                --protocol-port "$port" \
+                "$pool"
+        else
+            openstack loadbalancer member create --name "$name" \
+                --address "$address" \
+                --protocol-port "$port" \
+                --subnet "$subnet" \
+                "$pool"
+        fi
     else
         neutron lbaas-member-create --name "$name" \
             --subnet "$subnet" \

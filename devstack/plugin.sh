@@ -195,6 +195,7 @@ function create_k8s_api_service {
     local kubelet_iface_ip
     local lb_name
     local project_id
+    local use_octavia
 
     project_id=$(get_or_create_project \
         "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
@@ -221,8 +222,16 @@ function create_k8s_api_service {
         api_port=6443
     fi
 
-    create_load_balancer_member "$(hostname)" "$kubelet_iface_ip" "$api_port" \
-        default/kubernetes:443 public-subnet "$lb_name" "$project_id"
+    use_octavia=$(trueorfalse True KURYR_K8S_LBAAS_USE_OCTAVIA)
+    if [[ "$use_octavia" == "True" && \
+          "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L2" ]]; then
+        create_load_balancer_member "$(hostname)" "$kubelet_iface_ip" "$api_port" \
+            default/kubernetes:443 $KURYR_NEUTRON_DEFAULT_POD_SUBNET "$lb_name" \
+            "$project_id"
+    else
+        create_load_balancer_member "$(hostname)" "$kubelet_iface_ip" "$api_port" \
+            default/kubernetes:443 public-subnet "$lb_name" "$project_id"
+    fi
 }
 
 function configure_neutron_defaults {
