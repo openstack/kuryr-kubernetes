@@ -47,7 +47,7 @@ KURYR_K8S_API_CACERT=${KURYR_K8S_API_CACERT:-}
 KURYR_PORT_DEBUG=${KURYR_PORT_DEBUG:-True}
 
 # OpenShift
-OPENSHIFT_BINARY_URL=${OPENSHIFT_BINARY_URL:-https://github.com/openshift/origin/releases/download/v3.7.1/openshift-origin-server-v3.7.1-ab0f056-linux-64bit.tar.gz}
+OPENSHIFT_BINARY_URL=${OPENSHIFT_BINARY_URL:-https://github.com/openshift/origin/releases/download/v3.9.0/openshift-origin-server-v3.9.0-191fece-linux-64bit.tar.gz}
 OPENSHIFT_HOME=${OPENSHIFT_HOME:-$DEST/openshift}
 OPENSHIFT_DATA_DIR=${OPENSHIFT_DATA_DIR:-${DATA_DIR}/openshift}
 OPENSHIFT_API_URL=${OPENSHIFT_API_URL:-https://${HOST_IP}:8443}

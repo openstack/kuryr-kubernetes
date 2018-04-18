@@ -1,36 +1,18 @@
-======================================================
-Kuryr Kubernetes vs Kubernetes versions correspondence
-======================================================
+===============================================
+Kubernetes and OpenShift version support matrix
+===============================================
 
-This document is a placeholder to maintain updated documentation about what
-Kubernetes versions are supported at each Kuryr-Kubernetes release.
-
-
-Kuryr-kubernetes 0.4.1
-~~~~~~~~~~~~~~~~~~~~~~
-
-It suppports Kubernetes v1.8.x
+This document maintains updated documentation about what Kubernetes and
+OpenShift versions are supported at each Kuryr-Kubernetes release.
 
 
-Kuryr-kubernetes 0.4.0
-~~~~~~~~~~~~~~~~~~~~~~
-
-It suppports Kubernetes v1.8.x
-
-
-Kuryr-kubernetes 0.3.0
-~~~~~~~~~~~~~~~~~~~~~~
-
-It suppports Kubernetes v1.6.x and v1.8.x
-
-
-Kuryr-kubernetes 0.2.0
-~~~~~~~~~~~~~~~~~~~~~~
-
-It suppports Kubernetes v1.4.x and v1.6.x
-
-
-Kuryr-kubernetes 0.1.0
-~~~~~~~~~~~~~~~~~~~~~~
-
-It suppports Kubernetes v1.3.x and v1.4.x
+========================  ==================  ========================
+Kuryr-Kubernetes version  Kubernetes version  OpenShift Origin version
+========================  ==================  ========================
+master                    v1.9.x              3.9
+0.4.1                     v1.8.x              3.7
+0.4.0                     v1.8.x              3.7
+0.3.0                     v1.6.x, 1.8.x       No support
+0.2.0                     v1.4.x, 1.6.x       No support
+0.1.0                     v1.3.x, 1.4.x       No support
+========================  ==================  ========================
