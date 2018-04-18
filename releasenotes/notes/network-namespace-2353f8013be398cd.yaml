@@ -1,0 +1,16 @@
+---
+features:
+  - |
+    Introduced a new subnet driver that is able to create a new subnet
+    (including the network and its connection to the router) for each
+    namespace creation event.
+
+    To enable it the namespace subnet driver must be selected and the
+    namespace handler needs to be enabled:
+
+    .. code-block:: ini
+
+      [kubernetes]
+      enabled_handlers=vif,lb,lbaasspec,namespace
+      pod_subnets_driver = namespace
+

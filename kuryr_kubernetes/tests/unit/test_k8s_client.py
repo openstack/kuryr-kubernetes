@@ -340,3 +340,31 @@ class TestK8sClient(test_base.TestCase):
 
         self.assertRaises(exc.K8sClientException, next,
                           self.client.watch(path))
+
+    @mock.patch('requests.post')
+    def test_post(self, m_post):
+        path = '/test'
+        body = {'test': 'body'}
+        ret = {'test': 'value'}
+
+        m_resp = mock.MagicMock()
+        m_resp.ok = True
+        m_resp.json.return_value = ret
+        m_post.return_value = m_resp
+
+        self.assertEqual(ret, self.client.post(path, body))
+        m_post.assert_called_once_with(self.base_url + path, json=body,
+                                       headers=mock.ANY, cert=(None, None),
+                                       verify=False)
+
+    @mock.patch('requests.post')
+    def test_post_exception(self, m_post):
+        path = '/test'
+        body = {'test': 'body'}
+
+        m_resp = mock.MagicMock()
+        m_resp.ok = False
+        m_post.return_value = m_resp
+
+        self.assertRaises(exc.K8sClientException,
+                          self.client.post, path, body)

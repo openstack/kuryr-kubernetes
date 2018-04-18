@@ -14,8 +14,10 @@
 
 from oslo_log import log as logging
 
+from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base as drivers
+from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.handlers import k8s_base
 
 LOG = logging.getLogger(__name__)
@@ -32,7 +34,39 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         self._drv_sg = drivers.PodSecurityGroupsDriver.get_instance()
 
     def on_added(self, namespace):
-        LOG.debug("Creating namespace: %s", namespace)
+        ns_name = namespace['metadata']['name']
+        net_crd = self._get_net_crd(namespace)
+        if net_crd:
+            LOG.debug("CRD existing at the new namespace")
+            return
+
+        LOG.debug("Creating network resources for namespace: %s", ns_name)
+        net_crd = self._drv_subnets.create_namespace_network(ns_name)
+        try:
+            self._set_net_crd(namespace, net_crd)
+        except exceptions.K8sClientException:
+            LOG.exception("Failed to set annotation")
+            crd_spec = net_crd['spec']
+            self._drv_subnets.rollback_network_resources(
+                crd_spec['routerId'], crd_spec['netId'], crd_spec['subnetId'],
+                ns_name)
 
     def on_deleted(self, namespace):
-        LOG.debug("Deleting namespace: %s", namespace)
+        pass
+
+    def _get_net_crd(self, namespace):
+        try:
+            annotations = namespace['metadata']['annotations']
+            net_crd = annotations[constants.K8S_ANNOTATION_NET_CRD]
+        except KeyError:
+            return None
+        return net_crd
+
+    def _set_net_crd(self, namespace, net_crd):
+        LOG.debug("Setting CRD annotations: %s", net_crd)
+
+        k8s = clients.get_kubernetes_client()
+        k8s.annotate(namespace['metadata']['selfLink'],
+                     {constants.K8S_ANNOTATION_NET_CRD:
+                      net_crd['metadata']['name']},
+                     resource_version=namespace['metadata']['resourceVersion'])

@@ -129,6 +129,25 @@ class PodSubnetsDriver(DriverBase):
         """
         raise NotImplementedError()
 
+    def create_namespace_network(self, namespace):
+        """Create network resources for a namespace.
+
+        :param namespace: string with the namespace name
+        :return: CRD KuryrNet dict
+        """
+        raise NotImplementedError()
+
+    def rollback_network_resources(self, router_id, net_id, subnet_id,
+                                   namespace):
+        """Rollback created network resources for a namespace.
+
+        :param router_id: OpenStack router ID where the network is connected
+        :param net_id: OpenStack network ID
+        :param subnet_id: OpenStack subnet ID
+        :param namespace: name of the Kubernetes namespace object
+        """
+        raise NotImplementedError()
+
 
 @six.add_metaclass(abc.ABCMeta)
 class ServiceSubnetsDriver(DriverBase):

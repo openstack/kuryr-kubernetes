@@ -36,6 +36,7 @@ This section describes how you can install and configure kuryr-kubernetes
     devstack/index
     default_configuration
     trunk_ports
+    network_namespace
     testing_connectivity
     testing_nested_connectivity
     containerized

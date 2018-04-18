@@ -1,0 +1,171 @@
+# Copyright (c) 2018 Red Hat, Inc.
+# All Rights Reserved.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
+import ddt
+import mock
+
+from neutronclient.common import exceptions as n_exc
+
+from kuryr_kubernetes.controller.drivers import base as drivers
+from kuryr_kubernetes.controller.handlers import namespace
+from kuryr_kubernetes import exceptions as k_exc
+from kuryr_kubernetes.tests import base as test_base
+
+
+@ddt.ddt
+class TestNamespaceHandler(test_base.TestCase):
+
+    def setUp(self):
+        super(TestNamespaceHandler, self).setUp()
+
+        self._project_id = mock.sentinel.project_id
+        self._subnets = mock.sentinel.subnets
+        self._security_groups = mock.sentinel.security_groups
+
+        self._namespace_version = mock.sentinel.namespace_version
+        self._namespace_link = mock.sentinel.namespace_link
+
+        self._namespace_name = 'ns-test'
+        self._namespace = {
+            'metadata': {'name': self._namespace_name,
+                         'resourceVersion': self._namespace_version,
+                         'selfLink': self._namespace_link},
+            'status': {'phase': 'Active'}
+        }
+
+        self._handler = mock.MagicMock(spec=namespace.NamespaceHandler)
+
+        self._handler._drv_project = mock.Mock(spec=drivers.PodProjectDriver)
+        self._handler._drv_subnets = mock.Mock(spec=drivers.PodSubnetsDriver)
+        self._handler._drv_sg = mock.Mock(spec=drivers.PodSecurityGroupsDriver)
+
+        self._get_project = self._handler._drv_project.get_project
+        self._get_subnets = self._handler._drv_subnets.get_subnets
+        self._get_security_groups = self._handler._drv_sg.get_security_groups
+
+        self._create_namespace_network = (
+            self._handler._drv_subnets.create_namespace_network)
+        self._get_net_crd = self._handler._get_net_crd
+        self._set_net_crd = self._handler._set_net_crd
+        self._rollback_network_resources = (
+            self._handler._drv_subnets.rollback_network_resources)
+
+        self._get_project.return_value = self._project_id
+        self._get_subnets.return_value = self._subnets
+        self._get_security_groups.return_value = self._security_groups
+
+    def _get_crd(self):
+        crd = {
+            'kind': 'KuryrNet',
+            'spec': {
+                'routerId': mock.sentinel.router_id,
+                'netId': mock.sentinel.net_id,
+                'subnetId': mock.sentinel.subnet_id,
+            }
+        }
+        return crd
+
+    @mock.patch.object(drivers.PodSecurityGroupsDriver, 'get_instance')
+    @mock.patch.object(drivers.PodSubnetsDriver, 'get_instance')
+    @mock.patch.object(drivers.PodProjectDriver, 'get_instance')
+    def test_init(self, m_get_project_driver, m_get_subnets_driver,
+                  m_get_sg_driver):
+        project_driver = mock.sentinel.project_driver
+        subnets_driver = mock.sentinel.subnets_driver
+        sg_driver = mock.sentinel.sg_driver
+
+        m_get_project_driver.return_value = project_driver
+        m_get_subnets_driver.return_value = subnets_driver
+        m_get_sg_driver.return_value = sg_driver
+
+        handler = namespace.NamespaceHandler()
+
+        self.assertEqual(project_driver, handler._drv_project)
+        self.assertEqual(subnets_driver, handler._drv_subnets)
+        self.assertEqual(sg_driver, handler._drv_sg)
+
+    def test_on_added(self):
+        net_crd = self._get_crd()
+
+        self._get_net_crd.return_value = None
+        self._create_namespace_network.return_value = net_crd
+
+        namespace.NamespaceHandler.on_added(self._handler, self._namespace)
+
+        self._get_net_crd.assert_called_once_with(self._namespace)
+        self._create_namespace_network.assert_called_once_with(
+            self._namespace_name)
+        self._set_net_crd.assert_called_once_with(self._namespace, net_crd)
+        self._rollback_network_resources.assert_not_called()
+
+    def test_on_added_existing(self):
+        net_crd = self._get_crd()
+
+        self._get_net_crd.return_value = net_crd
+
+        namespace.NamespaceHandler.on_added(self._handler, self._namespace)
+
+        self._get_net_crd.assert_called_once_with(self._namespace)
+        self._create_namespace_network.assert_not_called()
+        self._set_net_crd.assert_not_called()
+        self._rollback_network_resources.assert_not_called()
+
+    @ddt.data((n_exc.NeutronClientException), (k_exc.K8sClientException))
+    def test_on_added_create_exception(self, m_create_net):
+        self._get_net_crd.return_value = None
+        self._create_namespace_network.side_effect = m_create_net
+
+        self.assertRaises(m_create_net, namespace.NamespaceHandler.on_added,
+                          self._handler, self._namespace)
+
+        self._get_net_crd.assert_called_once_with(self._namespace)
+        self._create_namespace_network.assert_called_once_with(
+            self._namespace_name)
+        self._set_net_crd.assert_not_called()
+        self._rollback_network_resources.assert_not_called()
+
+    def test_on_added_set_crd_exception(self):
+        net_crd = self._get_crd()
+
+        self._get_net_crd.return_value = None
+        self._create_namespace_network.return_value = net_crd
+        self._set_net_crd.side_effect = k_exc.K8sClientException
+
+        namespace.NamespaceHandler.on_added(self._handler, self._namespace)
+
+        self._get_net_crd.assert_called_once_with(self._namespace)
+        self._create_namespace_network.assert_called_once_with(
+            self._namespace_name)
+        self._set_net_crd.assert_called_once_with(self._namespace, net_crd)
+        self._rollback_network_resources.assert_called_once()
+
+    def test_on_added_rollback_exception(self):
+        net_crd = self._get_crd()
+
+        self._get_net_crd.return_value = None
+        self._create_namespace_network.return_value = net_crd
+        self._set_net_crd.side_effect = k_exc.K8sClientException
+        self._rollback_network_resources.side_effect = (
+            n_exc.NeutronClientException)
+
+        self.assertRaises(n_exc.NeutronClientException,
+                          namespace.NamespaceHandler.on_added,
+                          self._handler, self._namespace)
+
+        self._get_net_crd.assert_called_once_with(self._namespace)
+        self._create_namespace_network.assert_called_once_with(
+            self._namespace_name)
+        self._set_net_crd.assert_called_once_with(self._namespace, net_crd)
+        self._rollback_network_resources.assert_called_once()

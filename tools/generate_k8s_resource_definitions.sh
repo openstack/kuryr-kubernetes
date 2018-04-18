@@ -38,6 +38,7 @@ if [ -z $CONTROLLER_CONF_PATH ]; then
     worker_nodes_subnet=${KURYR_K8S_WORKER_NODES_SUBNET}
     binding_driver=${KURYR_K8S_BINDING_DRIVER:-kuryr.lib.binding.drivers.vlan}
     binding_iface=${KURYR_K8S_BINDING_IFACE:-eth0}
+    pod_subnet_pool=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID}
 
     CONTROLLER_CONF_PATH="${OUTPUT_DIR}/kuryr.conf"
     rm -f $CONTROLLER_CONF_PATH
@@ -63,6 +64,8 @@ service_subnet = $service_subnet_id
 pod_security_groups = $pod_sg
 pod_subnet = $pod_subnet_id
 project = $k8s_project_id
+[namespace_subnet]
+pod_subnet_pool = $pod_subnet_pool
 EOF
 
     if [ ! -z $binding_driver ]; then

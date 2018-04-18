@@ -34,6 +34,10 @@ class K8sResourceNotFound(K8sClientException):
                                                   "found: %r" % resource)
 
 
+class InvalidKuryrNetCRD(Exception):
+    pass
+
+
 class CNIError(Exception):
     pass
 
