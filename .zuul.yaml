@@ -115,6 +115,7 @@
       - openstack/python-barbicanclient
       - openstack/python-octaviaclient
       - openstack/tempest
+    voting: false
 
 # Tempest with Octavia and CNI daemon enabled
 - job:
