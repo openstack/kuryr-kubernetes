@@ -65,11 +65,11 @@ class TestHealthServer(base.TestCase):
     @mock.patch('os.path.exists')
     def test_read_k8s_error(self, m_exist, m_verify_k8s_conn):
         m_exist.return_value = True
-        m_verify_k8s_conn.return_value = False, 503
+        m_verify_k8s_conn.return_value = False
         resp = self.test_client.get('/ready')
 
         m_verify_k8s_conn.assert_called_once()
-        self.assertEqual(503, resp.status_code)
+        self.assertEqual(500, resp.status_code)
 
     @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
                 'verify_keystone_connection')

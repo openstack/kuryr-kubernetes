@@ -11,14 +11,15 @@
 # limitations under the License.
 
 import os
-import requests
 from six.moves import http_client as httplib
 
 from flask import Flask
 from pyroute2 import IPDB
 
 from kuryr.lib._i18n import _
+from kuryr_kubernetes import clients
 from kuryr_kubernetes.cni import utils
+from kuryr_kubernetes import exceptions as exc
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -108,7 +109,7 @@ class CNIHealthServer(object):
 
     def readiness_status(self):
         data = 'ok'
-        k8s_conn, k8s_status = self.verify_k8s_connection()
+        k8s_conn = self.verify_k8s_connection()
 
         if not _has_cap(CAP_NET_ADMIN, EFFECTIVE_CAPS):
             error_message = 'NET_ADMIN capabilities not present.'
@@ -117,7 +118,7 @@ class CNIHealthServer(object):
         if not k8s_conn:
             error_message = 'Error when processing k8s healthz request.'
             LOG.error(error_message)
-            return error_message, k8s_status, self.headers
+            return error_message, httplib.INTERNAL_SERVER_ERROR, self.headers
 
         LOG.info('CNI driver readiness verified.')
         return data, httplib.OK, self.headers
@@ -160,8 +161,10 @@ class CNIHealthServer(object):
             raise
 
     def verify_k8s_connection(self):
-        path = '/healthz'
-        address = CONF.kubernetes.api_root
-        url = address + path
-        resp = requests.get(url, headers={'Connection': 'close'})
-        return resp.content == 'ok', resp.status_code
+        k8s = clients.get_kubernetes_client()
+        try:
+            k8s.get('/healthz', json=False, headers={'Connection': 'close'})
+        except exc.K8sClientException:
+            LOG.exception('Exception when trying to reach Kubernetes API.')
+            return False
+        return True

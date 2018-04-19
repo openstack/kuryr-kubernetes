@@ -65,18 +65,21 @@ class K8sClient(object):
             else:
                 self.verify_server = ca_crt_file
 
-    def get(self, path):
+    def get(self, path, json=True, headers=None):
         LOG.debug("Get %(path)s", {'path': path})
         url = self._base_url + path
         header = {}
         if self.token:
             header.update({'Authorization': 'Bearer %s' % self.token})
+        if headers:
+            header.update(headers)
         response = requests.get(url, cert=self.cert,
                                 verify=self.verify_server,
                                 headers=header)
         if not response.ok:
             raise exc.K8sClientException(response.text)
-        return response.json()
+        result = response.json() if json else response.text
+        return result
 
     def _get_url_and_header(self, path):
         url = self._base_url + path
