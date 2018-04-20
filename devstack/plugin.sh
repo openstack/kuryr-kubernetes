@@ -182,11 +182,6 @@ function copy_tempest_kubeconfig {
     fi
 }
 
-function _lb_state {
-    # Checks Neutron lbaas for the Load balancer state
-    neutron lbaas-loadbalancer-show "$1" | awk '/provisioning_status/ {print $4}'
-}
-
 function create_k8s_api_service {
     # This allows pods that need access to kubernetes API (like the
     # containerized kuryr controller or kube-dns) to talk to the K8s API
@@ -205,34 +200,11 @@ function create_k8s_api_service {
 
     k8s_api_clusterip=$(_cidr_range "$service_cidr" | cut -f1)
 
-    neutron lbaas-loadbalancer-create --name "$lb_name" \
-        --vip-address "$k8s_api_clusterip" \
+    create_load_balancer "$lb_name" "$k8s_api_clusterip" \
         "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET"
-
-    # Octavia needs the LB to be active for the listener
-    while [[ "$(_lb_state $lb_name)" != "ACTIVE" ]]; do
-        sleep 1
-    done
-
-    neutron lbaas-listener-create --loadbalancer "$lb_name" \
-        --name default/kubernetes:443 \
-        --protocol HTTPS \
-        --protocol-port 443
-
-    # We must wait for the LB to be active before we can put a Pool for it
-    while [[ "$(_lb_state $lb_name)" != "ACTIVE" ]]; do
-        sleep 1
-    done
-
-    neutron lbaas-pool-create --loadbalancer "$lb_name" \
-        --name default/kubernetes:443 \
-        --listener default/kubernetes:443 \
-        --protocol HTTPS \
-        --lb-algorithm ROUND_ROBIN
-    # We must wait for the pending pool creation update
-    while [[ "$(_lb_state $lb_name)" != "ACTIVE" ]]; do
-        sleep 1
-    done
+    create_load_balancer_listener default/kubernetes:443 HTTPS 443 "$lb_name"
+    create_load_balancer_pool default/kubernetes:443 HTTPS ROUND_ROBIN \
+        default/kubernetes:443 "$lb_name"
 
     local api_port
     if is_service_enabled openshift-master; then
@@ -240,10 +212,9 @@ function create_k8s_api_service {
     else
         api_port=6443
     fi
-    neutron lbaas-member-create  --subnet public-subnet \
-        --address ${kubelet_iface_ip} \
-        --protocol-port ${api_port} \
-        default/kubernetes:443
+
+    create_load_balancer_member "$(hostname)" "$kubelet_iface_ip" "$api_port" \
+        default/kubernetes:443 public-subnet "$lb_name"
 }
 
 function configure_neutron_defaults {

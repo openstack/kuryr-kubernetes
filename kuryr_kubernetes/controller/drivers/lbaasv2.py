@@ -63,8 +63,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
     def release_loadbalancer(self, endpoints, loadbalancer):
         neutron = clients.get_neutron_client()
+        lbaas = clients.get_loadbalancer_client()
         self._release(loadbalancer, loadbalancer,
-                      neutron.delete_loadbalancer, loadbalancer.id)
+                      lbaas.delete_loadbalancer, loadbalancer.id)
 
         sg_id = self._find_listeners_sg(loadbalancer)
         if sg_id:
@@ -150,8 +151,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
     def release_listener(self, endpoints, loadbalancer, listener):
         neutron = clients.get_neutron_client()
+        lbaas = clients.get_loadbalancer_client()
         self._release(loadbalancer, listener,
-                      neutron.delete_listener,
+                      lbaas.delete_listener,
                       listener.id)
 
         sg_id = self._find_listeners_sg(loadbalancer)
@@ -176,9 +178,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                         self._find_pool)
 
     def release_pool(self, endpoints, loadbalancer, pool):
-        neutron = clients.get_neutron_client()
+        lbaas = clients.get_loadbalancer_client()
         self._release(loadbalancer, pool,
-                      neutron.delete_lbaas_pool,
+                      lbaas.delete_lbaas_pool,
                       pool.id)
 
     def ensure_member(self, endpoints, loadbalancer, pool,
@@ -196,9 +198,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                         self._find_member)
 
     def release_member(self, endpoints, loadbalancer, member):
-        neutron = clients.get_neutron_client()
+        lbaas = clients.get_loadbalancer_client()
         self._release(loadbalancer, member,
-                      neutron.delete_lbaas_member,
+                      lbaas.delete_lbaas_member,
                       member.id, member.pool_id)
 
     def _get_vip_port_id(self, loadbalancer):
@@ -217,11 +219,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
         return None
 
     def _create_loadbalancer(self, loadbalancer):
-        neutron = clients.get_neutron_client()
-        response = neutron.create_loadbalancer({'loadbalancer': {
+        lbaas = clients.get_loadbalancer_client()
+        response = lbaas.create_loadbalancer({'loadbalancer': {
             'name': loadbalancer.name,
             'project_id': loadbalancer.project_id,
-            'tenant_id': loadbalancer.project_id,
             'vip_address': str(loadbalancer.ip),
             'vip_subnet_id': loadbalancer.subnet_id}})
         loadbalancer.id = response['loadbalancer']['id']
@@ -230,11 +231,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
         return loadbalancer
 
     def _find_loadbalancer(self, loadbalancer):
-        neutron = clients.get_neutron_client()
-        response = neutron.list_loadbalancers(
+        lbaas = clients.get_loadbalancer_client()
+        response = lbaas.list_loadbalancers(
             name=loadbalancer.name,
             project_id=loadbalancer.project_id,
-            tenant_id=loadbalancer.project_id,
             vip_address=str(loadbalancer.ip),
             vip_subnet_id=loadbalancer.subnet_id)
 
@@ -248,11 +248,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
         return loadbalancer
 
     def _create_listener(self, listener):
-        neutron = clients.get_neutron_client()
-        response = neutron.create_listener({'listener': {
+        lbaas = clients.get_loadbalancer_client()
+        response = lbaas.create_listener({'listener': {
             'name': listener.name,
             'project_id': listener.project_id,
-            'tenant_id': listener.project_id,
             'loadbalancer_id': listener.loadbalancer_id,
             'protocol': listener.protocol,
             'protocol_port': listener.port}})
@@ -260,11 +259,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
         return listener
 
     def _find_listener(self, listener):
-        neutron = clients.get_neutron_client()
-        response = neutron.list_listeners(
+        lbaas = clients.get_loadbalancer_client()
+        response = lbaas.list_listeners(
             name=listener.name,
             project_id=listener.project_id,
-            tenant_id=listener.project_id,
             loadbalancer_id=listener.loadbalancer_id,
             protocol=listener.protocol,
             protocol_port=listener.port)
@@ -279,12 +277,11 @@ class LBaaSv2Driver(base.LBaaSDriver):
     def _create_pool(self, pool):
         # TODO(ivc): make lb_algorithm configurable
         lb_algorithm = 'ROUND_ROBIN'
-        neutron = clients.get_neutron_client()
+        lbaas = clients.get_loadbalancer_client()
         try:
-            response = neutron.create_lbaas_pool({'pool': {
+            response = lbaas.create_lbaas_pool({'pool': {
                 'name': pool.name,
                 'project_id': pool.project_id,
-                'tenant_id': pool.project_id,
                 'listener_id': pool.listener_id,
                 'loadbalancer_id': pool.loadbalancer_id,
                 'protocol': pool.protocol,
@@ -293,14 +290,14 @@ class LBaaSv2Driver(base.LBaaSDriver):
             return pool
         except n_exc.StateInvalidClient:
             with excutils.save_and_reraise_exception():
-                self._cleanup_bogus_pool(neutron, pool, lb_algorithm)
+                self._cleanup_bogus_pool(lbaas, pool, lb_algorithm)
 
-    def _cleanup_bogus_pool(self, neutron, pool, lb_algorithm):
+    def _cleanup_bogus_pool(self, lbaas, pool, lb_algorithm):
         # REVISIT(ivc): LBaaSv2 creates pool object despite raising an
         # exception. The created pool is not bound to listener, but
         # it is bound to loadbalancer and will cause an error on
         # 'release_loadbalancer'.
-        pools = neutron.list_lbaas_pools(
+        pools = lbaas.list_lbaas_pools(
             name=pool.name, project_id=pool.project_id,
             loadbalancer_id=pool.loadbalancer_id,
             protocol=pool.protocol, lb_algorithm=lb_algorithm)
@@ -310,16 +307,15 @@ class LBaaSv2Driver(base.LBaaSDriver):
             try:
                 LOG.debug("Removing bogus pool %(id)s %(pool)s", {
                     'id': pool_id, 'pool': pool})
-                neutron.delete_lbaas_pool(pool_id)
+                lbaas.delete_lbaas_pool(pool_id)
             except (n_exc.NotFound, n_exc.StateInvalidClient):
                 pass
 
     def _find_pool(self, pool):
-        neutron = clients.get_neutron_client()
-        response = neutron.list_lbaas_pools(
+        lbaas = clients.get_loadbalancer_client()
+        response = lbaas.list_lbaas_pools(
             name=pool.name,
             project_id=pool.project_id,
-            tenant_id=pool.project_id,
             loadbalancer_id=pool.loadbalancer_id,
             protocol=pool.protocol)
 
@@ -333,11 +329,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
         return pool
 
     def _create_member(self, member):
-        neutron = clients.get_neutron_client()
-        response = neutron.create_lbaas_member(member.pool_id, {'member': {
+        lbaas = clients.get_loadbalancer_client()
+        response = lbaas.create_lbaas_member(member.pool_id, {'member': {
             'name': member.name,
             'project_id': member.project_id,
-            'tenant_id': member.project_id,
             'subnet_id': member.subnet_id,
             'address': str(member.ip),
             'protocol_port': member.port}})
@@ -345,12 +340,11 @@ class LBaaSv2Driver(base.LBaaSDriver):
         return member
 
     def _find_member(self, member):
-        neutron = clients.get_neutron_client()
-        response = neutron.list_lbaas_members(
+        lbaas = clients.get_loadbalancer_client()
+        response = lbaas.list_lbaas_members(
             member.pool_id,
             name=member.name,
             project_id=member.project_id,
-            tenant_id=member.project_id,
             subnet_id=member.subnet_id,
             address=member.ip,
             protocol_port=member.port)
@@ -398,10 +392,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
         raise k_exc.ResourceNotReady(obj)
 
     def _wait_for_provisioning(self, loadbalancer, timeout):
-        neutron = clients.get_neutron_client()
+        lbaas = clients.get_loadbalancer_client()
 
         for remaining in self._provisioning_timer(timeout):
-            response = neutron.show_loadbalancer(loadbalancer.id)
+            response = lbaas.show_loadbalancer(loadbalancer.id)
             status = response['loadbalancer']['provisioning_status']
             if status == 'ACTIVE':
                 LOG.debug("Provisioning complete for %(lb)s", {

@@ -75,11 +75,12 @@
           fi
           # Kuryr watcher
           enable_service kuryr-kubernetes
-          # LBaaS service
-          ENABLED_SERVICES+=,q-lbaasv2
 
-          enable_plugin neutron-lbaas git://git.openstack.org/openstack/neutron-lbaas
           if [ "{{ loadbalancer }}" == "lbaasv2" ]; then
+              # LBaaS service
+              ENABLED_SERVICES+=,q-lbaasv2
+
+              enable_plugin neutron-lbaas git://git.openstack.org/openstack/neutron-lbaas
               # Haproxy agent
               NEUTRON_LBAAS_SERVICE_PROVIDERV2=LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default
           elif [ "{{ loadbalancer }}" == "octavia" ]; then
@@ -87,6 +88,7 @@
               enable_plugin octavia https://git.openstack.org/openstack/octavia
               enable_plugin barbican https://git.openstack.org/openstack/barbican
               ENABLED_SERVICES+=,octavia,o-api,o-cw,o-hk,o-hm
+              LIBS_FROM_GIT+=,python-octaviaclient
           fi
 
           if [ "{{ kuryr_daemon }}" == "True" ]; then
