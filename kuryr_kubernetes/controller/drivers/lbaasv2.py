@@ -19,6 +19,7 @@ import time
 import requests
 
 from neutronclient.common import exceptions as n_exc
+from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import timeutils
@@ -29,8 +30,10 @@ from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.objects import lbaas as obj_lbaas
 
+CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
-_ACTIVATION_TIMEOUT = 300
+
+_ACTIVATION_TIMEOUT = CONF.neutron_defaults.lbaas_activation_timeout
 _SUPPORTED_LISTENER_PROT = ('HTTP', 'HTTPS', 'TCP')
 
 
