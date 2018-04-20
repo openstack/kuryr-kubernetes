@@ -1,7 +1,7 @@
 FROM centos:7
 LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Vikas Choudhary<vichoudh@redhat.com>"
 
-ARG UPPER_CONSTRAINTS_FILE="https://git.openstack.org/cgit/openstack/requirements/tree/upper-constraints.txt?h=stable/queens"
+ARG UPPER_CONSTRAINTS_FILE="https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt?h=stable/queens"
 
 COPY . /opt/kuryr-kubernetes
 
