@@ -1,6 +1,7 @@
 FROM centos:7
 LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Vikas Choudhary<vichoudh@redhat.com>"
 
+ARG UPPER_CONSTRAINTS_FILE="https://git.openstack.org/cgit/openstack/requirements/tree/upper-constraints.txt?h=stable/queens"
 ARG OSLO_LOCK_PATH=/var/kuryr-lock
 
 RUN yum install -y epel-release https://rdoproject.org/repos/rdo-release.rpm \
@@ -10,7 +11,7 @@ RUN yum install -y epel-release https://rdoproject.org/repos/rdo-release.rpm \
 COPY . /opt/kuryr-kubernetes
 
 RUN cd /opt/kuryr-kubernetes \
-    && pip install . \
+    && pip install -c $UPPER_CONSTRAINTS_FILE . \
     && rm -fr .git \
     && yum -y history undo last \
     && mkdir ${OSLO_LOCK_PATH}
