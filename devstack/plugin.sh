@@ -209,6 +209,7 @@ function create_k8s_api_service {
     local service_cidr
     local kubelet_iface_ip
     local lb_name
+    local use_octavia
 
     lb_name='default/kubernetes'
     service_cidr=$(openstack --os-cloud devstack-admin \
@@ -233,8 +234,15 @@ function create_k8s_api_service {
         api_port=6443
     fi
 
-    create_load_balancer_member "$(hostname)" "$kubelet_iface_ip" "$api_port" \
-        default/kubernetes:443 public-subnet "$lb_name"
+    use_octavia=$(trueorfalse True KURYR_K8S_LBAAS_USE_OCTAVIA)
+    if [[ "$use_octavia" == "True" && \
+          "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L2" ]]; then
+        create_load_balancer_member "$(hostname)" "$kubelet_iface_ip" "$api_port" \
+            default/kubernetes:443 $KURYR_NEUTRON_DEFAULT_POD_SUBNET "$lb_name"
+    else
+        create_load_balancer_member "$(hostname)" "$kubelet_iface_ip" "$api_port" \
+            default/kubernetes:443 public-subnet "$lb_name"
+    fi
 }
 
 function configure_neutron_defaults {
