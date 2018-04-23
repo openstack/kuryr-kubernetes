@@ -130,10 +130,18 @@ function configure_kuryr {
 function generate_containerized_kuryr_resources {
     local cni_daemon
     cni_daemon=$1
+    if [[ KURYR_CONTROLLER_REPLICAS -eq 1 ]]; then
+        KURYR_CONTROLLER_HA="False"
+    else
+        KURYR_CONTROLLER_HA="True"
+    fi
 
     # Containerized deployment will use tokens provided by k8s itself.
     inicomment "$KURYR_CONFIG" kubernetes ssl_client_crt_file
     inicomment "$KURYR_CONFIG" kubernetes ssl_client_key_file
+
+    iniset "$KURYR_CONFIG" kubernetes controller_ha ${KURYR_CONTROLLER_HA}
+    iniset "$KURYR_CONFIG" kubernetes controller_ha_port ${KURYR_CONTROLLER_HA_PORT}
 
     # NOTE(dulek): In the container the CA bundle will be mounted in a standard
     # directory, so we need to modify that.
@@ -146,7 +154,7 @@ function generate_containerized_kuryr_resources {
     generate_kuryr_configmap $output_dir $KURYR_CONFIG $KURYR_CONFIG
     generate_kuryr_certificates_secret $output_dir $SSL_BUNDLE_FILE
     generate_kuryr_service_account $output_dir
-    generate_controller_deployment $output_dir $KURYR_HEALTH_SERVER_PORT
+    generate_controller_deployment $output_dir $KURYR_HEALTH_SERVER_PORT $KURYR_CONTROLLER_HA
     generate_cni_daemon_set $output_dir $KURYR_CNI_HEALTH_SERVER_PORT $cni_daemon $CNI_BIN_DIR $CNI_CONF_DIR
 }
 

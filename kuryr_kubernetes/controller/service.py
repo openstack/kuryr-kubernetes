@@ -13,11 +13,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import functools
+import six
 import sys
 
 import os_vif
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_service import periodic_task
 from oslo_service import service
 from stevedore.named import NamedExtensionManager
 
@@ -26,6 +29,7 @@ from kuryr_kubernetes import config
 from kuryr_kubernetes.controller.handlers import pipeline as h_pipeline
 from kuryr_kubernetes.controller.managers import health
 from kuryr_kubernetes import objects
+from kuryr_kubernetes import utils
 from kuryr_kubernetes import watcher
 
 
@@ -62,28 +66,86 @@ def _load_kuryr_ctrlr_handlers():
     return ctrlr_handlers
 
 
-class KuryrK8sService(service.Service):
+class KuryrK8sServiceMeta(type(service.Service),
+                          type(periodic_task.PeriodicTasks)):
+    pass
+
+
+class KuryrK8sService(six.with_metaclass(KuryrK8sServiceMeta,
+                                         service.Service,
+                                         periodic_task.PeriodicTasks)):
     """Kuryr-Kubernetes controller Service."""
 
     def __init__(self):
         super(KuryrK8sService, self).__init__()
+        periodic_task.PeriodicTasks.__init__(self, CONF)
 
         objects.register_locally_defined_vifs()
         pipeline = h_pipeline.ControllerPipeline(self.tg)
         self.watcher = watcher.Watcher(pipeline, self.tg)
         self.health_manager = health.HealthServer()
+        self.current_leader = None
+        self.node_name = utils.get_node_name()
 
         handlers = _load_kuryr_ctrlr_handlers()
         for handler in handlers:
             self.watcher.add(handler.get_watch_path())
             pipeline.register(handler)
 
+    def is_leader(self):
+        return self.current_leader == self.node_name
+
     def start(self):
         LOG.info("Service '%s' starting", self.__class__.__name__)
         super(KuryrK8sService, self).start()
-        self.watcher.start()
+
+        if not CONF.kubernetes.controller_ha:
+            LOG.info('Running in non-HA mode, starting watcher immediately.')
+            self.watcher.start()
+        else:
+            LOG.info('Running in HA mode, watcher will be started later.')
+            f = functools.partial(self.run_periodic_tasks, None)
+            self.tg.add_timer(1, f)
+
         self.health_manager.run()
         LOG.info("Service '%s' started", self.__class__.__name__)
+
+    @periodic_task.periodic_task(spacing=5, run_immediately=True)
+    def monitor_leader(self, context):
+        leader = utils.get_leader_name()
+        if leader is None:
+            # Error when fetching current leader. We're paranoid, so just to
+            # make sure we won't break anything we'll try to step down.
+            self.on_revoke_leader()
+        elif leader != self.current_leader and leader == self.node_name:
+            # I'm becoming the leader.
+            self.on_become_leader()
+        elif leader != self.current_leader and self.is_leader():
+            # I'm revoked from being the leader.
+            self.on_revoke_leader()
+        elif leader == self.current_leader and self.is_leader():
+            # I continue to be the leader
+            self.on_continue_leader()
+
+        self.current_leader = leader
+
+    def on_become_leader(self):
+        LOG.info('Controller %s becomes the leader, starting watcher.',
+                 self.node_name)
+        self.watcher.start()
+
+    def on_revoke_leader(self):
+        LOG.info('Controller %s stops being the leader, stopping watcher.',
+                 self.node_name)
+        if self.watcher.is_running():
+            self.watcher.stop()
+
+    def on_continue_leader(self):
+        # Just make sure my watcher is running.
+        if not self.watcher.is_running():
+            LOG.warning('Controller %s is the leader, but has watcher '
+                        'stopped. Restarting it.')
+            self.watcher.start()
 
     def wait(self):
         super(KuryrK8sService, self).wait()

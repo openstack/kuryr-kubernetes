@@ -461,6 +461,7 @@ EOF
 function generate_controller_deployment() {
     output_dir=$1
     health_server_port=$2
+    controller_ha=$3
     mkdir -p "$output_dir"
     rm -f ${output_dir}/controller_deployment.yml
     cat >> "${output_dir}/controller_deployment.yml" << EOF
@@ -472,7 +473,7 @@ metadata:
   name: kuryr-controller
   namespace: kube-system
 spec:
-  replicas: 1
+  replicas: ${KURYR_CONTROLLER_REPLICAS:-1}
   template:
     metadata:
       labels:
@@ -483,6 +484,24 @@ spec:
       automountServiceAccountToken: true
       hostNetwork: true
       containers:
+EOF
+
+    if [ "$controller_ha" == "True" ]; then
+        cat >> "${output_dir}/controller_deployment.yml" << EOF
+      - image: gcr.io/google_containers/leader-elector:0.5
+        name: leader-elector
+        args:
+        - "--election=kuryr-controller"
+        - "--http=0.0.0.0:${KURYR_CONTROLLER_HA_PORT:-16401}"
+        - "--election-namespace=kube-system"
+        - "--ttl=5s"
+        ports:
+        - containerPort: ${KURYR_CONTROLLER_HA_PORT:-16401}
+          protocol: TCP
+EOF
+    fi
+
+    cat >> "${output_dir}/controller_deployment.yml" << EOF
       - image: kuryr/controller:latest
         imagePullPolicy: Never
         name: controller
