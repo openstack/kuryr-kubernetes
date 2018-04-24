@@ -232,8 +232,8 @@ function create_k8s_api_service {
 
     k8s_api_clusterip=$(_cidr_range "$service_cidr" | cut -f1)
 
-    create_load_balancer "$lb_name" "$k8s_api_clusterip" \
-        "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET"
+    create_load_balancer "$lb_name" "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET"\
+            "$k8s_api_clusterip"
     create_load_balancer_listener default/kubernetes:443 HTTPS 443 "$lb_name"
     create_load_balancer_pool default/kubernetes:443 HTTPS ROUND_ROBIN \
         default/kubernetes:443 "$lb_name"
@@ -642,6 +642,51 @@ function run_kuryr_daemon {
     run_process kuryr-daemon "$daemon_bin --config-file $KURYR_CONFIG" root root
 }
 
+function create_ingress_l7_router {
+
+    local lb_port_id
+    local lb_name
+    local project_id
+    local max_timeout
+    local lb_vip
+    local fake_svc_name
+    local l7_router_fip
+    local project_id
+
+    lb_name=${KURYR_L7_ROUTER_NAME}
+    max_timeout=600
+
+    create_load_balancer "$lb_name" "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET"
+
+    wait_for_lb $lb_name $max_timeout
+
+    lb_port_id="$(get_loadbalancer_attribute "$lb_name" "vip_port_id")"
+
+    project_id=$(get_or_create_project \
+        "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
+
+    #allocate FIP and bind it to lb vip
+    l7_router_fip=$(openstack --os-cloud devstack-admin \
+           --os-region "$REGION_NAME" \
+           floating ip create --project "$project_id" \
+            --subnet "${ext_svc_subnet_id}"  "${ext_svc_net_id}" \
+            -f value -c floating_ip_address)
+
+    openstack  --os-cloud devstack-admin \
+            --os-region "$REGION_NAME" \
+            floating ip set --port "$lb_port_id" "$l7_router_fip"
+
+    if is_service_enabled octavia; then
+        echo -n "Octavia: no need to create fake k8s service for Ingress."
+    else
+        # keep fake an endpoint less k8s service to keep Kubernetes API server
+        # from allocating ingress LB vip
+        fake_svc_name='kuryr-svc-ingress'
+        echo -n "LBaaS: create fake k8s service: $fake_svc_name for Ingress."
+        lb_vip="$(get_loadbalancer_attribute "$lb_name" "vip_address")"
+        create_k8s_fake_service $fake_svc_name $lb_vip
+    fi
+}
 
 source $DEST/kuryr-kubernetes/devstack/lib/kuryr_kubernetes
 
@@ -776,6 +821,12 @@ elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
             create_k8s_router_fake_service
         fi
         create_k8s_api_service
+        #create Ingress L7 router if required
+        enable_ingress=$(trueorfalse False KURYR_ENABLE_INGRESS)
+
+        if [ "$enable_ingress" == "True" ]; then
+            create_ingress_l7_router
+        fi
 
         # FIXME(dulek): This is a very late phase to start Kuryr services.
         #               We're doing it here because we need K8s API LB to be

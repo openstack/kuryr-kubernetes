@@ -160,6 +160,20 @@ enable_service kuryr-kubernetes
 # Since Rocky release this is a default deployment configuration.
 enable_service kuryr-daemon
 
+# Kuryr enable L7 routing
+# ========================
+#
+# Uncomment the next line to enable the L7 Routing/Ingress controller
+#
+#KURYR_ENABLE_INGRESS=True
+
+# Kuryr L7 router/lb name
+# ========================
+#
+# Edit the next line to change L7 Router/LB name
+#
+#KURYR_L7_ROUTER_NAME=kuryr-l7-router
+
 # Containerized Kuryr
 # ===================
 #

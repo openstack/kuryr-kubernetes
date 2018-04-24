@@ -316,10 +316,23 @@ function create_k8s_router_fake_service {
         --os-region "$REGION_NAME" \
         subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
         -f value -c gateway_ip)
+    create_k8s_fake_service $fake_svc_name $router_ip
+}
+
+# create_k8s_fake_service
+#   Description: Creates an endpoint-less kubernetes service to keep Kubernetes
+#                API server from allocating this IP for another service
+function create_k8s_fake_service {
+    local svc_name
+    local svc_ip
+
+    fake_svc_name="$1"
+    fake_svc_ip="$2"
+
     existing_svc_ip=$(/usr/local/bin/kubectl get svc --namespace kube-system -o jsonpath='{.items[?(@.metadata.name=='"\"${fake_svc_name}\""')].spec.clusterIP}')
 
     if [[ "$existing_svc_ip" == "" ]]; then
-        # Create fake router service so the router clusterIP can't be reassigned
+        # Create fake service so the clusterIP can't be reassigned
         cat <<EOF | /usr/local/bin/kubectl create -f -
 kind: Service
 apiVersion: v1
@@ -328,7 +341,7 @@ metadata:
   namespace: kube-system
 spec:
   type: ClusterIP
-  clusterIP: "${router_ip}"
+  clusterIP: "${fake_svc_ip}"
   ports:
     - protocol: TCP
       port: 80
@@ -852,25 +865,30 @@ function wait_for_lb {
 #                or Octavia
 #   Params:
 #       lb_name: Name to give to the load balancer.
-#       lb_vip: Virtual IP to give to the load balancer.
 #       lb_vip_subnet: Id or name of the subnet where lb_vip should be
 #                      allocated.
+#       lb_vip: Virtual IP to give to the load balancer - optional.
 function create_load_balancer {
     local lb_name
-    local lb_vip
     local lb_vip_subnet
+    local lb_params
 
     lb_name="$1"
-    lb_vip="$2"
-    lb_vip_subnet="$3"
-    if is_service_enabled octavia; then
-        openstack loadbalancer create --name "$lb_name" \
-            --vip-address "$lb_vip" \
-            --vip-subnet-id "$lb_vip_subnet"
+    lb_vip_subnet="$2"
+
+    lb_params=" --name $lb_name "
+    if [ -z "$3" ]; then
+        echo -n "create_load_balancer LB=$lb_name, lb_vip not provided."
     else
-        neutron lbaas-loadbalancer-create --name "$lb_name" \
-            --vip-address "$lb_vip" \
-            "$lb_vip_subnet"
+        lb_params+=" --vip-address $3"
+    fi
+
+    if is_service_enabled octavia; then
+        lb_params+=" --vip-subnet-id $lb_vip_subnet"
+        openstack loadbalancer create $lb_params
+    else
+        lb_params+=" $lb_vip_subnet"
+        neutron lbaas-loadbalancer-create $lb_params
     fi
 }
 
@@ -1020,4 +1038,23 @@ first, last = n.subnets(prefixlen_diff=1)
 
 print("%s\\t%s" % (first, last))
 EOF
+}
+
+# get_loadbalancer_attribute
+#   Description: Get load balancer attribute
+#   Params:
+#       lb_name: Load balancer name
+#       lb_attr: attribute name
+function get_loadbalancer_attribute {
+    local lb_name
+    local lb_attr
+
+    lb_name="$1"
+    lb_attr="$2"
+
+    if is_service_enabled octavia; then
+        openstack loadbalancer show "$lb_name" -c "$lb_attr" -f value
+    else
+        neutron lbaas-loadbalancer-show "$lb_name" -c "$lb_attr" -f value
+    fi
 }
