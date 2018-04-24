@@ -7,6 +7,7 @@
 #                able to make both liveness and readiness http/tcp probes.
 #   Params:
 #      project - Id or name of the project used for kuryr devstack
+#      port    - Port to open for K8s API, relevant only for OpenStack infra
 
 # Dependencies:
 # (none)
@@ -18,12 +19,14 @@ function ovs_bind_for_kubelet() {
     local port_subnets
     local prefix
     local project_id
+    local port_number
     local security_group
     local ifname
     local service_subnet_cidr
     local pod_subnet_gw
 
     project_id="$1"
+    port_number="$2"
     security_group=$(openstack security group list \
         --project "$project_id" -f value | \
         awk '/default/ {print $1}')
@@ -76,8 +79,10 @@ function ovs_bind_for_kubelet() {
         sudo ip addr add "${port_ips[$i]}/${prefix}" dev "$ifname"
     done
     sudo ip route add "$service_subnet_cidr" via "$pod_subnet_gw" dev "$ifname"
-    # Ignore the error if openstack-INPUT chain doesn't exist.
-    sudo iptables -I openstack-INPUT 1 -p tcp -s 0.0.0.0/0 -d 0.0.0.0/0 --dport 6443 -j ACCEPT || true
+    if [ -n "$port_number" ]; then
+        # Ignore the error if openstack-INPUT chain doesn't exist.
+        sudo iptables -I openstack-INPUT 1 -p tcp -s 0.0.0.0/0 -d 0.0.0.0/0 --dport $port_number -j ACCEPT || true
+    fi
 }
 
 # get_container
@@ -676,7 +681,7 @@ function run_openshift_master {
         "--etcd=${KURYR_ETCD_ADVERTISE_CLIENT_URL}" \
         "--network-cidr=${pod_subnet_cidr}" \
         "--portal-net=${service_subnet_cidr}" \
-        "--listen=${OPENSHIFT_API_URL}" \
+        "--listen=0.0.0.0:${OPENSHIFT_API_PORT}" \
         "--master=${OPENSHIFT_API_URL}" \
         "--write-config=${OPENSHIFT_DATA_DIR}"
 
