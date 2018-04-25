@@ -234,13 +234,21 @@ function create_k8s_api_service {
         api_port=6443
     fi
 
+    local address
+    KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE=$(trueorfalse True KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE)
+    if [[ "$KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE" == "True" ]]; then
+        address=${kubelet_iface_ip}
+    else
+        address="${HOST_IP}"
+    fi
+
     use_octavia=$(trueorfalse True KURYR_K8S_LBAAS_USE_OCTAVIA)
     if [[ "$use_octavia" == "True" && \
           "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L2" ]]; then
-        create_load_balancer_member "$(hostname)" "$kubelet_iface_ip" "$api_port" \
+        create_load_balancer_member "$(hostname)" "$address" "$api_port" \
             default/kubernetes:443 $KURYR_NEUTRON_DEFAULT_POD_SUBNET "$lb_name"
     else
-        create_load_balancer_member "$(hostname)" "$kubelet_iface_ip" "$api_port" \
+        create_load_balancer_member "$(hostname)" "$address" "$api_port" \
             default/kubernetes:443 public-subnet "$lb_name"
     fi
 }
