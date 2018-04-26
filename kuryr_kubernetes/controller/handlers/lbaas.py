@@ -271,9 +271,17 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         if not lbaas_state:
             return
         # NOTE(ivc): deleting pool deletes its members
-        lbaas_state.members = []
-        self._sync_lbaas_members(endpoints, lbaas_state,
-                                 obj_lbaas.LBaaSServiceSpec())
+        if self._drv_lbaas.cascading_capable:
+            self._drv_lbaas.release_loadbalancer(
+                endpoints=endpoints,
+                loadbalancer=lbaas_state.loadbalancer)
+            if lbaas_state.service_pub_ip_info:
+                self._drv_service_pub_ip.release_pub_ip(
+                    lbaas_state.service_pub_ip_info)
+        else:
+            lbaas_state.members = []
+            self._sync_lbaas_members(endpoints, lbaas_state,
+                                     obj_lbaas.LBaaSServiceSpec())
 
     def _should_ignore(self, endpoints, lbaas_spec):
         return not(lbaas_spec and

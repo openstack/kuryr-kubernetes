@@ -75,6 +75,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
     def test_release_loadbalancer(self):
         self.useFixture(k_fix.MockNeutronClient()).client
         lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        lbaas.cascading_capable = False
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         endpoints = mock.sentinel.endpoints
@@ -85,6 +86,23 @@ class TestLBaaSv2Driver(test_base.TestCase):
         m_driver._release.assert_called_once_with(loadbalancer, loadbalancer,
                                                   lbaas.delete_loadbalancer,
                                                   loadbalancer.id)
+
+    def test_cascade_release_loadbalancer(self):
+        self.useFixture(k_fix.MockNeutronClient()).client
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        lbaas.cascading_capable = True
+        lbaas.lbaas_loadbalancer_path = "boo %s"
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        endpoints = mock.sentinel.endpoints
+        loadbalancer = mock.Mock()
+
+        cls.release_loadbalancer(m_driver, endpoints, loadbalancer)
+
+        m_driver._release.assert_called_once_with(
+            loadbalancer, loadbalancer, lbaas.delete,
+            lbaas.lbaas_loadbalancer_path % loadbalancer.id,
+            params={'cascade': True})
 
     def test_ensure_listener(self):
         cls = d_lbaasv2.LBaaSv2Driver
