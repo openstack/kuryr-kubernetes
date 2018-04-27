@@ -52,6 +52,7 @@ def setup_loadbalancer_client():
     if any(ext['alias'] == 'lbaasv2' for
            ext in neutron_client.list_extensions()['extensions']):
         _clients[_LB_CLIENT] = neutron_client
+        neutron_client.cascading_capable = False
     else:
         # Since Octavia is lbaasv2 API compatible (A superset of it) we'll just
         # wire an extra neutron client instance to point to it
@@ -63,6 +64,7 @@ def setup_loadbalancer_client():
             service_type='load-balancer')
         lbaas_client.httpclient = octo_httpclient
         _clients[_LB_CLIENT] = lbaas_client
+        lbaas_client.cascading_capable = True
 
 
 def setup_kubernetes_client():

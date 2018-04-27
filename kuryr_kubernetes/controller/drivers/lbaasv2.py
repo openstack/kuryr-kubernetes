@@ -40,6 +40,11 @@ _SUPPORTED_LISTENER_PROT = ('HTTP', 'HTTPS', 'TCP')
 class LBaaSv2Driver(base.LBaaSDriver):
     """LBaaSv2Driver implements LBaaSDriver for Neutron LBaaSv2 API."""
 
+    @property
+    def cascading_capable(self):
+        lbaas = clients.get_loadbalancer_client()
+        return lbaas.cascading_capable
+
     def ensure_loadbalancer(self, endpoints, project_id, subnet_id, ip,
                             security_groups_ids, service_type):
         name = "%(namespace)s/%(name)s" % endpoints['metadata']
@@ -67,16 +72,25 @@ class LBaaSv2Driver(base.LBaaSDriver):
     def release_loadbalancer(self, endpoints, loadbalancer):
         neutron = clients.get_neutron_client()
         lbaas = clients.get_loadbalancer_client()
-        self._release(loadbalancer, loadbalancer,
-                      lbaas.delete_loadbalancer, loadbalancer.id)
+        if lbaas.cascading_capable:
+            self._release(
+                loadbalancer,
+                loadbalancer,
+                lbaas.delete,
+                lbaas.lbaas_loadbalancer_path % loadbalancer.id,
+                params={'cascade': True})
 
-        sg_id = self._find_listeners_sg(loadbalancer)
-        if sg_id:
-            try:
-                neutron.delete_security_group(sg_id)
-            except n_exc.NeutronClientException:
-                LOG.exception('Error when deleting loadbalancer security '
-                              'group. Leaving it orphaned.')
+        else:
+            self._release(loadbalancer, loadbalancer,
+                          lbaas.delete_loadbalancer, loadbalancer.id)
+
+            sg_id = self._find_listeners_sg(loadbalancer)
+            if sg_id:
+                try:
+                    neutron.delete_security_group(sg_id)
+                except n_exc.NeutronClientException:
+                    LOG.exception('Error when deleting loadbalancer security '
+                                  'group. Leaving it orphaned.')
 
     def ensure_security_groups(self, endpoints, loadbalancer,
                                security_groups_ids, service_type):

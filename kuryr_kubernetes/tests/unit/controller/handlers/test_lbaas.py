@@ -516,12 +516,37 @@ class TestLoadBalancerHandler(test_base.TestCase):
 
         m_handler = mock.Mock(spec=h_lbaas.LoadBalancerHandler)
         m_handler._get_lbaas_state.return_value = lbaas_state
+        m_handler._drv_lbaas = mock.Mock()
+        m_handler._drv_lbaas.cascading_capable = False
 
         h_lbaas.LoadBalancerHandler.on_deleted(m_handler, endpoints)
 
         m_handler._get_lbaas_state.assert_called_once_with(endpoints)
         m_handler._sync_lbaas_members.assert_called_once_with(
             endpoints, lbaas_state, empty_spec)
+
+    @mock.patch('kuryr_kubernetes.objects.lbaas'
+                '.LBaaSServiceSpec')
+    def test_on_cascade_deleted_lb_service(self, m_svc_spec_ctor):
+        endpoints = mock.sentinel.endpoints
+        empty_spec = mock.sentinel.empty_spec
+        lbaas_state = mock.Mock()
+        lbaas_state.loadbalancer = mock.sentinel.loadbalancer
+        lbaas_state.service_pub_ip_info = mock.sentinel.pub_ip
+        m_svc_spec_ctor.return_value = empty_spec
+
+        m_handler = mock.Mock(spec=h_lbaas.LoadBalancerHandler)
+        m_handler._get_lbaas_state.return_value = lbaas_state
+        m_handler._drv_lbaas = mock.Mock()
+        m_handler._drv_service_pub_ip = mock.Mock()
+        m_handler._drv_lbaas.cascading_capable = True
+
+        h_lbaas.LoadBalancerHandler.on_deleted(m_handler, endpoints)
+
+        m_handler._drv_lbaas.release_loadbalancer.assert_called_once_with(
+            endpoints=endpoints, loadbalancer=lbaas_state.loadbalancer)
+        m_handler._drv_service_pub_ip.release_pub_ip.assert_called_once_with(
+            lbaas_state.service_pub_ip_info)
 
     def test_should_ignore(self):
         endpoints = mock.sentinel.endpoints
