@@ -350,16 +350,15 @@ class TestLBaaSSpecHandler(test_base.TestCase):
 
 class FakeLBaaSDriver(drv_base.LBaaSDriver):
 
-    def ensure_loadbalancer(self, endpoints, project_id, subnet_id, ip,
+    def ensure_loadbalancer(self, name, project_id, subnet_id, ip,
                             security_groups_ids, service_type):
-        name = str(ip)
         return obj_lbaas.LBaaSLoadBalancer(name=name,
                                            project_id=project_id,
                                            subnet_id=subnet_id,
                                            ip=ip,
                                            id=uuidutils.generate_uuid())
 
-    def ensure_listener(self, endpoints, loadbalancer, protocol, port):
+    def ensure_listener(self, loadbalancer, protocol, port):
         if protocol not in _SUPPORTED_LISTENER_PROT:
             return None
 
@@ -371,7 +370,7 @@ class FakeLBaaSDriver(drv_base.LBaaSDriver):
                                        port=port,
                                        id=uuidutils.generate_uuid())
 
-    def ensure_pool(self, endpoints, loadbalancer, listener):
+    def ensure_pool(self, loadbalancer, listener):
         return obj_lbaas.LBaaSPool(name=listener.name,
                                    project_id=loadbalancer.project_id,
                                    loadbalancer_id=loadbalancer.id,
@@ -379,8 +378,9 @@ class FakeLBaaSDriver(drv_base.LBaaSDriver):
                                    protocol=listener.protocol,
                                    id=uuidutils.generate_uuid())
 
-    def ensure_member(self, endpoints, loadbalancer, pool, subnet_id, ip, port,
-                      target_ref):
+    def ensure_member(self, loadbalancer, pool, subnet_id, ip, port,
+                      target_ref_namespace, target_ref_name
+                      ):
         name = "%s:%s:%s" % (loadbalancer.name, ip, port)
         return obj_lbaas.LBaaSMember(name=name,
                                      project_id=pool.project_id,
@@ -390,17 +390,23 @@ class FakeLBaaSDriver(drv_base.LBaaSDriver):
                                      port=port,
                                      id=uuidutils.generate_uuid())
 
-    def release_loadbalancer(self, endpoints, loadbalancer):
+    def release_loadbalancer(self, loadbalancer):
         pass
 
-    def release_listener(self, endpoints, loadbalancer, listener):
+    def release_listener(self, loadbalancer, listener):
         pass
 
-    def release_pool(self, endpoints, loadbalancer, pool):
+    def release_pool(self, loadbalancer, pool):
         pass
 
-    def release_member(self, endpoints, loadbalancer, member):
+    def release_member(self, loadbalancer, member):
         pass
+
+    def get_service_loadbalancer_name(self, namespace, svc_name):
+        return "%s/%s" % (namespace, svc_name)
+
+    def get_loadbalancer_pool_name(self, lb_name, namespace, svc_name):
+        return "%s/%s/%s" % (lb_name, namespace, svc_name)
 
 
 class TestLoadBalancerHandler(test_base.TestCase):
@@ -544,7 +550,7 @@ class TestLoadBalancerHandler(test_base.TestCase):
         h_lbaas.LoadBalancerHandler.on_deleted(m_handler, endpoints)
 
         m_handler._drv_lbaas.release_loadbalancer.assert_called_once_with(
-            endpoints=endpoints, loadbalancer=lbaas_state.loadbalancer)
+            loadbalancer=lbaas_state.loadbalancer)
         m_handler._drv_service_pub_ip.release_pub_ip.assert_called_once_with(
             lbaas_state.service_pub_ip_info)
 
@@ -615,22 +621,21 @@ class TestLoadBalancerHandler(test_base.TestCase):
         self.assertEqual(subnet_id, observed_subnet_id)
 
     def _generate_lbaas_state(self, vip, targets, project_id, subnet_id):
-        endpoints = mock.sentinel.endpoints
+        name = 'DUMMY_NAME'
         drv = FakeLBaaSDriver()
         lb = drv.ensure_loadbalancer(
-            endpoints, project_id, subnet_id, vip, None, 'ClusterIP')
+            name, project_id, subnet_id, vip, None, 'ClusterIP')
         listeners = {}
         pools = {}
         members = {}
         for ip, (listen_port, target_port) in targets.items():
             lsnr = listeners.setdefault(listen_port, drv.ensure_listener(
-                endpoints, lb, 'TCP', listen_port))
-            pool = pools.setdefault(listen_port, drv.ensure_pool(
-                endpoints, lb, lsnr))
+                lb, 'TCP', listen_port))
+            pool = pools.setdefault(listen_port, drv.ensure_pool(lb, lsnr))
             members.setdefault((ip, listen_port, target_port),
-                               drv.ensure_member(endpoints, lb, pool,
+                               drv.ensure_member(lb, pool,
                                                  subnet_id, ip,
-                                                 target_port, None))
+                                                 target_port, None, None))
         return obj_lbaas.LBaaSState(
             loadbalancer=lb,
             listeners=list(listeners.values()),
@@ -657,6 +662,10 @@ class TestLoadBalancerHandler(test_base.TestCase):
             for p, grp in itertools.groupby(
                 sorted(targets.items()), _target_to_port)]
         return {
+            'metadata': {
+                'name': 'ep_name',
+                'namespace': 'default'
+            },
             'subsets': [
                 {
                     'addresses': [

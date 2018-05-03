@@ -324,11 +324,25 @@ class LBaaSDriver(DriverBase):
     ALIAS = 'endpoints_lbaas'
 
     @abc.abstractmethod
-    def ensure_loadbalancer(self, endpoints, project_id, subnet_id, ip,
+    def get_service_loadbalancer_name(self, namespace, svc_name):
+        """Generate name of a load balancer that represents K8S service.
+
+        In case a load balancer represents K8S service/ep, the handler
+        should call first this API to get the load balancer name and use the
+        return value of this function as 'name' parameter for the
+        'ensure_loadbalancer' function
+
+        :param namespace: K8S service namespace
+        :param svc_name: K8S service name
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def ensure_loadbalancer(self, name, project_id, subnet_id, ip,
                             security_groups_ids, service_type):
         """Get or create load balancer.
 
-        :param endpoints: dict containing K8s Endpoints object
+        :param name: LoadBlancer name
         :param project_id: OpenStack project ID
         :param subnet_id: Neutron subnet ID to host load balancer
         :param ip: IP of the load balancer
@@ -339,22 +353,20 @@ class LBaaSDriver(DriverBase):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def release_loadbalancer(self, endpoints, loadbalancer):
+    def release_loadbalancer(self, loadbalancer):
         """Release load balancer.
 
         Should return without errors if load balancer does not exist (e.g.
         already deleted).
 
-        :param endpoints: dict containing K8s Endpoints object
         :param loadbalancer: `LBaaSLoadBalancer` object
         """
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def ensure_listener(self, endpoints, loadbalancer, protocol, port):
+    def ensure_listener(self, loadbalancer, protocol, port):
         """Get or create listener.
 
-        :param endpoints: dict containing K8s Endpoints object
         :param loadbalancer: `LBaaSLoadBalancer` object
         :param protocol: listener's protocol (only TCP is supported for now)
         :param port: listener's port
@@ -362,65 +374,85 @@ class LBaaSDriver(DriverBase):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def release_listener(self, endpoints, loadbalancer, listener):
+    def release_listener(self, loadbalancer, listener):
         """Release listener.
 
         Should return without errors if listener or load balancer does not
         exist (e.g. already deleted).
 
-        :param endpoints: dict containing K8s Endpoints object
         :param loadbalancer: `LBaaSLoadBalancer` object
         :param listener: `LBaaSListener` object
         """
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def ensure_pool(self, endpoints, loadbalancer, listener):
-        """Get or create pool.
+    def ensure_pool(self, loadbalancer, listener):
+        """Get or create pool attached to Listener.
 
-        :param endpoints: dict containing K8s Endpoints object
         :param loadbalancer: `LBaaSLoadBalancer` object
         :param listener: `LBaaSListener` object
         """
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def release_pool(self, endpoints, loadbalancer, pool):
+    def ensure_pool_attached_to_lb(self, loadbalancer, namespace,
+                                   svc_name, protocol):
+        """Get or create pool attached to LoadBalancer.
+
+        :param loadbalancer: `LBaaSLoadBalancer` object
+        :param namespace: K8S service's namespace
+        :param svc_name: K8S service's name
+        :param protocol: pool's protocol
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def get_loadbalancer_pool_name(self, loadbalancer, namespace, svc_name):
+        """Get name of a load balancer's pool attached to LB.
+
+        The pool's name should be unique per K8S service
+
+        :param loadbalancer: `LBaaSLoadBalancer` object
+        :param namespace: K8S service's namespace
+        :param svc_name: K8S service's name
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def release_pool(self, loadbalancer, pool):
         """Release pool.
 
         Should return without errors if pool or load balancer does not exist
         (e.g. already deleted).
 
-        :param endpoints: dict containing K8s Endpoints object
         :param loadbalancer: `LBaaSLoadBalancer` object
         :param pool: `LBaaSPool` object
         """
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def ensure_member(self, endpoints, loadbalancer, pool,
-                      subnet_id, ip, port, target_ref):
+    def ensure_member(self, loadbalancer, pool,
+                      subnet_id, ip, port, target_ref_namespace,
+                      target_ref_name):
         """Get or create member.
 
-        :param endpoints: dict containing K8s Endpoints object
         :param loadbalancer: `LBaaSLoadBalancer` object
         :param pool: `LBaaSPool` object
         :param subnet_id: Neutron subnet ID of the target
         :param ip: target's IP (e.g. Pod's IP)
         :param port: target port
-        :param target_ref: Kubernetes ObjectReference of the target (e.g.
-                           Pod reference)
+        :param target_ref_namespace: Kubernetes EP target_ref namespace
+        :param target_ref_name: Kubernetes EP target_ref name
         """
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def release_member(self, endpoints, loadbalancer, member):
+    def release_member(self, loadbalancer, member):
         """Release member.
 
         Should return without errors if memberor load balancer does not exist
         (e.g. already deleted).
 
-        :param endpoints: dict containing K8s Endpoints object
         :param loadbalancer: `LBaaSLoadBalancer` object
         :param member: `LBaaSMember` object
         """

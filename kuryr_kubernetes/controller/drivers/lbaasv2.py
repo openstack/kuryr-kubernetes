@@ -45,9 +45,14 @@ class LBaaSv2Driver(base.LBaaSDriver):
         lbaas = clients.get_loadbalancer_client()
         return lbaas.cascading_capable
 
-    def ensure_loadbalancer(self, endpoints, project_id, subnet_id, ip,
-                            security_groups_ids, service_type):
-        name = "%(namespace)s/%(name)s" % endpoints['metadata']
+    def get_service_loadbalancer_name(self, namespace, svc_name):
+        return "%s/%s" % (namespace, svc_name)
+
+    def get_loadbalancer_pool_name(self, loadbalancer, namespace, svc_name):
+        return "%s/%s/%s" % (loadbalancer.name, namespace, svc_name)
+
+    def ensure_loadbalancer(self, name, project_id, subnet_id, ip,
+                            security_groups_ids=None, service_type=None):
         request = obj_lbaas.LBaaSLoadBalancer(
             name=name, project_id=project_id, subnet_id=subnet_id, ip=ip,
             security_groups=security_groups_ids)
@@ -59,17 +64,15 @@ class LBaaSv2Driver(base.LBaaSDriver):
             raise k_exc.ResourceNotReady(request)
 
         try:
-            self.ensure_security_groups(endpoints, response,
-                                        security_groups_ids, service_type)
+            if security_groups_ids is not None:
+                self._ensure_security_groups(response, service_type)
         except n_exc.NeutronClientException:
-            # NOTE(dulek): `endpoints` arguments on release_loadbalancer()
-            #              is ignored for some reason, so just pass None.
-            self.release_loadbalancer(None, response)
+            self.release_loadbalancer(response)
             raise
 
         return response
 
-    def release_loadbalancer(self, endpoints, loadbalancer):
+    def release_loadbalancer(self, loadbalancer):
         neutron = clients.get_neutron_client()
         lbaas = clients.get_loadbalancer_client()
         if lbaas.cascading_capable:
@@ -92,8 +95,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
                     LOG.exception('Error when deleting loadbalancer security '
                                   'group. Leaving it orphaned.')
 
-    def ensure_security_groups(self, endpoints, loadbalancer,
-                               security_groups_ids, service_type):
+    def _ensure_security_groups(self, loadbalancer, service_type):
         # We only handle SGs for legacy LBaaSv2, Octavia handles it dynamically
         # according to listener ports.
         if loadbalancer.provider == const.NEUTRON_LBAAS_HAPROXY_PROVIDER:
@@ -126,7 +128,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
                     neutron.delete_security_group(sg_id)
                 raise
 
-    def ensure_security_group_rules(self, endpoints, loadbalancer, listener):
+    def _ensure_security_group_rules(self, loadbalancer, listener):
         sg_id = self._find_listeners_sg(loadbalancer)
         if sg_id:
             try:
@@ -146,13 +148,12 @@ class LBaaSv2Driver(base.LBaaSDriver):
                     LOG.exception('Failed when creating security group rule '
                                   'for listener %s.', listener.name)
 
-    def ensure_listener(self, endpoints, loadbalancer, protocol, port):
+    def ensure_listener(self, loadbalancer, protocol, port):
         if protocol not in _SUPPORTED_LISTENER_PROT:
             LOG.info("Protocol: %(prot)s: is not supported by LBaaSV2", {
                 'prot': protocol})
             return None
-        name = "%(namespace)s/%(name)s" % endpoints['metadata']
-        name += ":%s:%s" % (protocol, port)
+        name = "%s:%s:%s" % (loadbalancer.name, protocol, port)
         listener = obj_lbaas.LBaaSListener(name=name,
                                            project_id=loadbalancer.project_id,
                                            loadbalancer_id=loadbalancer.id,
@@ -162,11 +163,11 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                           self._create_listener,
                                           self._find_listener)
 
-        self.ensure_security_group_rules(endpoints, loadbalancer, result)
+        self._ensure_security_group_rules(loadbalancer, result)
 
         return result
 
-    def release_listener(self, endpoints, loadbalancer, listener):
+    def release_listener(self, loadbalancer, listener):
         neutron = clients.get_neutron_client()
         lbaas = clients.get_loadbalancer_client()
         self._release(loadbalancer, listener,
@@ -184,7 +185,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 LOG.warning('Cannot find SG rule for %s (%s) listener.',
                             listener.id, listener.name)
 
-    def ensure_pool(self, endpoints, loadbalancer, listener):
+    def ensure_pool(self, loadbalancer, listener):
         pool = obj_lbaas.LBaaSPool(name=listener.name,
                                    project_id=loadbalancer.project_id,
                                    loadbalancer_id=loadbalancer.id,
@@ -194,18 +195,32 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                         self._create_pool,
                                         self._find_pool)
 
-    def release_pool(self, endpoints, loadbalancer, pool):
+    def ensure_pool_attached_to_lb(self, loadbalancer, namespace,
+                                   svc_name, protocol):
+        name = self.get_loadbalancer_pool_name(loadbalancer.name,
+                                               namespace, svc_name)
+        pool = obj_lbaas.LBaaSPool(name=name,
+                                   project_id=loadbalancer.project_id,
+                                   loadbalancer_id=loadbalancer.id,
+                                   listener_id=None,
+                                   protocol=protocol)
+        return self._ensure_provisioned(loadbalancer, pool,
+                                        self._create_pool,
+                                        self._find_pool_by_name)
+
+    def release_pool(self, loadbalancer, pool):
         lbaas = clients.get_loadbalancer_client()
         self._release(loadbalancer, pool,
                       lbaas.delete_lbaas_pool,
                       pool.id)
 
-    def ensure_member(self, endpoints, loadbalancer, pool,
-                      subnet_id, ip, port, target_ref):
-        name = "%(namespace)s/%(name)s" % target_ref
+    def ensure_member(self, loadbalancer, pool,
+                      subnet_id, ip, port, target_ref_namespace,
+                      target_ref_name):
+        name = ("%s/%s" % (target_ref_namespace, target_ref_name))
         name += ":%s" % port
         member = obj_lbaas.LBaaSMember(name=name,
-                                       project_id=pool.project_id,
+                                       project_id=loadbalancer.project_id,
                                        pool_id=pool.id,
                                        subnet_id=subnet_id,
                                        ip=ip,
@@ -214,7 +229,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                         self._create_member,
                                         self._find_member)
 
-    def release_member(self, endpoints, loadbalancer, member):
+    def release_member(self, loadbalancer, member):
         lbaas = clients.get_loadbalancer_client()
         self._release(loadbalancer, member,
                       lbaas.delete_lbaas_member,
@@ -328,7 +343,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             except (n_exc.NotFound, n_exc.StateInvalidClient):
                 pass
 
-    def _find_pool(self, pool):
+    def _find_pool(self, pool, by_listener=True):
         lbaas = clients.get_loadbalancer_client()
         response = lbaas.list_lbaas_pools(
             name=pool.name,
@@ -337,13 +352,21 @@ class LBaaSv2Driver(base.LBaaSDriver):
             protocol=pool.protocol)
 
         try:
-            pools = [p for p in response['pools']
-                     if pool.listener_id in {l['id'] for l in p['listeners']}]
+            if by_listener:
+                pools = [p for p in response['pools']
+                         if pool.listener_id
+                         in {l['id'] for l in p['listeners']}]
+            else:
+                pools = [p for p in response['pools']
+                         if pool.name == p['name']]
+
             pool.id = pools[0]['id']
         except (KeyError, IndexError):
             return None
-
         return pool
+
+    def _find_pool_by_name(self, pool):
+        return self._find_pool(pool, by_listener=False)
 
     def _create_member(self, member):
         lbaas = clients.get_loadbalancer_client()
