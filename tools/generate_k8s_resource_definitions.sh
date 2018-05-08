@@ -92,6 +92,9 @@ ssl_verify_server_crt = true
 helper_command=privsep-helper
 [vif_plug_linux_bridge_privileged]
 helper_command=privsep-helper
+[cni_daemon]
+docker_mode = true
+netns_proc_dir = /host_proc
 EOF
 
     if [ ! -z $binding_driver ]; then
