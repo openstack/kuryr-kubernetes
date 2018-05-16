@@ -618,14 +618,14 @@ EOF
 #   Description: Fetches the configured binary release of OpenShift and
 #                installs it in the system
 function install_openshift_binary {
-    mkdir -p "$OPENSHIFT_HOME"
-    curl -L "$OPENSHIFT_BINARY_URL" -o "${OPENSHIFT_HOME}/openshift.tar.gz" --retry 2
-    tar xzvf "${OPENSHIFT_HOME}/openshift.tar.gz" --strip 1 -C "$OPENSHIFT_HOME"
+    mkdir -p "$OPENSHIFT_BIN"
+    curl -L "$OPENSHIFT_BINARY_URL" -o "${OPENSHIFT_BIN}/openshift.tar.gz" --retry 2
+    tar xzvf "${OPENSHIFT_BIN}/openshift.tar.gz" --strip 1 -C "$OPENSHIFT_BIN"
 
     # Make openshift run from its untarred directory
     cat << EOF | sudo tee /usr/local/bin/openshift
 #!/bin/bash
-cd ${OPENSHIFT_HOME}
+cd ${OPENSHIFT_BIN}
 exec ./openshift "\$@"
 EOF
     sudo chmod a+x /usr/local/bin/openshift
@@ -635,7 +635,7 @@ EOF
 #!/bin/bash
 CURL_CA_BUNDLE=${OPENSHIFT_DATA_DIR}/ca.crt \
     KUBECONFIG=${OPENSHIFT_DATA_DIR}/admin.kubeconfig \
-    ${OPENSHIFT_HOME}/oc "\$@"
+    ${OPENSHIFT_BIN}/oc "\$@"
 EOF
     sudo chmod a+x /usr/local/bin/oc
 
@@ -644,7 +644,7 @@ EOF
 #!/bin/bash
 CURL_CA_BUNDLE=${OPENSHIFT_DATA_DIR}/ca.crt \
     KUBECONFIG=${OPENSHIFT_DATA_DIR}/admin.kubeconfig \
-    ${OPENSHIFT_HOME}/kubectl "\$@"
+    ${OPENSHIFT_BIN}/kubectl "\$@"
 EOF
     sudo chmod a+x /usr/local/bin/kubectl
 
@@ -653,7 +653,7 @@ EOF
 #!/bin/bash
 CURL_CA_BUNDLE=${OPENSHIFT_DATA_DIR}/ca.crt \
     KUBECONFIG=${OPENSHIFT_DATA_DIR}/admin.kubeconfig \
-    ${OPENSHIFT_HOME}/oadm "\$@"
+    ${OPENSHIFT_BIN}/oadm "\$@"
 EOF
     sudo chmod a+x /usr/local/bin/oadm
 }
@@ -677,7 +677,7 @@ function run_openshift_master {
                          -c cidr -f value)
 
     # Generate master config
-    "${OPENSHIFT_HOME}/openshift" start master \
+    "${OPENSHIFT_BIN}/openshift" start master \
         "--etcd=${KURYR_ETCD_ADVERTISE_CLIENT_URL}" \
         "--network-cidr=${pod_subnet_cidr}" \
         "--portal-net=${service_subnet_cidr}" \
@@ -694,7 +694,7 @@ function run_openshift_master {
     sudo chown "${STACK_USER}:${STACK_USER}" -R "$OPENSHIFT_DATA_DIR"
 
     # Generate kubelet kubeconfig
-    "${OPENSHIFT_HOME}/oadm" create-kubeconfig \
+    "${OPENSHIFT_BIN}/oadm" create-kubeconfig \
         "--client-key=${OPENSHIFT_DATA_DIR}/master.kubelet-client.key" \
         "--client-certificate=${OPENSHIFT_DATA_DIR}/master.kubelet-client.crt" \
         "--certificate-authority=${OPENSHIFT_DATA_DIR}/ca.crt" \
@@ -743,8 +743,10 @@ function run_openshift_node {
 
     # Link master config necessary for bootstrapping
     # TODO: This needs to be generated so we don't depend on it on multinode
-    mkdir -p "${OPENSHIFT_HOME}/openshift.local.config"
-    ln -fs "${OPENSHIFT_DATA_DIR}" "${OPENSHIFT_HOME}/openshift.local.config/master"
+    mkdir -p "${OPENSHIFT_BIN}/openshift.local.config"
+    ln -fs "${OPENSHIFT_DATA_DIR}" "${OPENSHIFT_BIN}/openshift.local.config/master"
+    mkdir -p "${OPENSHIFT_DATA_DIR}/node"
+    ln -fs "${OPENSHIFT_DATA_DIR}/node" "${OPENSHIFT_BIN}/openshift.local.config/node"
 
     # Link stack CNI to location expected by openshift node
     sudo mkdir -p /etc/cni
