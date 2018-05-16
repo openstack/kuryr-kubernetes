@@ -147,7 +147,6 @@
     pre-run: playbooks/get_amphora_tarball.yaml
     vars:
       devstack_localrc:
-        LIBS_FROM_GIT: python-octaviaclient
         OCTAVIA_AMP_IMAGE_FILE: "/tmp/test-only-amphora-x64-haproxy-ubuntu-xenial.qcow2"
         OCTAVIA_AMP_IMAGE_SIZE: 3
         OCTAVIA_AMP_IMAGE_NAME: "test-only-amphora-x64-haproxy-ubuntu-xenial"
