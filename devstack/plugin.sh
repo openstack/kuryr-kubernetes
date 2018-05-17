@@ -52,7 +52,6 @@ function configure_kuryr {
     sudo install -o "$STACK_USER" -m 640 -D "${KURYR_HOME}/etc/kuryr.conf.sample" \
         "$KURYR_CONFIG"
 
-    iniset "$KURYR_CONFIG" kubernetes api_root "$KURYR_K8S_API_URL"
     if [ "$KURYR_K8S_API_CERT" ]; then
         iniset "$KURYR_CONFIG" kubernetes ssl_client_crt_file "$KURYR_K8S_API_CERT"
     fi
@@ -61,6 +60,7 @@ function configure_kuryr {
     fi
     if [ "$KURYR_K8S_API_CACERT" ]; then
         iniset "$KURYR_CONFIG" kubernetes ssl_ca_crt_file "$KURYR_K8S_API_CACERT"
+        iniset "$KURYR_CONFIG" kubernetes ssl_verify_server_crt True
     fi
     # REVISIT(ivc): 'use_stderr' is required for current CNI driver. Once a
     # daemon-based CNI driver is implemented, this could be removed.
@@ -72,6 +72,9 @@ function configure_kuryr {
 
     iniset "$KURYR_CONFIG" kubernetes pod_subnets_driver "$KURYR_SUBNET_DRIVER"
     iniset "$KURYR_CONFIG" kubernetes enabled_handlers "$KURYR_ENABLED_HANDLERS"
+
+    # Let Kuryr retry connections to K8s API for 20 minutes.
+    iniset "$KURYR_CONFIG" kubernetes watch_retry_timeout 1200
 
     KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
     if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
@@ -237,9 +240,9 @@ function create_k8s_api_service {
 
     create_load_balancer "$lb_name" "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET"\
             "$project_id" "$k8s_api_clusterip"
-    create_load_balancer_listener default/kubernetes:443 HTTPS 443 "$lb_name" "$project_id" 3600000
-    create_load_balancer_pool default/kubernetes:443 HTTPS ROUND_ROBIN \
-        default/kubernetes:443 "$project_id" "$lb_name"
+    create_load_balancer_listener default/kubernetes:${KURYR_K8S_API_LB_PORT} HTTPS ${KURYR_K8S_API_LB_PORT} "$lb_name" "$project_id" 3600000
+    create_load_balancer_pool default/kubernetes:${KURYR_K8S_API_LB_PORT} HTTPS ROUND_ROBIN \
+        default/kubernetes:${KURYR_K8S_API_LB_PORT} "$project_id" "$lb_name"
 
     local api_port
     if is_service_enabled openshift-master; then
@@ -260,10 +263,10 @@ function create_k8s_api_service {
     if [[ "$use_octavia" == "True" && \
           "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L2" ]]; then
         create_load_balancer_member "$(hostname)" "$address" "$api_port" \
-            default/kubernetes:443 $KURYR_NEUTRON_DEFAULT_POD_SUBNET "$lb_name" "$project_id"
+            default/kubernetes:${KURYR_K8S_API_LB_PORT} $KURYR_NEUTRON_DEFAULT_POD_SUBNET "$lb_name" "$project_id"
     else
         create_load_balancer_member "$(hostname)" "$address" "$api_port" \
-            default/kubernetes:443 public-subnet "$lb_name" "$project_id"
+            default/kubernetes:${KURYR_K8S_API_LB_PORT} public-subnet "$lb_name" "$project_id"
     fi
 }
 
@@ -357,6 +360,22 @@ function configure_neutron_defaults {
         sg_ids+=",${octavia_pod_access_sg_id}"
     fi
 
+    KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
+    if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "False" ]; then
+        local service_cidr
+        local k8s_api_clusterip
+        service_cidr=$(openstack --os-cloud devstack-admin \
+                                 --os-region "$REGION_NAME" \
+                                 subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
+                                 -c cidr -f value)
+        k8s_api_clusterip=$(_cidr_range "$service_cidr" | cut -f1)
+        # NOTE(dulek): KURYR_K8S_API_LB_URL will be a global to be used by next
+        #              deployment phases.
+        KURYR_K8S_API_LB_URL="https://${k8s_api_clusterip}:${KURYR_K8S_API_LB_PORT}"
+        iniset "$KURYR_CONFIG" kubernetes api_root ${KURYR_K8S_API_LB_URL}
+    else
+        iniset "$KURYR_CONFIG" kubernetes api_root ""
+    fi
     iniset "$KURYR_CONFIG" neutron_defaults project "$project_id"
     iniset "$KURYR_CONFIG" neutron_defaults pod_subnet "$pod_subnet_id"
     iniset "$KURYR_CONFIG" neutron_defaults pod_security_groups "$sg_ids"
@@ -435,6 +454,11 @@ function prepare_kubernetes_files {
     sudo bash -c "echo '$(create_token),kubelet,kubelet' >> ${KURYR_HYPERKUBE_DATA_DIR}/known_tokens.csv"
     sudo bash -c "echo '$(create_token),kube_proxy,kube_proxy' >> ${KURYR_HYPERKUBE_DATA_DIR}/known_tokens.csv"
 
+    # Copy certs for Kuryr services to use
+    sudo install -m 644 "${KURYR_HYPERKUBE_DATA_DIR}/kubecfg.crt" "${KURYR_HYPERKUBE_DATA_DIR}/kuryr.crt"
+    sudo install -m 644 "${KURYR_HYPERKUBE_DATA_DIR}/kubecfg.key" "${KURYR_HYPERKUBE_DATA_DIR}/kuryr.key"
+    sudo install -m 644 "${KURYR_HYPERKUBE_DATA_DIR}/ca.crt" "${KURYR_HYPERKUBE_DATA_DIR}/kuryr-ca.crt"
+
     # FIXME(ivc): replace 'sleep' with a strict check (e.g. wait_for_files)
     # 'kubernetes-api' fails if started before files are generated.
     # this is a workaround to prevent races.
@@ -456,7 +480,7 @@ function wait_for {
     extra_flags=${cacert_path:+"--cacert ${cacert_path}"}
 
     local start_time=$(date +%s)
-    until curl -o /dev/null -sf $extra_flags "$url"; do
+    until curl -o /dev/null -s $extra_flags "$url"; do
         echo -n "."
         local curr_time=$(date +%s)
         local time_diff=$(($curr_time - $start_time))
@@ -631,13 +655,14 @@ function run_k8s_kubelet {
 
 function run_kuryr_kubernetes {
     local python_bin=$(which python)
-
     if is_service_enabled openshift-master; then
-        wait_for "OpenShift API Server" "$OPENSHIFT_API_URL" \
-            "${OPENSHIFT_DATA_DIR}/ca.crt"
+        wait_for "OpenShift API Server" "$KURYR_K8S_API_LB_URL" \
+            "${OPENSHIFT_DATA_DIR}/ca.crt" 1200
     else
-        wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
+        wait_for "Kubernetes API Server" "$KURYR_K8S_API_LB_URL" \
+            "${KURYR_HYPERKUBE_DATA_DIR}/kuryr-ca.crt" 1200
     fi
+
     run_process kuryr-kubernetes \
         "$python_bin ${KURYR_HOME}/scripts/run_server.py  \
             --config-file $KURYR_CONFIG"
@@ -791,12 +816,6 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
         run_k8s_scheduler
     fi
 
-    KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
-    if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "False" ]; then
-        # If running in containerized mode, we'll run the daemon as DaemonSet.
-        run_kuryr_daemon
-    fi
-
     if is_service_enabled kubelet; then
         prepare_kubelet
         extract_hyperkube
@@ -813,6 +832,7 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
         configure_k8s_pod_sg_rules
     fi
 
+    KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
     if is_service_enabled kuryr-kubernetes; then
         /usr/local/bin/kubectl apply -f ${KURYR_HOME}/kubernetes_crds/kuryrnet.yaml
         if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
@@ -831,7 +851,6 @@ elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
     if is_service_enabled kuryr-kubernetes; then
         # NOTE(dulek): This is so late, because Devstack's Octavia is unable
         #              to create loadbalancers until test-config phase.
-        local use_octavia
         use_octavia=$(trueorfalse True KURYR_K8S_LBAAS_USE_OCTAVIA)
         if [[ "$use_octavia" == "False" ]]; then
             create_k8s_router_fake_service
@@ -846,7 +865,7 @@ elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
 
         # FIXME(dulek): This is a very late phase to start Kuryr services.
         #               We're doing it here because we need K8s API LB to be
-        #               created in order to run kuryr-cni container. Thing is
+        #               created in order to run kuryr services. Thing is
         #               Octavia is unable to create LB until test-config phase.
         #               We can revisit this once Octavia's DevStack plugin will
         #               get improved.
@@ -854,6 +873,7 @@ elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
             run_containerized_kuryr_resources
         else
             run_kuryr_kubernetes
+            run_kuryr_daemon
         fi
     fi
     if is_service_enabled tempest && [[ "$KURYR_USE_PORT_POOLS" == "True" ]]; then
