@@ -127,7 +127,7 @@ class HealthServer(object):
         endpoint_type = getattr(getattr(cfg.CONF, conf_group), 'endpoint_type')
         ks = keystone_client.Client(session=sess, auth=auth_plugin,
                                     endpoint_type=endpoint_type)
-        ks.projects.list()
+        ks.regions.list()
 
     def verify_neutron_connection(self):
         neutron = utils.get_neutron_client()
