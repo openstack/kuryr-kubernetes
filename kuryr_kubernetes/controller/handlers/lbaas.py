@@ -307,13 +307,16 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
     def _sync_lbaas_members(self, endpoints, lbaas_state, lbaas_spec):
         changed = False
 
-        if self._remove_unused_members(endpoints, lbaas_state, lbaas_spec):
+        if (self._has_pods(endpoints) and
+                self._remove_unused_members(endpoints, lbaas_state,
+                                            lbaas_spec)):
             changed = True
 
         if self._sync_lbaas_pools(endpoints, lbaas_state, lbaas_spec):
             changed = True
 
-        if self._add_new_members(endpoints, lbaas_state, lbaas_spec):
+        if (self._has_pods(endpoints) and
+                self._add_new_members(endpoints, lbaas_state, lbaas_spec)):
             changed = True
 
         return changed
