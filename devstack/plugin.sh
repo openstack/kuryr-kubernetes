@@ -70,6 +70,9 @@ function configure_kuryr {
 
     iniset "$KURYR_CONFIG" kubernetes port_debug "$KURYR_PORT_DEBUG"
 
+    iniset "$KURYR_CONFIG" kubernetes pod_subnets_driver "$KURYR_SUBNET_DRIVER"
+    iniset "$KURYR_CONFIG" kubernetes enabled_handlers "$KURYR_ENABLED_HANDLERS"
+
     KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
     if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
         # This works around the issue of being unable to set oslo.privsep mode
@@ -260,11 +263,14 @@ function configure_neutron_defaults {
     local service_subnet_id
     local subnetpool_id
     local router
+    local router_id
 
     # If a subnetpool is not passed, we get the one created in devstack's
     # Neutron module
     subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}}
     router=${KURYR_NEUTRON_DEFAULT_ROUTER:-$Q_ROUTER_NAME}
+    router_id="$(neutron router-show -c id -f value \
+        "$router")"
 
     project_id=$(get_or_create_project \
         "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
@@ -343,6 +349,10 @@ function configure_neutron_defaults {
     iniset "$KURYR_CONFIG" neutron_defaults pod_subnet "$pod_subnet_id"
     iniset "$KURYR_CONFIG" neutron_defaults pod_security_groups "$sg_ids"
     iniset "$KURYR_CONFIG" neutron_defaults service_subnet "$service_subnet_id"
+    if [ "$KURYR_SUBNET_DRIVER" == "namespace" ]; then
+        iniset "$KURYR_CONFIG" namespace_subnet pod_subnet_pool "$subnetpool_id"
+        iniset "$KURYR_CONFIG" namespace_subnet pod_router "$router_id"
+    fi
     if [ -n "$OVS_BRIDGE" ]; then
         iniset "$KURYR_CONFIG" neutron_defaults ovs_bridge "$OVS_BRIDGE"
     fi
@@ -726,6 +736,7 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
     fi
 
     if is_service_enabled kuryr-kubernetes; then
+        /usr/local/bin/kubectl apply -f ${KURYR_HOME}/kubernetes_crds/kuryrnet.yaml
         if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "False" ]; then
             run_kuryr_kubernetes
         else
@@ -737,6 +748,7 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
                 generate_containerized_kuryr_resources False
             fi
         fi
+
     fi
 
 elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
