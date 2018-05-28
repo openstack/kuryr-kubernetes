@@ -33,6 +33,7 @@ class TestVIFHandler(test_base.TestCase):
         self._vif = mock.Mock()
         self._vif.active = True
         self._vif_serialized = mock.sentinel.vif_serialized
+        self._vifs = {k_const.DEFAULT_IFNAME: self._vif}
 
         self._pod_version = mock.sentinel.pod_version
         self._pod_link = mock.sentinel.pod_link
@@ -55,24 +56,27 @@ class TestVIFHandler(test_base.TestCase):
         self._get_project = self._handler._drv_project.get_project
         self._get_subnets = self._handler._drv_subnets.get_subnets
         self._get_security_groups = self._handler._drv_sg.get_security_groups
-        self._set_vif_driver = self._handler._drv_vif_pool.set_vif_driver
+        self._set_vifs_driver = self._handler._drv_vif_pool.set_vif_driver
         self._request_vif = self._handler._drv_vif_pool.request_vif
         self._release_vif = self._handler._drv_vif_pool.release_vif
         self._activate_vif = self._handler._drv_vif_pool.activate_vif
-        self._get_vif = self._handler._get_vif
-        self._set_vif = self._handler._set_vif
+        self._get_vifs = self._handler._get_vifs
+        self._set_vifs = self._handler._set_vifs
         self._is_host_network = self._handler._is_host_network
         self._is_pending_node = self._handler._is_pending_node
 
         self._request_vif.return_value = self._vif
-        self._get_vif.return_value = self._vif
+        self._get_vifs.return_value = self._vifs
         self._is_host_network.return_value = False
         self._is_pending_node.return_value = True
         self._get_project.return_value = self._project_id
         self._get_subnets.return_value = self._subnets
         self._get_security_groups.return_value = self._security_groups
-        self._set_vif_driver.return_value = mock.Mock(
+        self._set_vifs_driver.return_value = mock.Mock(
             spec=drivers.PodVIFDriver)
+
+        self._handler._drv_for_vif = h_vif.VIFHandler._drv_for_vif.__get__(
+            self._handler)
 
     @mock.patch.object(drivers.VIFPoolDriver, 'set_vif_driver')
     @mock.patch.object(drivers.VIFPoolDriver, 'get_instance')
@@ -82,7 +86,7 @@ class TestVIFHandler(test_base.TestCase):
     @mock.patch.object(drivers.PodProjectDriver, 'get_instance')
     def test_init(self, m_get_project_driver, m_get_subnets_driver,
                   m_get_sg_driver, m_get_vif_driver, m_get_vif_pool_driver,
-                  m_set_vif_driver):
+                  m_set_vifs_driver):
         project_driver = mock.sentinel.project_driver
         subnets_driver = mock.sentinel.subnets_driver
         sg_driver = mock.sentinel.sg_driver
@@ -131,62 +135,62 @@ class TestVIFHandler(test_base.TestCase):
     def test_on_present(self):
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
-        self._get_vif.assert_called_once_with(self._pod)
+        self._get_vifs.assert_called_once_with(self._pod)
         self._request_vif.assert_not_called()
         self._activate_vif.assert_not_called()
-        self._set_vif.assert_not_called()
+        self._set_vifs.assert_not_called()
 
     def test_on_present_host_network(self):
         self._is_host_network.return_value = True
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
-        self._get_vif.assert_not_called()
+        self._get_vifs.assert_not_called()
         self._request_vif.assert_not_called()
         self._activate_vif.assert_not_called()
-        self._set_vif.assert_not_called()
+        self._set_vifs.assert_not_called()
 
     def test_on_present_not_pending(self):
         self._is_pending_node.return_value = False
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
-        self._get_vif.assert_not_called()
+        self._get_vifs.assert_not_called()
         self._request_vif.assert_not_called()
         self._activate_vif.assert_not_called()
-        self._set_vif.assert_not_called()
+        self._set_vifs.assert_not_called()
 
     def test_on_present_activate(self):
         self._vif.active = False
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
-        self._get_vif.assert_called_once_with(self._pod)
+        self._get_vifs.assert_called_once_with(self._pod)
         self._activate_vif.assert_called_once_with(self._pod, self._vif)
-        self._set_vif.assert_called_once_with(self._pod, self._vif)
+        self._set_vifs.assert_called_once_with(self._pod, self._vifs)
         self._request_vif.assert_not_called()
 
     def test_on_present_create(self):
-        self._get_vif.return_value = None
+        self._get_vifs.return_value = {}
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
-        self._get_vif.assert_called_once_with(self._pod)
+        self._get_vifs.assert_called_once_with(self._pod)
         self._request_vif.assert_called_once_with(
             self._pod, self._project_id, self._subnets, self._security_groups)
-        self._set_vif.assert_called_once_with(self._pod, self._vif)
+        self._set_vifs.assert_called_once_with(self._pod, self._vifs)
         self._activate_vif.assert_not_called()
 
     def test_on_present_rollback(self):
-        self._get_vif.return_value = None
-        self._set_vif.side_effect = k_exc.K8sClientException
+        self._get_vifs.return_value = {}
+        self._set_vifs.side_effect = k_exc.K8sClientException
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
-        self._get_vif.assert_called_once_with(self._pod)
+        self._get_vifs.assert_called_once_with(self._pod)
         self._request_vif.assert_called_once_with(
             self._pod, self._project_id, self._subnets, self._security_groups)
-        self._set_vif.assert_called_once_with(self._pod, self._vif)
+        self._set_vifs.assert_called_once_with(self._pod, self._vifs)
         self._release_vif.assert_called_once_with(self._pod, self._vif,
                                                   self._project_id,
                                                   self._security_groups)
@@ -195,7 +199,7 @@ class TestVIFHandler(test_base.TestCase):
     def test_on_deleted(self):
         h_vif.VIFHandler.on_deleted(self._handler, self._pod)
 
-        self._get_vif.assert_called_once_with(self._pod)
+        self._get_vifs.assert_called_once_with(self._pod)
         self._release_vif.assert_called_once_with(self._pod, self._vif,
                                                   self._project_id,
                                                   self._security_groups)
@@ -205,13 +209,13 @@ class TestVIFHandler(test_base.TestCase):
 
         h_vif.VIFHandler.on_deleted(self._handler, self._pod)
 
-        self._get_vif.assert_not_called()
+        self._get_vifs.assert_not_called()
         self._release_vif.assert_not_called()
 
     def test_on_deleted_no_annotation(self):
-        self._get_vif.return_value = None
+        self._get_vifs.return_value = {}
 
         h_vif.VIFHandler.on_deleted(self._handler, self._pod)
 
-        self._get_vif.assert_called_once_with(self._pod)
+        self._get_vifs.assert_called_once_with(self._pod)
         self._release_vif.assert_not_called()

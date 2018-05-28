@@ -43,3 +43,5 @@ VIF_POOL_POPULATE = '/populatePool'
 VIF_POOL_FREE = '/freePool'
 VIF_POOL_LIST = '/listPools'
 VIF_POOL_SHOW = '/showPool'
+
+DEFAULT_IFNAME = 'eth0'

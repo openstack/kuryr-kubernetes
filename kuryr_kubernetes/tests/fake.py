@@ -59,3 +59,27 @@ def _fake_vif_string(dictionary=None):
         return jsonutils.dumps(dictionary)
     else:
         return jsonutils.dumps(_fake_vif_dict())
+
+
+def _fake_vifs(cls=osv_vif.VIFOpenVSwitch):
+    return {'eth0': _fake_vif(cls)}
+
+
+def _fake_vifs_dict(obj=None):
+    if obj:
+        return {
+            ifname: vif.obj_to_primitive() for
+            ifname, vif in obj.items()
+        }
+    else:
+        return {
+            ifname: vif.obj_to_primitive() for
+            ifname, vif in _fake_vifs().items()
+        }
+
+
+def _fake_vifs_string(dictionary=None):
+    if dictionary:
+        return jsonutils.dumps(dictionary)
+    else:
+        return jsonutils.dumps(_fake_vifs_dict())

@@ -35,29 +35,52 @@ class CNIHandlerBase(k8s_base.ResourceEventHandler):
     def __init__(self, cni, on_done):
         self._cni = cni
         self._callback = on_done
-        self._vif = None
+        self._vifs = {}
 
     def on_present(self, pod):
-        vif = self._get_vif(pod)
+        vifs = self._get_vifs(pod)
 
-        if vif:
-            self.on_vif(pod, vif)
+        for ifname, vif in vifs.items():
+            self.on_vif(pod, vif, ifname)
+
+        if self.should_callback(pod, vifs):
+            self.callback()
 
     @abc.abstractmethod
-    def on_vif(self, pod, vif):
+    def should_callback(self, pod, vifs):
+        """Called after all vifs have been processed
+
+        Should determine if the CNI is ready to call the callback
+
+        :param pod: dict containing Kubernetes Pod object
+        :param vifs: dict containing os_vif VIF objects and ifnames
+        :returns True/False
+        """
         raise NotImplementedError()
 
-    def _get_vif(self, pod):
+    @abc.abstractmethod
+    def callback(self):
+        """Called if should_callback returns True"""
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def on_vif(self, pod, vif, ifname):
+        raise NotImplementedError()
+
+    def _get_vifs(self, pod):
         # TODO(ivc): same as VIFHandler._get_vif
         try:
             annotations = pod['metadata']['annotations']
-            vif_annotation = annotations[k_const.K8S_ANNOTATION_VIF]
+            vifs_annotation = annotations[k_const.K8S_ANNOTATION_VIF]
         except KeyError:
-            return None
-        vif_dict = jsonutils.loads(vif_annotation)
-        vif = obj_vif.vif.VIFBase.obj_from_primitive(vif_dict)
-        LOG.debug("Got VIF from annotation: %r", vif)
-        return vif
+            return {}
+        vifs_annotation = jsonutils.loads(vifs_annotation)
+        vifs_dict = {
+            ifname: obj_vif.vif.VIFBase.obj_from_primitive(vif)
+            for ifname, vif in vifs_annotation.items()
+        }
+        LOG.debug("Got VIFs from annotation: %r", vifs_dict)
+        return vifs_dict
 
     def _get_inst(self, pod):
         return obj_vif.instance_info.InstanceInfo(
@@ -69,25 +92,79 @@ class AddHandler(CNIHandlerBase):
     def __init__(self, cni, on_done):
         LOG.debug("AddHandler called with CNI env: %r", cni)
         super(AddHandler, self).__init__(cni, on_done)
-        self._vif = None
 
-    def on_vif(self, pod, vif):
-        if not self._vif:
-            self._vif = vif.obj_clone()
-            self._vif.active = True
-            b_base.connect(self._vif, self._get_inst(pod),
-                           self._cni.CNI_IFNAME, self._cni.CNI_NETNS)
+    def on_vif(self, pod, vif, ifname):
+        """Called once for every vif of a Pod on every event.
 
-        if vif.active:
-            self._callback(vif)
+        If it is the first time we see this vif, plug it in.
+
+        :param pod: dict containing Kubernetes Pod object
+        :param vif: os_vif VIF object
+        :param ifname: string, name of the interfaces inside container
+        """
+        if ifname not in self._vifs:
+
+            self._vifs[ifname] = vif
+            _vif = vif.obj_clone()
+            _vif.active = True
+
+            # set eth0's gateway as default
+            is_default_gateway = (ifname == self._cni.CNI_IFNAME)
+            b_base.connect(_vif, self._get_inst(pod),
+                           ifname, self._cni.CNI_NETNS,
+                           is_default_gateway=is_default_gateway)
+
+    def should_callback(self, pod, vifs):
+        """Called after all vifs have been processed
+
+        Determines if CNI is ready to call the callback and stop watching for
+        more events. For AddHandler the callback should be called if there
+        is at least one VIF in the annotation and all the
+        VIFs recieved are marked active
+
+        :param pod: dict containing Kubernetes Pod object
+        :param vifs: dict containing os_vif VIF objects and ifnames
+        :returns True/False
+        """
+        all_vifs_active = vifs and all(vif.active for vif in vifs.values())
+
+        if all_vifs_active:
+            if self._cni.CNI_IFNAME in self._vifs:
+                self.callback_vif = self._vifs[self._cni.CNI_IFNAME]
+            else:
+                self.callback_vif = self._vifs.values()[0]
+            LOG.debug("All VIFs are active, exiting. Will return %s",
+                      self.callback_vif)
+            return True
+        else:
+            LOG.debug("Waiting for all vifs to become active")
+            return False
+
+    def callback(self):
+        self._callback(self.callback_vif)
 
 
 class DelHandler(CNIHandlerBase):
 
-    def on_vif(self, pod, vif):
+    def on_vif(self, pod, vif, ifname):
         b_base.disconnect(vif, self._get_inst(pod),
                           self._cni.CNI_IFNAME, self._cni.CNI_NETNS)
-        self._callback(vif)
+
+    def should_callback(self, pod, vifs):
+        """Called after all vifs have been processed
+
+        Calls callback if there was at least one vif in the Pod
+
+        :param pod: dict containing Kubernetes Pod object
+        :param vifs: dict containing os_vif VIF objects and ifnames
+        :returns True/False
+        """
+        if vifs:
+            return True
+        return False
+
+    def callback(self):
+        self._callback(None)
 
 
 class CallbackHandler(CNIHandlerBase):
@@ -95,9 +172,29 @@ class CallbackHandler(CNIHandlerBase):
     def __init__(self, on_vif, on_del=None):
         super(CallbackHandler, self).__init__(None, on_vif)
         self._del_callback = on_del
+        self._pod = None
+        self._callback_vifs = None
 
-    def on_vif(self, pod, vif):
-        self._callback(pod, vif)
+    def on_vif(self, pod, vif, ifname):
+        pass
+
+    def should_callback(self, pod, vifs):
+        """Called after all vifs have been processed
+
+        Calls callback if there was at least one vif in the Pod
+
+        :param pod: dict containing Kubernetes Pod object
+        :param vifs: dict containing os_vif VIF objects and ifnames
+        :returns True/False
+        """
+        self._pod = pod
+        self._callback_vifs = vifs
+        if vifs:
+            return True
+        return False
+
+    def callback(self):
+        self._callback(self._pod, self._callback_vifs)
 
     def on_deleted(self, pod):
         LOG.debug("Got pod %s deletion event.", pod['metadata']['name'])

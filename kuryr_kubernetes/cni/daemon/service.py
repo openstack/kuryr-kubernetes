@@ -209,24 +209,32 @@ class CNIDaemonWatcherService(cotyledon.Service):
                     self.healthy.value = False
             time.sleep(HEALTH_CHECKER_DELAY)
 
-    def on_done(self, pod, vif):
+    def on_done(self, pod, vifs):
         pod_name = utils.get_pod_unique_name(pod)
-        vif_dict = vif.obj_to_primitive()
+        vif_dict = {
+            ifname: vif.obj_to_primitive() for
+            ifname, vif in vifs.items()
+        }
         # NOTE(dulek): We need a lock when modifying shared self.registry dict
         #              to prevent race conditions with other processes/threads.
         with lockutils.lock(pod_name, external=True):
             if pod_name not in self.registry:
-                self.registry[pod_name] = {'pod': pod, 'vif': vif_dict,
+                self.registry[pod_name] = {'pod': pod, 'vifs': vif_dict,
                                            'containerid': None}
             else:
                 # NOTE(dulek): Only update vif if its status changed, we don't
                 #              need to care about other changes now.
-                old_vif = base.VersionedObject.obj_from_primitive(
-                    self.registry[pod_name]['vif'])
-                if old_vif.active != vif.active:
-                    pod_dict = self.registry[pod_name]
-                    pod_dict['vif'] = vif_dict
-                    self.registry[pod_name] = pod_dict
+                old_vifs = {
+                    ifname:
+                        base.VersionedObject.obj_from_primitive(vif_obj) for
+                        ifname, vif_obj in (
+                            self.registry[pod_name]['vifs'].items())
+                }
+                for iface in vifs.keys():
+                    if old_vifs[iface].active != vifs[iface].active:
+                        pod_dict = self.registry[pod_name]
+                        pod_dict['vifs'] = vif_dict
+                        self.registry[pod_name] = pod_dict
 
     def on_deleted(self, pod):
         pod_name = utils.get_pod_unique_name(pod)

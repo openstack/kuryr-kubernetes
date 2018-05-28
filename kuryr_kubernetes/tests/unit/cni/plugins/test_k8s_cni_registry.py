@@ -27,8 +27,8 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
         super(TestK8sCNIRegistryPlugin, self).setUp()
         self.pod = {'metadata': {'name': 'foo', 'uid': 'bar',
                                  'namespace': 'default'}}
-        self.vif = fake._fake_vif_dict()
-        registry = {'default/foo': {'pod': self.pod, 'vif': self.vif,
+        self.vifs = fake._fake_vifs_dict()
+        registry = {'default/foo': {'pod': self.pod, 'vifs': self.vifs,
                                     'containerid': None}}
         healthy = mock.Mock()
         self.plugin = k8s_cni_registry.K8sCNIRegistryPlugin(registry, healthy)
@@ -43,7 +43,9 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
         self.plugin.add(self.params)
 
         m_lock.assert_called_with('default/foo', external=True)
-        m_connect.assert_called_with(mock.ANY, mock.ANY, 'baz', 123, mock.ANY)
+        m_connect.assert_called_with(mock.ANY, mock.ANY, 'eth0', 123,
+                                     report_health=mock.ANY,
+                                     is_default_gateway=mock.ANY)
         self.assertEqual('cont_id',
                          self.plugin.registry['default/foo']['containerid'])
 
@@ -51,12 +53,13 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
     def test_del_present(self, m_disconnect):
         self.plugin.delete(self.params)
 
-        m_disconnect.assert_called_with(mock.ANY, mock.ANY, 'baz', 123,
-                                        mock.ANY)
+        m_disconnect.assert_called_with(mock.ANY, mock.ANY, 'eth0', 123,
+                                        report_health=mock.ANY,
+                                        is_default_gateway=mock.ANY)
 
     @mock.patch('kuryr_kubernetes.cni.binding.base.disconnect')
     def test_del_wrong_container_id(self, m_disconnect):
-        registry = {'default/foo': {'pod': self.pod, 'vif': self.vif,
+        registry = {'default/foo': {'pod': self.pod, 'vifs': self.vifs,
                                     'containerid': 'different'}}
         healthy = mock.Mock()
         self.plugin = k8s_cni_registry.K8sCNIRegistryPlugin(registry, healthy)
@@ -69,9 +72,9 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
     @mock.patch('kuryr_kubernetes.cni.binding.base.connect')
     def test_add_present_on_5_try(self, m_connect, m_lock):
         se = [KeyError] * 5
-        se.append({'pod': self.pod, 'vif': self.vif, 'containerid': None})
-        se.append({'pod': self.pod, 'vif': self.vif, 'containerid': None})
-        se.append({'pod': self.pod, 'vif': self.vif, 'containerid': None})
+        se.append({'pod': self.pod, 'vifs': self.vifs, 'containerid': None})
+        se.append({'pod': self.pod, 'vifs': self.vifs, 'containerid': None})
+        se.append({'pod': self.pod, 'vifs': self.vifs, 'containerid': None})
         m_getitem = mock.Mock(side_effect=se)
         m_setitem = mock.Mock()
         m_registry = mock.Mock(__getitem__=m_getitem, __setitem__=m_setitem)
@@ -81,9 +84,11 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
         m_lock.assert_called_with('default/foo', external=True)
         m_setitem.assert_called_once_with('default/foo',
                                           {'pod': self.pod,
-                                           'vif': self.vif,
+                                           'vifs': self.vifs,
                                            'containerid': 'cont_id'})
-        m_connect.assert_called_with(mock.ANY, mock.ANY, 'baz', 123, mock.ANY)
+        m_connect.assert_called_with(mock.ANY, mock.ANY, 'eth0', 123,
+                                     report_health=mock.ANY,
+                                     is_default_gateway=mock.ANY)
 
     @mock.patch('time.sleep', mock.Mock())
     def test_add_not_present(self):
