@@ -50,8 +50,9 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
         lbaas_spec = self._get_lbaas_spec(service)
 
         if self._should_ignore(service):
-            LOG.debug("Skiping Kubernetes service without a selector as "
-                      "Kubernetes does not create an endpoint object for it.")
+            LOG.debug("Skiping Kubernetes service of an unsupported kind or"
+                      "without a selector as Kubernetes does not create an "
+                      "endpoint object for it.")
             return
 
         if self._has_lbaas_spec_changes(service, lbaas_spec):
@@ -69,7 +70,8 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
 
     def _should_ignore(self, service):
         return (not(self._has_selector(service)) or
-                not(self._has_clusterip(service)))
+                not(self._has_clusterip(service)) or
+                not(self._is_supported_type(service)))
 
     def _has_selector(self, service):
         return service['spec'].get('selector')
