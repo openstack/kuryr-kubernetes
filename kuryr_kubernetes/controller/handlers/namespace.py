@@ -33,7 +33,7 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         self._drv_subnets = drivers.PodSubnetsDriver.get_instance()
         self._drv_sg = drivers.PodSecurityGroupsDriver.get_instance()
 
-    def on_added(self, namespace):
+    def on_present(self, namespace):
         ns_name = namespace['metadata']['name']
         net_crd = self._get_net_crd(namespace)
         if net_crd:
