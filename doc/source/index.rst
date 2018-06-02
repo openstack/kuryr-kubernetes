@@ -6,8 +6,8 @@
 Welcome to kuryr-kubernetes's documentation!
 ============================================
 
-Contents:
-
+Contents
+--------
 .. toctree::
    :maxdepth: 3
 
@@ -17,7 +17,7 @@ Contents:
    contributing
 
 Developer Docs
-==============
+--------------
 
 .. toctree::
    :maxdepth: 3
@@ -25,7 +25,7 @@ Developer Docs
    devref/index
 
 Design Specs
-============
+------------
 
 .. toctree::
    :maxdepth: 1
@@ -36,7 +36,7 @@ Design Specs
    specs/queens/network_policy
 
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`search`
