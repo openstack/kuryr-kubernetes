@@ -269,7 +269,7 @@ function configure_neutron_defaults {
     # Neutron module
     subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}}
     router=${KURYR_NEUTRON_DEFAULT_ROUTER:-$Q_ROUTER_NAME}
-    router_id="$(neutron router-show -c id -f value \
+    router_id="$(openstack router show -c id -f value \
         "$router")"
 
     project_id=$(get_or_create_project \
@@ -279,7 +279,7 @@ function configure_neutron_defaults {
                       "$KURYR_NEUTRON_DEFAULT_POD_SUBNET" \
                       "$subnetpool_id" \
                       "$router"
-    pod_subnet_id="$(neutron subnet-show -c id -f value \
+    pod_subnet_id="$(openstack subnet show -c id -f value \
         "${KURYR_NEUTRON_DEFAULT_POD_SUBNET}")"
 
     create_k8s_subnet "$project_id" \
@@ -287,16 +287,16 @@ function configure_neutron_defaults {
                       "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
                       "$subnetpool_id" \
                       "$router"
-    service_subnet_id="$(neutron subnet-show -c id -f value \
+    service_subnet_id="$(openstack subnet show -c id -f value \
         "${KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET}")"
 
-    sg_ids=$(echo $(neutron security-group-list \
-        --project-id "$project_id" -c id -f value) | tr ' ' ',')
+    sg_ids=$(echo $(openstack security group list \
+        --project "$project_id" -c ID -f value) | tr ' ' ',')
 
-    ext_svc_net_id="$(neutron net-show -c id -f value \
+    ext_svc_net_id="$(openstack network show -c id -f value \
         "${KURYR_NEUTRON_DEFAULT_EXT_SVC_NET}")"
 
-    ext_svc_subnet_id="$(neutron subnet-show -c id -f value \
+    ext_svc_subnet_id="$(openstack subnet show -c id -f value \
         "${KURYR_NEUTRON_DEFAULT_EXT_SVC_SUBNET}")"
 
     local use_octavia
