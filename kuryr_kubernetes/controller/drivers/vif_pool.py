@@ -236,8 +236,8 @@ class BaseVIFPool(base.VIFPoolDriver):
                 LOG.debug("Skipping pod without kuryr VIF annotation: %s",
                           pod)
             else:
-                in_use_ports.append(
-                    annotations['versioned_object.data']['id'])
+                for vif in annotations.values():
+                    in_use_ports.append(vif['versioned_object.data']['id'])
         return in_use_ports
 
     def list_pools(self):

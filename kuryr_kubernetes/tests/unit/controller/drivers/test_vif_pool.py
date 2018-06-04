@@ -287,11 +287,12 @@ class BaseVIFPool(test_base.TestCase):
         pod = get_pod_obj()
         port_id = uuidutils.generate_uuid()
         versioned_object = jsonutils.dumps({
-            'versioned_object.data': {
-                'active': True,
-                'address': 'fa:16:3e:ef:e6:9f',
-                'id': port_id
-            }})
+            'eth0': {
+                'versioned_object.data': {
+                    'active': True,
+                    'address': 'fa:16:3e:ef:e6:9f',
+                    'id': port_id
+                }}})
 
         pod['metadata']['annotations'][constants.K8S_ANNOTATION_VIF] = (
             versioned_object)
