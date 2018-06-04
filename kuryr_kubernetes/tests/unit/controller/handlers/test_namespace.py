@@ -96,13 +96,13 @@ class TestNamespaceHandler(test_base.TestCase):
         self.assertEqual(subnets_driver, handler._drv_subnets)
         self.assertEqual(sg_driver, handler._drv_sg)
 
-    def test_on_added(self):
+    def test_on_present(self):
         net_crd = self._get_crd()
 
         self._get_net_crd.return_value = None
         self._create_namespace_network.return_value = net_crd
 
-        namespace.NamespaceHandler.on_added(self._handler, self._namespace)
+        namespace.NamespaceHandler.on_present(self._handler, self._namespace)
 
         self._get_net_crd.assert_called_once_with(self._namespace)
         self._create_namespace_network.assert_called_once_with(
@@ -110,12 +110,12 @@ class TestNamespaceHandler(test_base.TestCase):
         self._set_net_crd.assert_called_once_with(self._namespace, net_crd)
         self._rollback_network_resources.assert_not_called()
 
-    def test_on_added_existing(self):
+    def test_on_present_existing(self):
         net_crd = self._get_crd()
 
         self._get_net_crd.return_value = net_crd
 
-        namespace.NamespaceHandler.on_added(self._handler, self._namespace)
+        namespace.NamespaceHandler.on_present(self._handler, self._namespace)
 
         self._get_net_crd.assert_called_once_with(self._namespace)
         self._create_namespace_network.assert_not_called()
@@ -123,11 +123,11 @@ class TestNamespaceHandler(test_base.TestCase):
         self._rollback_network_resources.assert_not_called()
 
     @ddt.data((n_exc.NeutronClientException), (k_exc.K8sClientException))
-    def test_on_added_create_exception(self, m_create_net):
+    def test_on_present_create_exception(self, m_create_net):
         self._get_net_crd.return_value = None
         self._create_namespace_network.side_effect = m_create_net
 
-        self.assertRaises(m_create_net, namespace.NamespaceHandler.on_added,
+        self.assertRaises(m_create_net, namespace.NamespaceHandler.on_present,
                           self._handler, self._namespace)
 
         self._get_net_crd.assert_called_once_with(self._namespace)
@@ -136,14 +136,14 @@ class TestNamespaceHandler(test_base.TestCase):
         self._set_net_crd.assert_not_called()
         self._rollback_network_resources.assert_not_called()
 
-    def test_on_added_set_crd_exception(self):
+    def test_on_present_set_crd_exception(self):
         net_crd = self._get_crd()
 
         self._get_net_crd.return_value = None
         self._create_namespace_network.return_value = net_crd
         self._set_net_crd.side_effect = k_exc.K8sClientException
 
-        namespace.NamespaceHandler.on_added(self._handler, self._namespace)
+        namespace.NamespaceHandler.on_present(self._handler, self._namespace)
 
         self._get_net_crd.assert_called_once_with(self._namespace)
         self._create_namespace_network.assert_called_once_with(
@@ -151,7 +151,7 @@ class TestNamespaceHandler(test_base.TestCase):
         self._set_net_crd.assert_called_once_with(self._namespace, net_crd)
         self._rollback_network_resources.assert_called_once()
 
-    def test_on_added_rollback_exception(self):
+    def test_on_present_rollback_exception(self):
         net_crd = self._get_crd()
 
         self._get_net_crd.return_value = None
@@ -161,7 +161,7 @@ class TestNamespaceHandler(test_base.TestCase):
             n_exc.NeutronClientException)
 
         self.assertRaises(n_exc.NeutronClientException,
-                          namespace.NamespaceHandler.on_added,
+                          namespace.NamespaceHandler.on_present,
                           self._handler, self._namespace)
 
         self._get_net_crd.assert_called_once_with(self._namespace)
