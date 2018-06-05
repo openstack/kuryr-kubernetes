@@ -259,9 +259,9 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         kubernetes = self.useFixture(k_fix.MockK8sClient()).client
 
         kubernetes.get.return_value = crd
-        neutron.delete_network.side_effect = n_exc.NeutronClientException
+        neutron.delete_network.side_effect = n_exc.NetworkInUseClient
 
-        self.assertRaises(n_exc.NeutronClientException,
+        self.assertRaises(k_exc.ResourceNotReady,
                           cls.delete_namespace_subnet, m_driver, net_crd_name)
 
         kubernetes.get.assert_called_once()
