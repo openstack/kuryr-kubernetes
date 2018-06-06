@@ -35,6 +35,7 @@ Design Specs
    specs/pike/sriov
    specs/queens/network_policy
    specs/rocky/npwg_spec_support
+   specs/stein/vhostuser
 
 Indices and tables
 ------------------
