@@ -117,6 +117,19 @@ class K8sClient(object):
             return response.json()
         raise exc.K8sClientException(response)
 
+    def delete(self, path):
+        LOG.debug("Delete %(path)s", {'path': path})
+        url = self._base_url + path
+        header = {'Content-Type': 'application/json'}
+        if self.token:
+            header.update({'Authorization': 'Bearer %s' % self.token})
+
+        response = requests.delete(url, cert=self.cert,
+                                   verify=self.verify_server, headers=header)
+        if response.ok:
+            return response.json()
+        raise exc.K8sClientException(response)
+
     def annotate(self, path, annotations, resource_version=None):
         """Pushes a resource annotation to the K8s API resource
 

@@ -57,7 +57,7 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
 
         try:
             annotations = ns['metadata']['annotations']
-            net_crd_url = annotations[constants.K8S_ANNOTATION_NET_CRD]
+            net_crd_name = annotations[constants.K8S_ANNOTATION_NET_CRD]
         except KeyError:
             LOG.exception("Namespace missing CRD annotations for selecting "
                           "the corresponding subnet.")
@@ -65,12 +65,39 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
 
         try:
             net_crd = kubernetes.get('%s/kuryrnets/%s' % (
-                constants.K8S_API_CRD, net_crd_url))
-        except exceptions.K8sClientException as ex:
+                constants.K8S_API_CRD, net_crd_name))
+        except exceptions.K8sClientException:
             LOG.exception("Kubernetes Client Exception.")
-            raise ex
+            raise
 
         return net_crd['spec']['subnetId']
+
+    def delete_namespace_subnet(self, net_crd_name):
+        router_id = oslo_cfg.CONF.namespace_subnet.pod_router
+
+        neutron = clients.get_neutron_client()
+        kubernetes = clients.get_kubernetes_client()
+
+        try:
+            net_crd = kubernetes.get('%s/kuryrnets/%s' % (
+                constants.K8S_API_CRD, net_crd_name))
+        except exceptions.K8sClientException:
+            LOG.exception("Kubernetes Client Exception.")
+            raise
+        subnet_id = net_crd['spec']['subnetId']
+        net_id = net_crd['spec']['netId']
+
+        try:
+            neutron.remove_interface_router(router_id,
+                                            {"subnet_id": subnet_id})
+            neutron.delete_network(net_id)
+        except n_exc.NotFound as ex:
+            LOG.debug("Neutron resource not found: %s", ex)
+        except n_exc.NeutronClientException:
+            LOG.exception("Error deleting neutron resources.")
+            raise
+
+        self._del_kuryrnet_crd(net_crd_name)
 
     def create_namespace_network(self, namespace):
         neutron = clients.get_neutron_client()
@@ -111,12 +138,12 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
         try:
             net_crd = self._add_kuryrnet_crd(namespace, neutron_net['id'],
                                              router_id, neutron_subnet['id'])
-        except exceptions.K8sClientException as ex:
+        except exceptions.K8sClientException:
             LOG.exception("Kuryrnet CRD could not be added. Rolling back "
                           "network resources created for the namespace.")
             self.rollback_network_resources(router_id, neutron_net['id'],
                                             neutron_subnet['id'], namespace)
-            raise ex
+            raise
         return net_crd
 
     def rollback_network_resources(self, router_id, net_id, subnet_id,
@@ -152,8 +179,18 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
         }
         try:
             kubernetes.post('%s/kuryrnets' % constants.K8S_API_CRD, net_crd)
-        except exceptions.K8sClientException as ex:
+        except exceptions.K8sClientException:
             LOG.exception("Kubernetes Client Exception creating kuryrnet "
                           "CRD.")
-            raise ex
+            raise
         return net_crd
+
+    def _del_kuryrnet_crd(self, net_crd_name):
+        kubernetes = clients.get_kubernetes_client()
+        try:
+            kubernetes.delete('%s/kuryrnets/%s' % (constants.K8S_API_CRD,
+                                                   net_crd_name))
+        except exceptions.K8sClientException:
+            LOG.exception("Kubernetes Client Exception deleting kuryrnet "
+                          "CRD.")
+            raise

@@ -172,6 +172,103 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
                           m_driver, namespace)
         kubernetes.get.assert_called()
 
+    def test_delete_namespace_subnet(self):
+        cls = subnet_drv.NamespacePodSubnetDriver
+        m_driver = mock.MagicMock(spec=cls)
+
+        net_crd_name = 'test'
+        net_id = mock.sentinel.net_id
+        subnet_id = mock.sentinel.subnet_id
+        crd = {
+            'spec': {
+                'subnetId': subnet_id,
+                'netId': net_id
+            }
+        }
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
+
+        kubernetes.get.return_value = crd
+
+        cls.delete_namespace_subnet(m_driver, net_crd_name)
+
+        kubernetes.get.assert_called_once()
+        m_driver._del_kuryrnet_crd.assert_called_once_with(net_crd_name)
+        neutron.remove_interface_router.assert_called_once()
+        neutron.delete_network.assert_called_once_with(net_id)
+
+    def test_delete_namespace_subnet_k8s_get_exception(self):
+        cls = subnet_drv.NamespacePodSubnetDriver
+        m_driver = mock.MagicMock(spec=cls)
+
+        net_crd_name = 'test'
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
+
+        kubernetes.get.side_effect = k_exc.K8sClientException
+
+        self.assertRaises(k_exc.K8sClientException,
+                          cls.delete_namespace_subnet, m_driver, net_crd_name)
+
+        kubernetes.get.assert_called_once()
+        m_driver._del_kuryrnet_crd.assert_not_called()
+        neutron.remove_interface_router.assert_not_called()
+        neutron.delete_network.assert_not_called()
+
+    def test_delete_namespace_subnet_k8s_del_crd_exception(self):
+        cls = subnet_drv.NamespacePodSubnetDriver
+        m_driver = mock.MagicMock(spec=cls)
+
+        net_crd_name = 'test'
+        net_id = mock.sentinel.net_id
+        subnet_id = mock.sentinel.subnet_id
+        crd = {
+            'spec': {
+                'subnetId': subnet_id,
+                'netId': net_id
+            }
+        }
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
+
+        kubernetes.get.return_value = crd
+        m_driver._del_kuryrnet_crd.side_effect = k_exc.K8sClientException
+
+        self.assertRaises(k_exc.K8sClientException,
+                          cls.delete_namespace_subnet, m_driver, net_crd_name)
+
+        kubernetes.get.assert_called_once()
+        m_driver._del_kuryrnet_crd.assert_called_once_with(net_crd_name)
+        neutron.remove_interface_router.assert_called_once()
+        neutron.delete_network.assert_called_once_with(net_id)
+
+    def test_delete_namespace_subnet_neutron_exception(self):
+        cls = subnet_drv.NamespacePodSubnetDriver
+        m_driver = mock.MagicMock(spec=cls)
+
+        net_crd_name = 'test'
+        net_id = mock.sentinel.net_id
+        subnet_id = mock.sentinel.subnet_id
+        crd = {
+            'spec': {
+                'subnetId': subnet_id,
+                'netId': net_id
+            }
+        }
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
+
+        kubernetes.get.return_value = crd
+        neutron.delete_network.side_effect = n_exc.NeutronClientException
+
+        self.assertRaises(n_exc.NeutronClientException,
+                          cls.delete_namespace_subnet, m_driver, net_crd_name)
+
+        kubernetes.get.assert_called_once()
+        neutron.remove_interface_router.assert_called_once()
+        neutron.delete_network.assert_called_once_with(net_id)
+        m_driver._del_kuryrnet_crd.assert_not_called()
+
     def test_create_namespace_network(self):
         cls = subnet_drv.NamespacePodSubnetDriver
         m_driver = mock.MagicMock(spec=cls)
