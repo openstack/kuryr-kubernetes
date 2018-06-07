@@ -22,7 +22,7 @@
         - kuryr-kubernetes-tempest-lbaasv2
         - kuryr-kubernetes-tempest-daemon-lbaasv2
         - kuryr-kubernetes-tempest-daemon-openshift-lbaasv2
-        - kuryr-kubernetes-tempest-daemon-containerized-lbaasv2
+        - kuryr-kubernetes-tempest-daemon-containerized-octavia
         - kuryr-kubernetes-tempest-dragonflow
         - kuryr-kubernetes-tempest-ovn
     gate:
@@ -32,7 +32,7 @@
         - kuryr-kubernetes-tempest-daemon-octavia
         - kuryr-kubernetes-tempest-lbaasv2
         - kuryr-kubernetes-tempest-daemon-lbaasv2
-        - kuryr-kubernetes-tempest-daemon-containerized-lbaasv2
+        - kuryr-kubernetes-tempest-daemon-containerized-octavia
     experimental:
       jobs:
         - kuryr-kubernetes-tempest-multinode-octavia
@@ -42,7 +42,7 @@
         - kuryr-kubernetes-tempest-containerized-lbaasv2
         - kuryr-kubernetes-tempest-daemon-containerized-openshift-lbaasv2
         - kuryr-kubernetes-tempest-daemon-pools-lbaasv2
-        - kuryr-kubernetes-tempest-daemon-containerized-octavia
+        - kuryr-kubernetes-tempest-daemon-containerized-lbaasv2
         - kuryr-kubernetes-tempest-daemon-containerized-octavia-l2
 
 - nodeset:
