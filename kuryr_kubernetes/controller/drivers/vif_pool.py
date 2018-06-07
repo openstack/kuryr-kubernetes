@@ -125,12 +125,14 @@ class BaseVIFPool(base.VIFPoolDriver):
     - ports_pool_update_frequency: interval in seconds between ports pool
     updates, both for populating pools as well as for recycling ports.
     """
-    _available_ports_pools = collections.defaultdict(collections.deque)
-    _existing_vifs = collections.defaultdict(collections.defaultdict)
-    _recyclable_ports = collections.defaultdict(collections.defaultdict)
-    _last_update = collections.defaultdict(collections.defaultdict)
 
     def __init__(self):
+        self._available_ports_pools = collections.defaultdict(
+            collections.deque)
+        self._existing_vifs = collections.defaultdict(collections.defaultdict)
+        self._recyclable_ports = collections.defaultdict(
+            collections.defaultdict)
+        self._last_update = collections.defaultdict(collections.defaultdict)
         # Note(ltomasbo) Execute the port recycling periodic actions in a
         # background thread
         eventlet.spawn(self._return_ports_to_pool)

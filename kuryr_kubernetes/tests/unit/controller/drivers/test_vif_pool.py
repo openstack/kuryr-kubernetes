@@ -264,6 +264,7 @@ class BaseVIFPool(test_base.TestCase):
         cls = vif_pool.BaseVIFPool
         m_driver = mock.MagicMock(spec=cls)
         m_driver._recyclable_ports = {}
+        m_driver._existing_vifs = {}
 
         pod = get_pod_obj()
         project_id = mock.sentinel.project_id
