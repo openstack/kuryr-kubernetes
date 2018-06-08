@@ -24,7 +24,8 @@ from kuryr_kubernetes.objects import fields as k_fields
 class LBaaSLoadBalancer(k_obj.KuryrK8sObjectBase):
     # Version 1.0: Initial version
     # Version 1.1: Added provider field and security_groups field.
-    VERSION = '1.1'
+    # Version 1.2: Added support for security_groups=None
+    VERSION = '1.2'
 
     fields = {
         'id': obj_fields.UUIDField(),
@@ -34,7 +35,8 @@ class LBaaSLoadBalancer(k_obj.KuryrK8sObjectBase):
         'subnet_id': obj_fields.UUIDField(),
         'port_id': obj_fields.UUIDField(),
         'provider': obj_fields.StringField(),
-        'security_groups': k_fields.ListOfUUIDField(),
+        'security_groups': k_fields.ListOfUUIDField(nullable=True,
+                                                    default=None),
     }
 
 

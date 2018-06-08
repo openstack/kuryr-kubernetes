@@ -32,23 +32,21 @@ class TestLBaaSv2Driver(test_base.TestCase):
         expected_resp = obj_lbaas.LBaaSLoadBalancer(
             provider='octavia', port_id='D3FA400A-F543-4B91-9CD3-047AF0CE42E2',
             security_groups=[])
-        namespace = 'TEST_NAMESPACE'
-        name = 'TEST_NAME'
         project_id = 'TEST_PROJECT'
         subnet_id = 'D3FA400A-F543-4B91-9CD3-047AF0CE42D1'
         ip = '1.2.3.4'
         sg_ids = ['foo', 'bar']
-        endpoints = {'metadata': {'namespace': namespace, 'name': name}}
+        lb_name = 'just_a_name'
 
         m_driver._ensure.return_value = expected_resp
         neutron.update_port = mock.Mock()
-        resp = cls.ensure_loadbalancer(m_driver, endpoints, project_id,
+        resp = cls.ensure_loadbalancer(m_driver, lb_name, project_id,
                                        subnet_id, ip, sg_ids, 'ClusterIP')
         m_driver._ensure.assert_called_once_with(mock.ANY,
                                                  m_driver._create_loadbalancer,
                                                  m_driver._find_loadbalancer)
         req = m_driver._ensure.call_args[0][0]
-        self.assertEqual("%s/%s" % (namespace, name), req.name)
+        self.assertEqual(lb_name, req.name)
         self.assertEqual(project_id, req.project_id)
         self.assertEqual(subnet_id, req.subnet_id)
         self.assertEqual(ip, str(req.ip))
@@ -58,18 +56,16 @@ class TestLBaaSv2Driver(test_base.TestCase):
     def test_ensure_loadbalancer_not_ready(self):
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
-        namespace = 'TEST_NAMESPACE'
         name = 'TEST_NAME'
         project_id = 'TEST_PROJECT'
         subnet_id = 'D3FA400A-F543-4B91-9CD3-047AF0CE42D1'
         ip = '1.2.3.4'
         # TODO(ivc): handle security groups
         sg_ids = []
-        endpoints = {'metadata': {'namespace': namespace, 'name': name}}
 
         m_driver._ensure.return_value = None
         self.assertRaises(k_exc.ResourceNotReady, cls.ensure_loadbalancer,
-                          m_driver, endpoints, project_id, subnet_id, ip,
+                          m_driver, name, project_id, subnet_id, ip,
                           sg_ids, 'ClusterIP')
 
     def test_release_loadbalancer(self):
@@ -78,10 +74,9 @@ class TestLBaaSv2Driver(test_base.TestCase):
         lbaas.cascading_capable = False
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
-        endpoints = mock.sentinel.endpoints
         loadbalancer = mock.Mock()
 
-        cls.release_loadbalancer(m_driver, endpoints, loadbalancer)
+        cls.release_loadbalancer(m_driver, loadbalancer)
 
         m_driver._release.assert_called_once_with(loadbalancer, loadbalancer,
                                                   lbaas.delete_loadbalancer,
@@ -94,10 +89,9 @@ class TestLBaaSv2Driver(test_base.TestCase):
         lbaas.lbaas_loadbalancer_path = "boo %s"
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
-        endpoints = mock.sentinel.endpoints
         loadbalancer = mock.Mock()
 
-        cls.release_loadbalancer(m_driver, endpoints, loadbalancer)
+        cls.release_loadbalancer(m_driver, loadbalancer)
 
         m_driver._release.assert_called_once_with(
             loadbalancer, loadbalancer, lbaas.delete,
@@ -108,7 +102,6 @@ class TestLBaaSv2Driver(test_base.TestCase):
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         expected_resp = mock.sentinel.expected_resp
-        namespace = 'TEST_NAMESPACE'
         name = 'TEST_NAME'
         project_id = 'TEST_PROJECT'
         subnet_id = 'D3FA400A-F543-4B91-9CD3-047AF0CE42D1'
@@ -120,17 +113,16 @@ class TestLBaaSv2Driver(test_base.TestCase):
             id=loadbalancer_id, name=name, project_id=project_id,
             subnet_id=subnet_id, ip=ip)
         # TODO(ivc): handle security groups
-        endpoints = {'metadata': {'namespace': namespace, 'name': name}}
         m_driver._ensure_provisioned.return_value = expected_resp
 
-        resp = cls.ensure_listener(m_driver, endpoints, loadbalancer,
+        resp = cls.ensure_listener(m_driver, loadbalancer,
                                    protocol, port)
 
         m_driver._ensure_provisioned.assert_called_once_with(
             loadbalancer, mock.ANY, m_driver._create_listener,
             m_driver._find_listener)
         listener = m_driver._ensure_provisioned.call_args[0][1]
-        self.assertEqual("%s/%s:%s:%s" % (namespace, name, protocol, port),
+        self.assertEqual("%s:%s:%s" % (loadbalancer.name, protocol, port),
                          listener.name)
         self.assertEqual(project_id, listener.project_id)
         self.assertEqual(loadbalancer_id, listener.loadbalancer_id)
@@ -145,11 +137,10 @@ class TestLBaaSv2Driver(test_base.TestCase):
             'security_group_rules': []}
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
-        endpoints = mock.sentinel.endpoints
         loadbalancer = mock.Mock()
         listener = mock.Mock()
 
-        cls.release_listener(m_driver, endpoints, loadbalancer, listener)
+        cls.release_listener(m_driver, loadbalancer, listener)
 
         m_driver._release.assert_called_once_with(loadbalancer, listener,
                                                   lbaas.delete_listener,
@@ -159,7 +150,6 @@ class TestLBaaSv2Driver(test_base.TestCase):
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         expected_resp = mock.sentinel.expected_resp
-        endpoints = mock.sentinel.endpoints
         loadbalancer = obj_lbaas.LBaaSLoadBalancer(
             id='00EE9E11-91C2-41CF-8FD4-7970579E5C4C',
             project_id='TEST_PROJECT')
@@ -169,7 +159,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
             protocol='TCP')
         m_driver._ensure_provisioned.return_value = expected_resp
 
-        resp = cls.ensure_pool(m_driver, endpoints, loadbalancer, listener)
+        resp = cls.ensure_pool(m_driver, loadbalancer, listener)
 
         m_driver._ensure_provisioned.assert_called_once_with(
             loadbalancer, mock.ANY, m_driver._create_pool,
@@ -185,11 +175,10 @@ class TestLBaaSv2Driver(test_base.TestCase):
         lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
-        endpoints = mock.sentinel.endpoints
         loadbalancer = mock.Mock()
         pool = mock.Mock()
 
-        cls.release_pool(m_driver, endpoints, loadbalancer, pool)
+        cls.release_pool(m_driver, loadbalancer, pool)
 
         m_driver._release.assert_called_once_with(loadbalancer, pool,
                                                   lbaas.delete_lbaas_pool,
@@ -199,8 +188,9 @@ class TestLBaaSv2Driver(test_base.TestCase):
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         expected_resp = mock.sentinel.expected_resp
-        endpoints = mock.sentinel.endpoints
-        loadbalancer = mock.sentinel.loadbalancer
+        loadbalancer = obj_lbaas.LBaaSLoadBalancer(
+            id='00EE9E11-91C2-41CF-8FD4-7970579E5C4C',
+            project_id='TEST_PROJECT')
         pool = obj_lbaas.LBaaSPool(project_id='TEST_PROJECT',
                                    id='D4F35594-27EB-4F4C-930C-31DD40F53B77')
         subnet_id = 'D3FA400A-F543-4B91-9CD3-047AF0CE42D1'
@@ -211,8 +201,9 @@ class TestLBaaSv2Driver(test_base.TestCase):
         target_ref = {'namespace': namespace, 'name': name}
         m_driver._ensure_provisioned.return_value = expected_resp
 
-        resp = cls.ensure_member(m_driver, endpoints, loadbalancer, pool,
-                                 subnet_id, ip, port, target_ref)
+        resp = cls.ensure_member(m_driver, loadbalancer, pool,
+                                 subnet_id, ip, port,
+                                 target_ref['namespace'], target_ref['name'])
 
         m_driver._ensure_provisioned.assert_called_once_with(
             loadbalancer, mock.ANY, m_driver._create_member,
@@ -230,11 +221,10 @@ class TestLBaaSv2Driver(test_base.TestCase):
         lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
-        endpoints = mock.sentinel.endpoints
         loadbalancer = mock.Mock()
         member = mock.Mock()
 
-        cls.release_member(m_driver, endpoints, loadbalancer, member)
+        cls.release_member(m_driver, loadbalancer, member)
 
         m_driver._release.assert_called_once_with(loadbalancer, member,
                                                   lbaas.delete_lbaas_member,

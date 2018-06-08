@@ -275,7 +275,6 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         # NOTE(ivc): deleting pool deletes its members
         if self._drv_lbaas.cascading_capable:
             self._drv_lbaas.release_loadbalancer(
-                endpoints=endpoints,
                 loadbalancer=lbaas_state.loadbalancer)
             if lbaas_state.service_pub_ip_info:
                 self._drv_service_pub_ip.release_pub_ip(
@@ -377,13 +376,13 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                         # routed.
                         member_subnet_id = lbaas_state.loadbalancer.subnet_id
                     member = self._drv_lbaas.ensure_member(
-                        endpoints=endpoints,
                         loadbalancer=lbaas_state.loadbalancer,
                         pool=pool,
                         subnet_id=member_subnet_id,
                         ip=target_ip,
                         port=target_port,
-                        target_ref=target_ref)
+                        target_ref_namespace=target_ref['namespace'],
+                        target_ref_name=target_ref['name'])
                     lbaas_state.members.append(member)
                     changed = True
 
@@ -412,8 +411,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         for member in lbaas_state.members:
             if (str(member.ip), member.port) in current_targets:
                 continue
-            self._drv_lbaas.release_member(endpoints,
-                                           lbaas_state.loadbalancer,
+            self._drv_lbaas.release_member(lbaas_state.loadbalancer,
                                            member)
             removed_ids.add(member.id)
         if removed_ids:
@@ -424,18 +422,18 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
     def _sync_lbaas_pools(self, endpoints, lbaas_state, lbaas_spec):
         changed = False
 
-        if self._remove_unused_pools(endpoints, lbaas_state, lbaas_spec):
+        if self._remove_unused_pools(lbaas_state, lbaas_spec):
             changed = True
 
         if self._sync_lbaas_listeners(endpoints, lbaas_state, lbaas_spec):
             changed = True
 
-        if self._add_new_pools(endpoints, lbaas_state, lbaas_spec):
+        if self._add_new_pools(lbaas_state, lbaas_spec):
             changed = True
 
         return changed
 
-    def _add_new_pools(self, endpoints, lbaas_state, lbaas_spec):
+    def _add_new_pools(self, lbaas_state, lbaas_spec):
         changed = False
 
         current_listeners_ids = {pool.listener_id
@@ -443,8 +441,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         for listener in lbaas_state.listeners:
             if listener.id in current_listeners_ids:
                 continue
-            pool = self._drv_lbaas.ensure_pool(endpoints,
-                                               lbaas_state.loadbalancer,
+            pool = self._drv_lbaas.ensure_pool(lbaas_state.loadbalancer,
                                                listener)
             lbaas_state.pools.append(pool)
             changed = True
@@ -464,13 +461,12 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                     return True
         return False
 
-    def _remove_unused_pools(self, endpoints, lbaas_state, lbaas_spec):
+    def _remove_unused_pools(self, lbaas_state, lbaas_spec):
         removed_ids = set()
         for pool in lbaas_state.pools:
             if self._is_pool_in_spec(pool, lbaas_state, lbaas_spec):
                 continue
-            self._drv_lbaas.release_pool(endpoints,
-                                         lbaas_state.loadbalancer,
+            self._drv_lbaas.release_pool(lbaas_state.loadbalancer,
                                          pool)
             removed_ids.add(pool.id)
         if removed_ids:
@@ -503,7 +499,6 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                 continue
 
             listener = self._drv_lbaas.ensure_listener(
-                endpoints=endpoints,
                 loadbalancer=lbaas_state.loadbalancer,
                 protocol=protocol,
                 port=port)
@@ -519,8 +514,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         for listener in lbaas_state.listeners:
             if listener.id in current_listeners:
                 continue
-            self._drv_lbaas.release_listener(endpoints,
-                                             lbaas_state.loadbalancer,
+            self._drv_lbaas.release_listener(lbaas_state.loadbalancer,
                                              listener)
             removed_ids.add(listener.id)
         if removed_ids:
@@ -561,15 +555,17 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                     lbaas_state.service_pub_ip_info)
 
             self._drv_lbaas.release_loadbalancer(
-                endpoints=endpoints,
                 loadbalancer=lb)
             lb = None
             changed = True
 
         if not lb:
             if lbaas_spec.ip:
+                lb_name = self._drv_lbaas.get_service_loadbalancer_name(
+                    endpoints['metadata']['namespace'],
+                    endpoints['metadata']['name'])
                 lb = self._drv_lbaas.ensure_loadbalancer(
-                    endpoints=endpoints,
+                    name=lb_name,
                     project_id=lbaas_spec.project_id,
                     subnet_id=lbaas_spec.subnet_id,
                     ip=lbaas_spec.ip,
