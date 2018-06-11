@@ -75,6 +75,9 @@ class DriverBase(object):
                             'type': cls})
         return driver
 
+    def __str__(self):
+        return self.__class__.__name__
+
 
 @six.add_metaclass(abc.ABCMeta)
 class PodProjectDriver(DriverBase):

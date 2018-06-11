@@ -32,6 +32,9 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         self._drv_project = drivers.PodProjectDriver.get_instance()
         self._drv_subnets = drivers.PodSubnetsDriver.get_instance()
         self._drv_sg = drivers.PodSecurityGroupsDriver.get_instance()
+        self._drv_vif_pool = drivers.VIFPoolDriver.get_instance(
+            driver_alias='multi_pool')
+        self._drv_vif_pool.set_vif_driver()
 
     def on_present(self, namespace):
         ns_name = namespace['metadata']['name']
@@ -58,6 +61,9 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
             LOG.warning("There is no CRD annotated at the namespace %s",
                         namespace)
             return
+
+        net_id = self._get_net_id_from_net_crd(net_crd)
+        self._drv_vif_pool.delete_network_pools(net_id)
         self._drv_subnets.delete_namespace_subnet(net_crd)
 
     def _get_net_crd(self, namespace):
@@ -76,3 +82,13 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
                      {constants.K8S_ANNOTATION_NET_CRD:
                       net_crd['metadata']['name']},
                      resource_version=namespace['metadata']['resourceVersion'])
+
+    def _get_net_id_from_net_crd(self, net_crd):
+        k8s = clients.get_kubernetes_client()
+        try:
+            kuryrnet_crd = k8s.get('%s/kuryrnets/%s' % (constants.K8S_API_CRD,
+                                                        net_crd))
+        except exceptions.K8sClientException:
+            LOG.exception("Kubernetes Client Exception.")
+            raise
+        return kuryrnet_crd['spec']['netId']

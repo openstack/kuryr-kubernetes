@@ -212,16 +212,21 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                 raise ex
             return vlan_id
 
-    def _remove_subport(self, neutron, trunk_id, subport_id):
-        subport_id = [{'port_id': subport_id}]
+    def _remove_subports(self, neutron, trunk_id, subports_id):
+        subports_body = []
+        for subport_id in subports_id:
+            subports_body.append({'port_id': subport_id})
         try:
             neutron.trunk_remove_subports(trunk_id,
-                                          {'sub_ports': subport_id})
+                                          {'sub_ports': subports_body})
         except n_exc.NeutronClientException as ex:
             LOG.error(
                 "Error happened during subport removal from "
                 "trunk, %s", trunk_id)
             raise ex
+
+    def _remove_subport(self, neutron, trunk_id, subport_id):
+        self._remove_subports(neutron, trunk_id, [subport_id])
 
     def _get_vlan_id(self, trunk_id):
         vlan_ids = self._get_in_use_vlan_ids_set(trunk_id)

@@ -433,9 +433,8 @@ class NeutronVIFPool(test_base.TestCase):
 
         neutron.update_port.assert_not_called()
 
-    @mock.patch('eventlet.sleep', side_effect=SystemExit)
     @ddt.data((0), (10))
-    def test__return_ports_to_pool(self, max_pool, m_sleep):
+    def test__trigger_return_to_pool(self, max_pool):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -456,7 +455,7 @@ class NeutronVIFPool(test_base.TestCase):
             {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
 
-        self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
+        cls._trigger_return_to_pool(m_driver)
 
         neutron.update_port.assert_called_once_with(
             port_id,
@@ -469,9 +468,8 @@ class NeutronVIFPool(test_base.TestCase):
             })
         neutron.delete_port.assert_not_called()
 
-    @mock.patch('eventlet.sleep', side_effect=SystemExit)
     @ddt.data((0), (10))
-    def test__return_ports_to_pool_no_update(self, max_pool, m_sleep):
+    def test__trigger_return_to_pool_no_update(self, max_pool):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -492,13 +490,12 @@ class NeutronVIFPool(test_base.TestCase):
             {'id': port_id, 'security_groups': ['security_group']}]
         m_driver._get_pool_size.return_value = pool_length
 
-        self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
+        cls._trigger_return_to_pool(m_driver)
 
         neutron.update_port.assert_not_called()
         neutron.delete_port.assert_not_called()
 
-    @mock.patch('eventlet.sleep', side_effect=SystemExit)
-    def test__return_ports_to_pool_delete_port(self, m_sleep):
+    def test__trigger_return_to_pool_delete_port(self):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -518,13 +515,12 @@ class NeutronVIFPool(test_base.TestCase):
             {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
 
-        self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
+        cls._trigger_return_to_pool(m_driver)
 
         neutron.update_port.assert_not_called()
         neutron.delete_port.assert_called_once_with(port_id)
 
-    @mock.patch('eventlet.sleep', side_effect=SystemExit)
-    def test__return_ports_to_pool_update_exception(self, m_sleep):
+    def test__trigger_return_to_pool_update_exception(self):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -549,7 +545,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver._get_pool_size.return_value = pool_length
         neutron.update_port.side_effect = n_exc.NeutronClientException
 
-        self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
+        cls._trigger_return_to_pool(m_driver)
 
         neutron.update_port.assert_called_once_with(
             port_id,
@@ -562,8 +558,7 @@ class NeutronVIFPool(test_base.TestCase):
             })
         neutron.delete_port.assert_not_called()
 
-    @mock.patch('eventlet.sleep', side_effect=SystemExit)
-    def test__return_ports_to_pool_delete_exception(self, m_sleep):
+    def test__trigger_return_to_pool_delete_exception(self):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -584,13 +579,12 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver._get_pool_size.return_value = pool_length
         neutron.delete_port.side_effect = n_exc.PortNotFoundClient
 
-        self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
+        cls._trigger_return_to_pool(m_driver)
 
         neutron.update_port.assert_not_called()
         neutron.delete_port.assert_called_once_with(port_id)
 
-    @mock.patch('eventlet.sleep', side_effect=SystemExit)
-    def test__return_ports_to_pool_delete_key_error(self, m_sleep):
+    def test__trigger_return_to_pool_delete_key_error(self):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -609,7 +603,7 @@ class NeutronVIFPool(test_base.TestCase):
             {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
 
-        self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
+        cls._trigger_return_to_pool(m_driver)
 
         neutron.update_port.assert_not_called()
         neutron.delete_port.assert_not_called()
@@ -680,6 +674,47 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver._get_ports_by_attrs.assert_called_once()
         m_get_subnet.assert_not_called()
         m_to_osvif.assert_not_called()
+
+    def test_delete_network_pools(self):
+        cls = vif_pool.NeutronVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        net_id = mock.sentinel.net_id
+        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        port_id = uuidutils.generate_uuid()
+        m_driver._available_ports_pools = {pool_key: [port_id]}
+        m_driver._existing_vifs = {port_id: mock.sentinel.vif}
+
+        m_driver._get_pool_key_net.return_value = net_id
+
+        cls.delete_network_pools(m_driver, net_id)
+
+        m_driver._trigger_return_to_pool.assert_called_once()
+        m_driver._get_pool_key_net.assert_called_once()
+        neutron.delete_port.assert_called_once_with(port_id)
+
+    def test_delete_network_pools_missing_port_id(self):
+        cls = vif_pool.NeutronVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        net_id = mock.sentinel.net_id
+        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        port_id = uuidutils.generate_uuid()
+        m_driver._available_ports_pools = {pool_key: [port_id]}
+        m_driver._existing_vifs = {}
+        neutron.delete_port.side_effect = n_exc.PortNotFoundClient
+
+        m_driver._get_pool_key_net.return_value = net_id
+
+        cls.delete_network_pools(m_driver, net_id)
+
+        m_driver._trigger_return_to_pool.assert_called_once()
+        m_driver._get_pool_key_net.assert_called_once()
+        neutron.delete_port.assert_called_once_with(port_id)
 
 
 @ddt.ddt
@@ -814,9 +849,8 @@ class NestedVIFPool(test_base.TestCase):
 
         neutron.update_port.assert_not_called()
 
-    @mock.patch('eventlet.sleep', side_effect=SystemExit)
     @ddt.data((0), (10))
-    def test__return_ports_to_pool(self, max_pool, m_sleep):
+    def test__trigger_return_to_pool(self, max_pool):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -837,7 +871,7 @@ class NestedVIFPool(test_base.TestCase):
             {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
 
-        self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
+        cls._trigger_return_to_pool(m_driver)
 
         neutron.update_port.assert_called_once_with(
             port_id,
@@ -849,9 +883,8 @@ class NestedVIFPool(test_base.TestCase):
             })
         neutron.delete_port.assert_not_called()
 
-    @mock.patch('eventlet.sleep', side_effect=SystemExit)
     @ddt.data((0), (10))
-    def test__return_ports_to_pool_no_update(self, max_pool, m_sleep):
+    def test__trigger_return_to_pool_no_update(self, max_pool):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -872,13 +905,12 @@ class NestedVIFPool(test_base.TestCase):
             {'id': port_id, 'security_groups': ['security_group']}]
         m_driver._get_pool_size.return_value = pool_length
 
-        self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
+        cls._trigger_return_to_pool(m_driver)
 
         neutron.update_port.assert_not_called()
         neutron.delete_port.assert_not_called()
 
-    @mock.patch('eventlet.sleep', side_effect=SystemExit)
-    def test__return_ports_to_pool_delete_port(self, m_sleep):
+    def test__trigger_return_to_pool_delete_port(self):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -891,7 +923,6 @@ class NestedVIFPool(test_base.TestCase):
         pool_length = 10
         vif = mock.MagicMock()
         vif.vlan_id = mock.sentinel.vlan_id
-        p_port = mock.sentinel.p_port
         trunk_id = uuidutils.generate_uuid()
 
         m_driver._recyclable_ports = {port_id: pool_key}
@@ -903,22 +934,19 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._get_ports_by_attrs.return_value = [
             {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
+        m_driver._get_trunk_id.return_value = trunk_id
         m_driver._known_trunk_ids = {}
-        m_driver._drv_vif._get_parent_port_by_host_ip.return_value = p_port
-        m_driver._drv_vif._get_trunk_id.return_value = trunk_id
 
-        self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
+        cls._trigger_return_to_pool(m_driver)
 
         neutron.update_port.assert_not_called()
         neutron.delete_port.assert_called_once_with(port_id)
-        m_driver._drv_vif._get_parent_port_by_host_ip.assert_called_once()
-        m_driver._drv_vif._get_trunk_id.assert_called_once_with(p_port)
+        m_driver._get_trunk_id.assert_called_once()
         m_driver._drv_vif._remove_subport.assert_called_once_with(neutron,
                                                                   trunk_id,
                                                                   port_id)
 
-    @mock.patch('eventlet.sleep', side_effect=SystemExit)
-    def test__return_ports_to_pool_update_exception(self, m_sleep):
+    def test__trigger_return_to_pool_update_exception(self):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -940,7 +968,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._get_pool_size.return_value = pool_length
         neutron.update_port.side_effect = n_exc.NeutronClientException
 
-        self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
+        cls._trigger_return_to_pool(m_driver)
 
         neutron.update_port.assert_called_once_with(
             port_id,
@@ -952,8 +980,7 @@ class NestedVIFPool(test_base.TestCase):
             })
         neutron.delete_port.assert_not_called()
 
-    @mock.patch('eventlet.sleep', side_effect=SystemExit)
-    def test__return_ports_to_pool_delete_exception(self, m_sleep):
+    def test__trigger_return_to_pool_delete_exception(self):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -966,7 +993,6 @@ class NestedVIFPool(test_base.TestCase):
         pool_length = 10
         vif = mock.MagicMock()
         vif.vlan_id = mock.sentinel.vlan_id
-        p_port = mock.sentinel.p_port
         trunk_id = uuidutils.generate_uuid()
 
         m_driver._recyclable_ports = {port_id: pool_key}
@@ -978,23 +1004,20 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._get_ports_by_attrs.return_value = [
             {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
+        m_driver._get_trunk_id.return_value = trunk_id
         neutron.delete_port.side_effect = n_exc.PortNotFoundClient
         m_driver._known_trunk_ids = {}
-        m_driver._drv_vif._get_parent_port_by_host_ip.return_value = p_port
-        m_driver._drv_vif._get_trunk_id.return_value = trunk_id
 
-        self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
+        cls._trigger_return_to_pool(m_driver)
 
         neutron.update_port.assert_not_called()
-        m_driver._drv_vif._get_parent_port_by_host_ip.assert_called_once()
-        m_driver._drv_vif._get_trunk_id.assert_called_once_with(p_port)
+        m_driver._get_trunk_id.assert_called_once()
         m_driver._drv_vif._remove_subport.assert_called_once_with(neutron,
                                                                   trunk_id,
                                                                   port_id)
         neutron.delete_port.assert_called_once_with(port_id)
 
-    @mock.patch('eventlet.sleep', side_effect=SystemExit)
-    def test__return_ports_to_pool_delete_key_error(self, m_sleep):
+    def test__trigger_return_to_pool_delete_key_error(self):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -1005,7 +1028,6 @@ class NestedVIFPool(test_base.TestCase):
         pool_key = ('node_ip', 'project_id', tuple(['security_group']))
         port_id = uuidutils.generate_uuid()
         pool_length = 10
-        p_port = mock.sentinel.p_port
         trunk_id = uuidutils.generate_uuid()
 
         m_driver._recyclable_ports = {port_id: pool_key}
@@ -1018,14 +1040,12 @@ class NestedVIFPool(test_base.TestCase):
             {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
         m_driver._known_trunk_ids = {}
-        m_driver._drv_vif._get_parent_port_by_host_ip.return_value = p_port
-        m_driver._drv_vif._get_trunk_id.return_value = trunk_id
+        m_driver._get_trunk_id.return_value = trunk_id
 
-        self.assertRaises(SystemExit, cls._return_ports_to_pool, m_driver)
+        cls._trigger_return_to_pool(m_driver)
 
         neutron.update_port.assert_not_called()
-        m_driver._drv_vif._get_parent_port_by_host_ip.assert_called_once()
-        m_driver._drv_vif._get_trunk_id.assert_called_once_with(p_port)
+        m_driver._get_trunk_id.assert_called_once()
         m_driver._drv_vif._remove_subport.assert_called_once_with(neutron,
                                                                   trunk_id,
                                                                   port_id)
@@ -1350,3 +1370,105 @@ class NestedVIFPool(test_base.TestCase):
         self.assertEqual(m_driver._existing_vifs, {})
         self.assertEqual(m_driver._available_ports_pools, {})
         neutron.delete_port.assert_not_called()
+
+    def test_delete_network_pools(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        cls_vif_driver = nested_vlan_vif.NestedVlanPodVIFDriver
+        vif_driver = mock.MagicMock(spec=cls_vif_driver)
+        m_driver._drv_vif = vif_driver
+
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        net_id = mock.sentinel.net_id
+        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        port_id = uuidutils.generate_uuid()
+        trunk_id = uuidutils.generate_uuid()
+        vif = mock.MagicMock()
+        vlan_id = mock.sentinel.vlan_id
+        vif.vlan_id = vlan_id
+        m_driver._available_ports_pools = {pool_key: [port_id]}
+        m_driver._existing_vifs = {port_id: vif}
+
+        m_driver._get_trunk_id.return_value = trunk_id
+        m_driver._get_pool_key_net.return_value = net_id
+
+        cls.delete_network_pools(m_driver, net_id)
+
+        m_driver._trigger_return_to_pool.assert_called_once()
+        m_driver._get_pool_key_net.assert_called_once()
+        m_driver._get_trunk_id.assert_called_once_with(neutron, pool_key)
+        m_driver._drv_vif._remove_subports.assert_called_once_with(neutron,
+                                                                   trunk_id,
+                                                                   [port_id])
+        m_driver._drv_vif._release_vlan_id.assert_called_once_with(vlan_id)
+        neutron.delete_port.assert_called_once_with(port_id)
+
+    def test_delete_network_pools_exception(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        cls_vif_driver = nested_vlan_vif.NestedVlanPodVIFDriver
+        vif_driver = mock.MagicMock(spec=cls_vif_driver)
+        m_driver._drv_vif = vif_driver
+
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        net_id = mock.sentinel.net_id
+        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        port_id = uuidutils.generate_uuid()
+        trunk_id = uuidutils.generate_uuid()
+        vif = mock.MagicMock()
+        vlan_id = mock.sentinel.vlan_id
+        vif.vlan_id = vlan_id
+        m_driver._available_ports_pools = {pool_key: [port_id]}
+        m_driver._existing_vifs = {port_id: vif}
+
+        m_driver._get_trunk_id.return_value = trunk_id
+        m_driver._get_pool_key_net.return_value = net_id
+        m_driver._drv_vif._remove_subports.side_effect = (
+            n_exc.NeutronClientException)
+
+        cls.delete_network_pools(m_driver, net_id)
+
+        m_driver._trigger_return_to_pool.assert_called_once()
+        m_driver._get_pool_key_net.assert_called_once()
+        m_driver._get_trunk_id.assert_called_once_with(neutron, pool_key)
+        m_driver._drv_vif._remove_subports.assert_called_once_with(neutron,
+                                                                   trunk_id,
+                                                                   [port_id])
+        m_driver._drv_vif._release_vlan_id.assert_not_called()
+        neutron.delete_port.assert_not_called()
+
+    def test_delete_network_pools_missing_port(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        cls_vif_driver = nested_vlan_vif.NestedVlanPodVIFDriver
+        vif_driver = mock.MagicMock(spec=cls_vif_driver)
+        m_driver._drv_vif = vif_driver
+
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        net_id = mock.sentinel.net_id
+        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        port_id = uuidutils.generate_uuid()
+        trunk_id = uuidutils.generate_uuid()
+        vif = mock.MagicMock()
+        vlan_id = mock.sentinel.vlan_id
+        vif.vlan_id = vlan_id
+        m_driver._available_ports_pools = {pool_key: [port_id]}
+        m_driver._existing_vifs = {}
+
+        m_driver._get_trunk_id.return_value = trunk_id
+        m_driver._get_pool_key_net.return_value = net_id
+        neutron.delete_port.side_effect = n_exc.PortNotFoundClient
+
+        cls.delete_network_pools(m_driver, net_id)
+
+        m_driver._trigger_return_to_pool.assert_called_once()
+        m_driver._get_pool_key_net.assert_called_once()
+        m_driver._get_trunk_id.assert_called_once_with(neutron, pool_key)
+        m_driver._drv_vif._remove_subports.assert_called_once_with(neutron,
+                                                                   trunk_id,
+                                                                   [port_id])
+        m_driver._drv_vif._release_vlan_id.assert_not_called()
+        neutron.delete_port.assert_called_once_with(port_id)

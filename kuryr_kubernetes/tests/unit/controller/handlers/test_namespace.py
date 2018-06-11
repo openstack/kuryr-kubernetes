@@ -19,6 +19,7 @@ import mock
 from neutronclient.common import exceptions as n_exc
 
 from kuryr_kubernetes.controller.drivers import base as drivers
+from kuryr_kubernetes.controller.drivers import vif_pool
 from kuryr_kubernetes.controller.handlers import namespace
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.tests import base as test_base
@@ -50,6 +51,8 @@ class TestNamespaceHandler(test_base.TestCase):
         self._handler._drv_project = mock.Mock(spec=drivers.PodProjectDriver)
         self._handler._drv_subnets = mock.Mock(spec=drivers.PodSubnetsDriver)
         self._handler._drv_sg = mock.Mock(spec=drivers.PodSecurityGroupsDriver)
+        self._handler._drv_vif_pool = mock.MagicMock(
+            spec=vif_pool.MultiVIFPool)
 
         self._get_project = self._handler._drv_project.get_project
         self._get_subnets = self._handler._drv_subnets.get_subnets
@@ -61,8 +64,12 @@ class TestNamespaceHandler(test_base.TestCase):
             self._handler._drv_subnets.delete_namespace_subnet)
         self._get_net_crd = self._handler._get_net_crd
         self._set_net_crd = self._handler._set_net_crd
+        self._get_net_id_from_net_crd = (
+            self._handler._get_net_id_from_net_crd)
         self._rollback_network_resources = (
             self._handler._drv_subnets.rollback_network_resources)
+        self._delete_network_pools = (
+            self._handler._drv_vif_pool.delete_network_pools)
 
         self._get_project.return_value = self._project_id
         self._get_subnets.return_value = self._subnets
@@ -79,24 +86,28 @@ class TestNamespaceHandler(test_base.TestCase):
         }
         return crd
 
+    @mock.patch.object(drivers.VIFPoolDriver, 'get_instance')
     @mock.patch.object(drivers.PodSecurityGroupsDriver, 'get_instance')
     @mock.patch.object(drivers.PodSubnetsDriver, 'get_instance')
     @mock.patch.object(drivers.PodProjectDriver, 'get_instance')
     def test_init(self, m_get_project_driver, m_get_subnets_driver,
-                  m_get_sg_driver):
+                  m_get_sg_driver, m_get_vif_pool_driver):
         project_driver = mock.sentinel.project_driver
         subnets_driver = mock.sentinel.subnets_driver
         sg_driver = mock.sentinel.sg_driver
+        vif_pool_driver = mock.Mock(spec=vif_pool.MultiVIFPool)
 
         m_get_project_driver.return_value = project_driver
         m_get_subnets_driver.return_value = subnets_driver
         m_get_sg_driver.return_value = sg_driver
+        m_get_vif_pool_driver.return_value = vif_pool_driver
 
         handler = namespace.NamespaceHandler()
 
         self.assertEqual(project_driver, handler._drv_project)
         self.assertEqual(subnets_driver, handler._drv_subnets)
         self.assertEqual(sg_driver, handler._drv_sg)
+        self.assertEqual(vif_pool_driver, handler._drv_vif_pool)
 
     def test_on_present(self):
         net_crd = self._get_crd()
@@ -174,12 +185,16 @@ class TestNamespaceHandler(test_base.TestCase):
 
     def test_on_deleted(self):
         net_crd = self._get_crd()
+        net_id = mock.sentinel.net_id
 
         self._get_net_crd.return_value = net_crd
+        self._get_net_id_from_net_crd.return_value = net_id
 
         namespace.NamespaceHandler.on_deleted(self._handler, self._namespace)
 
         self._get_net_crd.assert_called_once_with(self._namespace)
+        self._get_net_id_from_net_crd.assert_called_once_with(net_crd)
+        self._delete_network_pools.assert_called_once_with(net_id)
         self._delete_namespace_subnet.assert_called_once_with(net_crd)
 
     def test_on_deleted_missing_crd_annotation(self):
@@ -188,4 +203,21 @@ class TestNamespaceHandler(test_base.TestCase):
         namespace.NamespaceHandler.on_deleted(self._handler, self._namespace)
 
         self._get_net_crd.assert_called_once_with(self._namespace)
+        self._get_net_id_from_net_crd.assert_not_called()
+        self._delete_network_pools.assert_not_called()
+        self._delete_namespace_subnet.assert_not_called()
+
+    def test_on_deleted_k8s_exception(self):
+        net_crd = self._get_crd()
+
+        self._get_net_crd.return_value = net_crd
+        self._get_net_id_from_net_crd.side_effect = k_exc.K8sClientException
+
+        self.assertRaises(k_exc.K8sClientException,
+                          namespace.NamespaceHandler.on_deleted,
+                          self._handler, self._namespace)
+
+        self._get_net_crd.assert_called_once_with(self._namespace)
+        self._get_net_id_from_net_crd.assert_called_once_with(net_crd)
+        self._delete_network_pools.assert_not_called()
         self._delete_namespace_subnet.assert_not_called()

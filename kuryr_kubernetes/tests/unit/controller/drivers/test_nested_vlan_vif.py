@@ -550,14 +550,14 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         neutron.trunk_add_subports.assert_called_once_with(
             trunk_id, {'sub_ports': subport_dict})
 
-    def test_remove_subport(self):
+    def test__remove_subports(self):
         cls = nested_vlan_vif.NestedVlanPodVIFDriver
         m_driver = mock.Mock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
         trunk_id = mock.sentinel.trunk_id
         subport_id = mock.sentinel.subport_id
         subportid_dict = [{'port_id': subport_id}]
-        cls._remove_subport(m_driver, neutron, trunk_id, subport_id)
+        cls._remove_subports(m_driver, neutron, trunk_id, [subport_id])
 
         neutron.trunk_remove_subports.assert_called_once_with(
             trunk_id, {'sub_ports': subportid_dict})

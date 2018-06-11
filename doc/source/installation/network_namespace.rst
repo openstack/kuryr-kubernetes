@@ -113,6 +113,3 @@ Testing the network per namespace functionality
    openstack networks, kuryrnet CRD, svc, pods, you just need to do::
 
     $ kubectl delete namespace test
-
-Note it does not currently support deleting the extra ports created by the
-ports pool feature, so it should not be used if ports pool feature is enabled.

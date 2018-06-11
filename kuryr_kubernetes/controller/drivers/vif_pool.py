@@ -160,6 +160,9 @@ class BaseVIFPool(base.VIFPoolDriver):
                     net_id)
         return pool_key
 
+    def _get_pool_key_net(self, pool_key):
+        return pool_key[3]
+
     def request_vif(self, pod, project_id, subnets, security_groups):
         try:
             host_addr = self._get_host_addr(pod)
@@ -248,6 +251,9 @@ class BaseVIFPool(base.VIFPoolDriver):
     def show_pool(self, pool_key):
         return self._available_ports_pools.get(pool_key)
 
+    def delete_network_pools(self, net_id):
+        raise NotImplementedError()
+
     def _create_healthcheck_file(self):
         # Note(ltomasbo): Create a health check file when the pre-created
         # ports are loaded into their corresponding pools. This file is used
@@ -302,53 +308,59 @@ class NeutronVIFPool(BaseVIFPool):
         If a maximun number of port per pool is set, the port will be
         deleted if the maximun has been already reached.
         """
-        neutron = clients.get_neutron_client()
         while True:
-            sg_current = {}
-            if not config.CONF.kubernetes.port_debug:
-                kuryr_ports = self._get_ports_by_attrs(
-                    device_owner=kl_const.DEVICE_OWNER)
-                for port in kuryr_ports:
-                    if port['id'] in self._recyclable_ports.keys():
-                        sg_current[port['id']] = port['security_groups']
-
-            for port_id, pool_key in self._recyclable_ports.copy().items():
-                if (not oslo_cfg.CONF.vif_pool.ports_pool_max or
-                    self._get_pool_size(pool_key) <
-                        oslo_cfg.CONF.vif_pool.ports_pool_max):
-                    port_name = (constants.KURYR_PORT_NAME
-                                 if config.CONF.kubernetes.port_debug
-                                 else '')
-                    if (config.CONF.kubernetes.port_debug or
-                            list(pool_key[2]) != sg_current.get(port_id)):
-                        try:
-                            neutron.update_port(
-                                port_id,
-                                {
-                                    "port": {
-                                        'name': port_name,
-                                        'device_id': '',
-                                        'security_groups': list(pool_key[2])
-                                    }
-                                })
-                        except n_exc.NeutronClientException:
-                            LOG.warning("Error preparing port %s to be "
-                                        "reused, put back on the cleanable "
-                                        "pool.", port_id)
-                            continue
-                    self._available_ports_pools.setdefault(
-                        pool_key, []).append(port_id)
-                else:
-                    try:
-                        del self._existing_vifs[port_id]
-                        neutron.delete_port(port_id)
-                    except n_exc.PortNotFoundClient:
-                        LOG.debug('Unable to release port %s as it no longer '
-                                  'exists.', port_id)
-                    except KeyError:
-                        LOG.debug('Port %s is not in the ports list.', port_id)
-                del self._recyclable_ports[port_id]
+            self._trigger_return_to_pool()
             eventlet.sleep(oslo_cfg.CONF.vif_pool.ports_pool_update_frequency)
+
+    def _trigger_return_to_pool(self):
+        neutron = clients.get_neutron_client()
+        sg_current = {}
+        if not config.CONF.kubernetes.port_debug:
+            kuryr_ports = self._get_ports_by_attrs(
+                device_owner=kl_const.DEVICE_OWNER)
+            for port in kuryr_ports:
+                if port['id'] in self._recyclable_ports.keys():
+                    sg_current[port['id']] = port['security_groups']
+
+        for port_id, pool_key in self._recyclable_ports.copy().items():
+            if (not oslo_cfg.CONF.vif_pool.ports_pool_max or
+                self._get_pool_size(pool_key) <
+                    oslo_cfg.CONF.vif_pool.ports_pool_max):
+                port_name = (constants.KURYR_PORT_NAME
+                             if config.CONF.kubernetes.port_debug
+                             else '')
+                if (config.CONF.kubernetes.port_debug or
+                        list(pool_key[2]) != sg_current.get(port_id)):
+                    try:
+                        neutron.update_port(
+                            port_id,
+                            {
+                                "port": {
+                                    'name': port_name,
+                                    'device_id': '',
+                                    'security_groups': list(pool_key[2])
+                                }
+                            })
+                    except n_exc.NeutronClientException:
+                        LOG.warning("Error preparing port %s to be "
+                                    "reused, put back on the cleanable "
+                                    "pool.", port_id)
+                        continue
+                self._available_ports_pools.setdefault(
+                    pool_key, []).append(port_id)
+            else:
+                try:
+                    del self._existing_vifs[port_id]
+                    neutron.delete_port(port_id)
+                except n_exc.PortNotFoundClient:
+                    LOG.debug('Unable to release port %s as it no longer '
+                              'exists.', port_id)
+                except KeyError:
+                    LOG.debug('Port %s is not in the ports list.', port_id)
+            try:
+                del self._recyclable_ports[port_id]
+            except KeyError:
+                LOG.debug('Port already recycled: %s', port_id)
 
     def _recover_precreated_ports(self):
         if config.CONF.kubernetes.port_debug:
@@ -380,6 +392,24 @@ class NeutronVIFPool(BaseVIFPool):
 
         LOG.info("PORTS POOL: pools updated with pre-created ports")
         self._create_healthcheck_file()
+
+    def delete_network_pools(self, net_id):
+        neutron = clients.get_neutron_client()
+        self._trigger_return_to_pool()
+        for pool_key, ports_id in self._available_ports_pools.items():
+            if self._get_pool_key_net(pool_key) != net_id:
+                continue
+            self._available_ports_pools[pool_key] = []
+            for port_id in ports_id:
+                try:
+                    del self._existing_vifs[port_id]
+                except KeyError:
+                    LOG.debug('Port %s is not in the ports list.', port_id)
+                try:
+                    neutron.delete_port(port_id)
+                except n_exc.PortNotFoundClient:
+                    LOG.debug('Unable to release subport %s as it no longer '
+                              'exists.', port_id)
 
 
 class NestedVIFPool(BaseVIFPool):
@@ -433,65 +463,75 @@ class NestedVIFPool(BaseVIFPool):
         If a maximun number of ports per pool is set, the port will be
         deleted if the maximun has been already reached.
         """
-        neutron = clients.get_neutron_client()
         while True:
-            sg_current = {}
-            if not config.CONF.kubernetes.port_debug:
-                kuryr_subports = self._get_ports_by_attrs(
-                    device_owner=['trunk:subport', kl_const.DEVICE_OWNER])
-                for subport in kuryr_subports:
-                    if subport['id'] in self._recyclable_ports.keys():
-                        sg_current[subport['id']] = subport['security_groups']
-
-            for port_id, pool_key in self._recyclable_ports.copy().items():
-                if (not oslo_cfg.CONF.vif_pool.ports_pool_max or
-                    self._get_pool_size(pool_key) <
-                        oslo_cfg.CONF.vif_pool.ports_pool_max):
-                    port_name = (constants.KURYR_PORT_NAME
-                                 if config.CONF.kubernetes.port_debug
-                                 else '')
-                    if (config.CONF.kubernetes.port_debug or
-                            list(pool_key[2]) != sg_current.get(port_id)):
-                        try:
-                            neutron.update_port(
-                                port_id,
-                                {
-                                    "port": {
-                                        'name': port_name,
-                                        'security_groups': list(pool_key[2])
-                                    }
-                                })
-                        except n_exc.NeutronClientException:
-                            LOG.warning("Error preparing port %s to be "
-                                        "reused, put back on the cleanable "
-                                        "pool.", port_id)
-                            continue
-                    self._available_ports_pools.setdefault(
-                        pool_key, []).append(port_id)
-                else:
-                    trunk_id = self._known_trunk_ids.get(pool_key, None)
-                    if not trunk_id:
-                        p_port = self._drv_vif._get_parent_port_by_host_ip(
-                            neutron, pool_key[0])
-                        trunk_id = self._drv_vif._get_trunk_id(p_port)
-                        self._known_trunk_ids[pool_key] = trunk_id
-                    try:
-                        self._drv_vif._remove_subport(neutron, trunk_id,
-                                                      port_id)
-                        self._drv_vif._release_vlan_id(
-                            self._existing_vifs[port_id].vlan_id)
-                        del self._existing_vifs[port_id]
-                        neutron.delete_port(port_id)
-                    except n_exc.PortNotFoundClient:
-                        LOG.debug('Unable to release port %s as it no longer '
-                                  'exists.', port_id)
-                    except KeyError:
-                        LOG.debug('Port %s is not in the ports list.', port_id)
-                    except n_exc.NeutronClientException:
-                        LOG.warning('Error removing the subport %s', port_id)
-                        continue
-                del self._recyclable_ports[port_id]
+            self._trigger_return_to_pool()
             eventlet.sleep(oslo_cfg.CONF.vif_pool.ports_pool_update_frequency)
+
+    def _trigger_return_to_pool(self):
+        neutron = clients.get_neutron_client()
+        sg_current = {}
+        if not config.CONF.kubernetes.port_debug:
+            kuryr_subports = self._get_ports_by_attrs(
+                device_owner=['trunk:subport', kl_const.DEVICE_OWNER])
+            for subport in kuryr_subports:
+                if subport['id'] in self._recyclable_ports.keys():
+                    sg_current[subport['id']] = subport['security_groups']
+
+        for port_id, pool_key in self._recyclable_ports.copy().items():
+            if (not oslo_cfg.CONF.vif_pool.ports_pool_max or
+                self._get_pool_size(pool_key) <
+                    oslo_cfg.CONF.vif_pool.ports_pool_max):
+                port_name = (constants.KURYR_PORT_NAME
+                             if config.CONF.kubernetes.port_debug
+                             else '')
+                if (config.CONF.kubernetes.port_debug or
+                        list(pool_key[2]) != sg_current.get(port_id)):
+                    try:
+                        neutron.update_port(
+                            port_id,
+                            {
+                                "port": {
+                                    'name': port_name,
+                                    'security_groups': list(pool_key[2])
+                                }
+                            })
+                    except n_exc.NeutronClientException:
+                        LOG.warning("Error preparing port %s to be "
+                                    "reused, put back on the cleanable "
+                                    "pool.", port_id)
+                        continue
+                self._available_ports_pools.setdefault(
+                    pool_key, []).append(port_id)
+            else:
+                trunk_id = self._get_trunk_id(neutron, pool_key)
+                try:
+                    self._drv_vif._remove_subport(neutron, trunk_id,
+                                                  port_id)
+                    self._drv_vif._release_vlan_id(
+                        self._existing_vifs[port_id].vlan_id)
+                    del self._existing_vifs[port_id]
+                    neutron.delete_port(port_id)
+                except n_exc.PortNotFoundClient:
+                    LOG.debug('Unable to release port %s as it no longer '
+                              'exists.', port_id)
+                except KeyError:
+                    LOG.debug('Port %s is not in the ports list.', port_id)
+                except n_exc.NeutronClientException:
+                    LOG.warning('Error removing the subport %s', port_id)
+                    continue
+            try:
+                del self._recyclable_ports[port_id]
+            except KeyError:
+                LOG.debug('Port already recycled: %s', port_id)
+
+    def _get_trunk_id(self, neutron, pool_key):
+        trunk_id = self._known_trunk_ids.get(pool_key, None)
+        if not trunk_id:
+            p_port = self._drv_vif._get_parent_port_by_host_ip(
+                neutron, pool_key[0])
+            trunk_id = self._drv_vif._get_trunk_id(p_port)
+            self._known_trunk_ids[pool_key] = trunk_id
+        return trunk_id
 
     def _get_parent_port_ip(self, port_id):
         neutron = clients.get_neutron_client()
@@ -667,6 +707,34 @@ class NestedVIFPool(BaseVIFPool):
         """
         self._remove_precreated_ports(trunk_ips)
 
+    def delete_network_pools(self, net_id):
+        neutron = clients.get_neutron_client()
+        self._trigger_return_to_pool()
+        for pool_key, ports_ids in self._available_ports_pools.items():
+            if self._get_pool_key_net(pool_key) != net_id:
+                continue
+            self._available_ports_pools[pool_key] = []
+            trunk_id = self._get_trunk_id(neutron, pool_key)
+            try:
+                self._drv_vif._remove_subports(neutron, trunk_id, ports_ids)
+            except n_exc.NeutronClientException:
+                LOG.exception('Error removing subports from trunk: %s',
+                              trunk_id)
+                continue
+
+            for port_id in ports_ids:
+                try:
+                    self._drv_vif._release_vlan_id(
+                        self._existing_vifs[port_id].vlan_id)
+                    del self._existing_vifs[port_id]
+                except KeyError:
+                    LOG.debug('Port %s is not in the ports list.', port_id)
+                try:
+                    neutron.delete_port(port_id)
+                except n_exc.PortNotFoundClient:
+                    LOG.debug('Unable to delete subport %s as it no longer '
+                              'exists.', port_id)
+
 
 class MultiVIFPool(base.VIFPoolDriver):
     """Manages pools with different VIF types.
@@ -714,6 +782,12 @@ class MultiVIFPool(base.VIFPoolDriver):
     def activate_vif(self, pod, vif):
         pod_vif_type = self._get_pod_vif_type(pod)
         self._vif_drvs[pod_vif_type].activate_vif(pod, vif)
+
+    def delete_network_pools(self, net_id):
+        for vif_drv in self._vif_drvs.values():
+            if str(vif_drv) == 'NoopVIFPool':
+                continue
+            vif_drv.delete_network_pools(net_id)
 
     def _get_pod_vif_type(self, pod):
         node_name = pod['spec']['nodeName']
