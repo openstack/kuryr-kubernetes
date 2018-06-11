@@ -44,6 +44,7 @@
         - kuryr-kubernetes-tempest-daemon-pools-lbaasv2
         - kuryr-kubernetes-tempest-daemon-containerized-lbaasv2
         - kuryr-kubernetes-tempest-daemon-containerized-octavia-l2
+        - kuryr-kubernetes-tempest-daemon-containerized-octavia-namespace
 
 - nodeset:
     name: openstack-centos-7-single-node
@@ -363,6 +364,18 @@
     vars:
       devstack_localrc:
         KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
+
+- job:
+    name: kuryr-kubernetes-tempest-daemon-containerized-octavia-namespace
+    description: |
+      Tempest with Octavia, CNI daemon, containers and namespace subnet driver
+    parent: kuryr-kubernetes-tempest-daemon-containerized-octavia
+    vars:
+      tempest_test_regex: '^(kuryr_tempest_plugin.tests.scenario.test_namespace.TestNamespaceScenario.test_namespace)'
+      devstack_localrc:
+        KURYR_SUBNET_DRIVER: namespace
+        KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace
+    voting: false
 
 - job:
     name: kuryr-kubernetes-tempest-daemon-containerized-openshift-lbaasv2
