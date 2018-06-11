@@ -90,11 +90,25 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
         try:
             neutron.remove_interface_router(router_id,
                                             {"subnet_id": subnet_id})
-            neutron.delete_network(net_id)
-        except n_exc.NotFound as ex:
-            LOG.debug("Neutron resource not found: %s", ex)
+        except n_exc.NotFound:
+            LOG.debug("Subnet %(subnet)s not attached to router %(router)s",
+                      {'subnet': subnet_id, 'router': router_id})
         except n_exc.NeutronClientException:
-            LOG.exception("Error deleting neutron resources.")
+            LOG.exception("Error deleting subnet %(subnet)s from router "
+                          "%(router)s.", {'subnet': subnet_id, 'router':
+                                          router_id})
+            raise
+
+        try:
+            neutron.delete_network(net_id)
+        except n_exc.NotFound:
+            LOG.debug("Neutron Network not found: %s", net_id)
+        except n_exc.NetworkInUseClient:
+            LOG.exception("One or more ports in use on the network %s.",
+                          net_id)
+            raise exceptions.ResourceNotReady(net_id)
+        except n_exc.NeutronClientException:
+            LOG.exception("Error deleting network %s.", net_id)
             raise
 
         self._del_kuryrnet_crd(net_crd_name)
