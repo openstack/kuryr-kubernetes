@@ -589,12 +589,16 @@ function run_k8s_kubelet {
     # adding Python and all our CNI/binding dependencies.
     local command
     local minor_version
+    local cgroup_driver
+
+    cgroup_driver="$(docker info|awk '/Cgroup/ {print $NF}')"
 
     sudo mkdir -p "${KURYR_HYPERKUBE_DATA_DIR}/"{kubelet,kubelet.cert}
     command="$KURYR_HYPERKUBE_BINARY kubelet\
         --kubeconfig=${HOME}/.kube/config --require-kubeconfig \
         --allow-privileged=true \
         --v=2 \
+        --cgroup-driver=$cgroup_driver \
         --address=0.0.0.0 \
         --enable-server \
         --network-plugin=cni \
