@@ -40,7 +40,7 @@ class KuryrK8sService(service.Service):
 
         objects.register_locally_defined_vifs()
         pipeline = h_pipeline.ControllerPipeline(self.tg)
-        self.watcher = watcher.Watcher(pipeline, self.tg)
+        self.watcher = watcher.Watcher(pipeline, self.tg, exit_on_stop=True)
         self.health_manager = health.HealthServer()
         # TODO(ivc): pluggable resource/handler registration
         for resource in ["pods", "services", "endpoints"]:
