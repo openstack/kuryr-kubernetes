@@ -913,6 +913,7 @@ function create_load_balancer {
 #       name: Name to give to the load balancer listener.
 #       protocol: Whether it is HTTP, HTTPS, TCP, etc.
 #       port: The TCP port number to listen to.
+#       data_timeouts: Octavia's timeouts for client and server inactivity.
 #       lb: Id or name of the Load Balancer we want to add the Listener to.
 #       project_id: Id of the the project where this listener belongs
 function create_load_balancer_listener {
@@ -920,6 +921,7 @@ function create_load_balancer_listener {
     local protocol
     local port
     local lb
+    local data_timeouts
     local max_timeout
     local project_id
 
@@ -928,6 +930,7 @@ function create_load_balancer_listener {
     port="$3"
     lb="$4"
     project_id="$5"
+    data_timeouts="$6"
 
     max_timeout=1200
     # Octavia needs the LB to be active for the listener
@@ -937,6 +940,8 @@ function create_load_balancer_listener {
         openstack loadbalancer listener create --name "$name" \
             --protocol "$protocol" \
             --protocol-port "$port" \
+            --timeout-client-data "$data_timeouts" \
+            --timeout-member-data "$data_timeouts" \
             "$lb"
     else
         neutron lbaas-listener-create --name "$name" \
