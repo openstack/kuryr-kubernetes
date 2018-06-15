@@ -52,6 +52,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         self._drv_vif_pool = drivers.VIFPoolDriver.get_instance(
             driver_alias='multi_pool')
         self._drv_vif_pool.set_vif_driver()
+        self._drv_multi_vif = drivers.MultiVIFDriver.get_enabled_drivers()
 
     def on_present(self, pod):
         if self._is_host_network(pod) or not self._is_pending_node(pod):
@@ -69,12 +70,20 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             security_groups = self._drv_sg.get_security_groups(pod, project_id)
             subnets = self._drv_subnets.get_subnets(pod, project_id)
 
-            # NOTE(danil): There is currently no way to actually request
-            # multiple VIFs. However we're packing the main_vif 'eth0' in a
-            # dict here to facilitate future work in this area
+            # Request the default interface of pod
             main_vif = self._drv_vif_pool.request_vif(
                 pod, project_id, subnets, security_groups)
             vifs[constants.DEFAULT_IFNAME] = main_vif
+
+            # Request the additional interfaces from multiple dirvers
+            additional_vifs = []
+            for driver in self._drv_multi_vif:
+                additional_vifs.extend(
+                    driver.request_additional_vifs(
+                        pod, project_id, security_groups))
+            if additional_vifs:
+                for i, vif in enumerate(additional_vifs, start=1):
+                    vifs[constants.ADDITIONAL_IFNAME_PREFIX + str(i)] = vif
 
             try:
                 self._set_vifs(pod, vifs)

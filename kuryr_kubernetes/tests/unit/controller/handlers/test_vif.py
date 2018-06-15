@@ -34,6 +34,8 @@ class TestVIFHandler(test_base.TestCase):
         self._vif.active = True
         self._vif_serialized = mock.sentinel.vif_serialized
         self._vifs = {k_const.DEFAULT_IFNAME: self._vif}
+        self._multi_vif_drv = mock.MagicMock(spec=drivers.MultiVIFDriver)
+        self._additioan_vifs = []
 
         self._pod_version = mock.sentinel.pod_version
         self._pod_link = mock.sentinel.pod_link
@@ -52,6 +54,7 @@ class TestVIFHandler(test_base.TestCase):
         self._handler._drv_vif = mock.Mock(spec=drivers.PodVIFDriver)
         self._handler._drv_vif_pool = mock.MagicMock(
             spec=drivers.VIFPoolDriver)
+        self._handler._drv_multi_vif = [self._multi_vif_drv]
 
         self._get_project = self._handler._drv_project.get_project
         self._get_subnets = self._handler._drv_subnets.get_subnets
@@ -64,8 +67,11 @@ class TestVIFHandler(test_base.TestCase):
         self._set_vifs = self._handler._set_vifs
         self._is_host_network = self._handler._is_host_network
         self._is_pending_node = self._handler._is_pending_node
+        self._request_additional_vifs = \
+            self._multi_vif_drv.request_additional_vifs
 
         self._request_vif.return_value = self._vif
+        self._request_additional_vifs.return_value = self._additioan_vifs
         self._get_vifs.return_value = self._vifs
         self._is_host_network.return_value = False
         self._is_pending_node.return_value = True
@@ -78,6 +84,7 @@ class TestVIFHandler(test_base.TestCase):
         self._handler._drv_for_vif = h_vif.VIFHandler._drv_for_vif.__get__(
             self._handler)
 
+    @mock.patch.object(drivers.MultiVIFDriver, 'get_enabled_drivers')
     @mock.patch.object(drivers.VIFPoolDriver, 'set_vif_driver')
     @mock.patch.object(drivers.VIFPoolDriver, 'get_instance')
     @mock.patch.object(drivers.PodVIFDriver, 'get_instance')
@@ -86,17 +93,19 @@ class TestVIFHandler(test_base.TestCase):
     @mock.patch.object(drivers.PodProjectDriver, 'get_instance')
     def test_init(self, m_get_project_driver, m_get_subnets_driver,
                   m_get_sg_driver, m_get_vif_driver, m_get_vif_pool_driver,
-                  m_set_vifs_driver):
+                  m_set_vifs_driver, m_get_multi_vif_drivers):
         project_driver = mock.sentinel.project_driver
         subnets_driver = mock.sentinel.subnets_driver
         sg_driver = mock.sentinel.sg_driver
         vif_driver = mock.sentinel.vif_driver
         vif_pool_driver = mock.Mock(spec=drivers.VIFPoolDriver)
+        multi_vif_drivers = [mock.MagicMock(spec=drivers.MultiVIFDriver)]
         m_get_project_driver.return_value = project_driver
         m_get_subnets_driver.return_value = subnets_driver
         m_get_sg_driver.return_value = sg_driver
         m_get_vif_driver.return_value = vif_driver
         m_get_vif_pool_driver.return_value = vif_pool_driver
+        m_get_multi_vif_drivers.return_value = multi_vif_drivers
 
         handler = h_vif.VIFHandler()
 
@@ -104,6 +113,7 @@ class TestVIFHandler(test_base.TestCase):
         self.assertEqual(subnets_driver, handler._drv_subnets)
         self.assertEqual(sg_driver, handler._drv_sg)
         self.assertEqual(vif_pool_driver, handler._drv_vif_pool)
+        self.assertEqual(multi_vif_drivers, handler._drv_multi_vif)
 
     def test_is_host_network(self):
         self._pod['spec']['hostNetwork'] = True
@@ -137,6 +147,7 @@ class TestVIFHandler(test_base.TestCase):
 
         self._get_vifs.assert_called_once_with(self._pod)
         self._request_vif.assert_not_called()
+        self._request_additional_vifs.assert_not_called()
         self._activate_vif.assert_not_called()
         self._set_vifs.assert_not_called()
 
@@ -147,6 +158,7 @@ class TestVIFHandler(test_base.TestCase):
 
         self._get_vifs.assert_not_called()
         self._request_vif.assert_not_called()
+        self._request_additional_vifs.assert_not_called()
         self._activate_vif.assert_not_called()
         self._set_vifs.assert_not_called()
 
@@ -157,6 +169,7 @@ class TestVIFHandler(test_base.TestCase):
 
         self._get_vifs.assert_not_called()
         self._request_vif.assert_not_called()
+        self._request_additional_vifs.assert_not_called()
         self._activate_vif.assert_not_called()
         self._set_vifs.assert_not_called()
 
@@ -169,6 +182,7 @@ class TestVIFHandler(test_base.TestCase):
         self._activate_vif.assert_called_once_with(self._pod, self._vif)
         self._set_vifs.assert_called_once_with(self._pod, self._vifs)
         self._request_vif.assert_not_called()
+        self._request_additional_vifs.assert_not_called()
 
     def test_on_present_create(self):
         self._get_vifs.return_value = {}
@@ -178,7 +192,26 @@ class TestVIFHandler(test_base.TestCase):
         self._get_vifs.assert_called_once_with(self._pod)
         self._request_vif.assert_called_once_with(
             self._pod, self._project_id, self._subnets, self._security_groups)
+        self._request_additional_vifs.assert_called_once_with(
+            self._pod, self._project_id, self._security_groups)
         self._set_vifs.assert_called_once_with(self._pod, self._vifs)
+        self._activate_vif.assert_not_called()
+
+    def test_on_present_create_with_additional_vifs(self):
+        self._get_vifs.return_value = {}
+        self._request_additional_vifs.return_value = [mock.Mock()]
+        vifs = self._vifs.copy()
+        vifs.update({k_const.ADDITIONAL_IFNAME_PREFIX+'1':
+                    self._request_additional_vifs.return_value[0]})
+
+        h_vif.VIFHandler.on_present(self._handler, self._pod)
+
+        self._get_vifs.assert_called_once_with(self._pod)
+        self._request_vif.assert_called_once_with(
+            self._pod, self._project_id, self._subnets, self._security_groups)
+        self._request_additional_vifs.assert_called_once_with(
+            self._pod, self._project_id, self._security_groups)
+        self._set_vifs.assert_called_once_with(self._pod, vifs)
         self._activate_vif.assert_not_called()
 
     def test_on_present_rollback(self):
@@ -190,6 +223,8 @@ class TestVIFHandler(test_base.TestCase):
         self._get_vifs.assert_called_once_with(self._pod)
         self._request_vif.assert_called_once_with(
             self._pod, self._project_id, self._subnets, self._security_groups)
+        self._request_additional_vifs.assert_called_once_with(
+            self._pod, self._project_id, self._security_groups)
         self._set_vifs.assert_called_once_with(self._pod, self._vifs)
         self._release_vif.assert_called_once_with(self._pod, self._vif,
                                                   self._project_id,
@@ -203,6 +238,22 @@ class TestVIFHandler(test_base.TestCase):
         self._release_vif.assert_called_once_with(self._pod, self._vif,
                                                   self._project_id,
                                                   self._security_groups)
+
+    def test_on_deleted_with_additional_vifs(self):
+        self._additioan_vifs = [mock.Mock()]
+        self._get_vifs.return_value = self._vifs.copy()
+        self._get_vifs.return_value.update(
+            {k_const.ADDITIONAL_IFNAME_PREFIX+'1': self._additioan_vifs[0]})
+
+        h_vif.VIFHandler.on_deleted(self._handler, self._pod)
+
+        self._get_vifs.assert_called_once_with(self._pod)
+        self._release_vif.assert_any_call(self._pod, self._vif,
+                                          self._project_id,
+                                          self._security_groups)
+        self._release_vif.assert_any_call(self._pod, self._additioan_vifs[0],
+                                          self._project_id,
+                                          self._security_groups)
 
     def test_on_deleted_host_network(self):
         self._is_host_network.return_value = True

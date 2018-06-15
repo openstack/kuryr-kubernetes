@@ -25,21 +25,27 @@ Kuryr-Kubernetes Controller.
 VIF-Handler
 -----------
 VIF-handler is intended to handle VIFs. The main aim of VIF-handler is to get
-the pod object, send it to Multi-vif driver and get vif objects from it. After
-that VIF-handler is able to activate, release or update vifs. Also VIF-Handler
-is always authorized to get main vif for pod from generic driver.
+the pod object, send it to 1) the VIF-driver for the default network, 2)
+enabled Multi-VIF drivers for the additional networks, and get VIF objects
+from both. After that VIF-handler is able to activate, release or update VIFs.
 VIF-handler should stay clean whereas parsing of specific pod information
-should be moved to Multi-vif driver.
+should be done by Multi-VIF drivers.
 
-Multi-vif driver
+Multi-VIF driver
 ~~~~~~~~~~~~~~~~
-The main driver that is authorized to call other drivers. The main aim of
-this driver is to get list of enabled drivers, parse pod annotations, pass
-pod object to enabled drivers and get vif objects from them to pass these
-objects to VIF-handler finally. The list of parsed annotations by Multi-vif
-driver includes sriov requests, additional subnets requests and specific ports.
-If the pod object doesn't have annotation which is required by some of the
-drivers then this driver is not called or driver can just return.
+The new type of drivers which is used to call other VIF-drivers to attach
+additional interfaces to Pods. The main aim of this kind of drivers is to get
+additional interfaces from the Pods definition, then invoke real VIF-drivers
+like neutron-vif, nested-macvlan or sriov to retrieve the VIF objects
+accordingly.
+
+All Multi-VIF drivers should be derived from class *MultiVIFDriver*. And all
+should implement the *request_additional_vifs* method which returns a list of
+VIF objects. Those VIF objects are created by each of the vif-drivers invoked
+by the Multi-VIF driver. Each of the multi-vif driver should support a syntax
+of additional interfaces definition in Pod. If the pod object doesn't define
+additional interfaces, the Multi-VIF driver can just return.
+
 Diagram describing VifHandler - Drivers flow is giver below:
 
 .. image:: ../../images/vif_handler_drivers_design.png
@@ -49,19 +55,28 @@ Diagram describing VifHandler - Drivers flow is giver below:
 
 Config Options
 ~~~~~~~~~~~~~~
-Add new config option "enabled_vif_drivers" (list) to config file that shows
-what drivers should be used in Multi-vif driver to collect vif objects. This
-means that Multi-vif driver will pass pod object only to specified drivers
-(generic driver is always used by default and it's not necessary to specify
-it) and get vifs from them.
+Add new config option "multi_vif_drivers" (list) to config file that shows
+what Multi-VIF drivers should be used in to specify the addition VIF objects.
+It is allowed to have one or more multi_vif_drivers enabled, which means that
+multi_vif_drivers can either work separately or together. By default, a noop
+driver which basically does nothing will be used if this field is not
+explicitly specified.
+
 Option in config file might look like this:
 
 .. code-block:: ini
 
     [kubernetes]
 
-    enabled_vif_drivers =  sriov, additional_subnets
+    multi_vif_drivers =  sriov, additional_subnets
 
+Or like this:
+
+.. code-block:: ini
+
+    [kubernetes]
+
+    multi_vif_drivers =  npwg_multiple_interfaces
 
 Additional Subnets Driver
 ~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -23,6 +23,7 @@ from kuryr_kubernetes import config
 
 _DRIVER_NAMESPACE_BASE = 'kuryr_kubernetes.controller.drivers'
 _DRIVER_MANAGERS = {}
+_MULTI_VIF_DRIVERS = []
 
 
 class DriverBase(object):
@@ -347,6 +348,42 @@ class PodVIFDriver(DriverBase):
 
 
 @six.add_metaclass(abc.ABCMeta)
+class MultiVIFDriver(DriverBase):
+    """Manages additional ports of Kubernetes Pods."""
+
+    ALIAS = 'multi_vif'
+
+    @abc.abstractmethod
+    def request_additional_vifs(
+            self, pod, project_id, security_groups):
+        """Links Neutron ports to pod and returns them as a list of VIF objects.
+
+        Implementing drivers must be able to parse the additional interface
+        definition from pod. The format of the definition is up to the
+        implementation of each driver. Then implementing drivers must invoke
+        the VIF drivers to either create new Neutron ports on each request or
+        reuse available ports when possible.
+
+        :param pod: dict containing Kubernetes Pod object
+        :param project_id: OpenStack project ID
+        :param security_groups: list containing security groups' IDs as
+                                returned by
+                                `PodSecurityGroupsDriver.get_security_groups`
+        :return: VIF object list
+        """
+        raise NotImplementedError()
+
+    @classmethod
+    def get_enabled_drivers(cls):
+        if _MULTI_VIF_DRIVERS:
+            pass
+        else:
+            drivers = config.CONF.kubernetes['multi_vif_drivers']
+            for driver in drivers:
+                _MULTI_VIF_DRIVERS.append(cls.get_instance(driver))
+        return _MULTI_VIF_DRIVERS
+
+
 class LBaaSDriver(DriverBase):
     """Base class for Openstack loadbalancer services."""
 

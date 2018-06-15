@@ -176,6 +176,10 @@ k8s_opts = [
     cfg.StrOpt('network_policy_driver',
                help=_("Driver for network policies"),
                default='default'),
+    cfg.ListOpt('multi_vif_drivers',
+                help=_("The drivers that provide additional VIFs for"
+                       "Kubernetes Pods."),
+                default='noop'),
 ]
 
 neutron_defaults = [
