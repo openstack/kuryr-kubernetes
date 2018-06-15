@@ -146,6 +146,7 @@ class Watcher(health.HealthHandler):
 
     def _graceful_watch_exit(self, path):
         try:
+            self.remove(path)
             self._watching.pop(path)
             self._idle.pop(path)
             LOG.info("Stopped watching '%s'", path)
@@ -184,6 +185,7 @@ class Watcher(health.HealthHandler):
                             attempts, path, e)
                 attempts += 1
                 retry = True
+                self._idle[path] = True
             finally:
                 if not retry:
                     self._graceful_watch_exit(path)
