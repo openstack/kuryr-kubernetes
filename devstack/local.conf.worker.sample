@@ -28,6 +28,7 @@ MULTI_HOST=1
 KEYSTONE_SERVICE_HOST=$SERVICE_HOST
 MYSQL_HOST=$SERVICE_HOST
 RABBIT_HOST=$SERVICE_HOST
+KURYR_K8S_API_URL="http://${SERVICE_HOST}:8080"
 
 # For Baremetal deployment, enable SDN agent that should run on worker node
 # enable_service q-agt

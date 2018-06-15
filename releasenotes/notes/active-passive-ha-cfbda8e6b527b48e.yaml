@@ -1,0 +1,9 @@
+---
+features:
+  - |
+    Kuryr-Kubernetes now supports running kuryr-controller service in
+    **Active/Passive HA mode**. This is only possible when running those services
+    as Pods on Kubernetes cluster, as Kubernetes is used for leader election.
+    Also it is required to add leader-elector container to the kuryr-controller
+    Pods. HA is controlled by ``[kubernetes]controller_ha`` option, which
+    defaults to ``False``.

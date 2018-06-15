@@ -108,6 +108,9 @@ class Watcher(health.HealthHandler):
         if path in self._watching:
             self._stop_watch(path)
 
+    def is_running(self):
+        return self._running
+
     def start(self):
         """Starts the Watcher.
 

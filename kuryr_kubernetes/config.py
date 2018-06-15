@@ -153,6 +153,14 @@ k8s_opts = [
                 help=_("The comma-separated handlers that should be "
                        "registered for watching in the pipeline."),
                 default=['vif', 'lb', 'lbaasspec']),
+    cfg.BoolOpt('controller_ha',
+                help=_('Enable kuryr-controller active/passive HA. Only '
+                       'supported in containerized deployments on Kubernetes '
+                       'or OpenShift.'),
+                default=False),
+    cfg.PortOpt('controller_ha_elector_port',
+                help=_('Port on which leader-elector pod is listening to.'),
+                default=16401),
 ]
 
 neutron_defaults = [

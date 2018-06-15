@@ -10,13 +10,19 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import os
 import random
+import socket
 import time
 
+import requests
+
 from oslo_config import cfg
+from oslo_log import log
 from oslo_serialization import jsonutils
 
 CONF = cfg.CONF
+LOG = log.getLogger(__name__)
 
 VALID_MULTI_POD_POOLS_OPTS = {'noop': ['neutron-vif',
                                        'nested-vlan',
@@ -98,3 +104,21 @@ def exponential_sleep(deadline, attempt, interval=DEFAULT_INTERVAL):
 
     time.sleep(interval)
     return interval
+
+
+def get_node_name():
+    try:
+        return os.environ['KUBERNETES_NODE_NAME']
+    except KeyError:
+        return socket.gethostname()
+
+
+def get_leader_name():
+    url = 'http://localhost:%d' % CONF.kubernetes.controller_ha_elector_port
+    try:
+        return requests.get(url).json()['name']
+    except Exception:
+        LOG.exception('Error when fetching current leader pod name.')
+        # NOTE(dulek): Assuming there's no leader when we can't contact leader
+        #              elector container.
+        return None
