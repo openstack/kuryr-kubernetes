@@ -306,17 +306,12 @@ class TestWatcher(test_base.TestCase):
     def test_watch_retry(self):
         path = '/test'
         events = [{'e': i} for i in range(3)]
+        side_effects = [exceptions.ChunkedEncodingError("Connection Broken")]
+        side_effects.extend(None for _ in events)
+
         m_handler = mock.Mock()
+        m_handler.side_effect = side_effects
         watcher_obj = self._test_watch_create_watcher(path, m_handler, 10)
-
-        self.retry = True
-
-        def handler(event):
-            if self.retry:
-                self.retry = False
-                raise exceptions.ChunkedEncodingError("Connection Broken")
-
-        self.client.watch.side_effect = handler
         self._test_watch_mock_events(watcher_obj, events)
 
         watcher_obj._watch(path)
