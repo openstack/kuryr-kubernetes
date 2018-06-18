@@ -801,9 +801,7 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
 
     if is_service_enabled kuryr-kubernetes; then
         /usr/local/bin/kubectl apply -f ${KURYR_HOME}/kubernetes_crds/kuryrnet.yaml
-        if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "False" ]; then
-            run_kuryr_kubernetes
-        else
+        if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
             if is_service_enabled kuryr-daemon; then
                 build_kuryr_containers $CNI_BIN_DIR $CNI_CONF_DIR True
                 generate_containerized_kuryr_resources True
@@ -840,6 +838,8 @@ elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
         #               get improved.
         if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
             run_containerized_kuryr_resources
+        else
+            run_kuryr_kubernetes
         fi
     fi
     if is_service_enabled tempest && [[ "$KURYR_USE_PORT_POOLS" == "True" ]]; then
