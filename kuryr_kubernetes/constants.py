@@ -16,11 +16,13 @@
 K8S_API_BASE = '/api/v1'
 K8S_API_NAMESPACES = K8S_API_BASE + '/namespaces'
 K8S_API_CRD = '/apis/openstack.org/v1'
+K8S_API_POLICIES = '/apis/networking.k8s.io/v1/networkpolicies'
 
 K8S_OBJ_NAMESPACE = 'Namespace'
 K8S_OBJ_POD = 'Pod'
 K8S_OBJ_SERVICE = 'Service'
 K8S_OBJ_ENDPOINTS = 'Endpoints'
+K8S_OBJ_POLICY = 'NetworkPolicy'
 
 K8S_OBJ_KURYRNET = 'KuryrNet'
 

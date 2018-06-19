@@ -616,3 +616,44 @@ class ServicePubIpDriver(DriverBase):
         :param service_pub_ip_info: service loadbalancer IP info
 
         """
+
+
+@six.add_metaclass(abc.ABCMeta)
+class NetworkPolicyDriver(DriverBase):
+    """Provide network-policy for pods"""
+
+    ALIAS = 'network_policy'
+
+    @abc.abstractmethod
+    def ensure_network_policy(self, policy, project_id):
+        """Policy created or updated
+
+        :param policy: dict containing Kubernetes NP object
+        :param project_id: openstack project_id
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def release_network_policy(self, policy, project_id):
+        """Delete a network policy
+
+        :param policy: dict containing Kubernetes NP object
+        :param project_id
+        """
+        raise NotImplementedError()
+
+
+@six.add_metaclass(abc.ABCMeta)
+class NetworkPolicyProjectDriver(DriverBase):
+    """Get an OpenStack project id for K8s network policies"""
+
+    ALIAS = 'policy_project'
+
+    @abc.abstractmethod
+    def get_project(self, policy):
+        """Get an OpenStack project id for K8s pod ports.
+
+        :param policy: dict containing Kubernetes NP object
+        :returns: OpenStack project_id
+        """
+        raise NotImplementedError()
