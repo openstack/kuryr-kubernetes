@@ -62,7 +62,7 @@
 
 - job:
     name: kuryr-kubernetes-tempest-dragonflow
-    parent: kuryr-kubernetes-tempest-lbaasv2
+    parent: kuryr-kubernetes-tempest-octavia
     description: |
       Kuryr-Kubernetes tempest job using Dragonflow
     required-projects:

@@ -1,0 +1,15 @@
+---
+upgrade:
+  - |
+    Legacy Kuryr deployment relying on neutron-lbaas as the LBaaSv2 endpoint is
+    now deprecated. The possibility of using it as Kuryr's lbaasv2 endpoint
+    will be totally removed in one of the next releases.
+deprecations:
+  - |
+    Running Kuryr-Kubernetes with neutron-lbaasv2 is now deprecated. The main
+    motivation for this is the deprecation of the neutron-lbaas implementation
+    in favour to Octavia.
+
+    Possibility of running Kuryr-Kubernetes with the lbaas handler pointing to
+    anything but Octavia or SDN lbaas implementations will be removed in
+    future releases.
