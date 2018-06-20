@@ -116,7 +116,7 @@ class IngressCtrlr(object):
 
     def _is_ingress_controller_disabled(self):
         # Note(yboaron) To enable the ingress controller admin should :
-        # A. Set the L7 router's FIP  in kuryr.conf
+        # A. Set the L7-router/LB UUID in kuryr.conf
         # and
         # B. Add K8S-ingress and OCP-route handlers to pluggable
         # handlers list

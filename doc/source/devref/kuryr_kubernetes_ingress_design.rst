@@ -92,14 +92,13 @@ IP (allocated from 'external_svc_subnet').
 The following parameters should be configured in kuryr.conf file to
 enable L7 Router::
 
-         [neutron_defaults]
-         external_svc_subnet=external_subnet_id
-         l7_router_ip=<floating_ip> (e.g: 172.24.4.13)
+         [ingress]
+         l7_router_uuid=<loadbalancer uuid>
          [kubernetes]
          enable_ingress = True
+         # make sure that 'ingresslb' appears in enabled_handlers
+         enabled_handlers= vif,lb,lbaasspec,ingresslb
 
-In case L7 router is enabled in kuryr.conf, the kuryr-kubernetes controller
-should create it only if it doesn't exist.
 The L7 Router should notify the Health Manager upon any failure that could
 lead to L7 Router's malfunctionality.
 
