@@ -5,7 +5,8 @@ ARG UPPER_CONSTRAINTS_FILE="https://git.openstack.org/cgit/openstack/requirement
 
 RUN yum install -y epel-release \
     && yum install -y --setopt=tsflags=nodocs python-pip \
-    && yum install --setopt=tsflags=nodocs --assumeyes inet-tools gcc python-devel wget git
+    && yum install --setopt=tsflags=nodocs --assumeyes inet-tools gcc python-devel wget git \
+    && pip install -U setuptools
 
 COPY . /opt/kuryr-kubernetes
 

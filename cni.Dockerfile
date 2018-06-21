@@ -6,7 +6,8 @@ ARG OSLO_LOCK_PATH=/var/kuryr-lock
 
 RUN yum install -y epel-release https://rdoproject.org/repos/rdo-release.rpm \
     && yum install -y --setopt=tsflags=nodocs python-pip iproute bridge-utils openvswitch sudo jq \
-    && yum install -y --setopt=tsflags=nodocs gcc python-devel git
+    && yum install -y --setopt=tsflags=nodocs gcc python-devel git \
+    && pip install -U setuptools
 
 COPY . /opt/kuryr-kubernetes
 
