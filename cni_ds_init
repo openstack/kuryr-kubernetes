@@ -6,35 +6,31 @@ function cleanup() {
 }
 
 function deploy() {
-    local serviceaccount_path
-    serviceaccount_path="/var/run/secrets/kubernetes.io/serviceaccount"
-
-    # Prepare token.
-    KUBE_TOKEN=$(<${serviceaccount_path}/token)
-    POD_NAMESPACE=$(<${serviceaccount_path}/namespace)
-
-    CONTAINERID=""
-    x=0
-    while [ -z ${CONTAINERID} ] && [ $x -lt 9 ]; do
-        sleep 5
-
-        CONTAINERID=$(curl -vvv -H "Authorization: Bearer $KUBE_TOKEN" --cacert ${serviceaccount_path}/ca.crt \
-          https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT_HTTPS}/api/v1/namespaces/${POD_NAMESPACE}/pods/${KURYR_CNI_POD_NAME} | jq -r '.["status"]["containerStatuses"][0]["containerID"]')
-
-        CONTAINERID=${CONTAINERID#*//}
-        ((x++)) || true
-    done;
-
-    # There's no point to run if we cannot get CONTAINERID.
-    if [ -z ${CONTAINERID} ]; then
-        exit 1
-    fi
+    POD_NAMESPACE=$(</var/run/secrets/kubernetes.io/serviceaccount/namespace)
 
     # Write the script to a file.
     cat > /kuryr-cni << EOF
 #!/bin/bash -x
+
+finder="
+import json
+import sys
+
+containers=json.load(sys.stdin)
+for container in containers:
+    if ('Labels' in container and
+            container['Labels'].get('io.kubernetes.pod.name') == '${KURYR_CNI_POD_NAME}' and
+            container['Labels'].get('io.kubernetes.pod.namespace') == '${POD_NAMESPACE}' and
+            container['Labels'].get('io.kubernetes.docker.type') == 'container'):
+        print(container['Id'])
+        break
+"
+
+# TODO(dulek): We might want to fetch socket path from config.
+CONTAINERID=\`curl --unix-socket /var/run/docker.sock http://v1.24/containers/json 2> /dev/null | python -c "\${finder}"\`
+
 envs=(\$(env | grep ^CNI_))
-docker exec \${envs[@]/#/--env } -i "${CONTAINERID}" kuryr-cni --config-file /etc/kuryr/kuryr.conf
+docker exec \${envs[@]/#/--env } -i "\${CONTAINERID}" kuryr-cni --config-file /etc/kuryr/kuryr.conf
 EOF
 
     # Copy the script into the designated location
