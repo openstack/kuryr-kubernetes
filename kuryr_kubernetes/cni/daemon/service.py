@@ -128,7 +128,7 @@ class DaemonServer(object):
             raise
 
         try:
-            self.application.run(address, port,
+            self.application.run(address, port, threaded=False,
                                  processes=CONF.cni_daemon.worker_num)
         except Exception:
             LOG.exception('Failed to start kuryr-daemon.')
