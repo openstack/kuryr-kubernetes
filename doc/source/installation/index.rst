@@ -41,3 +41,4 @@ This section describes how you can install and configure kuryr-kubernetes
     testing_nested_connectivity
     containerized
     ocp_route
+    multi_vif_with_npwg_spec

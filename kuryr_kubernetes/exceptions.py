@@ -38,6 +38,10 @@ class InvalidKuryrNetCRD(Exception):
     pass
 
 
+class InvalidKuryrNetworkAnnotation(Exception):
+    pass
+
+
 class CNIError(Exception):
     pass
 
