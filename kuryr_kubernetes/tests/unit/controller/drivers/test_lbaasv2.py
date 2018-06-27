@@ -546,20 +546,26 @@ class TestLBaaSv2Driver(test_base.TestCase):
         m_create.assert_called_once_with(obj)
         self.assertEqual(expected_result, ret)
 
-    def test_ensure_with_conflict(self):
+    def _verify_ensure_with_exception(self, exception_value):
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         obj = mock.Mock()
         m_create = mock.Mock()
         m_find = mock.Mock()
         expected_result = mock.sentinel.expected_result
-        m_create.side_effect = n_exc.Conflict
+        m_create.side_effect = exception_value
         m_find.return_value = expected_result
 
         ret = cls._ensure(m_driver, obj, m_create, m_find)
         m_create.assert_called_once_with(obj)
         m_find.assert_called_once_with(obj)
         self.assertEqual(expected_result, ret)
+
+    def test_ensure_with_conflict(self):
+        self._verify_ensure_with_exception(n_exc.Conflict)
+
+    def test_ensure_with_internalservererror(self):
+        self._verify_ensure_with_exception(n_exc.InternalServerError)
 
     def test_request(self):
         cls = d_lbaasv2.LBaaSv2Driver
