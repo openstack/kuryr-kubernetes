@@ -122,6 +122,7 @@
       - ^.*\.rst$
       - ^doc/.*$
       - ^releasenotes/.*$
+      - ^contrib/.*$
 
 - job:
     name: kuryr-kubernetes-tempest-daemon-pools-lbaasv2
