@@ -146,7 +146,7 @@ def _make_vif_subnets(neutron_port, subnets):
 
 
 def _make_vif_network(neutron_port, subnets):
-    """Gets a os-vif Network object for port.
+    """Get an os-vif Network object for port.
 
     :param neutron_port: dict containing port information as returned by
                          neutron client's 'show_port'

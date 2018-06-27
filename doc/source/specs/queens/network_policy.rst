@@ -47,7 +47,7 @@ In order to support network-policy, kuryr-kubernetes should handle all the
 events that are related to the network-policies and translate them into
 Neutron objects for apply an equivalent network-topology to the one defined by
 the Kubernetes policies. Neutron doesn't have a security API that is equivalent
-to the the kubernetes-network-policy. The translation should be done carefully
+to the kubernetes-network-policy. The translation should be done carefully
 in order to achieve eventually consistent required topology, and avoid
 corner-cases and race conditions.
 
