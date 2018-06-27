@@ -366,7 +366,6 @@
         df-redis-server: true
         df-controller: true
         df-ext-services: true
-        df-zmq-publisher-service: true
         df-l3-agent: true
       devstack_plugins:
         dragonflow: https://github.com/openstack/dragonflow
