@@ -398,10 +398,11 @@ class LBaaSv2Driver(base.LBaaSDriver):
         return member
 
     def _ensure(self, obj, create, find):
+        # TODO(yboaron): change the create/find order.
         try:
             result = create(obj)
             LOG.debug("Created %(obj)s", {'obj': result})
-        except n_exc.Conflict:
+        except (n_exc.Conflict, n_exc.InternalServerError):
             result = find(obj)
             if result:
                 LOG.debug("Found %(obj)s", {'obj': result})
