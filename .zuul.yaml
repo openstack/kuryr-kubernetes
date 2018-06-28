@@ -70,6 +70,11 @@
       - openstack/neutron-lbaas
       - openstack/tempest
     post-run: playbooks/copy-k8s-logs.yaml
+    host-vars:
+      controller:
+        devstack_plugins:
+          kuryr-kubernetes: https://git.openstack.org/openstack/kuryr
+          devstack-plugin-container: https://git.openstack.org/openstack/devstack-plugin-container
     vars:
       tempest_test_regex: '^(kuryr_tempest_plugin.tests.)'
       tox_envlist: 'all'
@@ -113,9 +118,6 @@
         kubernetes-scheduler: true
         kubelet: true
         kuryr-kubernetes: true
-      devstack_plugins:
-        kuryr-kubernetes: https://git.openstack.org/openstack/kuryr
-        devstack-plugin-container: https://git.openstack.org/openstack/devstack-plugin-container
       zuul_copy_output:
         '{{ devstack_log_dir }}/kubernetes': 'logs'
     irrelevant-files:
@@ -148,6 +150,11 @@
       - openstack/python-barbicanclient
       - openstack/python-octaviaclient
     pre-run: playbooks/get_amphora_tarball.yaml
+    host-vars:
+      controller:
+        devstack_plugins:
+          octavia: https://git.openstack.org/openstack/octavia
+          barbican: https://git.openstack.org/openstack/barbican
     vars:
       devstack_localrc:
         OCTAVIA_AMP_IMAGE_FILE: "/tmp/test-only-amphora-x64-haproxy-ubuntu-xenial.qcow2"
@@ -164,9 +171,6 @@
         o-cw: true
         o-hk: true
         o-hm: true
-      devstack_plugins:
-        octavia: https://git.openstack.org/openstack/octavia
-        barbican: https://git.openstack.org/openstack/barbican
 
 - job:
     name: kuryr-kubernetes-tempest-octavia-centos-7
@@ -233,6 +237,22 @@
     description: |
         Kuryr-Kubernetes tempest multinode job using octavia
     nodeset: openstack-two-node
+    host-vars:
+      controller:
+        devstack_plugins:
+          barbican: https://git.openstack.org/openstack/barbican
+          devstack-plugin-container: https://git.openstack.org/openstack/devstack-plugin-container
+          kuryr-kubernetes: https://git.openstack.org/openstack/kuryr
+          octavia: https://git.openstack.org/openstack/octavia
+    group-vars:
+      subnode:
+        devstack_services:
+          tls-proxy: false
+          c-vol: false
+          c-bak: false
+    vars:
+      devstack_services:
+        tls-proxy: false
     voting: false
 
 - job:
@@ -240,13 +260,15 @@
     parent: kuryr-kubernetes-tempest-base
     description: |
       Kuryr-Kubernetes tempest job using lbaasv2
+    host-vars:
+      controller:
+        devstack_plugins:
+          neutron-lbaas: https://git.openstack.org/openstack/neutron-lbaas
     vars:
       devstack_localrc:
           NEUTRON_LBAAS_SERVICE_PROVIDERV2: 'LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default'
       devstack_services:
         q-lbaasv2: true
-      devstack_plugins:
-        neutron-lbaas: https://git.openstack.org/openstack/neutron-lbaas
 
 - job:
     name: kuryr-kubernetes-tempest-lbaasv2-centos-7
@@ -295,6 +317,22 @@
     description: |
       Kuryr-Kubernetes tempest multinode job using lbaasv2
     nodeset: openstack-two-node
+    host-vars:
+      controller:
+        devstack_plugins:
+          devstack-plugin-container: https://git.openstack.org/openstack/devstack-plugin-container
+          kuryr-kubernetes: https://git.openstack.org/openstack/kuryr
+          neutron-lbaas: https://git.openstack.org/openstack/neutron-lbaas
+    group-vars:
+      subnode:
+        devstack_services:
+          c-vol: false
+          c-bak: false
+          q-lbaasv2: false
+          tls-proxy: false
+    vars:
+      devstack_services:
+        tls-proxy: false
     voting: false
 
 - job:
@@ -304,6 +342,11 @@
         Kuryr-Kubernetes tempest job using OVN
     required-projects:
       - openstack/networking-ovn
+    host-vars:
+      controller:
+        devstack_plugins:
+          networking-ovn: https://git.openstack.org/openstack/networking-ovn
+          neutron: https://git.openstack.org/openstack/neutron
     vars:
       devstack_localrc:
         OVS_HOST_PATH: /usr/local/var/run/openvswitch
@@ -320,9 +363,6 @@
         q-meta: false
         q-trunk: true
         kuryr-daemon: true
-      devstack_plugins:
-        networking-ovn: https://git.openstack.org/openstack/networking-ovn
-        neutron: https://git.openstack.org/openstack/neutron
     voting: false
 
 - job:
@@ -372,18 +412,20 @@
         dragonflow: https://github.com/openstack/dragonflow
     voting: false
 
-# Tempest with LBaaSV2 and containers
 - job:
     name: kuryr-kubernetes-tempest-containerized-lbaasv2
     parent: kuryr-kubernetes-tempest-lbaasv2
+    description: |
+        Tempest with LBaaSV2 and containers
     vars:
       devstack_localrc:
         KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
 
-# Tempest with LBaaSV2, CNI daemon enabled and containers
 - job:
     name: kuryr-kubernetes-tempest-daemon-containerized-lbaasv2
     parent: kuryr-kubernetes-tempest-daemon-lbaasv2
+    description: |
+        Tempest with LBaaSV2, CNI daemon enabled and containers
     vars:
       devstack_localrc:
         KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
