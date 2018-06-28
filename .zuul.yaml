@@ -17,12 +17,14 @@
       jobs:
         - openstack-tox-lower-constraints
         - kuryr-kubernetes-tempest-octavia
+        - kuryr-kubernetes-tempest-lbaasv2
         - kuryr-kubernetes-tempest-daemon-octavia
         - kuryr-kubernetes-tempest-daemon-openshift-octavia
-        - kuryr-kubernetes-tempest-lbaasv2
         - kuryr-kubernetes-tempest-daemon-lbaasv2
         - kuryr-kubernetes-tempest-daemon-openshift-lbaasv2
         - kuryr-kubernetes-tempest-daemon-containerized-octavia
+        - kuryr-kubernetes-tempest-multinode-octavia
+        - kuryr-kubernetes-tempest-octavia-centos-7
         - kuryr-kubernetes-tempest-dragonflow
         - kuryr-kubernetes-tempest-daemon-containerized-ovn
     gate:
@@ -35,10 +37,6 @@
         - kuryr-kubernetes-tempest-daemon-containerized-octavia
     experimental:
       jobs:
-        - kuryr-kubernetes-tempest-multinode-octavia
-        - kuryr-kubernetes-tempest-multinode-lbaasv2
-        - kuryr-kubernetes-tempest-octavia-centos-7
-        - kuryr-kubernetes-tempest-lbaasv2-centos-7
         - kuryr-kubernetes-tempest-containerized-lbaasv2
         - kuryr-kubernetes-tempest-daemon-containerized-openshift-lbaasv2
         - kuryr-kubernetes-tempest-daemon-pools-lbaasv2
@@ -271,12 +269,6 @@
         q-lbaasv2: true
 
 - job:
-    name: kuryr-kubernetes-tempest-lbaasv2-centos-7
-    parent: kuryr-kubernetes-tempest-lbaasv2
-    nodeset: openstack-centos-7-single-node
-    voting: false
-
-- job:
     name: kuryr-kubernetes-tempest-daemon-lbaasv2
     parent: kuryr-kubernetes-tempest-lbaasv2
     description: |
@@ -309,30 +301,6 @@
     vars:
       devstack_services:
         kuryr-daemon: true
-    voting: false
-
-- job:
-    name: kuryr-kubernetes-tempest-multinode-lbaasv2
-    parent: kuryr-kubernetes-tempest-lbaasv2
-    description: |
-      Kuryr-Kubernetes tempest multinode job using lbaasv2
-    nodeset: openstack-two-node
-    host-vars:
-      controller:
-        devstack_plugins:
-          devstack-plugin-container: https://git.openstack.org/openstack/devstack-plugin-container
-          kuryr-kubernetes: https://git.openstack.org/openstack/kuryr
-          neutron-lbaas: https://git.openstack.org/openstack/neutron-lbaas
-    group-vars:
-      subnode:
-        devstack_services:
-          c-vol: false
-          c-bak: false
-          q-lbaasv2: false
-          tls-proxy: false
-    vars:
-      devstack_services:
-        tls-proxy: false
     voting: false
 
 - job:
