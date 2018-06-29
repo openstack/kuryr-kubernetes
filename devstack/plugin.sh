@@ -71,6 +71,7 @@ function configure_kuryr {
     iniset "$KURYR_CONFIG" kubernetes port_debug "$KURYR_PORT_DEBUG"
 
     iniset "$KURYR_CONFIG" kubernetes pod_subnets_driver "$KURYR_SUBNET_DRIVER"
+    iniset "$KURYR_CONFIG" kubernetes pod_security_groups_driver "$KURYR_SG_DRIVER"
     iniset "$KURYR_CONFIG" kubernetes enabled_handlers "$KURYR_ENABLED_HANDLERS"
 
     # Let Kuryr retry connections to K8s API for 20 minutes.
@@ -278,6 +279,8 @@ function configure_neutron_defaults {
     local subnetpool_id
     local router
     local router_id
+    local ext_svc_net_id
+    local ext_svc_subnet_id
 
     # If a subnetpool is not passed, we get the one created in devstack's
     # Neutron module
@@ -307,8 +310,10 @@ function configure_neutron_defaults {
     service_subnet_id="$(openstack subnet show -c id -f value \
         "${KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET}")"
 
-    sg_ids=$(echo $(openstack security group list \
-        --project "$project_id" -c ID -f value) | tr ' ' ',')
+    if [ "$KURYR_SG_DRIVER" != "namespace" ]; then
+        sg_ids=$(echo $(openstack security group list \
+            --project "$project_id" -c ID -f value) | tr ' ' ',')
+    fi
 
     ext_svc_net_id="$(openstack network show -c id -f value \
         "${KURYR_NEUTRON_DEFAULT_EXT_SVC_NET}")"
@@ -334,7 +339,11 @@ function configure_neutron_defaults {
             --description "k8s service subnet allowed" \
             --remote-ip "$service_cidr" --ethertype IPv4 --protocol tcp \
             "$service_pod_access_sg_id"
-        sg_ids+=",${service_pod_access_sg_id}"
+        if [ -n "$sg_ids" ]; then
+            sg_ids+=",${service_pod_access_sg_id}"
+        else
+            sg_ids="${service_pod_access_sg_id}"
+        fi
     elif [[ "$use_octavia" == "True" && \
             "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L2" ]]; then
         # In case the member connectivity is L2, Octavia by default uses the
@@ -357,7 +366,11 @@ function configure_neutron_defaults {
             --description "k8s pod subnet allowed from k8s-pod-subnet" \
             --remote-ip "$pod_cidr" --ethertype IPv4 --protocol tcp \
             "$octavia_pod_access_sg_id"
-        sg_ids+=",${octavia_pod_access_sg_id}"
+        if [ -n "$sg_ids" ]; then
+            sg_ids+=",${octavia_pod_access_sg_id}"
+        else
+            sg_ids="${octavia_pod_access_sg_id}"
+        fi
     fi
 
     KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
@@ -384,6 +397,31 @@ function configure_neutron_defaults {
         iniset "$KURYR_CONFIG" namespace_subnet pod_subnet_pool "$subnetpool_id"
         iniset "$KURYR_CONFIG" namespace_subnet pod_router "$router_id"
     fi
+    if [ "$KURYR_SG_DRIVER" == "namespace" ]; then
+        local allow_namespace_sg_id
+        local allow_default_sg_id
+        allow_namespace_sg_id=$(openstack --os-cloud devstack-admin \
+            --os-region "$REGION_NAME" \
+            security group create --project "$project_id" \
+            allow_from_namespace -f value -c id)
+        allow_default_sg_id=$(openstack --os-cloud devstack-admin \
+            --os-region "$REGION_NAME" \
+            security group create --project "$project_id" \
+            allow_from_default -f value -c id)
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            security group rule create --project "$project_id" \
+            --description "allow traffic from default namespace" \
+            --remote-group "$allow_namespace_sg_id" --ethertype IPv4 --protocol tcp \
+            "$allow_default_sg_id"
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            security group rule create --project "$project_id" \
+            --description "allow traffic from namespaces at default namespace" \
+            --remote-group "$allow_default_sg_id" --ethertype IPv4 --protocol tcp \
+            "$allow_namespace_sg_id"
+
+        iniset "$KURYR_CONFIG" namespace_sg sg_allow_from_namespaces "$allow_namespace_sg_id"
+        iniset "$KURYR_CONFIG" namespace_sg sg_allow_from_default "$allow_default_sg_id"
+    fi
     if [ -n "$OVS_BRIDGE" ]; then
         iniset "$KURYR_CONFIG" neutron_defaults ovs_bridge "$OVS_BRIDGE"
     fi
@@ -409,7 +447,7 @@ function configure_k8s_pod_sg_rules {
                       --os-region "$REGION_NAME" \
                       security group list \
                       --project "$project_id" -c ID -c Name -f value | \
-                      awk '/default/ {print $1}')
+                      awk '{if ($2=="default") print $1}')
     create_k8s_icmp_sg_rules "$sg_id" ingress
 }
 

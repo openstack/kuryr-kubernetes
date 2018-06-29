@@ -20,6 +20,15 @@ the next steps are needed:
     pod_subnets_driver = namespace
 
 
+   In addition, to ensure that pods at one given namespace cannot reach (or be
+   reached by) the ones at another namespace, except the pods at the default
+   namespace that can reach (and be reached by) any pod at a different
+   namespace, the next security group driver needs to be set too::
+
+    [kubernetes]
+    pod_security_groups_driver = namespace
+
+
 3. Select (and create if needed) the subnet pool from where the new subnets
    will get their CIDR (e.g., the default on devstack deployment is
    shared-default-subnetpool-v4)::
@@ -40,6 +49,15 @@ the next steps are needed:
    the default subnet driver.
 
 
+5. Select (and create if needed) the security groups to be attached to the
+   pods at the default namespace and to the others, enabling the cross access
+   between them::
+
+    [namespace_sg]
+    sg_allow_from_namespaces = SG_ID_1 # Makes SG_ID_1 allow traffic from the sg sg_allow_from_default
+    sg_allow_from_default = SG_ID_2 # Makes SG_ID_2 allow traffic from the sg sg_allow_from_namespaces
+
+
 Note you need to restart the kuryr controller after applying the above
 detailed steps. For devstack non-containerized deployments::
 
@@ -56,6 +74,7 @@ For directly enabling the driver when deploying with devstack, you just need
 to add the namespace handler and state the namespace subnet driver with::
 
   KURYR_SUBNET_DRIVER=namespace
+  KURYR_SG_DRIVER=namespace
   KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,namespace
 
 

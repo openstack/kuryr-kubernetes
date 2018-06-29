@@ -22,6 +22,7 @@ from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
 
 from neutronclient.common import exceptions as n_exc
+from oslo_config import cfg as oslo_cfg
 
 
 def get_pod_obj():
@@ -176,69 +177,20 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         cls = subnet_drv.NamespacePodSubnetDriver
         m_driver = mock.MagicMock(spec=cls)
 
-        net_crd_name = 'test'
         net_id = mock.sentinel.net_id
         subnet_id = mock.sentinel.subnet_id
+        sg_id = mock.sentinel.sg_id
         crd = {
             'spec': {
                 'subnetId': subnet_id,
-                'netId': net_id
+                'netId': net_id,
+                'sgId': sg_id
             }
         }
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
-        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
 
-        kubernetes.get.return_value = crd
+        cls.delete_namespace_subnet(m_driver, crd)
 
-        cls.delete_namespace_subnet(m_driver, net_crd_name)
-
-        kubernetes.get.assert_called_once()
-        m_driver._del_kuryrnet_crd.assert_called_once_with(net_crd_name)
-        neutron.remove_interface_router.assert_called_once()
-        neutron.delete_network.assert_called_once_with(net_id)
-
-    def test_delete_namespace_subnet_k8s_get_exception(self):
-        cls = subnet_drv.NamespacePodSubnetDriver
-        m_driver = mock.MagicMock(spec=cls)
-
-        net_crd_name = 'test'
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
-        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
-
-        kubernetes.get.side_effect = k_exc.K8sClientException
-
-        self.assertRaises(k_exc.K8sClientException,
-                          cls.delete_namespace_subnet, m_driver, net_crd_name)
-
-        kubernetes.get.assert_called_once()
-        m_driver._del_kuryrnet_crd.assert_not_called()
-        neutron.remove_interface_router.assert_not_called()
-        neutron.delete_network.assert_not_called()
-
-    def test_delete_namespace_subnet_k8s_del_crd_exception(self):
-        cls = subnet_drv.NamespacePodSubnetDriver
-        m_driver = mock.MagicMock(spec=cls)
-
-        net_crd_name = 'test'
-        net_id = mock.sentinel.net_id
-        subnet_id = mock.sentinel.subnet_id
-        crd = {
-            'spec': {
-                'subnetId': subnet_id,
-                'netId': net_id
-            }
-        }
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
-        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
-
-        kubernetes.get.return_value = crd
-        m_driver._del_kuryrnet_crd.side_effect = k_exc.K8sClientException
-
-        self.assertRaises(k_exc.K8sClientException,
-                          cls.delete_namespace_subnet, m_driver, net_crd_name)
-
-        kubernetes.get.assert_called_once()
-        m_driver._del_kuryrnet_crd.assert_called_once_with(net_crd_name)
         neutron.remove_interface_router.assert_called_once()
         neutron.delete_network.assert_called_once_with(net_id)
 
@@ -246,28 +198,24 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         cls = subnet_drv.NamespacePodSubnetDriver
         m_driver = mock.MagicMock(spec=cls)
 
-        net_crd_name = 'test'
         net_id = mock.sentinel.net_id
         subnet_id = mock.sentinel.subnet_id
+        sg_id = mock.sentinel.sg_id
         crd = {
             'spec': {
                 'subnetId': subnet_id,
-                'netId': net_id
+                'netId': net_id,
+                'sgId': sg_id
             }
         }
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
-        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
-
-        kubernetes.get.return_value = crd
         neutron.delete_network.side_effect = n_exc.NetworkInUseClient
 
         self.assertRaises(k_exc.ResourceNotReady,
-                          cls.delete_namespace_subnet, m_driver, net_crd_name)
+                          cls.delete_namespace_subnet, m_driver, crd)
 
-        kubernetes.get.assert_called_once()
         neutron.remove_interface_router.assert_called_once()
         neutron.delete_network.assert_called_once_with(net_id)
-        m_driver._del_kuryrnet_crd.assert_not_called()
 
     def test_create_namespace_network(self):
         cls = subnet_drv.NamespacePodSubnetDriver
@@ -280,8 +228,13 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         neutron.create_network.return_value = {'network': net}
         subnet = {'id': mock.sentinel.subnet}
         neutron.create_subnet.return_value = {'subnet': subnet}
-        net_crd = mock.sentinel.net_crd
-        m_driver._add_kuryrnet_crd.return_value = net_crd
+        router_id = 'router1'
+        oslo_cfg.CONF.set_override('pod_router',
+                                   router_id,
+                                   group='namespace_subnet')
+        net_crd = {'netId': net['id'],
+                   'routerId': router_id,
+                   'subnetId': subnet['id']}
 
         net_crd_resp = cls.create_namespace_network(m_driver, namespace,
                                                     project_id)
@@ -290,7 +243,6 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         neutron.create_network.assert_called_once()
         neutron.create_subnet.assert_called_once()
         neutron.add_interface_router.assert_called_once()
-        m_driver._add_kuryrnet_crd.assert_called_once()
 
     def test_create_namespace_network_net_exception(self):
         cls = subnet_drv.NamespacePodSubnetDriver
@@ -309,7 +261,6 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         neutron.create_network.assert_called_once()
         neutron.create_subnet.assert_not_called()
         neutron.add_interface_router.assert_not_called()
-        m_driver._add_kuryrnet_crd.assert_not_called()
 
     def test_create_namespace_network_subnet_exception(self):
         cls = subnet_drv.NamespacePodSubnetDriver
@@ -329,10 +280,8 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         neutron.create_network.assert_called_once()
         neutron.create_subnet.assert_called_once()
         neutron.add_interface_router.assert_not_called()
-        m_driver._add_kuryrnet_crd.assert_not_called()
 
     def test_create_namespace_network_router_exception(self):
-        pass
         cls = subnet_drv.NamespacePodSubnetDriver
         m_driver = mock.MagicMock(spec=cls)
 
@@ -353,30 +302,6 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         neutron.create_network.assert_called_once()
         neutron.create_subnet.assert_called_once()
         neutron.add_interface_router.assert_called_once()
-        m_driver._add_kuryrnet_crd.assert_not_called()
-
-    def test_create_namespace_network_crd_exception(self):
-        cls = subnet_drv.NamespacePodSubnetDriver
-        m_driver = mock.MagicMock(spec=cls)
-
-        namespace = 'test'
-        project_id = mock.sentinel.project_id
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
-        net = {'id': mock.sentinel.net}
-        neutron.create_network.return_value = {'network': net}
-        subnet = {'id': mock.sentinel.subnet}
-        neutron.create_subnet.return_value = {'subnet': subnet}
-        m_driver._add_kuryrnet_crd.side_effect = k_exc.K8sClientException
-
-        self.assertRaises(k_exc.K8sClientException,
-                          cls.create_namespace_network, m_driver, namespace,
-                          project_id)
-
-        neutron.create_network.assert_called_once()
-        neutron.create_subnet.assert_called_once()
-        neutron.add_interface_router.assert_called_once()
-        m_driver._add_kuryrnet_crd.assert_called_once()
-        m_driver.rollback_network_resources.assert_called_once()
 
     def test_rollback_network_resources(self):
         cls = subnet_drv.NamespacePodSubnetDriver
@@ -385,12 +310,18 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         router_id = mock.sentinel.router_id
         net_id = mock.sentinel.net_id
         subnet_id = mock.sentinel.subnet_id
+        sg_id = mock.sentinel.sg_id
+        crd_spec = {
+            'subnetId': subnet_id,
+            'routerId': router_id,
+            'netId': net_id,
+            'sgId': sg_id
+        }
         namespace = mock.sentinel.namespace
 
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
-        cls.rollback_network_resources(m_driver, router_id, net_id,
-                                       subnet_id, namespace)
+        cls.rollback_network_resources(m_driver, crd_spec, namespace)
         neutron.remove_interface_router.assert_called_with(
             router_id, {'subnet_id': subnet_id})
         neutron.delete_network.assert_called_with(net_id)
@@ -402,14 +333,20 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         router_id = mock.sentinel.router_id
         net_id = mock.sentinel.net_id
         subnet_id = mock.sentinel.subnet_id
+        sg_id = mock.sentinel.sg_id
+        crd_spec = {
+            'subnetId': subnet_id,
+            'routerId': router_id,
+            'netId': net_id,
+            'sgId': sg_id
+        }
         namespace = mock.sentinel.namespace
 
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
         neutron.remove_interface_router.side_effect = (
             n_exc.NeutronClientException)
 
-        cls.rollback_network_resources(m_driver, router_id, net_id,
-                                       subnet_id, namespace)
+        cls.rollback_network_resources(m_driver, crd_spec, namespace)
         neutron.remove_interface_router.assert_called_with(
             router_id, {'subnet_id': subnet_id})
         neutron.delete_network.assert_not_called()
