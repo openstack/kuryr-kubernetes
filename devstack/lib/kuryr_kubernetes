@@ -1057,3 +1057,145 @@ function get_loadbalancer_attribute {
         neutron lbaas-loadbalancer-show "$lb_name" -c "$lb_attr" -f value
     fi
 }
+
+# openshift_node_set_dns_config
+#   Description: Configures Openshift node's DNS section atomically
+#   Params:
+#       node_conf_path: path_to_node_config
+#       upstream_dns_ip: IP of the upstream DNS
+function openshift_node_set_dns_config {
+    local openshift_dnsmasq_recursive_resolv
+    local upstream_dns_ip
+    openshift_dnsmasq_recursive_resolv="${OPENSHIFT_DATA_DIR}/node/resolv.conf"
+
+    upstream_dns_ip="$2"
+    cat > "$openshift_dnsmasq_recursive_resolv" << EOF
+nameserver $upstream_dns_ip
+EOF
+
+    python - <<EOF "$@"
+import os
+import sys
+import tempfile
+import yaml
+
+if len(sys.argv) < 3:
+    sys.exit(1)
+node_conf_path = sys.argv[1]
+conf_dir = os.path.dirname(node_conf_path)
+
+def dns_configure_copy(conf):
+    new_conf = conf.copy()
+    # 127.0.0.1 is used by unbound in gates, let's use another localshost addr
+    new_conf['dnsBindAddress'] = '127.0.0.11:53'
+    new_conf['dnsDomain'] = 'cluster.local'
+    new_conf['dnsIP'] = '0.0.0.0'
+    new_conf['dnsRecursiveResolvConf'] = '${openshift_dnsmasq_recursive_resolv}'
+    return new_conf
+
+old_config = {}
+while True:
+    tp = tempfile.NamedTemporaryFile(dir=conf_dir, delete=False)
+    try:
+        with open(node_conf_path) as node_conf:
+            current_conf = yaml.load(node_conf.read())
+            if current_conf == old_config:
+                tp.write(yaml.dump(new_conf, default_flow_style=False))
+                tp.flush()
+                os.fsync(tp.fileno())
+                tp.close()
+                os.rename(tp.name, node_conf_path)
+                break
+            else:
+                new_conf = dns_configure_copy(current_conf)
+                old_config = current_conf
+                tp.close()
+                os.unlink(tp.name)
+    except Exception:
+        tp.close()
+        os.unlink(tp.name)
+EOF
+}
+
+# run_openshift_dnsmasq
+#   Description: Configures and runs a dnsmasq instance to be run as the node
+#       DNS server that will choose between openshift's DNS and the
+#       upstream DNS depending on the domain
+#   Params:
+#       upstream_dns_ip: IP of the upstream DNS
+function run_openshift_dnsmasq {
+    local dnmasq_binary
+    local cmd
+    local upstream_dns_ip
+    local openshift_dnsmasq_conf_path
+    local search_domains
+
+    upstream_dns_ip="$1"
+    openshift_dnsmasq_conf_path="${OPENSHIFT_DATA_DIR}/node/node_dnsmasq.conf"
+    install_package dnsmasq
+    cat > "$openshift_dnsmasq_conf_path" << EOF
+server=${upstream_dns_ip}
+no-resolv
+domain-needed
+no-negcache
+max-cache-ttl=1
+# Enable dbus so openshift dns can use it to set cluster.local rules
+enable-dbus
+dns-forward-max=10000
+cache-size=10000
+bind-dynamic
+# Do not bind to localhost addresses 127.0.0.1/8 (where skydns binds)
+except-interface=lo
+EOF
+
+    #Open port 53 so pods can reach the DNS server
+    sudo iptables -I INPUT 1 -p udp -m udp --dport 53 -j ACCEPT
+
+    dnsmasq_binary="$(command -v dnsmasq)"
+    cmd="${dnsmasq_binary} -k -C ${openshift_dnsmasq_conf_path}"
+    if [[ "$USE_SYSTEMD" = "True" ]]; then
+        # If systemd is being used, proceed as normal
+        run_process openshift-dnsmasq "$cmd" root root
+    else
+        # If screen is being used, there is a possibility that the devstack
+        # environment is on a stable branch. Older versions of run_process have
+        # a different signature. Sudo is used as a workaround that works in
+        # both older and newer versions of devstack.
+        run_process openshift-dnsmasq "sudo $cmd"
+    fi
+
+    sudo cp /etc/resolv.conf /etc/resolv.conf.orig
+    search_domains=$(awk '/search/ {for (i=2; i<NF; i++) printf $i " "; print $NF}' /etc/resolv.conf.orig)
+    search_domains="cluster.local ${search_domains}"
+    echo "search ${search_domains}" | sudo tee /etc/resolv.conf.openshift_devstack
+    echo "nameserver ${HOST_IP}" | sudo tee --append /etc/resolv.conf.openshift_devstack
+    grep "nameserver" /etc/resolv.conf.orig | sudo tee --append  /etc/resolv.conf.openshift_devstack
+    sudo mv /etc/resolv.conf.openshift_devstack /etc/resolv.conf
+}
+
+function reinstate_old_dns_config {
+    sudo mv /etc/resolv.conf.orig /etc/resolv.conf
+}
+
+
+# run_openshift_dns
+#   Description: Starts openshift's DNS
+function run_openshift_dns {
+    local command
+
+    command="/usr/local/bin/openshift start network \
+        --enable=dns \
+        --config=${OPENSHIFT_DATA_DIR}/node/node-config.yaml \
+        --kubeconfig=${OPENSHIFT_DATA_DIR}/node/node.kubeconfig"
+
+    if [[ "$USE_SYSTEMD" = "True" ]]; then
+        # If systemd is being used, proceed as normal
+        run_process openshift-dns "$command" root root
+    else
+        # If screen is being used, there is a possibility that the devstack
+        # environment is on a stable branch. Older versions of run_process have
+        # a different signature. Sudo is used as a workaround that works in
+        # both older and newer versions of devstack.
+        run_process openshift-dns "sudo $command"
+    fi
+}

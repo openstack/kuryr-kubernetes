@@ -117,6 +117,8 @@ enable_service etcd3
 # OpenShift is run from the binaries conained in a binary release tarball
 enable_service openshift-master
 enable_service openshift-node
+enable_service openshift-dnsmasq
+enable_service openshift-dns
 
 # OpenShift node uses systemd as its cgroup driver. Thus we need Docker to
 # use the same.

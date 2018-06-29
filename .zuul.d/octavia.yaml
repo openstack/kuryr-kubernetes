@@ -93,6 +93,8 @@
         kubelet: false
         openshift-master: true
         openshift-node: true
+        openshift-dnsmasq: true
+        openshift-dns: true
 
 - job:
     name: kuryr-kubernetes-tempest-daemon-openshift-octavia

@@ -755,6 +755,14 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
     if is_service_enabled openshift-node; then
         prepare_kubelet
         run_openshift_node
+        if is_service_enabled openshift-dns; then
+            FIRST_NAMESERVER=$(grep nameserver /etc/resolv.conf | awk '{print $2; exit}')
+            openshift_node_set_dns_config "${OPENSHIFT_DATA_DIR}/node/node-config.yaml" \
+                "$FIRST_NAMESERVER"
+            run_openshift_dnsmasq "$FIRST_NAMESERVER"
+            run_openshift_dns
+       fi
+
         KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE=$(trueorfalse True KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE)
         if [[ "$KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE" == "True" ]]; then
             ovs_bind_for_kubelet "$KURYR_NEUTRON_DEFAULT_PROJECT" ${OPENSHIFT_API_PORT}
@@ -889,6 +897,11 @@ if [[ "$1" == "unstack" ]]; then
     fi
     if is_service_enabled openshift-node; then
         stop_process openshift-node
+        if is_service_enabled openshift-dns; then
+            reinstate_old_dns_config
+            stop_process openshift-dns
+            stop_process openshift-dnsmasq
+        fi
         # NOTE(dulek): We need to clean up the configuration as well, otherwise
         # when doing stack.sh again, openshift-node will use old certificates.
         sudo rm -rf ${OPENSHIFT_DATA_DIR}
