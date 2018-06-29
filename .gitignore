@@ -53,6 +53,7 @@ ChangeLog
 !/.mailmap
 !/.pylintrc
 !/.testr.conf
+!/.stestr.conf
 
 contrib/vagrant/.vagrant
 
