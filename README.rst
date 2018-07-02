@@ -21,6 +21,7 @@ require it or to use different segments and, for example, route between them.
 * Source: https://git.openstack.org/cgit/openstack/kuryr-kubernetes
 * Bugs: https://bugs.launchpad.net/kuryr-kubernetes
 * Overview and demo: http://superuser.openstack.org/articles/networking-kubernetes-kuryr
+* Release notes: https://docs.openstack.org/releasenotes/kuryr-kubernetes/
 
 
 Contribution guidelines
