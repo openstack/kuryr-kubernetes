@@ -308,7 +308,6 @@ function create_k8s_subnet {
 #                another service
 function create_k8s_router_fake_service {
     local router_ip
-    local existing_svc_ip
     local fake_svc_name
 
     fake_svc_name='kuryr-svc-router'
@@ -323,8 +322,8 @@ function create_k8s_router_fake_service {
 #   Description: Creates an endpoint-less kubernetes service to keep Kubernetes
 #                API server from allocating this IP for another service
 function create_k8s_fake_service {
-    local svc_name
-    local svc_ip
+    local fake_svc_name
+    local fake_svc_ip
 
     fake_svc_name="$1"
     fake_svc_ip="$2"
