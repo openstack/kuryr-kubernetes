@@ -24,6 +24,7 @@
     vars:
       devstack_localrc:
           NEUTRON_LBAAS_SERVICE_PROVIDERV2: 'LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default'
+          KURYR_K8S_LBAAS_USE_OCTAVIA: False
       devstack_services:
         q-lbaasv2: true
 
