@@ -855,6 +855,9 @@ elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
     if is_service_enabled tempest && [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes namespace_enabled True
     fi
+    if is_service_enabled tempest && [[ "$KURYR_K8S_SERIAL_TESTS" == "True" ]]; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes run_tests_serial True
+    fi
 fi
 
 if [[ "$1" == "unstack" ]]; then
