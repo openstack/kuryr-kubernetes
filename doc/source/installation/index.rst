@@ -40,3 +40,4 @@ This section describes how you can install and configure kuryr-kubernetes
     testing_connectivity
     testing_nested_connectivity
     containerized
+    ocp_route
