@@ -221,7 +221,10 @@ function create_k8s_api_service {
     local kubelet_iface_ip
     local lb_name
     local use_octavia
+    local project_id
 
+    project_id=$(get_or_create_project \
+        "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
     lb_name='default/kubernetes'
     service_cidr=$(openstack --os-cloud devstack-admin \
                              --os-region "$REGION_NAME" \
@@ -233,10 +236,10 @@ function create_k8s_api_service {
     k8s_api_clusterip=$(_cidr_range "$service_cidr" | cut -f1)
 
     create_load_balancer "$lb_name" "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET"\
-            "$k8s_api_clusterip"
-    create_load_balancer_listener default/kubernetes:443 HTTPS 443 "$lb_name"
+            "$project_id" "$k8s_api_clusterip"
+    create_load_balancer_listener default/kubernetes:443 HTTPS 443 "$lb_name" "$project_id"
     create_load_balancer_pool default/kubernetes:443 HTTPS ROUND_ROBIN \
-        default/kubernetes:443 "$lb_name"
+        default/kubernetes:443 "$project_id" "$lb_name"
 
     local api_port
     if is_service_enabled openshift-master; then
@@ -257,10 +260,10 @@ function create_k8s_api_service {
     if [[ "$use_octavia" == "True" && \
           "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L2" ]]; then
         create_load_balancer_member "$(hostname)" "$address" "$api_port" \
-            default/kubernetes:443 $KURYR_NEUTRON_DEFAULT_POD_SUBNET "$lb_name"
+            default/kubernetes:443 $KURYR_NEUTRON_DEFAULT_POD_SUBNET "$lb_name" "$project_id"
     else
         create_load_balancer_member "$(hostname)" "$address" "$api_port" \
-            default/kubernetes:443 public-subnet "$lb_name"
+            default/kubernetes:443 public-subnet "$lb_name" "$project_id"
     fi
 }
 
@@ -660,15 +663,14 @@ function create_ingress_l7_router {
 
     lb_name=${KURYR_L7_ROUTER_NAME}
     max_timeout=600
+    project_id=$(get_or_create_project \
+        "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
 
-    create_load_balancer "$lb_name" "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET"
+    create_load_balancer "$lb_name" "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" "$project_id"
 
     wait_for_lb $lb_name $max_timeout
 
     lb_port_id="$(get_loadbalancer_attribute "$lb_name" "vip_port_id")"
-
-    project_id=$(get_or_create_project \
-        "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
 
     #allocate FIP and bind it to lb vip
     l7_router_fip=$(openstack --os-cloud devstack-admin \
