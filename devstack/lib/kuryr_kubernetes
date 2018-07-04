@@ -80,8 +80,14 @@ function ovs_bind_for_kubelet() {
     done
     sudo ip route add "$service_subnet_cidr" via "$pod_subnet_gw" dev "$ifname"
     if [ -n "$port_number" ]; then
-        # Ignore the error if openstack-INPUT chain doesn't exist.
-        sudo iptables -I openstack-INPUT 1 -p tcp -s 0.0.0.0/0 -d 0.0.0.0/0 --dport $port_number -j ACCEPT || true
+        # if openstack-INPUT chain doesn't exist we create it in INPUT (for
+        # local development envs since openstack-INPUT is usually only in gates)
+        sudo iptables -I openstack-INPUT 1 \
+            -p tcp -s 0.0.0.0/0 -d 0.0.0.0/0 --dport $port_number -j ACCEPT || \
+        sudo iptables -I INPUT 1 \
+            -p tcp -m conntrack --ctstate NEW \
+            -m tcp --dport "$port_number" \
+            -m comment --comment "kuryr-devstack: Access to OpenShift API" -j ACCEPT
     fi
 }
 
@@ -1170,7 +1176,7 @@ except-interface=lo
 EOF
 
     #Open port 53 so pods can reach the DNS server
-    sudo iptables -I INPUT 1 -p udp -m udp --dport 53 -j ACCEPT
+    sudo iptables -I INPUT 1 -p udp -m udp --dport 53 -m comment --comment "kuryr-devstack: Access to OpenShift API" -j ACCEPT
 
     dnsmasq_binary="$(command -v dnsmasq)"
     cmd="${dnsmasq_binary} -k -C ${openshift_dnsmasq_conf_path}"
@@ -1219,4 +1225,18 @@ function run_openshift_dns {
         # both older and newer versions of devstack.
         run_process openshift-dns "sudo $command"
     fi
+}
+
+# cleanup_kuryr_devstack_iptables
+#    Description: Fins all the iptables rules we set and deletes them
+function cleanup_kuryr_devstack_iptables {
+    local chains
+
+    chains=( INPUT FORWARD OUTPUT )
+    for chain in ${chains[@]}; do
+        sudo iptables -n -L "$chain" -v --line-numbers | \
+            awk -v chain="$chain" \
+                '/kuryr-devstack/ {print "sudo iptables -D " chain " " $1}' | \
+            tac | bash /dev/stdin
+    done
 }
