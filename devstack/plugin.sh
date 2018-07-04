@@ -913,6 +913,11 @@ elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
             run_kuryr_kubernetes
             run_kuryr_daemon
         fi
+
+        # Needs kuryr to be running
+        if is_service_enabled openshift-dns; then
+            configure_and_run_registry
+        fi
     fi
     if is_service_enabled tempest && [[ "$KURYR_USE_PORT_POOLS" == "True" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes port_pool_enabled True
