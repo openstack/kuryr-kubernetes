@@ -194,7 +194,10 @@ function create_k8s_api_service {
     local service_cidr
     local kubelet_iface_ip
     local lb_name
+    local project_id
 
+    project_id=$(get_or_create_project \
+        "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
     lb_name='default/kubernetes'
     service_cidr=$(openstack --os-cloud devstack-admin \
                              --os-region "$REGION_NAME" \
@@ -206,10 +209,10 @@ function create_k8s_api_service {
     k8s_api_clusterip=$(_cidr_range "$service_cidr" | cut -f1)
 
     create_load_balancer "$lb_name" "$k8s_api_clusterip" \
-        "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET"
-    create_load_balancer_listener default/kubernetes:443 HTTPS 443 "$lb_name"
+        "$project_id" "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET"
+    create_load_balancer_listener default/kubernetes:443 HTTPS 443 "$lb_name" "$project_id"
     create_load_balancer_pool default/kubernetes:443 HTTPS ROUND_ROBIN \
-        default/kubernetes:443 "$lb_name"
+        default/kubernetes:443 "$project_id" "$lb_name"
 
     local api_port
     if is_service_enabled openshift-master; then
@@ -219,7 +222,7 @@ function create_k8s_api_service {
     fi
 
     create_load_balancer_member "$(hostname)" "$kubelet_iface_ip" "$api_port" \
-        default/kubernetes:443 public-subnet "$lb_name"
+        default/kubernetes:443 public-subnet "$lb_name" "$project_id"
 }
 
 function configure_neutron_defaults {

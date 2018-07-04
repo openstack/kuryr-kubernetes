@@ -193,9 +193,14 @@ EOF
 function create_k8s_icmp_sg_rules {
     local sg_id=$1
     local direction="$2"
+    local project_id
+
+    project_id=$(get_or_create_project \
+        "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
     icmp_sg_rules=$(openstack --os-cloud devstack-admin \
                               --os-region "$REGION_NAME" \
                               security group rule create \
+                              --project "$project_id" \
                               --protocol icmp \
                               --"$direction" "$sg_id")
     die_if_not_set $LINENO icmp_sg_rules \
@@ -236,6 +241,7 @@ function create_k8s_subnet {
     subnet_id=$(openstack --os-cloud devstack-admin \
                           --os-region "$REGION_NAME" \
                           subnet create $subnet_params \
+                          --project "$project_id" \
                           -c id -f value)
     die_if_not_set $LINENO subnet_id \
         "Failure creating K8s ${subnet_name} IPv4 subnet for ${project_id}"
@@ -744,22 +750,27 @@ function wait_for_lb {
 #   Params:
 #       lb_name: Name to give to the load balancer.
 #       lb_vip: Virtual IP to give to the load balancer.
+#       project_id: Id of the project where the load balancer should be
 #       lb_vip_subnet: Id or name of the subnet where lb_vip should be
 #                      allocated.
 function create_load_balancer {
     local lb_name
     local lb_vip
     local lb_vip_subnet
+    local project_id
 
     lb_name="$1"
     lb_vip="$2"
-    lb_vip_subnet="$3"
+    project_id="$3"
+    lb_vip_subnet="$4"
     if is_service_enabled octavia; then
         openstack loadbalancer create --name "$lb_name" \
+            --project ${project_id} \
             --vip-address "$lb_vip" \
             --vip-subnet-id "$lb_vip_subnet"
     else
         neutron lbaas-loadbalancer-create --name "$lb_name" \
+            --tenant-id ${project_id} \
             --vip-address "$lb_vip" \
             "$lb_vip_subnet"
     fi
@@ -773,17 +784,20 @@ function create_load_balancer {
 #       protocol: Whether it is HTTP, HTTPS, TCP, etc.
 #       port: The TCP port number to listen to.
 #       lb: Id or name of the Load Balancer we want to add the Listener to.
+#       project_id: Id of the the project where this listener belongs
 function create_load_balancer_listener {
     local name
     local protocol
     local port
     local lb
     local max_timeout
+    local project_id
 
     name="$1"
     protocol="$2"
     port="$3"
     lb="$4"
+    project_id="$5"
 
     max_timeout=1200
     # Octavia needs the LB to be active for the listener
@@ -798,6 +812,7 @@ function create_load_balancer_listener {
         neutron lbaas-listener-create --name "$name" \
             --protocol "$protocol" \
             --protocol-port "$port" \
+            --tenant-id "$project_id" \
             --loadbalancer "$lb"
     fi
 }
@@ -811,6 +826,7 @@ function create_load_balancer_listener {
 #       algorithm: Load Balancing algorithm to use.
 #       listener: Id or name of the Load Balancer Listener we want to add the
 #                 pool to.
+#       project_id: Id of the the project where this pool belongs
 #       lb: Id or name of the Load Balancer we want to add the pool to
 #           (optional).
 function create_load_balancer_pool {
@@ -819,12 +835,14 @@ function create_load_balancer_pool {
     local algorithm
     local listener
     local lb
+    local project_id
 
     name="$1"
     protocol="$2"
     algorithm="$3"
     listener="$4"
-    lb="$5"
+    project_id="$5"
+    lb="$6"
 
     # We must wait for the LB to be active before we can put a Pool for it
     wait_for_lb $lb
@@ -836,9 +854,10 @@ function create_load_balancer_pool {
             --lb-algorithm "$algorithm"
     else
         neutron lbaas-pool-create --name "$name" \
-            --loadbalancer "$lb_name" \
+            --loadbalancer "$lb" \
             --listener "$listener" \
             --protocol "$protocol" \
+            --tenant-id "$project_id" \
             --lb-algorithm "$algorithm"
     fi
 }
@@ -852,6 +871,7 @@ function create_load_balancer_pool {
 #       pool: Id or name of the Load Balancer pool this member belongs to.
 #       subnet: Id or name of the subnet the member address belongs to.
 #       lb: Id or name of the load balancer the member belongs to.
+#       project_id: Id of the the project where this pool belongs
 function create_load_balancer_member {
     local name
     local address
@@ -859,6 +879,7 @@ function create_load_balancer_member {
     local pool
     local subnet
     local lb
+    local project_id
 
     name="$1"
     address="$2"
@@ -866,6 +887,7 @@ function create_load_balancer_member {
     pool="$4"
     subnet="$5"
     lb="$6"
+    project_id="$7"
 
     # We must wait for the pool creation update before we can add members
     wait_for_lb $lb
@@ -880,6 +902,7 @@ function create_load_balancer_member {
             --subnet "$subnet" \
             --address "$address" \
             --protocol-port "$port" \
+            --tenant-id "$project_id" \
             "$pool"
     fi
 }
