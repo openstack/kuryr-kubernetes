@@ -38,8 +38,8 @@ LOG = logging.getLogger(__name__)
 class CNIRunner(object):
     # TODO(ivc): extend SUPPORTED_VERSIONS and format output based on
     # requested params.CNI_VERSION and/or params.config.cniVersion
-    VERSION = '0.3.0'
-    SUPPORTED_VERSIONS = ['0.3.0']
+    VERSION = '0.3.1'
+    SUPPORTED_VERSIONS = ['0.3.1']
 
     @abc.abstractmethod
     def _add(self, params):
@@ -69,6 +69,10 @@ class CNIRunner(object):
     def prepare_env(self, env, stdin):
         raise NotImplementedError()
 
+    @abc.abstractmethod
+    def get_container_id(self):
+        raise NotImplementedError()
+
     def run(self, env, fin, fout):
         try:
             # Prepare params according to calling Object
@@ -89,24 +93,36 @@ class CNIRunner(object):
             self._write_exception(fout, str(ex))
             return 1
 
-    def _vif_data(self, vif):
+    def _vif_data(self, vif, params):
         result = {}
         nameservers = []
 
+        cni_ip_list = result.setdefault("ips", [])
+        cni_routes_list = result.setdefault("routes", [])
+        result["interfaces"] = [
+            {
+                "name": vif.vif_name,
+                "mac": vif.address,
+                "sandbox": self.get_container_id(params)}]
         for subnet in vif.network.subnets.objects:
+            cni_ip = {}
             nameservers.extend(subnet.dns)
 
             ip = subnet.ips.objects[0].address
-            cni_ip = result.setdefault("ip%s" % ip.version, {})
-            cni_ip['ip'] = "%s/%s" % (ip, subnet.cidr.prefixlen)
+
+            cni_ip['version'] = str(ip.version)
+            cni_ip['address'] = "%s/%s" % (ip, subnet.cidr.prefixlen)
+            cni_ip['interface'] = len(result["interfaces"]) - 1
 
             if hasattr(subnet, 'gateway'):
                 cni_ip['gateway'] = str(subnet.gateway)
 
             if subnet.routes.objects:
-                cni_ip['routes'] = [
+                routes = [
                     {'dst': str(route.cidr), 'gw': str(route.gateway)}
                     for route in subnet.routes.objects]
+                cni_routes_list.extend(routes)
+            cni_ip_list.append(cni_ip)
 
         if nameservers:
             result['dns'] = {'nameservers': nameservers}
@@ -120,7 +136,7 @@ class CNIStandaloneRunner(CNIRunner):
 
     def _add(self, params):
         vif = self._plugin.add(params)
-        return self._vif_data(vif)
+        return self._vif_data(vif, params)
 
     def _delete(self, params):
         self._plugin.delete(params)
@@ -128,13 +144,16 @@ class CNIStandaloneRunner(CNIRunner):
     def prepare_env(self, env, stdin):
         return utils.CNIParameters(env, stdin)
 
+    def get_container_id(self, params):
+        return params.CNI_CONTAINERID
+
 
 class CNIDaemonizedRunner(CNIRunner):
 
     def _add(self, params):
         resp = self._make_request('addNetwork', params, httplib.ACCEPTED)
         vif = base.VersionedObject.obj_from_primitive(resp.json())
-        return self._vif_data(vif)
+        return self._vif_data(vif, params)
 
     def _delete(self, params):
         self._make_request('delNetwork', params, httplib.NO_CONTENT)
@@ -145,6 +164,9 @@ class CNIDaemonizedRunner(CNIRunner):
             {k: v for k, v in env.items() if k.startswith('CNI_')})
         cni_envs['config_kuryr'] = dict(stdin)
         return cni_envs
+
+    def get_container_id(self, params):
+        return params["CNI_CONTAINERID"]
 
     def _make_request(self, path, cni_envs, expected_status=None):
         method = 'POST'

@@ -142,7 +142,7 @@ Kubelet would only use the lexicographically first file in that directory, so
 make sure that it is kuryr's config file::
 
     {
-        "cniVersion": "0.3.0",
+        "cniVersion": "0.3.1",
         "name": "kuryr",
         "type": "kuryr-cni",
         "kuryr_conf": "/etc/kuryr/kuryr.conf",

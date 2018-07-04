@@ -62,8 +62,10 @@ class TestCNIStandaloneRunner(test_base.TestCase, TestCNIRunnerMixin):
         m_k8s_add.return_value = vif
         m_fin = StringIO()
         m_fout = StringIO()
+        container_id = 'a4181c680a39'
         env = {
             'CNI_COMMAND': 'ADD',
+            'CNI_CONTAINERID': container_id,
             'CNI_ARGS': 'foo=bar',
         }
         self.runner.run(env, m_fin, m_fout)
@@ -71,9 +73,22 @@ class TestCNIStandaloneRunner(test_base.TestCase, TestCNIRunnerMixin):
         self.assertEqual('foo=bar', m_k8s_add.call_args[0][0].CNI_ARGS)
         result = jsonutils.loads(m_fout.getvalue())
         self.assertDictEqual(
-            {"cniVersion": "0.3.0",
+            {"cniVersion": '0.3.1',
              "dns": {"nameservers": ["192.168.0.1"]},
-             "ip4": {"gateway": "192.168.0.1", "ip": "192.168.0.2/24"}},
+             "ips": [
+                 {
+                     "version": "4",
+                     "gateway": "192.168.0.1",
+                     "address": "192.168.0.2/24",
+                     "interface": 0,
+                 }],
+             "interfaces": [
+                 {
+                     "name": vif.vif_name,
+                     "mac": vif.address,
+                     "sandbox": container_id,
+                 }],
+             "routes": []},
             result)
 
     @mock.patch('kuryr_kubernetes.cni.plugins.k8s_cni.K8sCNIPlugin.delete')
@@ -84,6 +99,7 @@ class TestCNIStandaloneRunner(test_base.TestCase, TestCNIRunnerMixin):
         m_fout = StringIO()
         env = {
             'CNI_COMMAND': 'DEL',
+            'CNI_CONTAINERID': 'a4181c680a39',
             'CNI_ARGS': 'foo=bar',
         }
         self.runner.run(env, m_fin, m_fout)
@@ -103,6 +119,7 @@ class TestCNIDaemonizedRunner(test_base.TestCase, TestCNIRunnerMixin):
         m_fout = StringIO()
         env = {
             'CNI_COMMAND': cni_cmd,
+            'CNI_CONTAINERID': 'a4181c680a39',
             'CNI_ARGS': 'foo=bar',
         }
         result = self.runner.run(env, m_fin, m_fout)
