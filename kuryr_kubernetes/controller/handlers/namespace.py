@@ -38,13 +38,15 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
 
     def on_present(self, namespace):
         ns_name = namespace['metadata']['name']
+        project_id = self._drv_project.get_project(namespace)
         net_crd = self._get_net_crd(namespace)
         if net_crd:
             LOG.debug("CRD existing at the new namespace")
             return
 
         LOG.debug("Creating network resources for namespace: %s", ns_name)
-        net_crd = self._drv_subnets.create_namespace_network(ns_name)
+        net_crd = self._drv_subnets.create_namespace_network(ns_name,
+                                                             project_id)
         try:
             self._set_net_crd(namespace, net_crd)
         except exceptions.K8sClientException:

@@ -113,7 +113,7 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
 
         self._del_kuryrnet_crd(net_crd_name)
 
-    def create_namespace_network(self, namespace):
+    def create_namespace_network(self, namespace, project_id):
         neutron = clients.get_neutron_client()
 
         router_id = oslo_cfg.CONF.namespace_subnet.pod_router
@@ -125,7 +125,10 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
         try:
             neutron_net = neutron.create_network(
                 {
-                    "network": {"name": network_name}
+                    "network": {
+                        "name": network_name,
+                        "project_id": project_id
+                    }
                 }).get('network')
 
             # create a subnet within that network
@@ -137,6 +140,7 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
                         "name": subnet_name,
                         "enable_dhcp": False,
                         "subnetpool_id": subnet_pool_id,
+                        "project_id": project_id
                     }
                 }).get('subnet')
 
