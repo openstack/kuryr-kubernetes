@@ -1215,6 +1215,7 @@ EOF
     search_domains=$(awk '/search/ {for (i=2; i<NF; i++) printf $i " "; print $NF}' /etc/resolv.conf.orig)
     search_domains="cluster.local ${search_domains}"
     echo "search ${search_domains}" | sudo tee /etc/resolv.conf.openshift_devstack
+    echo "options ndots:4" | sudo tee /etc/resolv.conf.openshift_devstack
     echo "nameserver ${HOST_IP}" | sudo tee --append /etc/resolv.conf.openshift_devstack
     grep "nameserver" /etc/resolv.conf.orig | sudo tee --append  /etc/resolv.conf.openshift_devstack
     sudo mv /etc/resolv.conf.openshift_devstack /etc/resolv.conf
