@@ -119,7 +119,7 @@ class TestNamespaceHandler(test_base.TestCase):
 
         self._get_net_crd.assert_called_once_with(self._namespace)
         self._create_namespace_network.assert_called_once_with(
-            self._namespace_name)
+            self._namespace_name, self._project_id)
         self._set_net_crd.assert_called_once_with(self._namespace, net_crd)
         self._rollback_network_resources.assert_not_called()
 
@@ -145,7 +145,7 @@ class TestNamespaceHandler(test_base.TestCase):
 
         self._get_net_crd.assert_called_once_with(self._namespace)
         self._create_namespace_network.assert_called_once_with(
-            self._namespace_name)
+            self._namespace_name, self._project_id)
         self._set_net_crd.assert_not_called()
         self._rollback_network_resources.assert_not_called()
 
@@ -160,7 +160,7 @@ class TestNamespaceHandler(test_base.TestCase):
 
         self._get_net_crd.assert_called_once_with(self._namespace)
         self._create_namespace_network.assert_called_once_with(
-            self._namespace_name)
+            self._namespace_name, self._project_id)
         self._set_net_crd.assert_called_once_with(self._namespace, net_crd)
         self._rollback_network_resources.assert_called_once()
 
@@ -179,7 +179,7 @@ class TestNamespaceHandler(test_base.TestCase):
 
         self._get_net_crd.assert_called_once_with(self._namespace)
         self._create_namespace_network.assert_called_once_with(
-            self._namespace_name)
+            self._namespace_name, self._project_id)
         self._set_net_crd.assert_called_once_with(self._namespace, net_crd)
         self._rollback_network_resources.assert_called_once()
 

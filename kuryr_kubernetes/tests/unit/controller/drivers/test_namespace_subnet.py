@@ -274,7 +274,7 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
 
         namespace = 'test'
-
+        project_id = mock.sentinel.project_id
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
         net = {'id': mock.sentinel.net}
         neutron.create_network.return_value = {'network': net}
@@ -283,7 +283,8 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         net_crd = mock.sentinel.net_crd
         m_driver._add_kuryrnet_crd.return_value = net_crd
 
-        net_crd_resp = cls.create_namespace_network(m_driver, namespace)
+        net_crd_resp = cls.create_namespace_network(m_driver, namespace,
+                                                    project_id)
 
         self.assertEqual(net_crd_resp, net_crd)
         neutron.create_network.assert_called_once()
@@ -297,11 +298,13 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
 
         namespace = 'test'
 
+        project_id = mock.sentinel.project_id
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
         neutron.create_network.side_effect = n_exc.NeutronClientException
 
         self.assertRaises(n_exc.NeutronClientException,
-                          cls.create_namespace_network, m_driver, namespace)
+                          cls.create_namespace_network, m_driver, namespace,
+                          project_id)
 
         neutron.create_network.assert_called_once()
         neutron.create_subnet.assert_not_called()
@@ -313,14 +316,15 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
 
         namespace = 'test'
-
+        project_id = mock.sentinel.project_id
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
         net = {'id': mock.sentinel.net}
         neutron.create_network.return_value = {'network': net}
         neutron.create_subnet.side_effect = n_exc.NeutronClientException
 
         self.assertRaises(n_exc.NeutronClientException,
-                          cls.create_namespace_network, m_driver, namespace)
+                          cls.create_namespace_network, m_driver, namespace,
+                          project_id)
 
         neutron.create_network.assert_called_once()
         neutron.create_subnet.assert_called_once()
@@ -333,7 +337,7 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
 
         namespace = 'test'
-
+        project_id = mock.sentinel.project_id
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
         net = {'id': mock.sentinel.net}
         neutron.create_network.return_value = {'network': net}
@@ -343,7 +347,8 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
             n_exc.NeutronClientException)
 
         self.assertRaises(n_exc.NeutronClientException,
-                          cls.create_namespace_network, m_driver, namespace)
+                          cls.create_namespace_network, m_driver, namespace,
+                          project_id)
 
         neutron.create_network.assert_called_once()
         neutron.create_subnet.assert_called_once()
@@ -355,7 +360,7 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
 
         namespace = 'test'
-
+        project_id = mock.sentinel.project_id
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
         net = {'id': mock.sentinel.net}
         neutron.create_network.return_value = {'network': net}
@@ -364,7 +369,8 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         m_driver._add_kuryrnet_crd.side_effect = k_exc.K8sClientException
 
         self.assertRaises(k_exc.K8sClientException,
-                          cls.create_namespace_network, m_driver, namespace)
+                          cls.create_namespace_network, m_driver, namespace,
+                          project_id)
 
         neutron.create_network.assert_called_once()
         neutron.create_subnet.assert_called_once()
