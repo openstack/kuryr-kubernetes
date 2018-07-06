@@ -491,6 +491,12 @@ rules:
     - nodes
     - services
     - services/status
+    - namespaces
+- apiGroups:
+    - openstack.org
+  verbs: ["*"]
+  resources:
+    - kuryrnets
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
