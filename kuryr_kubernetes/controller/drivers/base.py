@@ -664,7 +664,7 @@ class NetworkPolicyDriver(DriverBase):
 class NetworkPolicyProjectDriver(DriverBase):
     """Get an OpenStack project id for K8s network policies"""
 
-    ALIAS = 'policy_project'
+    ALIAS = 'network_policy_project'
 
     @abc.abstractmethod
     def get_project(self, policy):

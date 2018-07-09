@@ -112,6 +112,10 @@ k8s_opts = [
                help=_("The driver to determine OpenStack "
                       "project for namespaces"),
                default='default'),
+    cfg.StrOpt('network_policy_project_driver',
+               help=_("The driver to determine OpenStack "
+                      "project for network policies"),
+               default='default'),
     cfg.StrOpt('pod_subnets_driver',
                help=_("The driver to determine Neutron "
                       "subnets for pod ports"),
@@ -169,6 +173,9 @@ k8s_opts = [
     cfg.PortOpt('controller_ha_elector_port',
                 help=_('Port on which leader-elector pod is listening to.'),
                 default=16401),
+    cfg.StrOpt('network_policy_driver',
+               help=_("Driver for network policies"),
+               default='default'),
 ]
 
 neutron_defaults = [
