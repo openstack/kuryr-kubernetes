@@ -143,7 +143,8 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
             raise ex
         return {'netId': neutron_net['id'],
                 'routerId': router_id,
-                'subnetId': neutron_subnet['id']}
+                'subnetId': neutron_subnet['id'],
+                'subnetCIDR': neutron_subnet['cidr']}
 
     def rollback_network_resources(self, net_crd_spec, namespace):
         neutron = clients.get_neutron_client()

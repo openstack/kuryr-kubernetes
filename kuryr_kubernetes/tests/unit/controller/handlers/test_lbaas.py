@@ -358,7 +358,8 @@ class FakeLBaaSDriver(drv_base.LBaaSDriver):
                                            ip=ip,
                                            id=uuidutils.generate_uuid())
 
-    def ensure_listener(self, loadbalancer, protocol, port):
+    def ensure_listener(self, loadbalancer, protocol, port,
+                        service_type='ClusterIP'):
         if protocol not in _SUPPORTED_LISTENER_PROT:
             return None
 
@@ -677,7 +678,7 @@ class TestLoadBalancerHandler(test_base.TestCase):
             members=list(members.values()))
 
     def _generate_lbaas_spec(self, vip, targets, project_id,
-                             subnet_id, prot='TCP'):
+                             subnet_id, prot='TCP', lbaas_type='ClusterIP'):
         return obj_lbaas.LBaaSServiceSpec(
             ip=vip,
             project_id=project_id,
@@ -685,7 +686,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
             ports=[obj_lbaas.LBaaSPortSpec(name=str(port),
                                            protocol=prot,
                                            port=port)
-                   for port in set(t[0] for t in targets.values())])
+                   for port in set(t[0] for t in targets.values())],
+            type=lbaas_type)
 
     def _generate_endpoints(self, targets):
         def _target_to_port(item):

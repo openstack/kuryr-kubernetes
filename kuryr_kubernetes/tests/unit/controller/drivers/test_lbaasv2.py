@@ -247,6 +247,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         }}
         resp = {'loadbalancer': {'id': loadbalancer_id, 'provider': 'haproxy'}}
         lbaas.create_loadbalancer.return_value = resp
+        m_driver._get_vip_port.return_value = {'id': mock.sentinel.port_id}
 
         ret = cls._create_loadbalancer(m_driver, loadbalancer)
         lbaas.create_loadbalancer.assert_called_once_with(req)
@@ -267,6 +268,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         resp = {'loadbalancers': [{'id': loadbalancer_id,
                                    'provider': 'haproxy'}]}
         lbaas.list_loadbalancers.return_value = resp
+        m_driver._get_vip_port.return_value = {'id': mock.sentinel.port_id}
 
         ret = cls._find_loadbalancer(m_driver, loadbalancer)
         lbaas.list_loadbalancers.assert_called_once_with(

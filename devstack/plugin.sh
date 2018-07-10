@@ -72,6 +72,7 @@ function configure_kuryr {
 
     iniset "$KURYR_CONFIG" kubernetes pod_subnets_driver "$KURYR_SUBNET_DRIVER"
     iniset "$KURYR_CONFIG" kubernetes pod_security_groups_driver "$KURYR_SG_DRIVER"
+    iniset "$KURYR_CONFIG" kubernetes service_security_groups_driver "$KURYR_SG_DRIVER"
     iniset "$KURYR_CONFIG" kubernetes enabled_handlers "$KURYR_ENABLED_HANDLERS"
 
     # Let Kuryr retry connections to K8s API for 20 minutes.
@@ -415,8 +416,18 @@ function configure_neutron_defaults {
             "$allow_default_sg_id"
         openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
             security group rule create --project "$project_id" \
+            --description "allow traffic from default namespace" \
+            --remote-group "$allow_namespace_sg_id" --ethertype IPv4 --protocol icmp \
+            "$allow_default_sg_id"
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            security group rule create --project "$project_id" \
             --description "allow traffic from namespaces at default namespace" \
             --remote-group "$allow_default_sg_id" --ethertype IPv4 --protocol tcp \
+            "$allow_namespace_sg_id"
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            security group rule create --project "$project_id" \
+            --description "allow traffic from namespaces at default namespace" \
+            --remote-group "$allow_default_sg_id" --ethertype IPv4 --protocol icmp \
             "$allow_namespace_sg_id"
 
         iniset "$KURYR_CONFIG" namespace_sg sg_allow_from_namespaces "$allow_namespace_sg_id"

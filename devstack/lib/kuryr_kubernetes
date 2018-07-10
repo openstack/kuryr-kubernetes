@@ -78,19 +78,20 @@ function ovs_bind_for_kubelet() {
     sudo ip link set dev "$ifname" address "$port_mac"
     sudo ip link set dev "$ifname" up
     for ((i=0; i < ${#port_ips[@]}; i++)); do
-        if [[ "$KURYR_SG_DRIVER" == "namespace" ]]; then
-            subnetpool_id=$(openstack subnet show "${port_subnets[$i]}" \
-                -c subnetpool_id -f value | cut -f2)
-            prefix=$(openstack subnet pool show "${subnetpool_id}" \
-                -c prefixes -f value | cut -f2 -d/)
-        else
-            prefix=$(openstack subnet show "${port_subnets[$i]}" \
-                -c cidr -f value | \
-                cut -f2 -d/)
-        fi
+        prefix=$(openstack subnet show "${port_subnets[$i]}" \
+            -c cidr -f value | \
+            cut -f2 -d/)
         sudo ip addr add "${port_ips[$i]}/${prefix}" dev "$ifname"
     done
-    sudo ip route add "$service_subnet_cidr" via "$pod_subnet_gw" dev "$ifname"
+    if [[ "$KURYR_SG_DRIVER" == "namespace" ]]; then
+        subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}}
+        subnetpool_cidr=$(openstack subnet pool show "${subnetpool_id}" \
+            -c prefixes -f value | cut -f2)
+        sudo ip route add "$subnetpool_cidr" via "$pod_subnet_gw" dev "$ifname"
+    else
+        sudo ip route add "$service_subnet_cidr" via "$pod_subnet_gw" dev "$ifname"
+    fi
+
     if [ -n "$port_number" ]; then
         # if openstack-INPUT chain doesn't exist we create it in INPUT (for
         # local development envs since openstack-INPUT is usually only in gates)

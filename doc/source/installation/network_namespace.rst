@@ -20,13 +20,14 @@ the next steps are needed:
     pod_subnets_driver = namespace
 
 
-   In addition, to ensure that pods at one given namespace cannot reach (or be
-   reached by) the ones at another namespace, except the pods at the default
-   namespace that can reach (and be reached by) any pod at a different
-   namespace, the next security group driver needs to be set too::
+   In addition, to ensure that pods and services at one given namespace
+   cannot reach (or be reached by) the ones at another namespace, except the
+   pods at the default namespace that can reach (and be reached by) any pod at
+   a different namespace, the next security group driver needs to be set too::
 
     [kubernetes]
     pod_security_groups_driver = namespace
+    service_security_groups_driver = namespace
 
 
 3. Select (and create if needed) the subnet pool from where the new subnets
@@ -81,54 +82,66 @@ to add the namespace handler and state the namespace subnet driver with::
 Testing the network per namespace functionality
 -----------------------------------------------
 
-1. Create a namespace::
+1. Create two namespaces::
 
-    $ kubectl create namespace test
+    $ kubectl create namespace test1
+    $ kubectl create namespace test2
 
 2. Check resources has been created::
 
     $ kubectl get namespaces
     NAME        STATUS        AGE
-    test        Active        4s
+    test1       Active        14s
+    test2       Active        5s
     ...         ...           ...
 
     $ kubectl get kuryrnets
     NAME      AGE
-    ns-test   1m
+    ns-test1  1m
+    ns-test2  1m
 
-    $ openstack network list | grep test
-    | 7c7b68c5-d3c4-431c-9f69-fbc777b43ee5 | ns/test-net        | 8640d134-5ea2-437d-9e2a-89236f6c0198                                       |
+    $ openstack network list | grep test1
+    | 7c7b68c5-d3c4-431c-9f69-fbc777b43ee5 | ns/test1-net        | 8640d134-5ea2-437d-9e2a-89236f6c0198                                       |
 
-    $ openstack subnet list | grep test
-    | 8640d134-5ea2-437d-9e2a-89236f6c0198 | ns/test-subnet         | 7c7b68c5-d3c4-431c-9f69-fbc777b43ee5 | 10.0.1.128/26       |
+    $ openstack subnet list | grep test1
+    | 8640d134-5ea2-437d-9e2a-89236f6c0198 | ns/test1-subnet         | 7c7b68c5-d3c4-431c-9f69-fbc777b43ee5 | 10.0.1.128/26       |
 
-3. Create a pod in the created namespace::
+3. Create a pod in the created namespaces::
 
-    $ kubectl run -n test --image kuryr/demo demo
+    $ kubectl run -n test1 --image kuryr/demo demo
     deployment "demo" created
 
-    $ kubectl -n test get pod -o wide
+    $ kubectl run -n test1 --image kuryr/demo demo
+    deployment "demo" created
+
+    $ kubectl -n test1 get pod -o wide
     NAME                    READY     STATUS    RESTARTS   AGE       IP           NODE
     demo-5995548848-lmmjc   1/1       Running   0          7s        10.0.1.136   node1
 
 
 4. Create a service::
 
-    $ kubectl expose -n test deploy/demo --port 80 --target-port 8080
+    $ kubectl expose -n test1 deploy/demo --port 80 --target-port 8080
     service "demo" exposed
 
-    $ kubectl -n test get svc
+    $ kubectl -n test1 get svc
     NAME      TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
     demo      ClusterIP   10.0.0.141   <none>        80/TCP    18s
 
 
-5. Test service connectivity::
+5. Test service connectivity from both namespaces::
 
-    $ curl 10.0.0.141
+    $ kubectl exec -n test1 -it demo-5995548848-lmmjc /bin/sh
+    test-1-pod$ curl 10.0.0.141
     demo-5995548848-lmmjc: HELLO! I AM ALIVE!!!
+
+    $ kubectl exec -n test2 -it demo-5135352253-dfghd /bin/sh
+    test-2-pod$ curl 10.0.0.141
+    ## No response
 
 
 6. And finally, to remove the namespace and all its resources, including
    openstack networks, kuryrnet CRD, svc, pods, you just need to do::
 
-    $ kubectl delete namespace test
+    $ kubectl delete namespace test1
+    $ kubectl delete namespace test2

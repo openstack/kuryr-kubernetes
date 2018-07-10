@@ -503,7 +503,8 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
             listener = self._drv_lbaas.ensure_listener(
                 loadbalancer=lbaas_state.loadbalancer,
                 protocol=protocol,
-                port=port)
+                port=port,
+                service_type=lbaas_spec.type)
             if listener is not None:
                 lbaas_state.listeners.append(listener)
                 changed = True

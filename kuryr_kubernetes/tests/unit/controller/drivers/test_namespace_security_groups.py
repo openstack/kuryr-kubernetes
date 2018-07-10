@@ -63,8 +63,10 @@ def get_namespace_obj():
 
 class TestNamespacePodSecurityGroupsDriver(test_base.TestCase):
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.'
+                'namespace_security_groups._get_net_crd')
     @mock.patch('kuryr_kubernetes.config.CONF')
-    def test_get_security_groups(self, m_cfg):
+    def test_get_security_groups(self, m_cfg, m_get_crd):
         cls = namespace_security_groups.NamespacePodSecurityGroupsDriver
         m_driver = mock.MagicMock(spec=cls)
 
@@ -79,38 +81,14 @@ class TestNamespacePodSecurityGroupsDriver(test_base.TestCase):
                 'sgId': sg_id
             }
         }
-        m_driver._get_net_crd.return_value = net_crd
+        m_get_crd.return_value = net_crd
         m_driver._get_extra_sg.return_value = [extra_sg]
 
         ret = cls.get_security_groups(m_driver, pod, project_id)
         expected_sg = [str(sg_id), str(extra_sg), sg_list[0]]
 
         self.assertEqual(ret, expected_sg)
-
-    def test__get_net_crd(self):
-        cls = namespace_security_groups.NamespacePodSecurityGroupsDriver
-        m_driver = mock.MagicMock(spec=cls)
-
-        namespace = mock.sentinel.namespace
-        subnet_id = mock.sentinel.subnet_id
-        net_id = mock.sentinel.net_id
-        sg_id = mock.sentinel.sg_id
-        ns = get_namespace_obj()
-
-        crd = {
-            'spec': {
-                'netId': net_id,
-                'subnetId': subnet_id,
-                'sgId': sg_id
-            }
-        }
-
-        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
-        kubernetes.get.side_effect = [ns, crd]
-
-        ret = cls._get_net_crd(m_driver, namespace)
-
-        self.assertEqual(ret, crd)
+        m_get_crd.assert_called_once_with(pod['metadata']['namespace'])
 
     def test_create_namespace_sg(self):
         cls = namespace_security_groups.NamespacePodSecurityGroupsDriver
@@ -119,11 +97,15 @@ class TestNamespacePodSecurityGroupsDriver(test_base.TestCase):
         namespace = 'test'
         project_id = mock.sentinel.project_id
         sg = {'id': mock.sentinel.sg}
+        subnet_cidr = mock.sentinel.subnet_cidr
+        crd_spec = {
+            'subnetCIDR': subnet_cidr
+        }
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
         neutron.create_security_group.return_value = {'security_group': sg}
 
         create_sg_resp = cls.create_namespace_sg(m_driver, namespace,
-                                                 project_id)
+                                                 project_id, crd_spec)
 
         self.assertEqual(create_sg_resp, {'sgId': sg['id']})
         neutron.create_security_group.assert_called_once()
@@ -135,13 +117,17 @@ class TestNamespacePodSecurityGroupsDriver(test_base.TestCase):
 
         namespace = 'test'
         project_id = mock.sentinel.project_id
+        subnet_cidr = mock.sentinel.subnet_cidr
+        crd_spec = {
+            'subnetCIDR': subnet_cidr
+        }
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
         neutron.create_security_group.side_effect = (
             n_exc.NeutronClientException)
 
         self.assertRaises(n_exc.NeutronClientException,
                           cls.create_namespace_sg, m_driver,
-                          namespace, project_id)
+                          namespace, project_id, crd_spec)
 
         neutron.create_security_group.assert_called_once()
         neutron.create_security_group_rule.assert_not_called()

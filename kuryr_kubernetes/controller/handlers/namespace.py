@@ -50,7 +50,8 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         net_crd_spec = self._drv_subnets.create_namespace_network(ns_name,
                                                                   project_id)
         try:
-            net_crd_sg = self._drv_sg.create_namespace_sg(ns_name, project_id)
+            net_crd_sg = self._drv_sg.create_namespace_sg(ns_name, project_id,
+                                                          net_crd_spec)
         except n_exc.NeutronClientException:
             LOG.exception("Error creating security group for the namespace. "
                           "Rolling back created network resources.")

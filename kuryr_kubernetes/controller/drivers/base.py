@@ -214,11 +214,13 @@ class PodSecurityGroupsDriver(DriverBase):
         """
         raise NotImplementedError()
 
-    def create_namespace_sg(self, namespace, project_id):
+    def create_namespace_sg(self, namespace, project_id, crd_spec):
         """Create security group resources for a namespace.
 
         :param namespace: string with the namespace name
         :param project_id: OpenStack project ID
+        :param crd_spec: dict with the keys and values for the CRD spec, such
+                         as subnetId or subnetCIDR
         :return: dict with the keys and values for the CRD spec, such as sgId
         """
         raise NotImplementedError()

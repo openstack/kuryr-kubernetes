@@ -231,6 +231,12 @@ ingress = [
                help=_("UUID of the L7 Router")),
 ]
 
+nested_vif_driver_opts = [
+    cfg.StrOpt('worker_nodes_subnet',
+               help=_("Neutron subnet ID for k8s worker node vms."),
+               default=''),
+]
+
 CONF = cfg.CONF
 CONF.register_opts(kuryr_k8s_opts)
 CONF.register_opts(daemon_opts, group='cni_daemon')
@@ -239,6 +245,7 @@ CONF.register_opts(neutron_defaults, group='neutron_defaults')
 CONF.register_opts(octavia_defaults, group='octavia_defaults')
 CONF.register_opts(cache_defaults, group='cache_defaults')
 CONF.register_opts(ingress, group='ingress')
+CONF.register_opts(nested_vif_driver_opts, group='pod_vif_nested')
 
 CONF.register_opts(lib_config.core_opts)
 CONF.register_opts(lib_config.binding_opts, 'binding')

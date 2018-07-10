@@ -129,7 +129,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
                     neutron.delete_security_group(sg_id)
                 raise
 
-    def _ensure_security_group_rules(self, loadbalancer, listener):
+    def _ensure_lb_security_group_rule(self, loadbalancer, listener):
         sg_id = self._find_listeners_sg(loadbalancer)
         if sg_id:
             try:
@@ -149,7 +149,74 @@ class LBaaSv2Driver(base.LBaaSDriver):
                     LOG.exception('Failed when creating security group rule '
                                   'for listener %s.', listener.name)
 
-    def ensure_listener(self, loadbalancer, protocol, port):
+    def _extend_lb_security_group_rules(self, loadbalancer, listener):
+        neutron = clients.get_neutron_client()
+        sg_id = self._get_vip_port(loadbalancer).get('security_groups')[0]
+        for sg in loadbalancer.security_groups:
+            try:
+                neutron.create_security_group_rule({
+                    'security_group_rule': {
+                        'direction': 'ingress',
+                        'port_range_min': listener.port,
+                        'port_range_max': listener.port,
+                        'protocol': listener.protocol,
+                        'security_group_id': sg_id,
+                        'remote_group_id': sg,
+                        'description': listener.name,
+                    },
+                })
+            except n_exc.NeutronClientException as ex:
+                if ex.status_code != requests.codes.conflict:
+                    LOG.exception('Failed when creating security group rule '
+                                  'for listener %s.', listener.name)
+
+        # ensure routes have access to the services
+        service_subnet_cidr = self._get_subnet_cidr(loadbalancer.subnet_id)
+        try:
+            # add access from service subnet
+            neutron.create_security_group_rule({
+                'security_group_rule': {
+                    'direction': 'ingress',
+                    'port_range_min': listener.port,
+                    'port_range_max': listener.port,
+                    'protocol': listener.protocol,
+                    'security_group_id': sg_id,
+                    'remote_ip_prefix': service_subnet_cidr,
+                    'description': listener.name,
+                },
+            })
+
+            # add access from worker node VM subnet for non-native route
+            # support
+            worker_subnet_id = CONF.pod_vif_nested.worker_nodes_subnet
+            if worker_subnet_id:
+                worker_subnet_cidr = self._get_subnet_cidr(worker_subnet_id)
+                neutron.create_security_group_rule({
+                    'security_group_rule': {
+                        'direction': 'ingress',
+                        'port_range_min': listener.port,
+                        'port_range_max': listener.port,
+                        'protocol': listener.protocol,
+                        'security_group_id': sg_id,
+                        'remote_ip_prefix': worker_subnet_cidr,
+                        'description': listener.name,
+                    },
+                })
+        except n_exc.NeutronClientException as ex:
+            if ex.status_code != requests.codes.conflict:
+                LOG.exception('Failed when creating security group rule '
+                              'to enable routes for listener %s.',
+                              listener.name)
+
+    def _ensure_security_group_rules(self, loadbalancer, listener,
+                                     service_type):
+        if loadbalancer.provider == const.NEUTRON_LBAAS_HAPROXY_PROVIDER:
+            self._ensure_lb_security_group_rule(loadbalancer, listener)
+        elif service_type == 'ClusterIP':
+            self._extend_lb_security_group_rules(loadbalancer, listener)
+
+    def ensure_listener(self, loadbalancer, protocol, port,
+                        service_type='ClusterIP'):
         if protocol not in _SUPPORTED_LISTENER_PROT:
             LOG.info("Protocol: %(prot)s: is not supported by LBaaSV2", {
                 'prot': protocol})
@@ -164,7 +231,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                           self._create_listener,
                                           self._find_listener)
 
-        self._ensure_security_group_rules(loadbalancer, result)
+        self._ensure_security_group_rules(loadbalancer, result, service_type)
 
         return result
 
@@ -236,7 +303,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
                       lbaas.delete_lbaas_member,
                       member.id, member.pool_id)
 
-    def _get_vip_port_id(self, loadbalancer):
+    def _get_vip_port(self, loadbalancer):
         neutron = clients.get_neutron_client()
         try:
             fixed_ips = ['subnet_id=%s' % str(loadbalancer.subnet_id),
@@ -247,9 +314,18 @@ class LBaaSv2Driver(base.LBaaSDriver):
             raise ex
 
         if ports['ports']:
-            return ports['ports'][0].get("id")
+            return ports['ports'][0]
 
         return None
+
+    def _get_subnet_cidr(self, subnet_id):
+        neutron = clients.get_neutron_client()
+        try:
+            subnet_obj = neutron.show_subnet(subnet_id)
+        except n_exc.NeutronClientException:
+            LOG.exception("Subnet %s CIDR not found!", subnet_id)
+            raise
+        return subnet_obj.get('subnet')['cidr']
 
     def _create_loadbalancer(self, loadbalancer):
         lbaas = clients.get_loadbalancer_client()
@@ -259,7 +335,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             'vip_address': str(loadbalancer.ip),
             'vip_subnet_id': loadbalancer.subnet_id}})
         loadbalancer.id = response['loadbalancer']['id']
-        loadbalancer.port_id = self._get_vip_port_id(loadbalancer)
+        loadbalancer.port_id = self._get_vip_port(loadbalancer).get("id")
         loadbalancer.provider = response['loadbalancer']['provider']
         return loadbalancer
 
@@ -273,7 +349,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         try:
             loadbalancer.id = response['loadbalancers'][0]['id']
-            loadbalancer.port_id = self._get_vip_port_id(loadbalancer)
+            loadbalancer.port_id = self._get_vip_port(loadbalancer).get("id")
             loadbalancer.provider = response['loadbalancers'][0]['provider']
         except (KeyError, IndexError):
             return None

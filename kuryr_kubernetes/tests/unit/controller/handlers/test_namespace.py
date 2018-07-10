@@ -125,7 +125,7 @@ class TestNamespaceHandler(test_base.TestCase):
         self._create_namespace_network.assert_called_once_with(
             self._namespace_name, self._project_id)
         self._create_namespace_sg.assert_called_once_with(
-            self._namespace_name, self._project_id)
+            self._namespace_name, self._project_id, net_crd_spec)
         self._add_kuryrnet_crd.assert_called_once_with(self._namespace_name,
                                                        net_crd_spec)
         self._set_net_crd.assert_called_once_with(self._namespace, net_crd)
@@ -169,7 +169,7 @@ class TestNamespaceHandler(test_base.TestCase):
         self._create_namespace_network.assert_called_once_with(
             self._namespace_name, self._project_id)
         self._create_namespace_sg.assert_called_once_with(
-            self._namespace_name, self._project_id)
+            self._namespace_name, self._project_id, {'test_net': 'uuid'})
         self._set_net_crd.assert_not_called()
 
     def test_on_present_add_kuryrnet_crd_exception(self):
@@ -185,7 +185,7 @@ class TestNamespaceHandler(test_base.TestCase):
         self._create_namespace_network.assert_called_once_with(
             self._namespace_name, self._project_id)
         self._create_namespace_sg.assert_called_once_with(
-            self._namespace_name, self._project_id)
+            self._namespace_name, self._project_id, net_crd_spec)
         self._add_kuryrnet_crd.assert_called_once_with(self._namespace_name,
                                                        net_crd_spec)
         self._set_net_crd.assert_not_called()
@@ -207,7 +207,7 @@ class TestNamespaceHandler(test_base.TestCase):
         self._create_namespace_network.assert_called_once_with(
             self._namespace_name, self._project_id)
         self._create_namespace_sg.assert_called_once_with(
-            self._namespace_name, self._project_id)
+            self._namespace_name, self._project_id, net_crd_spec)
         self._add_kuryrnet_crd.assert_called_once_with(self._namespace_name,
                                                        net_crd_spec)
         self._set_net_crd.assert_called_once_with(self._namespace, net_crd)
@@ -233,7 +233,7 @@ class TestNamespaceHandler(test_base.TestCase):
         self._create_namespace_network.assert_called_once_with(
             self._namespace_name, self._project_id)
         self._create_namespace_sg.assert_called_once_with(
-            self._namespace_name, self._project_id)
+            self._namespace_name, self._project_id, net_crd_spec)
         self._add_kuryrnet_crd.assert_called_once_with(self._namespace_name,
                                                        net_crd_spec)
         self._set_net_crd.assert_called_once_with(self._namespace, net_crd)

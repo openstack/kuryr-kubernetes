@@ -226,7 +226,8 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
         net = {'id': mock.sentinel.net}
         neutron.create_network.return_value = {'network': net}
-        subnet = {'id': mock.sentinel.subnet}
+        subnet = {'id': mock.sentinel.subnet,
+                  'cidr': mock.sentinel.cidr}
         neutron.create_subnet.return_value = {'subnet': subnet}
         router_id = 'router1'
         oslo_cfg.CONF.set_override('pod_router',
@@ -234,7 +235,8 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
                                    group='namespace_subnet')
         net_crd = {'netId': net['id'],
                    'routerId': router_id,
-                   'subnetId': subnet['id']}
+                   'subnetId': subnet['id'],
+                   'subnetCIDR': subnet['cidr']}
 
         net_crd_resp = cls.create_namespace_network(m_driver, namespace,
                                                     project_id)

@@ -15,7 +15,6 @@
 import abc
 import six
 
-from kuryr.lib._i18n import _
 from kuryr.lib import exceptions as kl_exc
 from neutronclient.common import exceptions as n_exc
 from oslo_config import cfg as oslo_cfg
@@ -25,15 +24,6 @@ from kuryr_kubernetes.controller.drivers import neutron_vif
 
 
 LOG = logging.getLogger(__name__)
-
-
-# Moved out from neutron_defaults group
-nested_vif_driver_opts = [
-    oslo_cfg.StrOpt('worker_nodes_subnet',
-                    help=_("Neutron subnet ID for k8s worker node vms.")),
-]
-
-oslo_cfg.CONF.register_opts(nested_vif_driver_opts, "pod_vif_nested")
 
 
 @six.add_metaclass(abc.ABCMeta)

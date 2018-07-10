@@ -41,12 +41,38 @@ cfg.CONF.register_opts(namespace_sg_driver_opts, "namespace_sg")
 DEFAULT_NAMESPACE = 'default'
 
 
+def _get_net_crd(namespace):
+    kubernetes = clients.get_kubernetes_client()
+
+    try:
+        ns = kubernetes.get('%s/namespaces/%s' % (constants.K8S_API_BASE,
+                                                  namespace))
+    except exceptions.K8sClientException:
+        LOG.exception("Kubernetes Client Exception.")
+        raise exceptions.ResourceNotReady(namespace)
+    try:
+        annotations = ns['metadata']['annotations']
+        net_crd_name = annotations[constants.K8S_ANNOTATION_NET_CRD]
+    except KeyError:
+        LOG.exception("Namespace missing CRD annotations for selecting "
+                      "the corresponding security group.")
+        raise exceptions.ResourceNotReady(namespace)
+    try:
+        net_crd = kubernetes.get('%s/kuryrnets/%s' % (constants.K8S_API_CRD,
+                                                      net_crd_name))
+    except exceptions.K8sClientException:
+        LOG.exception("Kubernetes Client Exception.")
+        raise
+
+    return net_crd
+
+
 class NamespacePodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
     """Provides security groups for Pod based on a configuration option."""
 
     def get_security_groups(self, pod, project_id):
         namespace = pod['metadata']['namespace']
-        net_crd = self._get_net_crd(namespace)
+        net_crd = _get_net_crd(namespace)
 
         sg_list = [str(net_crd['spec']['sgId'])]
 
@@ -58,31 +84,6 @@ class NamespacePodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
 
         return sg_list[:]
 
-    def _get_net_crd(self, namespace):
-        kubernetes = clients.get_kubernetes_client()
-
-        try:
-            ns = kubernetes.get('%s/namespaces/%s' % (constants.K8S_API_BASE,
-                                                      namespace))
-        except exceptions.K8sClientException:
-            LOG.exception("Kubernetes Client Exception.")
-            raise exceptions.ResourceNotReady(namespace)
-        try:
-            annotations = ns['metadata']['annotations']
-            net_crd_name = annotations[constants.K8S_ANNOTATION_NET_CRD]
-        except KeyError:
-            LOG.exception("Namespace missing CRD annotations for selecting "
-                          "the corresponding security group.")
-            raise exceptions.ResourceNotReady(namespace)
-        try:
-            net_crd = kubernetes.get('%s/kuryrnets/%s' % (
-                constants.K8S_API_CRD, net_crd_name))
-        except exceptions.K8sClientException:
-            LOG.exception("Kubernetes Client Exception.")
-            raise
-
-        return net_crd
-
     def _get_extra_sg(self, namespace):
         # Differentiates between default namespace and the rest
         if namespace == DEFAULT_NAMESPACE:
@@ -90,7 +91,7 @@ class NamespacePodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
         else:
             return [cfg.CONF.namespace_sg.sg_allow_from_default]
 
-    def create_namespace_sg(self, namespace, project_id):
+    def create_namespace_sg(self, namespace, project_id, crd_spec):
         neutron = clients.get_neutron_client()
 
         sg_name = "ns/" + namespace + "-sg"
@@ -110,7 +111,7 @@ class NamespacePodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
                 {
                     "security_group_rule": {
                         "direction": "ingress",
-                        "remote_group_id": sg['id'],
+                        "remote_ip_prefix": crd_spec['subnetCIDR'],
                         "security_group_id": sg['id']
                     }
                 })
@@ -129,3 +130,27 @@ class NamespacePodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
         except n_exc.NeutronClientException:
             LOG.exception("Error deleting security group %s.", sg_id)
             raise
+
+
+class NamespaceServiceSecurityGroupsDriver(base.ServiceSecurityGroupsDriver):
+    """Provides security groups for Service based on a configuration option."""
+
+    def get_security_groups(self, service, project_id):
+        namespace = service['metadata']['namespace']
+        net_crd = _get_net_crd(namespace)
+
+        sg_list = []
+        sg_list.append(str(net_crd['spec']['sgId']))
+
+        extra_sgs = self._get_extra_sg(namespace)
+        for sg in extra_sgs:
+            sg_list.append(str(sg))
+
+        return sg_list[:]
+
+    def _get_extra_sg(self, namespace):
+        # Differentiates between default namespace and the rest
+        if namespace == DEFAULT_NAMESPACE:
+            return [cfg.CONF.namespace_sg.sg_allow_from_default]
+        else:
+            return [cfg.CONF.namespace_sg.sg_allow_from_namespaces]
