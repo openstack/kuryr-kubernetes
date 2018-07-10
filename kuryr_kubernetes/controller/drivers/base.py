@@ -114,6 +114,23 @@ class ServiceProjectDriver(DriverBase):
 
 
 @six.add_metaclass(abc.ABCMeta)
+class NamespaceProjectDriver(DriverBase):
+    """Provides an OpenStack project ID for Kubernetes Namespace."""
+
+    ALIAS = 'namespace_project'
+
+    @abc.abstractmethod
+    def get_project(self, namespace):
+        """Get an OpenStack project ID for Kubernetes Namespace.
+
+        :param service: dict containing Kubernetes Namespace object
+        :return: project ID
+        """
+
+        raise NotImplementedError()
+
+
+@six.add_metaclass(abc.ABCMeta)
 class PodSubnetsDriver(DriverBase):
     """Provides subnets for Kubernetes Pods."""
 

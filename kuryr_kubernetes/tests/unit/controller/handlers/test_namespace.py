@@ -33,7 +33,6 @@ class TestNamespaceHandler(test_base.TestCase):
 
         self._project_id = mock.sentinel.project_id
         self._subnets = mock.sentinel.subnets
-        self._security_groups = mock.sentinel.security_groups
 
         self._namespace_version = mock.sentinel.namespace_version
         self._namespace_link = mock.sentinel.namespace_link
@@ -48,15 +47,14 @@ class TestNamespaceHandler(test_base.TestCase):
 
         self._handler = mock.MagicMock(spec=namespace.NamespaceHandler)
 
-        self._handler._drv_project = mock.Mock(spec=drivers.PodProjectDriver)
+        self._handler._drv_project = mock.Mock(
+            spec=drivers.NamespaceProjectDriver)
         self._handler._drv_subnets = mock.Mock(spec=drivers.PodSubnetsDriver)
-        self._handler._drv_sg = mock.Mock(spec=drivers.PodSecurityGroupsDriver)
         self._handler._drv_vif_pool = mock.MagicMock(
             spec=vif_pool.MultiVIFPool)
 
         self._get_project = self._handler._drv_project.get_project
         self._get_subnets = self._handler._drv_subnets.get_subnets
-        self._get_security_groups = self._handler._drv_sg.get_security_groups
 
         self._create_namespace_network = (
             self._handler._drv_subnets.create_namespace_network)
@@ -73,7 +71,6 @@ class TestNamespaceHandler(test_base.TestCase):
 
         self._get_project.return_value = self._project_id
         self._get_subnets.return_value = self._subnets
-        self._get_security_groups.return_value = self._security_groups
 
     def _get_crd(self):
         crd = {
@@ -87,26 +84,22 @@ class TestNamespaceHandler(test_base.TestCase):
         return crd
 
     @mock.patch.object(drivers.VIFPoolDriver, 'get_instance')
-    @mock.patch.object(drivers.PodSecurityGroupsDriver, 'get_instance')
     @mock.patch.object(drivers.PodSubnetsDriver, 'get_instance')
-    @mock.patch.object(drivers.PodProjectDriver, 'get_instance')
+    @mock.patch.object(drivers.NamespaceProjectDriver, 'get_instance')
     def test_init(self, m_get_project_driver, m_get_subnets_driver,
-                  m_get_sg_driver, m_get_vif_pool_driver):
+                  m_get_vif_pool_driver):
         project_driver = mock.sentinel.project_driver
         subnets_driver = mock.sentinel.subnets_driver
-        sg_driver = mock.sentinel.sg_driver
         vif_pool_driver = mock.Mock(spec=vif_pool.MultiVIFPool)
 
         m_get_project_driver.return_value = project_driver
         m_get_subnets_driver.return_value = subnets_driver
-        m_get_sg_driver.return_value = sg_driver
         m_get_vif_pool_driver.return_value = vif_pool_driver
 
         handler = namespace.NamespaceHandler()
 
         self.assertEqual(project_driver, handler._drv_project)
         self.assertEqual(subnets_driver, handler._drv_subnets)
-        self.assertEqual(sg_driver, handler._drv_sg)
         self.assertEqual(vif_pool_driver, handler._drv_vif_pool)
 
     def test_on_present(self):

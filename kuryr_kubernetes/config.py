@@ -108,6 +108,10 @@ k8s_opts = [
                help=_("The driver to determine OpenStack "
                       "project for services"),
                default='default'),
+    cfg.StrOpt('namespace_project_driver',
+               help=_("The driver to determine OpenStack "
+                      "project for namespaces"),
+               default='default'),
     cfg.StrOpt('pod_subnets_driver',
                help=_("The driver to determine Neutron "
                       "subnets for pod ports"),
