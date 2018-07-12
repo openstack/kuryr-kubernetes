@@ -51,3 +51,20 @@ class DefaultServiceProjectDriver(base.ServiceProjectDriver):
                                        cfg.OptGroup('neutron_defaults'))
 
         return project_id
+
+
+class DefaultNamespaceProjectDriver(base.NamespaceProjectDriver):
+    """Provides project ID for Namespace based on a configuration option."""
+
+    def get_project(self, namespace):
+        project_id = config.CONF.neutron_defaults.project
+
+        if not project_id:
+            # NOTE(ivc): this option is only required for
+            # DefaultNamespaceProjectDriver and its subclasses, but it may be
+            # optional for other drivers (e.g. when each namespace has own
+            # project)
+            raise cfg.RequiredOptError('project',
+                                       cfg.OptGroup('neutron_defaults'))
+
+        return project_id

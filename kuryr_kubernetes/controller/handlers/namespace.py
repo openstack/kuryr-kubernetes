@@ -29,9 +29,8 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
 
     def __init__(self):
         super(NamespaceHandler, self).__init__()
-        self._drv_project = drivers.PodProjectDriver.get_instance()
+        self._drv_project = drivers.NamespaceProjectDriver.get_instance()
         self._drv_subnets = drivers.PodSubnetsDriver.get_instance()
-        self._drv_sg = drivers.PodSecurityGroupsDriver.get_instance()
         self._drv_vif_pool = drivers.VIFPoolDriver.get_instance(
             driver_alias='multi_pool')
         self._drv_vif_pool.set_vif_driver()
