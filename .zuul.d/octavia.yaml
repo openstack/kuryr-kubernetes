@@ -127,6 +127,15 @@
         KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
 
 - job:
+    name: kuryr-kubernetes-tempest-daemon-containerized-openshift-octavia-serial
+    description: Tempest with Octavia running in serial, CNI daemon enabled, containers and OpenShift
+    parent: kuryr-kubernetes-tempest-daemon-containerized-openshift-octavia
+    vars:
+      devstack_localrc:
+        KURYR_K8S_SERIAL_TESTS: True
+      tempest_concurrency: 1
+
+- job:
     name: kuryr-kubernetes-tempest-daemon-pools-octavia
     parent: kuryr-kubernetes-tempest-daemon-octavia
     description: |
@@ -137,6 +146,5 @@
         KURYR_USE_PORT_POOLS: true
         KURYR_POD_VIF_DRIVER: neutron-vif
         KURYR_VIF_POOL_DRIVER: neutron
-        TEMPEST_CONCURRENCY: 1
-
-
+        KURYR_K8S_SERIAL_TESTS: True
+      tempest_concurrency: 1

@@ -40,4 +40,5 @@
         - kuryr-kubernetes-tempest-daemon-pools-octavia
         - kuryr-kubernetes-tempest-daemon-containerized-octavia-l2
         - kuryr-kubernetes-tempest-daemon-containerized-octavia-namespace
+        - kuryr-kubernetes-tempest-daemon-containerized-openshift-octavia-serial
         - kuryr-kubernetes-tempest-daemon-ovn
