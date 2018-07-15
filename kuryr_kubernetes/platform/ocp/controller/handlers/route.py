@@ -192,7 +192,7 @@ class OcpRouteHandler(k8s_base.ResourceEventHandler):
         if not route_spec.path:
             route_state.p_l7_rule = self._drv_lbaas.ensure_l7_rule(
                 self._l7_router, route_state.l7_policy,
-                'EQUAL_TO', 'PATH', route['spec']['path'])
+                'STARTS_WITH', 'PATH', route['spec']['path'])
         else:
             if route['spec']['path']:
                 self._drv_lbaas.update_l7_rule(
