@@ -35,6 +35,8 @@ object_data = {
     'LBaaSRouteState': '1.0-bdf561462a2d337c0e0ae8cb10e9ff20',
     'LBaaSServiceSpec': '1.0-d430ecd443f2b1999196bfe531e56f7e',
     'LBaaSState': '1.0-a0ff7dce2d3f6ce1ffab4ff95a344361',
+    'RouteSpec': '1.0-2f02b2e24b1ca2b94c2bbdb718bfc020',
+    'RouteState': '1.0-2475dbeb6ebedabe2a1e235f9bc6b614',
 }
 
 
