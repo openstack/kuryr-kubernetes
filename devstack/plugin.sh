@@ -914,6 +914,8 @@ if [[ "$1" == "unstack" ]]; then
     if is_service_enabled legacy_etcd; then
         stop_container etcd
     fi
+
+    cleanup_kuryr_devstack_iptables
 fi
 
 if [[ "$1" == "clean" ]]; then
