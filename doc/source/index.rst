@@ -34,6 +34,7 @@ Design Specs
    specs/pike/fuxi_kubernetes
    specs/pike/sriov
    specs/queens/network_policy
+   specs/rocky/npwg_spec_support
 
 Indices and tables
 ------------------
