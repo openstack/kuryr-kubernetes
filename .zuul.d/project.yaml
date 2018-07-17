@@ -29,7 +29,6 @@
         - kuryr-kubernetes-tempest-daemon-openshift-octavia
         - kuryr-kubernetes-tempest-daemon-lbaasv2
         - kuryr-kubernetes-tempest-daemon-containerized-octavia
-        - kuryr-kubernetes-tempest-dragonflow
         - kuryr-kubernetes-tempest-daemon-containerized-ovn
         - kuryr-kubernetes-tempest-multinode-octavia
         - kuryr-kubernetes-tempest-octavia-centos-7
@@ -43,6 +42,7 @@
         - kuryr-kubernetes-tempest-daemon-containerized-octavia
     experimental:
       jobs:
+        - kuryr-kubernetes-tempest-dragonflow
         - kuryr-kubernetes-tempest-daemon-containerized-openshift-octavia
         - kuryr-kubernetes-tempest-daemon-pools-octavia
         - kuryr-kubernetes-tempest-daemon-containerized-octavia-l2
