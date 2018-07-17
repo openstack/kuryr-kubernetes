@@ -747,6 +747,9 @@ function run_openshift_master {
         "--master=${OPENSHIFT_API_URL}" \
         "--write-config=${OPENSHIFT_DATA_DIR}"
 
+    # Enable externalIPs
+    sed -i 's/externalIPNetworkCIDRs: null/externalIPNetworkCIDRs: ["0.0.0.0\/0"]/' "${OPENSHIFT_DATA_DIR}/master-config.yaml"
+
     # Reconfigure Kuryr-Kubernetes to use the certs generated
     iniset "$KURYR_CONFIG" kubernetes api_root "$OPENSHIFT_API_URL"
     iniset "$KURYR_CONFIG" kubernetes ssl_client_crt_file "${OPENSHIFT_DATA_DIR}/admin.crt"
