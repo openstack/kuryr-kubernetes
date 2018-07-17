@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import sys
 import time
 
 from kuryr_kubernetes import clients
@@ -55,7 +56,8 @@ class Watcher(health.HealthHandler):
     graceful=False)` for asynchronous `Watcher`).
     """
 
-    def __init__(self, handler, thread_group=None, timeout=None):
+    def __init__(self, handler, thread_group=None, timeout=None,
+                 exit_on_stop=False):
         """Initializes a new Watcher instance.
 
         :param handler: a `callable` object to be invoked for each observed
@@ -82,6 +84,7 @@ class Watcher(health.HealthHandler):
         if timeout is None:
             timeout = CONF.kubernetes.watch_retry_timeout
         self._timeout = timeout
+        self._exit_on_stop = exit_on_stop
 
     def add(self, path):
         """Adds ths K8s resource to the Watcher.
@@ -152,6 +155,14 @@ class Watcher(health.HealthHandler):
             LOG.info("Stopped watching '%s'", path)
         except KeyError:
             LOG.error("Failed to exit watch gracefully")
+        finally:
+            if not self._watching and not self._idle:
+                self.stop()
+                if self._exit_on_stop:
+                    LOG.info("No remaining active watchers, Exiting...")
+                    # TODO(dulek): This complicates things, remove once we
+                    #              don't support running without kuryr-daemon.
+                    sys.exit(1)
 
     def _watch(self, path):
         attempts = 0

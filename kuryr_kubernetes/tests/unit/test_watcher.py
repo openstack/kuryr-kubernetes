@@ -211,14 +211,16 @@ class TestWatcher(test_base.TestCase):
 
     @staticmethod
     def _test_watch_create_watcher(path, handler, timeout=0):
-        watcher_obj = watcher.Watcher(handler, timeout=timeout)
+        watcher_obj = watcher.Watcher(handler, timeout=timeout,
+                                      exit_on_stop=True)
         watcher_obj._running = True
         watcher_obj._resources.add(path)
         watcher_obj._idle[path] = True
         watcher_obj._watching[path] = None
         return watcher_obj
 
-    def test_watch(self):
+    @mock.patch('sys.exit')
+    def test_watch(self, m_sys_exit):
         path = '/test'
         events = [{'e': i} for i in range(3)]
 
@@ -234,8 +236,12 @@ class TestWatcher(test_base.TestCase):
 
         self.assertEqual(0, watcher_obj._timeout)
         m_handler.assert_has_calls([mock.call(e) for e in events])
+        # After all events have been "handled", since there is only
+        # one handler, we'll gracefully exit
+        m_sys_exit.assert_called_once_with(1)
 
-    def test_watch_stopped(self):
+    @mock.patch('sys.exit')
+    def test_watch_stopped(self, m_sys_exit):
         path = '/test'
         events = [{'e': i} for i in range(3)]
 
@@ -253,8 +259,10 @@ class TestWatcher(test_base.TestCase):
         m_handler.assert_called_once_with(events[0])
         self.assertNotIn(path, watcher_obj._idle)
         self.assertNotIn(path, watcher_obj._watching)
+        m_sys_exit.assert_called_once_with(1)
 
-    def test_watch_removed(self):
+    @mock.patch('sys.exit')
+    def test_watch_removed(self, m_sys_exit):
         path = '/test'
         events = [{'e': i} for i in range(3)]
 
@@ -272,8 +280,10 @@ class TestWatcher(test_base.TestCase):
         m_handler.assert_called_once_with(events[0])
         self.assertNotIn(path, watcher_obj._idle)
         self.assertNotIn(path, watcher_obj._watching)
+        m_sys_exit.assert_called_once_with(1)
 
-    def test_watch_interrupted(self):
+    @mock.patch('sys.exit')
+    def test_watch_interrupted(self, m_sys_exit):
         path = '/test'
         events = [{'e': i} for i in range(3)]
 
@@ -291,8 +301,10 @@ class TestWatcher(test_base.TestCase):
         m_handler.assert_called_once_with(events[0])
         self.assertNotIn(path, watcher_obj._idle)
         self.assertNotIn(path, watcher_obj._watching)
+        m_sys_exit.assert_called_once_with(1)
 
-    def test_watch_client_request_failed(self):
+    @mock.patch('sys.exit')
+    def test_watch_client_request_failed(self, m_sys_exit):
         path = '/test'
         m_handler = mock.Mock()
         watcher_obj = self._test_watch_create_watcher(path, m_handler)
@@ -302,8 +314,10 @@ class TestWatcher(test_base.TestCase):
 
         self.client.watch.assert_called_once()
         self.assertFalse(watcher_obj._healthy)
+        m_sys_exit.assert_called_once_with(1)
 
-    def test_watch_retry(self):
+    @mock.patch('sys.exit')
+    def test_watch_retry(self, m_sys_exit):
         path = '/test'
         events = [{'e': i} for i in range(3)]
         side_effects = [exceptions.ChunkedEncodingError("Connection Broken")]
@@ -317,3 +331,4 @@ class TestWatcher(test_base.TestCase):
         watcher_obj._watch(path)
 
         m_handler.assert_has_calls([mock.call(e) for e in events])
+        m_sys_exit.assert_called_once_with(1)
