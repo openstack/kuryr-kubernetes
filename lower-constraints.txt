@@ -119,7 +119,7 @@ SQLAlchemy==1.2.5
 sqlalchemy-migrate==0.11.0
 sqlparse==0.2.4
 statsd==3.2.2
-stestr==2.0.0
+stestr==1.0.0
 stevedore==1.20.0
 Tempita==0.5.2
 tenacity==4.9.0
