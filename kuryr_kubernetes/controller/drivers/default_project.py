@@ -67,4 +67,13 @@ class DefaultNamespaceProjectDriver(base.NamespaceProjectDriver):
             raise cfg.RequiredOptError('project',
                                        cfg.OptGroup('neutron_defaults'))
 
+
+class DefaultNetworkPolicyProjectDriver(base.NetworkPolicyProjectDriver):
+
+    def get_project(self, policy):
+        project_id = config.CONF.neutron_defaults.project
+
+        if not project_id:
+            raise cfg.RequiredOptError('project',
+                                       cfg.OptGroup('neutron_defaults'))
         return project_id

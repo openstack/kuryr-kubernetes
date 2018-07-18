@@ -15,6 +15,7 @@
 from oslo_log import log as logging
 
 from kuryr_kubernetes import constants as k_const
+from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes.handlers import k8s_base
 
 LOG = logging.getLogger(__name__)
@@ -28,9 +29,15 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
 
     def __init__(self):
         super(NetworkPolicyHandler, self).__init__()
+        self._drv_policy = drivers.NetworkPolicyDriver.get_instance()
+        self._drv_project = drivers.NetworkPolicyProjectDriver.get_instance()
 
     def on_present(self, policy):
-        LOG.debug("Received event notification on network policy: %s", policy)
+        LOG.debug("Created or updated: %s", policy)
+        project_id = self._drv_project.get_project(policy)
+        self._drv_policy.ensure_network_policy(policy, project_id)
 
     def on_deleted(self, policy):
-        LOG.debug("Received event notification on network policy: %s", policy)
+        LOG.debug("Deleted network policy: %s", policy)
+        project_id = self._drv_project.get_project(policy)
+        self._drv_policy.release_network_policy(policy, project_id)
