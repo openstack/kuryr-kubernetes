@@ -15,6 +15,34 @@ from oslo_versionedobjects import fields as obj_fields
 
 from os_vif.objects import vif as obj_osvif
 
+from kuryr_kubernetes import constants
+from kuryr_kubernetes.objects import base
+from kuryr_kubernetes.objects import fields
+
+
+@obj_base.VersionedObjectRegistry.register
+class PodState(base.KuryrK8sObjectBase):
+    VERSION = '1.0'
+
+    # FIXME(dulek): I know it's an ugly hack, but turns out you cannot
+    #               serialize-deserialize objects containing objects from
+    #               different namespaces, so we need 'os_vif' namespace here.
+    OBJ_PROJECT_NAMESPACE = 'os_vif'
+
+    fields = {
+        'default_vif': obj_fields.ObjectField(obj_osvif.VIFBase.__name__,
+                                              subclasses=True, nullable=False),
+        'additional_vifs': fields.DictOfVIFsField(default={}),
+    }
+
+    @property
+    def vifs(self):
+        d = {
+            constants.DEFAULT_IFNAME: self.default_vif,
+        }
+        d.update(self.additional_vifs)
+        return d
+
 
 @obj_base.VersionedObjectRegistry.register
 class VIFVlanNested(obj_osvif.VIFBase):

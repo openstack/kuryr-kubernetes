@@ -13,8 +13,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from os_vif.objects import vif
 from oslo_versionedobjects import fields as obj_fields
 
 
 class ListOfUUIDField(obj_fields.AutoTypedField):
     AUTO_TYPE = obj_fields.List(obj_fields.UUID())
+
+
+class DictOfVIFsField(obj_fields.AutoTypedField):
+    AUTO_TYPE = obj_fields.Dict(obj_fields.Object(vif.VIFBase.__name__,
+                                                  subclasses=True))

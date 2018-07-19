@@ -71,14 +71,13 @@ class CNIHandlerBase(k8s_base.ResourceEventHandler):
         # TODO(ivc): same as VIFHandler._get_vif
         try:
             annotations = pod['metadata']['annotations']
-            vifs_annotation = annotations[k_const.K8S_ANNOTATION_VIF]
+            state_annotation = annotations[k_const.K8S_ANNOTATION_VIF]
         except KeyError:
             return {}
-        vifs_annotation = jsonutils.loads(vifs_annotation)
-        vifs_dict = {
-            ifname: obj_vif.vif.VIFBase.obj_from_primitive(vif)
-            for ifname, vif in vifs_annotation.items()
-        }
+        state_annotation = jsonutils.loads(state_annotation)
+        state = obj_vif.base.VersionedObject.obj_from_primitive(
+            state_annotation)
+        vifs_dict = state.vifs
         LOG.debug("Got VIFs from annotation: %r", vifs_dict)
         return vifs_dict
 

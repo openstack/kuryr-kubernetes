@@ -70,7 +70,7 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
         # vif is not active.
         @retrying.retry(stop_max_delay=timeout * 1000, wait_fixed=RETRY_DELAY,
                         retry_on_result=lambda x: any(
-                            map(lambda y: not y[1].active, x.items())))
+                            map(lambda y: not y.active, x.values())))
         def wait_for_active(pod_name):
             return {
                 ifname: base.VersionedObject.obj_from_primitive(vif_obj) for

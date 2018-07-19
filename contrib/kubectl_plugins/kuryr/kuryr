@@ -132,7 +132,10 @@ def vifs(session, server, namespace, args):
         else:
             vif = json.loads(vif)
 
-        vif = vif.get('eth0', vif)
+        if vif['versioned_object.name'] == 'PodState':
+            # This is new format, fetch only default_vif from there.
+            vif = vif['versioned_object.data']['default_vif']
+
         network = (vif['versioned_object.data']['network']
                    ['versioned_object.data'])
         first_subnet = (network['subnets']['versioned_object.data']
