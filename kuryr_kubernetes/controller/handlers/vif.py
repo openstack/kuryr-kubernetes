@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from os_vif.objects import base
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
@@ -23,6 +22,7 @@ from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes import objects
+from kuryr_kubernetes import utils
 
 
 LOG = logging.getLogger(__name__)
@@ -145,8 +145,11 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             annotation = jsonutils.dumps(state_dict, sort_keys=True)
             LOG.debug("Setting VIFs annotation: %r", annotation)
 
-        # TODO(dulek): Here goes backward compatiblity code. Probably we can
-        #              just ignore this case.
+        # NOTE(dulek): We don't care about compatiblity with Queens format
+        #              here, as eventually all Kuryr services will be upgraded
+        #              and cluster will start working normally. Meanwhile
+        #              we just ignore issue of old services being unable to
+        #              read new annotations.
 
         k8s = clients.get_kubernetes_client()
         k8s.annotate(pod['metadata']['selfLink'],
@@ -160,9 +163,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             state_annotation = annotations[constants.K8S_ANNOTATION_VIF]
         except KeyError:
             return None
-
         state_annotation = jsonutils.loads(state_annotation)
-        state = base.VersionedObject.obj_from_primitive(state_annotation)
-        # TODO(dulek): Here goes backward compatibility code.
+        state = utils.extract_pod_annotation(state_annotation)
         LOG.debug("Got VIFs from annotation: %r", state)
         return state

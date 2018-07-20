@@ -24,6 +24,7 @@ from kuryr_kubernetes.cni.binding import base as b_base
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes.handlers import dispatch as k_dis
 from kuryr_kubernetes.handlers import k8s_base
+from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -75,8 +76,7 @@ class CNIHandlerBase(k8s_base.ResourceEventHandler):
         except KeyError:
             return {}
         state_annotation = jsonutils.loads(state_annotation)
-        state = obj_vif.base.VersionedObject.obj_from_primitive(
-            state_annotation)
+        state = utils.extract_pod_annotation(state_annotation)
         vifs_dict = state.vifs
         LOG.debug("Got VIFs from annotation: %r", vifs_dict)
         return vifs_dict
