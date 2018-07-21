@@ -13,6 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import os
+
 from kuryr.lib import utils
 
 from kuryr_kubernetes import config
@@ -68,5 +70,12 @@ def setup_loadbalancer_client():
 
 
 def setup_kubernetes_client():
-    _clients[_KUBERNETES_CLIENT] = k8s_client.K8sClient(
-        config.CONF.kubernetes.api_root)
+    if config.CONF.kubernetes.api_root:
+        api_root = config.CONF.kubernetes.api_root
+    else:
+        # NOTE(dulek): This is for containerized deployments, i.e. running in
+        #              K8s Pods.
+        host = os.environ['KUBERNETES_SERVICE_HOST']
+        port = os.environ['KUBERNETES_SERVICE_PORT_HTTPS']
+        api_root = "https://%s:%s" % (host, port)
+    _clients[_KUBERNETES_CLIENT] = k8s_client.K8sClient(api_root)
