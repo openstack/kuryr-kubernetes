@@ -237,7 +237,7 @@ function create_k8s_api_service {
 
     create_load_balancer "$lb_name" "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET"\
             "$project_id" "$k8s_api_clusterip"
-    create_load_balancer_listener default/kubernetes:443 HTTPS 443 "$lb_name" "$project_id"
+    create_load_balancer_listener default/kubernetes:443 HTTPS 443 "$lb_name" "$project_id" 3600000
     create_load_balancer_pool default/kubernetes:443 HTTPS ROUND_ROBIN \
         default/kubernetes:443 "$project_id" "$lb_name"
 
