@@ -19,6 +19,8 @@ from kuryr_kubernetes.platform.ocp.controller.handlers import route as h_route
 from kuryr_kubernetes.tests import base as test_base
 import mock
 
+OCP_ROUTE_PATH_COMP_TYPE = 'STARTS_WITH'
+
 
 class TestOcpRouteHandler(test_base.TestCase):
 
@@ -340,7 +342,7 @@ class TestOcpRouteHandler(test_base.TestCase):
 
         ret_p_l7_rule = obj_lbaas.LBaaSL7Rule(
             id='55559E11-91C2-41CF-8FD4-7970579E5C44',
-            compare_type='EQUAL_TO',
+            compare_type=OCP_ROUTE_PATH_COMP_TYPE,
             l7policy_id='55559E11-91C2-41CF-8FD4-7970579E5C45',
             type='PATH',
             value='/nice_path')
@@ -351,7 +353,7 @@ class TestOcpRouteHandler(test_base.TestCase):
         self.assertEqual(route_state.p_l7_rule, ret_p_l7_rule)
         m_handler._drv_lbaas.ensure_l7_rule.assert_called_once_with(
             m_handler._l7_router, route_state.l7_policy,
-            'EQUAL_TO', 'PATH', route['spec']['path'])
+            OCP_ROUTE_PATH_COMP_TYPE, 'PATH', route['spec']['path'])
 
     def test_sync_path_l7_rule_edit_usecase(self):
         m_handler = mock.Mock(spec=h_route.OcpRouteHandler)
@@ -363,7 +365,7 @@ class TestOcpRouteHandler(test_base.TestCase):
 
         old_p_l7_rule = obj_lbaas.LBaaSL7Rule(
             id='00EE9E11-91C2-41CF-8FD4-7970579E5C44',
-            compare_type='EQUAL_TO',
+            compare_type=OCP_ROUTE_PATH_COMP_TYPE,
             l7policy_id='00EE9E11-91C2-41CF-8FD4-7970579E5C45',
             type='PATH',
             value='/cur_path')
@@ -380,7 +382,7 @@ class TestOcpRouteHandler(test_base.TestCase):
 
         ret_p_l7_rule = obj_lbaas.LBaaSL7Rule(
             id='00EE9E11-91C2-41CF-8FD4-7970579E5C44',
-            compare_type='EQUAL_TO',
+            compare_type=OCP_ROUTE_PATH_COMP_TYPE,
             l7policy_id='00EE9E11-91C2-41CF-8FD4-7970579E5C45',
             type='PATH',
             value=route['spec']['path'])
@@ -402,7 +404,7 @@ class TestOcpRouteHandler(test_base.TestCase):
 
         old_p_l7_rule = obj_lbaas.LBaaSL7Rule(
             id='00EE9E11-91C2-41CF-8FD4-7970579E5C44',
-            compare_type='EQUAL_TO',
+            compare_type=OCP_ROUTE_PATH_COMP_TYPE,
             l7policy_id='00EE9E11-91C2-41CF-8FD4-7970579E5C45',
             type='PATH',
             value='/cur_path')
