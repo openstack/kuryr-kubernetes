@@ -474,6 +474,8 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         if removed_ids:
             lbaas_state.pools = [p for p in lbaas_state.pools
                                  if p.id not in removed_ids]
+            lbaas_state.members = [m for m in lbaas_state.members
+                                   if m.pool_id not in removed_ids]
         return bool(removed_ids)
 
     def _sync_lbaas_listeners(self, endpoints, lbaas_state, lbaas_spec):
