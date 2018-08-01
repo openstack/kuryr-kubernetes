@@ -30,6 +30,7 @@
         devstack_plugins:
           kuryr-kubernetes: https://git.openstack.org/openstack/kuryr
           devstack-plugin-container: https://git.openstack.org/openstack/devstack-plugin-container
+          kuryr-tempest-plugin: https://git.openstack.org/openstack/kuryr-tempest-plugin
     vars:
       tempest_test_regex: '^(kuryr_tempest_plugin.tests.)'
       tox_envlist: 'all'
