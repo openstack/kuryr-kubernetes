@@ -191,9 +191,10 @@ class Watcher(health.HealthHandler):
                     self._idle[path] = True
                     if not (self._running and path in self._resources):
                         return
-            except Exception as e:
-                LOG.warning("Restarting(%s) watching '%s': %s",
-                            attempts, path, e)
+            except Exception:
+                LOG.exception("Caught exception while watching.")
+                LOG.warning("Restarting(%s) watching '%s'.",
+                            attempts, path)
                 attempts += 1
                 retry = True
                 self._idle[path] = True
