@@ -28,8 +28,8 @@ function ovs_bind_for_kubelet() {
     project_id="$1"
     port_number="$2"
     security_group=$(openstack security group list \
-        --project "$project_id" -f value | \
-        awk '/default/ {print $1}')
+        --project "$project_id" -c ID -c Name -f value | \
+        awk '{if ($2=="default") print $1}')
     port_id=$(openstack port create \
         --device-owner compute:kuryr \
         --project "$project_id" \
@@ -49,6 +49,11 @@ function ovs_bind_for_kubelet() {
             "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L2" ]]; then
         openstack port set "$port_id" --security-group octavia_pod_access
     fi
+    if [[ "$KURYR_SG_DRIVER" == "namespace" ]]; then
+        openstack port set "$port_id" --security-group allow_from_namespace
+        openstack port set "$port_id" --security-group allow_from_default
+    fi
+
     ifname="kubelet${port_id}"
     ifname="${ifname:0:14}"
     service_subnet_cidr=$(openstack --os-cloud devstack-admin \
@@ -73,9 +78,16 @@ function ovs_bind_for_kubelet() {
     sudo ip link set dev "$ifname" address "$port_mac"
     sudo ip link set dev "$ifname" up
     for ((i=0; i < ${#port_ips[@]}; i++)); do
-        prefix=$(openstack subnet show "${port_subnets[$i]}" \
-            -c cidr -f value | \
-            cut -f2 -d/)
+        if [[ "$KURYR_SG_DRIVER" == "namespace" ]]; then
+            subnetpool_id=$(openstack subnet show "${port_subnets[$i]}" \
+                -c subnetpool_id -f value | cut -f2)
+            prefix=$(openstack subnet pool show "${subnetpool_id}" \
+                -c prefixes -f value | cut -f2 -d/)
+        else
+            prefix=$(openstack subnet show "${port_subnets[$i]}" \
+                -c cidr -f value | \
+                cut -f2 -d/)
+        fi
         sudo ip addr add "${port_ips[$i]}/${prefix}" dev "$ifname"
     done
     sudo ip route add "$service_subnet_cidr" via "$pod_subnet_gw" dev "$ifname"

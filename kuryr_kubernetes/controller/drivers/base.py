@@ -150,11 +150,13 @@ class PodSubnetsDriver(DriverBase):
         """
         raise NotImplementedError()
 
-    def create_namespace_network(self, namespace):
+    def create_namespace_network(self, namespace, project_id):
         """Create network resources for a namespace.
 
         :param namespace: string with the namespace name
-        :return: CRD KuryrNet dict
+        :param project_id: OpenStack project ID
+        :return: dict with the keys and values for the CRD spec, such as
+                 routerId or subnetId
         """
         raise NotImplementedError()
 
@@ -166,13 +168,11 @@ class PodSubnetsDriver(DriverBase):
         """
         raise NotImplementedError()
 
-    def rollback_network_resources(self, router_id, net_id, subnet_id,
-                                   namespace):
+    def rollback_network_resources(self, crd_spec, namespace):
         """Rollback created network resources for a namespace.
 
-        :param router_id: OpenStack router ID where the network is connected
-        :param net_id: OpenStack network ID
-        :param subnet_id: OpenStack subnet ID
+        :param crd_spec: dict with the keys and values for the CRD spec, such
+                         as routerId or subnetId
         :param namespace: name of the Kubernetes namespace object
         """
         raise NotImplementedError()
@@ -211,6 +211,22 @@ class PodSecurityGroupsDriver(DriverBase):
         :param pod: dict containing Kubernetes Pod object
         :param project_id: OpenStack project ID
         :return: list containing security groups' IDs
+        """
+        raise NotImplementedError()
+
+    def create_namespace_sg(self, namespace, project_id):
+        """Create security group resources for a namespace.
+
+        :param namespace: string with the namespace name
+        :param project_id: OpenStack project ID
+        :return: dict with the keys and values for the CRD spec, such as sgId
+        """
+        raise NotImplementedError()
+
+    def delete_sg(self, sg_id):
+        """Delete security group associated to a namespace.
+
+        :param sg_id: OpenStack security group ID
         """
         raise NotImplementedError()
 
