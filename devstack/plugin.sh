@@ -387,7 +387,7 @@ function configure_neutron_defaults {
         KURYR_K8S_API_LB_URL="https://${k8s_api_clusterip}:${KURYR_K8S_API_LB_PORT}"
         iniset "$KURYR_CONFIG" kubernetes api_root ${KURYR_K8S_API_LB_URL}
     else
-        iniset "$KURYR_CONFIG" kubernetes api_root ""
+        iniset "$KURYR_CONFIG" kubernetes api_root '""'
     fi
     iniset "$KURYR_CONFIG" neutron_defaults project "$project_id"
     iniset "$KURYR_CONFIG" neutron_defaults pod_subnet "$pod_subnet_id"
