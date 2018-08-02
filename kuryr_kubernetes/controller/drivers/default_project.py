@@ -67,6 +67,8 @@ class DefaultNamespaceProjectDriver(base.NamespaceProjectDriver):
             raise cfg.RequiredOptError('project',
                                        cfg.OptGroup('neutron_defaults'))
 
+        return project_id
+
 
 class DefaultNetworkPolicyProjectDriver(base.NetworkPolicyProjectDriver):
 
