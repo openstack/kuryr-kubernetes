@@ -48,12 +48,13 @@ class NamespacePodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
         namespace = pod['metadata']['namespace']
         net_crd = self._get_net_crd(namespace)
 
-        sg_list = config.CONF.neutron_defaults.pod_security_groups
-        sg_list.append(str(net_crd['spec']['sgId']))
+        sg_list = [str(net_crd['spec']['sgId'])]
 
         extra_sgs = self._get_extra_sg(namespace)
         for sg in extra_sgs:
             sg_list.append(str(sg))
+
+        sg_list.extend(config.CONF.neutron_defaults.pod_security_groups)
 
         return sg_list[:]
 

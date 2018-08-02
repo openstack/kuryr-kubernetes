@@ -83,7 +83,7 @@ class TestNamespacePodSecurityGroupsDriver(test_base.TestCase):
         m_driver._get_extra_sg.return_value = [extra_sg]
 
         ret = cls.get_security_groups(m_driver, pod, project_id)
-        expected_sg = [sg_list[0], str(sg_id), str(extra_sg)]
+        expected_sg = [str(sg_id), str(extra_sg), sg_list[0]]
 
         self.assertEqual(ret, expected_sg)
 
