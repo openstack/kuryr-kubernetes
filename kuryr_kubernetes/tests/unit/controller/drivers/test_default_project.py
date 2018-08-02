@@ -53,3 +53,37 @@ class TestDefaultServiceProjectDriver(test_base.TestCase):
         service = mock.sentinel.service
         driver = default_project.DefaultServiceProjectDriver()
         self.assertRaises(cfg.RequiredOptError, driver.get_project, service)
+
+
+class TestDefaultNamespaceProjectDriver(test_base.TestCase):
+
+    @mock.patch('kuryr_kubernetes.config.CONF')
+    def test_get_project(self, m_cfg):
+        project_id = mock.sentinel.project_id
+        namespace = mock.sentinel.namespace
+        m_cfg.neutron_defaults.project = project_id
+        driver = default_project.DefaultNamespaceProjectDriver()
+
+        self.assertEqual(project_id, driver.get_project(namespace))
+
+    def test_get_project_not_set(self):
+        namespace = mock.sentinel.namespace
+        driver = default_project.DefaultNamespaceProjectDriver()
+        self.assertRaises(cfg.RequiredOptError, driver.get_project, namespace)
+
+
+class TestDefaultNetworkPolicyProjectDriver(test_base.TestCase):
+
+    @mock.patch('kuryr_kubernetes.config.CONF')
+    def test_get_project(self, m_cfg):
+        project_id = mock.sentinel.project_id
+        policy = mock.sentinel.policy
+        m_cfg.neutron_defaults.project = project_id
+        driver = default_project.DefaultNetworkPolicyProjectDriver()
+
+        self.assertEqual(project_id, driver.get_project(policy))
+
+    def test_get_project_not_set(self):
+        policy = mock.sentinel.policy
+        driver = default_project.DefaultNamespaceProjectDriver()
+        self.assertRaises(cfg.RequiredOptError, driver.get_project, policy)
