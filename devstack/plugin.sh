@@ -177,7 +177,7 @@ function run_containerized_kuryr_resources {
 
     if is_service_enabled openshift-master; then
         # NOTE(dulek): For OpenShift add privileged SCC to serviceaccount.
-        /usr/local/bin/oadm policy add-scc-to-user privileged -n kube-system -z kuryr-controller
+        /usr/local/bin/oc adm policy add-scc-to-user privileged -n kube-system -z kuryr-controller
     fi
     /usr/local/bin/kubectl create -f \
         "${k8s_data_dir}/controller_deployment.yml" \

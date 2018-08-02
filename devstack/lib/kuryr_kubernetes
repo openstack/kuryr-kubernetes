@@ -715,15 +715,6 @@ CURL_CA_BUNDLE=${OPENSHIFT_DATA_DIR}/ca.crt \
     ${OPENSHIFT_BIN}/kubectl "\$@"
 EOF
     sudo chmod a+x /usr/local/bin/kubectl
-
-    # Make oadm easily available
-    cat << EOF | sudo tee /usr/local/bin/oadm
-#!/bin/bash
-CURL_CA_BUNDLE=${OPENSHIFT_DATA_DIR}/ca.crt \
-    KUBECONFIG=${OPENSHIFT_DATA_DIR}/admin.kubeconfig \
-    ${OPENSHIFT_BIN}/oadm "\$@"
-EOF
-    sudo chmod a+x /usr/local/bin/oadm
 }
 
 # run_openshift_master
@@ -771,7 +762,7 @@ function run_openshift_master {
     sudo chown "${STACK_USER}:${STACK_USER}" -R "$OPENSHIFT_DATA_DIR"
 
     # Generate kubelet kubeconfig
-    "${OPENSHIFT_BIN}/oadm" create-kubeconfig \
+    "${OPENSHIFT_BIN}/oc" adm create-kubeconfig \
         "--client-key=${OPENSHIFT_DATA_DIR}/master.kubelet-client.key" \
         "--client-certificate=${OPENSHIFT_DATA_DIR}/master.kubelet-client.crt" \
         "--certificate-authority=${OPENSHIFT_DATA_DIR}/ca.crt" \
@@ -800,7 +791,7 @@ function run_openshift_master {
 function make_admin_cluster_admin {
     wait_for "OpenShift API Server" "$OPENSHIFT_API_URL" \
         "${OPENSHIFT_DATA_DIR}/ca.crt"
-    /usr/local/bin/oadm policy add-cluster-role-to-user cluster-admin admin \
+    /usr/local/bin/oc adm policy add-cluster-role-to-user cluster-admin admin \
         "--config=${OPENSHIFT_DATA_DIR}/openshift-master.kubeconfig"
 }
 
