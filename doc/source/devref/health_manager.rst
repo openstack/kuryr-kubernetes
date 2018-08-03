@@ -44,7 +44,7 @@ broken state as a result of its components being not healthy and necessary
 configurations not present. It is essencial that CNI components health and
 configurations are properly verified to assure CNI daemon is in a good shape.
 On this way, the CNI Health Manager will check and serve the health state to
-Kubenetes readiness and liveness probes.
+Kubernetes readiness and liveness probes.
 
 Proposed Solution
 -----------------
