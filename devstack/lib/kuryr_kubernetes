@@ -1259,3 +1259,138 @@ function cleanup_kuryr_devstack_iptables {
             tac | bash /dev/stdin
     done
 }
+
+# run_openshift_registry
+#   Description: Deploys Openshift's registry as a DeploymentConfig
+function run_openshift_registry {
+    local registry_yaml
+    local registry_ip="$1"
+
+    mkdir -p "${OPENSHIFT_DATA_DIR}/registry"
+    registry_yaml=$(mktemp)
+    oc adm registry \
+        --config=${OPENSHIFT_DATA_DIR}/admin.kubeconfig \
+        --service-account=registry \
+        --mount-host=${OPENSHIFT_DATA_DIR}/registry \
+        --tls-certificate=${OPENSHIFT_DATA_DIR}/registry.crt \
+        --tls-key=${OPENSHIFT_DATA_DIR}/registry.key \
+        -o yaml > $registry_yaml
+
+    python - <<EOF "$registry_yaml" "$registry_ip"
+import copy
+import os
+import sys
+import tempfile
+import traceback
+import yaml
+
+if len(sys.argv) < 3:
+    sys.exit(1)
+registry_conf_path = sys.argv[1]
+registry_cluster_ip = sys.argv[2]
+conf_dir = os.path.dirname(registry_conf_path)
+
+def service_configure_registry_clusterIP(conf):
+    new_conf = copy.deepcopy(conf)
+    for object in new_conf['items']:
+        if object['kind'] == 'Service':
+            object['spec']['clusterIP'] = registry_cluster_ip
+    return new_conf
+
+old_conf = {}
+while True:
+    tp = tempfile.NamedTemporaryFile(dir=conf_dir, delete=False)
+    try:
+        with open(registry_conf_path) as registry_conf:
+            current_conf = yaml.load(registry_conf.read())
+            if current_conf == old_conf:
+                tp.write(yaml.dump(new_conf, default_flow_style=False))
+                tp.flush()
+                os.fsync(tp.fileno())
+                tp.close()
+                os.rename(tp.name, registry_conf_path)
+                break
+            else:
+                new_conf = service_configure_registry_clusterIP(current_conf)
+                old_conf = current_conf
+                tp.close()
+                os.unlink(tp.name)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        tp.close()
+        os.unlink(tp.name)
+EOF
+
+oc adm policy add-scc-to-user privileged -z registry -n default
+oc create -f "$registry_yaml"
+}
+
+# oc_generate_server_certificates
+#   Description: Generates and CA signs openshift cert & key for server
+#   Params:
+#     - name: filename without extension of the cert and key
+#     - hostnames: the comma separated hostnames to sign the cert for
+function oc_generate_server_certificates {
+    local name
+    local cert_hostnames
+
+    name="$1"
+    cert_hostnames="$2"
+    oc adm ca create-server-cert \
+    --signer-cert="${OPENSHIFT_DATA_DIR}/ca.crt" \
+    --signer-key="${OPENSHIFT_DATA_DIR}/ca.key" \
+    --signer-serial="${OPENSHIFT_DATA_DIR}/ca.serial.txt" \
+    --hostnames="$cert_hostnames" \
+    --cert="${OPENSHIFT_DATA_DIR}/${name}.crt" \
+    --key="${OPENSHIFT_DATA_DIR}/${name}.key"
+}
+
+# docker_install_ca_certs
+#   Description: Installs registry openshift_ca_certs to docker
+#   Params:
+#     - registry_hostnames: the comma separated hostnames to give the CA for
+function docker_install_ca_certs {
+    local registry_hostnames
+    local destdir
+
+    registry_hostnames=(${1//,/ })
+    for hostname in ${registry_hostnames[@]}; do
+        destdir="/etc/docker/certs.d/${hostname}:5000"
+        sudo install -d -o "$STACK_USER" "$destdir"
+        cp "${OPENSHIFT_DATA_DIR}/ca.crt" "${destdir}/"
+    done
+}
+
+
+function _nth_cidr_ip {
+    local cidr
+    local position
+
+    cidr="$1"
+    position="$2"
+    python - <<EOF "$cidr" "$position"
+import sys
+from netaddr import IPAddress, IPNetwork
+
+cmdname, cidr, position = sys.argv
+n = IPNetwork(cidr)
+print("%s" % IPAddress(n.first + int(position)))
+EOF
+}
+
+function configure_and_run_registry {
+    local service_cidr
+    local registry_ip
+    local hostnames
+
+    service_cidr=$(openstack --os-cloud devstack-admin \
+                             --os-region "$REGION_NAME" \
+                             subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
+                             -c cidr -f value)
+    registry_ip=$(_nth_cidr_ip "$service_cidr" 2)
+    hostnames="docker-registry.default.svc.cluster.local,docker-registry.default.svc,${registry_ip}"
+
+    docker_install_ca_certs "$hostnames"
+    oc_generate_server_certificates registry "$hostnames"
+    run_openshift_registry "$registry_ip"
+}
