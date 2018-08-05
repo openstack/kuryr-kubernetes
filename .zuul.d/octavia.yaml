@@ -115,6 +115,7 @@
       tempest_test_regex: '^(kuryr_tempest_plugin.tests.scenario.test_namespace.TestNamespaceScenario.test_namespace)'
       devstack_localrc:
         KURYR_SUBNET_DRIVER: namespace
+        KURYR_SG_DRIVER: namespace
         KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace
     voting: false
 
