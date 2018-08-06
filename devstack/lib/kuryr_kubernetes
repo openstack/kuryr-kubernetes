@@ -1357,7 +1357,7 @@ function docker_install_ca_certs {
     for hostname in ${registry_hostnames[@]}; do
         destdir="/etc/docker/certs.d/${hostname}:5000"
         sudo install -d -o "$STACK_USER" "$destdir"
-        cp "${OPENSHIFT_DATA_DIR}/ca.crt" "${destdir}/"
+        sudo install -o "$STACK_USER" "${OPENSHIFT_DATA_DIR}/ca.crt" "${destdir}/"
     done
 }
 
