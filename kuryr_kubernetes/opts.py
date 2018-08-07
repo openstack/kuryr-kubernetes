@@ -19,7 +19,6 @@ from kuryr_kubernetes import config
 from kuryr_kubernetes.controller.drivers import default_subnet
 from kuryr_kubernetes.controller.drivers import namespace_security_groups
 from kuryr_kubernetes.controller.drivers import namespace_subnet
-from kuryr_kubernetes.controller.drivers import nested_vif
 from kuryr_kubernetes.controller.drivers import vif_pool
 from kuryr_kubernetes.controller.managers import health
 from kuryr_kubernetes.controller.managers import pool
@@ -28,7 +27,7 @@ _kuryr_k8s_opts = [
     ('kubernetes', config.k8s_opts),
     ('kuryr-kubernetes', config.kuryr_k8s_opts),
     ('neutron_defaults', config.neutron_defaults),
-    ('pod_vif_nested', nested_vif.nested_vif_driver_opts),
+    ('pod_vif_nested', config.nested_vif_driver_opts),
     ('vif_pool', vif_pool.vif_pool_driver_opts),
     ('octavia_defaults', config.octavia_defaults),
     ('cache_defaults', config.cache_defaults),
