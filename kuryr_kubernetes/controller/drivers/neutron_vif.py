@@ -21,6 +21,7 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base
+from kuryr_kubernetes.controller.drivers import utils
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes import os_vif_util as ovu
 
@@ -94,11 +95,11 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
     def _get_port_request(self, pod, project_id, subnets, security_groups,
                           unbound=False):
         port_req_body = {'project_id': project_id,
-                         'network_id': self._get_network_id(subnets),
+                         'network_id': utils.get_network_id(subnets),
                          'fixed_ips': ovu.osvif_to_neutron_fixed_ips(subnets),
                          'device_owner': kl_const.DEVICE_OWNER,
                          'admin_state_up': True,
-                         'binding:host_id': self._get_host_id(pod)}
+                         'binding:host_id': utils.get_host_id(pod)}
 
         # if unbound argument is set to true, it means the port requested
         # should not be bound and not associated to the pod. Thus the port dict
@@ -109,8 +110,8 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
         else:
             # only set the name if port_debug is enabled
             if config.CONF.kubernetes.port_debug:
-                port_req_body['name'] = self._get_port_name(pod)
-            port_req_body['device_id'] = self._get_device_id(pod)
+                port_req_body['name'] = utils.get_port_name(pod)
+            port_req_body['device_id'] = utils.get_device_id(pod)
 
         if security_groups:
             port_req_body['security_groups'] = security_groups
@@ -119,23 +120,3 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
 
     def _get_vif_plugin(self, port):
         return port.get('binding:vif_type')
-
-    def _get_network_id(self, subnets):
-        ids = ovu.osvif_to_neutron_network_ids(subnets)
-
-        if len(ids) != 1:
-            raise k_exc.IntegrityError(
-                "Subnet mapping %(subnets)s is not valid: "
-                "%(num_networks)s unique networks found" %
-                {'subnets': subnets, 'num_networks': len(ids)})
-
-        return ids[0]
-
-    def _get_port_name(self, pod):
-        return "%(namespace)s/%(name)s" % pod['metadata']
-
-    def _get_device_id(self, pod):
-        return pod['metadata']['uid']
-
-    def _get_host_id(self, pod):
-        return pod['spec']['nodeName']

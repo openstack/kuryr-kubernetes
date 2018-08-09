@@ -326,6 +326,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         neutron.delete_port.assert_called_once_with(vif.id)
 
     def _test_get_port_request(self, m_to_fips, security_groups,
+                               m_get_network_id, m_get_port_name,
                                unbound=False):
         cls = nested_vlan_vif.NestedVlanPodVIFDriver
         m_driver = mock.Mock(spec=cls)
@@ -337,8 +338,8 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         network_id = mock.sentinel.project_id
         fixed_ips = mock.sentinel.fixed_ips
 
-        m_driver._get_port_name.return_value = port_name
-        m_driver._get_network_id.return_value = network_id
+        m_get_port_name.return_value = port_name
+        m_get_network_id.return_value = network_id
         m_to_fips.return_value = fixed_ips
 
         oslo_cfg.CONF.set_override('port_debug',
@@ -363,26 +364,39 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
 
         self.assertEqual(expected, ret)
         if unbound:
-            m_driver._get_port_name.assert_not_called()
+            m_get_port_name.assert_not_called()
         else:
-            m_driver._get_port_name.assert_called_once_with(pod)
-        m_driver._get_network_id.assert_called_once_with(subnets)
+            m_get_port_name.assert_called_once_with(pod)
+        m_get_network_id.assert_called_once_with(subnets)
         m_to_fips.assert_called_once_with(subnets)
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_port_name')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_network_id')
     @mock.patch('kuryr_kubernetes.os_vif_util.osvif_to_neutron_fixed_ips')
-    def test_get_port_request(self, m_to_fips):
+    def test_get_port_request(self, m_to_fips, m_get_network_id,
+                              m_get_port_name):
         security_groups = mock.sentinel.security_groups
-        self._test_get_port_request(m_to_fips, security_groups)
+        self._test_get_port_request(m_to_fips, security_groups,
+                                    m_get_network_id, m_get_port_name)
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_port_name')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_network_id')
     @mock.patch('kuryr_kubernetes.os_vif_util.osvif_to_neutron_fixed_ips')
-    def test_get_port_request_no_sg(self, m_to_fips):
+    def test_get_port_request_no_sg(self, m_to_fips, m_get_network_id,
+                                    m_get_port_name):
         security_groups = []
-        self._test_get_port_request(m_to_fips, security_groups)
+        self._test_get_port_request(m_to_fips, security_groups,
+                                    m_get_network_id, m_get_port_name)
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_port_name')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_network_id')
     @mock.patch('kuryr_kubernetes.os_vif_util.osvif_to_neutron_fixed_ips')
-    def test_get_port_request_unbound(self, m_to_fips):
+    def test_get_port_request_unbound(self, m_to_fips, m_get_network_id,
+                                      m_get_port_name):
         security_groups = mock.sentinel.security_groups
-        self._test_get_port_request(m_to_fips, security_groups, unbound=True)
+        self._test_get_port_request(m_to_fips, security_groups,
+                                    m_get_network_id, m_get_port_name,
+                                    unbound=True)
 
     @mock.patch('kuryr.lib.segmentation_type_drivers.allocate_segmentation_id')
     def test__create_subports_info(self, m_allocate_seg_id):

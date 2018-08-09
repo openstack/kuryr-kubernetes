@@ -334,8 +334,9 @@ class BaseVIFPool(test_base.TestCase):
 @ddt.ddt
 class NeutronVIFPool(test_base.TestCase):
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_port_name')
     @mock.patch('eventlet.spawn')
-    def test__get_port_from_pool(self, m_eventlet):
+    def test__get_port_from_pool(self, m_eventlet, m_get_port_name):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -350,7 +351,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver._available_ports_pools = {
             pool_key: collections.deque([port_id])}
         m_driver._existing_vifs = {port_id: port}
-        m_driver._get_port_name.return_value = get_pod_name(pod)
+        m_get_port_name.return_value = get_pod_name(pod)
 
         oslo_cfg.CONF.set_override('ports_pool_min',
                                    5,
@@ -377,8 +378,10 @@ class NeutronVIFPool(test_base.TestCase):
             })
         m_eventlet.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_port_name')
     @mock.patch('eventlet.spawn')
-    def test__get_port_from_pool_pool_populate(self, m_eventlet):
+    def test__get_port_from_pool_pool_populate(self, m_eventlet,
+                                               m_get_port_name):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -393,7 +396,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver._available_ports_pools = {
             pool_key: collections.deque([port_id])}
         m_driver._existing_vifs = {port_id: port}
-        m_driver._get_port_name.return_value = get_pod_name(pod)
+        m_get_port_name.return_value = get_pod_name(pod)
 
         oslo_cfg.CONF.set_override('ports_pool_min',
                                    5,
@@ -755,8 +758,9 @@ class NestedVIFPool(test_base.TestCase):
                 'subports': trunk_obj['sub_ports']}
         return parent_ports
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_port_name')
     @mock.patch('eventlet.spawn')
-    def test__get_port_from_pool(self, m_eventlet):
+    def test__get_port_from_pool(self, m_eventlet, m_get_port_name):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -771,7 +775,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._available_ports_pools = {
             pool_key: collections.deque([port_id])}
         m_driver._existing_vifs = {port_id: port}
-        m_driver._get_port_name.return_value = get_pod_name(pod)
+        m_get_port_name.return_value = get_pod_name(pod)
 
         oslo_cfg.CONF.set_override('ports_pool_min',
                                    5,
@@ -794,8 +798,10 @@ class NestedVIFPool(test_base.TestCase):
             })
         m_eventlet.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_port_name')
     @mock.patch('eventlet.spawn')
-    def test__get_port_from_pool_pool_populate(self, m_eventlet):
+    def test__get_port_from_pool_pool_populate(self, m_eventlet,
+                                               m_get_port_name):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -810,7 +816,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._available_ports_pools = {
             pool_key: collections.deque([port_id])}
         m_driver._existing_vifs = {port_id: port}
-        m_driver._get_port_name.return_value = get_pod_name(pod)
+        m_get_port_name.return_value = get_pod_name(pod)
 
         oslo_cfg.CONF.set_override('ports_pool_min',
                                    5,

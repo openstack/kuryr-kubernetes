@@ -21,6 +21,7 @@ from oslo_config import cfg as oslo_cfg
 
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import neutron_vif
+from kuryr_kubernetes.controller.drivers import utils
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
@@ -229,7 +230,8 @@ class NeutronPodVIFDriver(test_base.TestCase):
                           m_driver, pod, vif)
 
     def _test_get_port_request(self, m_to_fips, security_groups,
-                               unbound=False):
+                               m_get_device_id, m_get_port_name, m_get_host_id,
+                               m_get_network_id, unbound=False):
         cls = neutron_vif.NeutronPodVIFDriver
         m_driver = mock.Mock(spec=cls)
 
@@ -242,11 +244,11 @@ class NeutronPodVIFDriver(test_base.TestCase):
         device_id = mock.sentinel.device_id
         host_id = mock.sentinel.host_id
 
-        m_driver._get_port_name.return_value = port_name
-        m_driver._get_network_id.return_value = network_id
+        m_get_port_name.return_value = port_name
+        m_get_network_id.return_value = network_id
         m_to_fips.return_value = fixed_ips
-        m_driver._get_device_id.return_value = device_id
-        m_driver._get_host_id.return_value = host_id
+        m_get_device_id.return_value = device_id
+        m_get_host_id.return_value = host_id
 
         oslo_cfg.CONF.set_override('port_debug',
                                    True,
@@ -272,27 +274,49 @@ class NeutronPodVIFDriver(test_base.TestCase):
                                     security_groups, unbound)
 
         self.assertEqual(expected, ret)
-        m_driver._get_network_id.assert_called_once_with(subnets)
+        m_get_network_id.assert_called_once_with(subnets)
         m_to_fips.assert_called_once_with(subnets)
         if not unbound:
-            m_driver._get_port_name.assert_called_once_with(pod)
-            m_driver._get_device_id.assert_called_once_with(pod)
-        m_driver._get_host_id.assert_called_once_with(pod)
+            m_get_port_name.assert_called_once_with(pod)
+            m_get_device_id.assert_called_once_with(pod)
+        m_get_host_id.assert_called_once_with(pod)
 
     @mock.patch('kuryr_kubernetes.os_vif_util.osvif_to_neutron_fixed_ips')
-    def test_get_port_request(self, m_to_fips):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_device_id')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_port_name')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_host_id')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_network_id')
+    def test_get_port_request(self, m_get_network_id, m_get_host_id,
+                              m_get_port_name, m_get_dev_id, m_to_fips):
         security_groups = mock.sentinel.security_groups
-        self._test_get_port_request(m_to_fips, security_groups)
+        self._test_get_port_request(m_to_fips, security_groups, m_get_dev_id,
+                                    m_get_port_name, m_get_host_id,
+                                    m_get_network_id)
 
     @mock.patch('kuryr_kubernetes.os_vif_util.osvif_to_neutron_fixed_ips')
-    def test_get_port_request_no_sg(self, m_to_fips):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_device_id')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_port_name')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_host_id')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_network_id')
+    def test_get_port_request_no_sg(self, m_get_network_id, m_get_host_id,
+                                    m_get_port_name, m_get_dev_id, m_to_fips):
         security_groups = []
-        self._test_get_port_request(m_to_fips, security_groups)
+        self._test_get_port_request(m_to_fips, security_groups, m_get_dev_id,
+                                    m_get_port_name, m_get_host_id,
+                                    m_get_network_id)
 
     @mock.patch('kuryr_kubernetes.os_vif_util.osvif_to_neutron_fixed_ips')
-    def test_get_port_request_unbound(self, m_to_fips):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_device_id')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_port_name')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_host_id')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_network_id')
+    def test_get_port_request_unbound(self, m_get_network_id, m_get_host_id,
+                                      m_get_port_name, m_get_dev_id,
+                                      m_to_fips):
         security_groups = mock.sentinel.security_groups
-        self._test_get_port_request(m_to_fips, security_groups, unbound=True)
+        self._test_get_port_request(m_to_fips, security_groups, m_get_dev_id,
+                                    m_get_port_name, m_get_host_id,
+                                    m_get_network_id, unbound=True)
 
     def test_get_vif_plugin(self):
         cls = neutron_vif.NeutronPodVIFDriver
@@ -304,46 +328,35 @@ class NeutronPodVIFDriver(test_base.TestCase):
 
     @mock.patch('kuryr_kubernetes.os_vif_util.osvif_to_neutron_network_ids')
     def test_get_network_id(self, m_to_net_ids):
-        cls = neutron_vif.NeutronPodVIFDriver
-        m_driver = mock.Mock(spec=cls)
         subnets = mock.sentinel.subnets
         network_id = mock.sentinel.network_id
         m_to_net_ids.return_value = [network_id]
 
-        self.assertEqual(network_id, cls._get_network_id(m_driver, subnets))
+        self.assertEqual(network_id, utils.get_network_id(subnets))
         m_to_net_ids.assert_called_once_with(subnets)
 
     @mock.patch('kuryr_kubernetes.os_vif_util.osvif_to_neutron_network_ids')
     def test_get_network_id_invalid(self, m_to_net_ids):
-        cls = neutron_vif.NeutronPodVIFDriver
-        m_driver = mock.Mock(spec=cls)
         subnets = mock.sentinel.subnets
         m_to_net_ids.return_value = []
 
-        self.assertRaises(k_exc.IntegrityError, cls._get_network_id, m_driver,
-                          subnets)
+        self.assertRaises(k_exc.IntegrityError, utils.get_network_id, subnets)
 
     def test_get_port_name(self):
-        cls = neutron_vif.NeutronPodVIFDriver
-        m_driver = mock.Mock(spec=cls)
         pod_name = mock.sentinel.pod_name
         port_name = 'default/' + str(pod_name)
         pod = {'metadata': {'name': pod_name, 'namespace': 'default'}}
 
-        self.assertEqual(port_name, cls._get_port_name(m_driver, pod))
+        self.assertEqual(port_name, utils.get_port_name(pod))
 
     def test_get_device_id(self):
-        cls = neutron_vif.NeutronPodVIFDriver
-        m_driver = mock.Mock(spec=cls)
         pod_uid = mock.sentinel.pod_uid
         pod = {'metadata': {'uid': pod_uid}}
 
-        self.assertEqual(pod_uid, cls._get_device_id(m_driver, pod))
+        self.assertEqual(pod_uid, utils.get_device_id(pod))
 
     def test_get_host_id(self):
-        cls = neutron_vif.NeutronPodVIFDriver
-        m_driver = mock.Mock(spec=cls)
         node = mock.sentinel.pod_uid
         pod = {'spec': {'nodeName': node}}
 
-        self.assertEqual(node, cls._get_host_id(m_driver, pod))
+        self.assertEqual(node, utils.get_host_id(pod))

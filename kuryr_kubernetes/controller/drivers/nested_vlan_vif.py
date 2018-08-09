@@ -23,6 +23,7 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import nested_vif
+from kuryr_kubernetes.controller.drivers import utils
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes import os_vif_util as ovu
 
@@ -121,7 +122,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
     def _get_port_request(self, pod, project_id, subnets, security_groups,
                           unbound=False):
         port_req_body = {'project_id': project_id,
-                         'network_id': self._get_network_id(subnets),
+                         'network_id': utils.get_network_id(subnets),
                          'fixed_ips': ovu.osvif_to_neutron_fixed_ips(subnets),
                          'device_owner': kl_const.DEVICE_OWNER,
                          'admin_state_up': True}
@@ -131,7 +132,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
             if unbound:
                 port_req_body['name'] = constants.KURYR_PORT_NAME
             else:
-                port_req_body['name'] = self._get_port_name(pod)
+                port_req_body['name'] = utils.get_port_name(pod)
 
         if security_groups:
             port_req_body['security_groups'] = security_groups
