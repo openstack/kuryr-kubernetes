@@ -135,8 +135,7 @@ class TestNPWGMultiVIFDriver(test_base.TestCase):
             driver_alias='multi_pool')
         m_set_vifs_driver.assert_called_once()
 
-    @mock.patch('kuryr_kubernetes.controller.drivers'
-                '.default_subnet._get_subnet')
+    @mock.patch('kuryr_kubernetes.utils.get_subnet')
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     def test_request_additional_vifs(self, m_get_client, m_get_subnet):
         vifs = [mock.sentinel.vif_a, mock.sentinel.vif_b, mock.sentinel.vif_c]

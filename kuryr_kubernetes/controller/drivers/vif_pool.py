@@ -31,7 +31,6 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base
-from kuryr_kubernetes.controller.drivers import default_subnet
 from kuryr_kubernetes.controller.drivers import utils as c_utils
 from kuryr_kubernetes.controller.managers import pool
 from kuryr_kubernetes import exceptions
@@ -375,7 +374,7 @@ class NeutronVIFPool(BaseVIFPool):
         for port in available_ports:
             subnet_id = port['fixed_ips'][0]['subnet_id']
             subnet = {
-                subnet_id: default_subnet._get_subnet(subnet_id)}
+                subnet_id: utils.get_subnet(subnet_id)}
             vif_plugin = self._drv_vif._get_vif_plugin(port)
             vif = ovu.neutron_to_osvif_vif(vif_plugin, port, subnet)
             net_obj = subnet[subnet_id]
@@ -592,7 +591,7 @@ class NestedVIFPool(BaseVIFPool):
                     subnet_id = port['fixed_ips'][0]['subnet_id']
                     if not subnets.get(subnet_id):
                         subnets[subnet_id] = {subnet_id:
-                                              default_subnet._get_subnet(
+                                              utils.get_subnet(
                                                   subnet_id)}
         return parent_ports, subports, subnets
 

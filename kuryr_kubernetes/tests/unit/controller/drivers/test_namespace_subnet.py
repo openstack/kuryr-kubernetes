@@ -65,8 +65,7 @@ def get_namespace_obj():
 
 class TestNamespacePodSubnetDriver(test_base.TestCase):
 
-    @mock.patch('kuryr_kubernetes.controller.drivers'
-                '.default_subnet._get_subnet')
+    @mock.patch('kuryr_kubernetes.utils.get_subnet')
     def test_get_subnets(self, m_get_subnet):
         project_id = mock.sentinel.project_id
         pod = get_pod_obj()
@@ -86,8 +85,7 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         m_driver._get_namespace_subnet.assert_called_once_with(pod_namespace)
         m_get_subnet.assert_called_once_with(subnet_id)
 
-    @mock.patch('kuryr_kubernetes.controller.drivers'
-                '.default_subnet._get_subnet')
+    @mock.patch('kuryr_kubernetes.utils.get_subnet')
     def test_get_subnets_namespace_not_ready(self, m_get_subnet):
         project_id = mock.sentinel.project_id
         pod = get_pod_obj()

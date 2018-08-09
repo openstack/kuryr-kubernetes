@@ -17,6 +17,7 @@ import os
 from oslo_config import cfg
 
 from kuryr_kubernetes.tests import base as test_base
+from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
 from kuryr_kubernetes import utils
 
 CONF = cfg.CONF
@@ -68,3 +69,31 @@ class TestUtils(test_base.TestCase):
         m_get.assert_called_once_with(
             'http://localhost:%d' % CONF.kubernetes.controller_ha_elector_port)
         self.assertIsNone(res)
+
+    @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_network')
+    @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_subnet')
+    def test_get_subnet(self, m_osv_subnet, m_osv_network):
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        subnet = mock.MagicMock()
+        network = mock.MagicMock()
+        subnet_id = mock.sentinel.subnet_id
+        network_id = mock.sentinel.network_id
+
+        neutron_subnet = {'network_id': network_id}
+        neutron_network = mock.sentinel.neutron_network
+
+        neutron.show_subnet.return_value = {'subnet': neutron_subnet}
+        neutron.show_network.return_value = {'network': neutron_network}
+
+        m_osv_subnet.return_value = subnet
+        m_osv_network.return_value = network
+
+        ret = utils.get_subnet(subnet_id)
+
+        self.assertEqual(network, ret)
+        neutron.show_subnet.assert_called_once_with(subnet_id)
+        neutron.show_network.assert_called_once_with(network_id)
+        m_osv_subnet.assert_called_once_with(neutron_subnet)
+        m_osv_network.assert_called_once_with(neutron_network)
+        network.subnets.objects.append.assert_called_once_with(subnet)

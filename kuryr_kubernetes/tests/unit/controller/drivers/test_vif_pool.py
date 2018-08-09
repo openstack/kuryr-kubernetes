@@ -612,8 +612,7 @@ class NeutronVIFPool(test_base.TestCase):
         neutron.delete_port.assert_not_called()
 
     @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif')
-    @mock.patch('kuryr_kubernetes.controller.drivers.default_subnet.'
-                '_get_subnet')
+    @mock.patch('kuryr_kubernetes.utils.get_subnet')
     def test__recover_precreated_ports(self, m_get_subnet, m_to_osvif):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
@@ -659,8 +658,7 @@ class NeutronVIFPool(test_base.TestCase):
         self.assertEqual(m_driver._available_ports_pools[pool_key], [port_id])
 
     @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif')
-    @mock.patch('kuryr_kubernetes.controller.drivers.default_subnet.'
-                '_get_subnet')
+    @mock.patch('kuryr_kubernetes.utils.get_subnet')
     def test__recover_precreated_ports_empty(self, m_get_subnet, m_to_osvif):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
@@ -1071,8 +1069,7 @@ class NestedVIFPool(test_base.TestCase):
         self.assertEqual(ip_address, cls._get_parent_port_ip(m_driver,
                                                              port_id))
 
-    @mock.patch('kuryr_kubernetes.controller.drivers.default_subnet.'
-                '_get_subnet')
+    @mock.patch('kuryr_kubernetes.utils.get_subnet')
     def test__get_trunk_info(self, m_get_subnet):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)

@@ -20,6 +20,7 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import default_subnet
 from kuryr_kubernetes import exceptions
+from kuryr_kubernetes import utils
 
 from neutronclient.common import exceptions as n_exc
 
@@ -44,7 +45,7 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
         pod_namespace = pod['metadata']['namespace']
         subnet_id = self._get_namespace_subnet(pod_namespace)
 
-        return {subnet_id: default_subnet._get_subnet(subnet_id)}
+        return {subnet_id: utils.get_subnet(subnet_id)}
 
     def _get_namespace_subnet(self, namespace):
         kubernetes = clients.get_kubernetes_client()

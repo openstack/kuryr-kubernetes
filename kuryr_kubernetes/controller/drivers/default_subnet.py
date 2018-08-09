@@ -13,45 +13,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo_cache import core as cache
 from oslo_config import cfg
 
-from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes.controller.drivers import base
-from kuryr_kubernetes import os_vif_util
-
-
-CONF = cfg.CONF
-
-subnet_caching_opts = [
-    cfg.BoolOpt('caching', default=True),
-    cfg.IntOpt('cache_time', default=3600),
-]
-
-CONF.register_opts(subnet_caching_opts, "subnet_caching")
-
-cache.configure(CONF)
-subnet_cache_region = cache.create_region()
-MEMOIZE = cache.get_memoization_decorator(
-    CONF, subnet_cache_region, "subnet_caching")
-
-cache.configure_cache_region(CONF, subnet_cache_region)
-
-
-@MEMOIZE
-def _get_subnet(subnet_id):
-    neutron = clients.get_neutron_client()
-
-    n_subnet = neutron.show_subnet(subnet_id).get('subnet')
-    network_id = n_subnet['network_id']
-    n_network = neutron.show_network(network_id).get('network')
-
-    subnet = os_vif_util.neutron_to_osvif_subnet(n_subnet)
-    network = os_vif_util.neutron_to_osvif_network(n_network)
-    network.subnets.objects.append(subnet)
-
-    return network
+from kuryr_kubernetes import utils
 
 
 class DefaultPodSubnetDriver(base.PodSubnetsDriver):
@@ -68,7 +34,7 @@ class DefaultPodSubnetDriver(base.PodSubnetsDriver):
             raise cfg.RequiredOptError('pod_subnet',
                                        cfg.OptGroup('neutron_defaults'))
 
-        return {subnet_id: _get_subnet(subnet_id)}
+        return {subnet_id: utils.get_subnet(subnet_id)}
 
 
 class DefaultServiceSubnetDriver(base.ServiceSubnetsDriver):
@@ -85,4 +51,4 @@ class DefaultServiceSubnetDriver(base.ServiceSubnetsDriver):
             raise cfg.RequiredOptError('service_subnet',
                                        cfg.OptGroup('neutron_defaults'))
 
-        return {subnet_id: _get_subnet(subnet_id)}
+        return {subnet_id: utils.get_subnet(subnet_id)}
