@@ -23,6 +23,7 @@ from kuryr.lib._i18n import _
 from kuryr.lib import constants as kl_const
 from neutronclient.common import exceptions as n_exc
 from oslo_cache import core as cache
+from oslo_concurrency import lockutils
 from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
@@ -312,6 +313,7 @@ class NeutronVIFPool(BaseVIFPool):
             self._trigger_return_to_pool()
             eventlet.sleep(oslo_cfg.CONF.vif_pool.ports_pool_update_frequency)
 
+    @lockutils.synchronized('return_to_pool_baremetal')
     def _trigger_return_to_pool(self):
         neutron = clients.get_neutron_client()
         sg_current = {}
@@ -395,6 +397,11 @@ class NeutronVIFPool(BaseVIFPool):
 
     def delete_network_pools(self, net_id):
         neutron = clients.get_neutron_client()
+
+        # NOTE(ltomasbo): Note the pods should already be deleted, but their
+        # associated ports may not have been recycled yet, therefore not being
+        # on the available_ports_pools dict. The next call forces it to be on
+        # that dict before cleaning it up
         self._trigger_return_to_pool()
         for pool_key, ports_id in self._available_ports_pools.items():
             if self._get_pool_key_net(pool_key) != net_id:
@@ -408,7 +415,7 @@ class NeutronVIFPool(BaseVIFPool):
                 try:
                     neutron.delete_port(port_id)
                 except n_exc.PortNotFoundClient:
-                    LOG.debug('Unable to release subport %s as it no longer '
+                    LOG.debug('Unable to release port %s as it no longer '
                               'exists.', port_id)
 
 
@@ -467,6 +474,7 @@ class NestedVIFPool(BaseVIFPool):
             self._trigger_return_to_pool()
             eventlet.sleep(oslo_cfg.CONF.vif_pool.ports_pool_update_frequency)
 
+    @lockutils.synchronized('return_to_pool_nested')
     def _trigger_return_to_pool(self):
         neutron = clients.get_neutron_client()
         sg_current = {}
@@ -709,6 +717,10 @@ class NestedVIFPool(BaseVIFPool):
 
     def delete_network_pools(self, net_id):
         neutron = clients.get_neutron_client()
+        # NOTE(ltomasbo): Note the pods should already be deleted, but their
+        # associated ports may not have been recycled yet, therefore not being
+        # on the available_ports_pools dict. The next call forces it to be on
+        # that dict before cleaning it up
         self._trigger_return_to_pool()
         for pool_key, ports_ids in self._available_ports_pools.items():
             if self._get_pool_key_net(pool_key) != net_id:
