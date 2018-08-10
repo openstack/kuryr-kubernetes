@@ -13,7 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from os_vif import objects as obj_vif
+from os_vif.objects import base
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
@@ -22,6 +22,8 @@ from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import k8s_base
+from kuryr_kubernetes import objects
+
 
 LOG = logging.getLogger(__name__)
 
@@ -61,11 +63,9 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             # where certain pods/namespaces/nodes can be managed by other
             # networking solutions/CNI drivers.
             return
-        vifs = self._get_vifs(pod)
+        state = self._get_pod_state(pod)
 
-        if not vifs:
-            vifs = {}
-
+        if not state:
             project_id = self._drv_project.get_project(pod)
             security_groups = self._drv_sg.get_security_groups(pod, project_id)
             subnets = self._drv_subnets.get_subnets(pod, project_id)
@@ -73,7 +73,8 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             # Request the default interface of pod
             main_vif = self._drv_vif_pool.request_vif(
                 pod, project_id, subnets, security_groups)
-            vifs[constants.DEFAULT_IFNAME] = main_vif
+
+            state = objects.vif.PodState(default_vif=main_vif)
 
             # Request the additional interfaces from multiple dirvers
             additional_vifs = []
@@ -82,26 +83,28 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                     driver.request_additional_vifs(
                         pod, project_id, security_groups))
             if additional_vifs:
+                state.additional_vifs = {}
                 for i, vif in enumerate(additional_vifs, start=1):
-                    vifs[constants.ADDITIONAL_IFNAME_PREFIX + str(i)] = vif
+                    k = constants.ADDITIONAL_IFNAME_PREFIX + str(i)
+                    state.additional_vifs[k] = vif
 
             try:
-                self._set_vifs(pod, vifs)
+                self._set_pod_state(pod, state)
             except k_exc.K8sClientException as ex:
                 LOG.debug("Failed to set annotation: %s", ex)
                 # FIXME(ivc): improve granularity of K8sClient exceptions:
                 # only resourceVersion conflict should be ignored
-                for ifname, vif in vifs.items():
+                for ifname, vif in state.vifs.items():
                     self._drv_for_vif(vif).release_vif(pod, vif, project_id,
                                                        security_groups)
         else:
             changed = False
-            for ifname, vif in vifs.items():
+            for ifname, vif in state.vifs.items():
                 if not vif.active:
                     self._drv_for_vif(vif).activate_vif(pod, vif)
                     changed = True
             if changed:
-                self._set_vifs(pod, vifs)
+                self._set_pod_state(pod, state)
 
     def on_deleted(self, pod):
         if self._is_host_network(pod):
@@ -109,10 +112,11 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         project_id = self._drv_project.get_project(pod)
         security_groups = self._drv_sg.get_security_groups(pod, project_id)
 
-        vifs = self._get_vifs(pod)
-        for ifname, vif in vifs.items():
-            self._drv_for_vif(vif).release_vif(pod, vif, project_id,
-                                               security_groups)
+        state = self._get_pod_state(pod)
+        if state:
+            for ifname, vif in state.vifs.items():
+                self._drv_for_vif(vif).release_vif(pod, vif, project_id,
+                                                   security_groups)
 
     def _drv_for_vif(self, vif):
         # TODO(danil): a better polymorphism is required here
@@ -131,36 +135,34 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         except KeyError:
             return False
 
-    def _set_vifs(self, pod, vifs):
+    def _set_pod_state(self, pod, state):
         # TODO(ivc): extract annotation interactions
-        if not vifs:
-            LOG.debug("Removing VIFs annotation: %r", vifs)
+        if not state:
+            LOG.debug("Removing VIFs annotation: %r", state)
             annotation = None
         else:
-            vifs_dict = {}
-            for ifname, vif in vifs.items():
-                vif.obj_reset_changes(recursive=True)
-                vifs_dict[ifname] = vif.obj_to_primitive()
-
-            annotation = jsonutils.dumps(vifs_dict,
-                                         sort_keys=True)
+            state_dict = state.obj_to_primitive()
+            annotation = jsonutils.dumps(state_dict, sort_keys=True)
             LOG.debug("Setting VIFs annotation: %r", annotation)
+
+        # TODO(dulek): Here goes backward compatiblity code. Probably we can
+        #              just ignore this case.
+
         k8s = clients.get_kubernetes_client()
         k8s.annotate(pod['metadata']['selfLink'],
                      {constants.K8S_ANNOTATION_VIF: annotation},
                      resource_version=pod['metadata']['resourceVersion'])
 
-    def _get_vifs(self, pod):
+    def _get_pod_state(self, pod):
         # TODO(ivc): same as '_set_vif'
         try:
             annotations = pod['metadata']['annotations']
-            vif_annotation = annotations[constants.K8S_ANNOTATION_VIF]
+            state_annotation = annotations[constants.K8S_ANNOTATION_VIF]
         except KeyError:
-            return {}
-        vif_annotation = jsonutils.loads(vif_annotation)
-        vifs = {
-            ifname: obj_vif.vif.VIFBase.obj_from_primitive(vif_obj) for
-            ifname, vif_obj in vif_annotation.items()
-        }
-        LOG.debug("Got VIFs from annotation: %r", vifs)
-        return vifs
+            return None
+
+        state_annotation = jsonutils.loads(state_annotation)
+        state = base.VersionedObject.obj_from_primitive(state_annotation)
+        # TODO(dulek): Here goes backward compatibility code.
+        LOG.debug("Got VIFs from annotation: %r", state)
+        return state
