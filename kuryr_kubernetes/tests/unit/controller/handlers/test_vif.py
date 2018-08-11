@@ -84,9 +84,6 @@ class TestVIFHandler(test_base.TestCase):
         self._set_vifs_driver.return_value = mock.Mock(
             spec=drivers.PodVIFDriver)
 
-        self._handler._drv_for_vif = h_vif.VIFHandler._drv_for_vif.__get__(
-            self._handler)
-
     @mock.patch.object(drivers.MultiVIFDriver, 'get_enabled_drivers')
     @mock.patch.object(drivers.VIFPoolDriver, 'set_vif_driver')
     @mock.patch.object(drivers.VIFPoolDriver, 'get_instance')
