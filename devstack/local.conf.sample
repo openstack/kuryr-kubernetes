@@ -241,6 +241,11 @@ enable_service kuryr-daemon
 # configured with the nested driver
 # KURYR_VIF_POOL_MANAGER=True
 
+# Kuryr Multi-VIF Driver
+# Uncomment the next line to enable the npwg multi-vif driver.
+# Default value: noop
+# KURYR_MULTI_VIF_DRIVER=npwg_multiple_interfaces
+
 # Increase Octavia amphorae timeout so that the first LB amphora has time to
 # build and boot
 if [[ "$KURYR_K8S_LBAAS_USE_OCTAVIA" == "True" ]]; then

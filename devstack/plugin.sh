@@ -62,6 +62,9 @@ function configure_kuryr {
         iniset "$KURYR_CONFIG" kubernetes ssl_ca_crt_file "$KURYR_K8S_API_CACERT"
         iniset "$KURYR_CONFIG" kubernetes ssl_verify_server_crt True
     fi
+    if [ "$KURYR_MULTI_VIF_DRIVER" ]; then
+        iniset "$KURYR_CONFIG" kubernetes multi_vif_drivers "$KURYR_MULTI_VIF_DRIVER"
+    fi
     # REVISIT(ivc): 'use_stderr' is required for current CNI driver. Once a
     # daemon-based CNI driver is implemented, this could be removed.
     iniset "$KURYR_CONFIG" DEFAULT use_stderr true
@@ -893,7 +896,9 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
                 generate_containerized_kuryr_resources False
             fi
         fi
-
+        if [ "$KURYR_MULTI_VIF_DRIVER" == "npwg_multiple_interfaces" ]; then
+            /usr/local/bin/kubectl apply -f ${KURYR_HOME}/kubernetes_crds/network_attachment_definition_crd.yaml
+        fi
     fi
 
 elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
@@ -941,6 +946,9 @@ elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
     fi
     if is_service_enabled tempest && [[ "$KURYR_K8S_SERIAL_TESTS" == "True" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes run_tests_serial True
+    fi
+    if is_service_enabled tempest && [[ "$KURYR_MULTI_VIF_DRIVER" == "npwg_multiple_interfaces" ]]; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes npwg_multi_vif_enabled True
     fi
 fi
 

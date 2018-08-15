@@ -27,17 +27,17 @@ followed:
     version: v1
     scope: Namespaced
     names:
-        plural: network-attachment-definitions
-        singular: network-attachment-definition
-        kind: NetworkAttachmentDefinition
-        shortNames:
-        - net-attach-def
+      plural: network-attachment-definitions
+      singular: network-attachment-definition
+      kind: NetworkAttachmentDefinition
+      shortNames:
+      - net-attach-def
     validation:
-        openAPIV3Schema:
+      openAPIV3Schema:
         properties:
-            spec:
+          spec:
             properties:
-                config:
+              config:
                 type: string
     EOF
     $ kubectl apply -f nad.yal
