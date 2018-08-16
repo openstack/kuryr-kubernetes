@@ -16,12 +16,12 @@ from oslo_log import _options
 from kuryr.lib import opts as lib_opts
 from kuryr_kubernetes.cni import health as cni_health
 from kuryr_kubernetes import config
-from kuryr_kubernetes.controller.drivers import default_subnet
 from kuryr_kubernetes.controller.drivers import namespace_security_groups
 from kuryr_kubernetes.controller.drivers import namespace_subnet
 from kuryr_kubernetes.controller.drivers import vif_pool
 from kuryr_kubernetes.controller.managers import health
 from kuryr_kubernetes.controller.managers import pool
+from kuryr_kubernetes import utils
 
 _kuryr_k8s_opts = [
     ('kubernetes', config.k8s_opts),
@@ -31,7 +31,7 @@ _kuryr_k8s_opts = [
     ('vif_pool', vif_pool.vif_pool_driver_opts),
     ('octavia_defaults', config.octavia_defaults),
     ('cache_defaults', config.cache_defaults),
-    ('subnet_caching', default_subnet.subnet_caching_opts),
+    ('subnet_caching', utils.subnet_caching_opts),
     ('node_driver_caching', vif_pool.node_vif_driver_caching_opts),
     ('pool_manager', pool.pool_manager_opts),
     ('cni_daemon', config.daemon_opts),
