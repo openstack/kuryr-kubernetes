@@ -28,6 +28,7 @@ from kuryr_kubernetes.controller.drivers import nested_vlan_vif
 from kuryr_kubernetes.controller.drivers import neutron_vif
 from kuryr_kubernetes.controller.drivers import vif_pool
 from kuryr_kubernetes import exceptions
+from kuryr_kubernetes.objects import vif
 from kuryr_kubernetes import os_vif_util as ovu
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
@@ -287,16 +288,11 @@ class BaseVIFPool(test_base.TestCase):
         kubernetes = self.useFixture(k_fix.MockK8sClient()).client
         pod = get_pod_obj()
         port_id = uuidutils.generate_uuid()
-        versioned_object = jsonutils.dumps({
-            'eth0': {
-                'versioned_object.data': {
-                    'active': True,
-                    'address': 'fa:16:3e:ef:e6:9f',
-                    'id': port_id
-                }}})
+        pod_vif = osv_vif.VIFBase(id=port_id)
+        pod_state = vif.PodState(default_vif=pod_vif)
 
         pod['metadata']['annotations'][constants.K8S_ANNOTATION_VIF] = (
-            versioned_object)
+            jsonutils.dumps(pod_state.obj_to_primitive()))
         items = [pod]
         kubernetes.get.return_value = {'items': items}
 
