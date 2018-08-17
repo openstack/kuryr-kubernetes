@@ -885,6 +885,7 @@ function wait_for_lb {
 #       lb_vip_subnet: Id or name of the subnet where lb_vip should be
 #                      allocated.
 #       project_id: Id of the project where the load balancer should be
+#                   allocated.
 #       lb_vip: Virtual IP to give to the load balancer - optional.
 function create_load_balancer {
     local lb_name
@@ -921,7 +922,7 @@ function create_load_balancer {
 #       port: The TCP port number to listen to.
 #       data_timeouts: Octavia's timeouts for client and server inactivity.
 #       lb: Id or name of the Load Balancer we want to add the Listener to.
-#       project_id: Id of the the project where this listener belongs
+#       project_id: Id of the project where this listener belongs to.
 function create_load_balancer_listener {
     local name
     local protocol
@@ -967,7 +968,7 @@ function create_load_balancer_listener {
 #       algorithm: Load Balancing algorithm to use.
 #       listener: Id or name of the Load Balancer Listener we want to add the
 #                 pool to.
-#       project_id: Id of the the project where this pool belongs
+#       project_id: Id of the project where this pool belongs to.
 #       lb: Id or name of the Load Balancer we want to add the pool to
 #           (optional).
 function create_load_balancer_pool {
@@ -1012,7 +1013,7 @@ function create_load_balancer_pool {
 #       pool: Id or name of the Load Balancer pool this member belongs to.
 #       subnet: Id or name of the subnet the member address belongs to.
 #       lb: Id or name of the load balancer the member belongs to.
-#       project_id: Id of the the project where this pool belongs
+#       project_id: Id of the project where this pool belongs to.
 function create_load_balancer_member {
     local name
     local address
