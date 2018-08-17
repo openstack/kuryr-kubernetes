@@ -149,3 +149,14 @@
         KURYR_VIF_POOL_DRIVER: neutron
         KURYR_K8S_SERIAL_TESTS: True
       tempest_concurrency: 1
+
+- job:
+   name: kuryr-kubernetes-tempest-daemon-openshift-octavia-ingress
+   parent: kuryr-kubernetes-tempest-daemon-openshift-octavia
+   description: |
+     Kuryr-Kubernetes tempest job using octavia, ingress controller and OpenShift
+   vars:
+     devstack_localrc:
+       KURYR_ENABLE_INGRESS: true
+       KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,ocproute,ingresslb
+   voting: false

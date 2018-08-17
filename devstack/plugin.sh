@@ -763,6 +763,11 @@ function create_ingress_l7_router {
     lb_uuid="$(get_loadbalancer_attribute "$lb_name" "id")"
     iniset "$KURYR_CONFIG" ingress l7_router_uuid "$lb_uuid"
 
+    #in case tempest enabled, update router's FIP in tempest.conf
+    if is_service_enabled tempest; then
+       iniset $TEMPEST_CONFIG kuryr_kubernetes ocp_router_fip "$l7_router_fip"
+    fi
+
     if is_service_enabled octavia; then
         echo -n "Octavia: no need to create fake k8s service for Ingress."
     else
