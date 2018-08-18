@@ -1,8 +1,8 @@
 Team and repository tags
 ========================
 
-.. image:: https://governance.openstack.org/badges/kuryr-kubernetes.svg
-    :target: https://governance.openstack.org/reference/tags/index.html
+.. image:: https://governance.openstack.org/tc/badges/kuryr-kubernetes.svg
+    :target: https://governance.openstack.org/tc/reference/tags/index.html
 
 .. Change things from this point on
 
@@ -20,7 +20,7 @@ require it or to use different segments and, for example, route between them.
 * Documentation: https://docs.openstack.org/kuryr-kubernetes/latest
 * Source: https://git.openstack.org/cgit/openstack/kuryr-kubernetes
 * Bugs: https://bugs.launchpad.net/kuryr-kubernetes
-* Overview and demo: http://superuser.openstack.org/articles/networking-kubernetes-kuryr
+* Overview and demo: https://superuser.openstack.org/articles/networking-kubernetes-kuryr
 * Release notes: https://docs.openstack.org/releasenotes/kuryr-kubernetes/
 
 
