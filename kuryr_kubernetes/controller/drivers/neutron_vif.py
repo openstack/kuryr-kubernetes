@@ -71,7 +71,7 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
             vifs.append(vif)
         return vifs
 
-    def release_vif(self, pod, vif):
+    def release_vif(self, pod, vif, project_id=None, security_groups=None):
         neutron = clients.get_neutron_client()
 
         try:
