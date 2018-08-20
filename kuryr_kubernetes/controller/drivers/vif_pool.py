@@ -69,7 +69,7 @@ class NoopVIFPool(base.VIFPoolDriver):
                                          security_groups)
 
     def release_vif(self, pod, vif, *argv):
-        self._drv_vif.release_vif(pod, vif)
+        self._drv_vif.release_vif(pod, vif, *argv)
 
     def activate_vif(self, pod, vif):
         self._drv_vif.activate_vif(pod, vif)

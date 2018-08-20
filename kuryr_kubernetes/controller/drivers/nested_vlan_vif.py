@@ -106,7 +106,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
             vifs.append(vif)
         return vifs
 
-    def release_vif(self, pod, vif):
+    def release_vif(self, pod, vif, project_id=None, security_groups=None):
         neutron = clients.get_neutron_client()
         parent_port = self._get_parent_port(neutron, pod)
         trunk_id = self._get_trunk_id(parent_port)
