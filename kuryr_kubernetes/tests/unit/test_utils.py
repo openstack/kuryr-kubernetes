@@ -14,8 +14,10 @@
 import mock
 import os
 
+from os_vif import objects
 from oslo_config import cfg
 
+from kuryr_kubernetes.objects import vif
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
 from kuryr_kubernetes import utils
@@ -97,3 +99,18 @@ class TestUtils(test_base.TestCase):
         m_osv_subnet.assert_called_once_with(neutron_subnet)
         m_osv_network.assert_called_once_with(neutron_network)
         network.subnets.objects.append.assert_called_once_with(subnet)
+
+    def test_extract_pod_annotation(self):
+        vif_obj = objects.vif.VIFBase()
+        ps = vif.PodState(default_vif=vif_obj)
+        d = ps.obj_to_primitive()
+        result = utils.extract_pod_annotation(d)
+        self.assertEqual(vif.PodState.obj_name(), result.obj_name())
+        self.assertEqual(vif_obj, result.default_vif)
+
+    def test_extract_pod_annotation_convert(self):
+        vif_obj = objects.vif.VIFBase()
+        d = vif_obj.obj_to_primitive()
+        result = utils.extract_pod_annotation(d)
+        self.assertEqual(vif.PodState.obj_name(), result.obj_name())
+        self.assertEqual(vif_obj, result.default_vif)

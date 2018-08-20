@@ -17,13 +17,16 @@ import time
 
 import requests
 
+from os_vif import objects
 from oslo_cache import core as cache
 from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
 
 from kuryr_kubernetes import clients
+from kuryr_kubernetes.objects import vif
 from kuryr_kubernetes import os_vif_util
+
 
 CONF = cfg.CONF
 LOG = log.getLogger(__name__)
@@ -36,8 +39,6 @@ VALID_MULTI_POD_POOLS_OPTS = {'noop': ['neutron-vif',
                               }
 DEFAULT_TIMEOUT = 180
 DEFAULT_INTERVAL = 3
-
-CONF = cfg.CONF
 
 subnet_caching_opts = [
     cfg.BoolOpt('caching', default=True),
@@ -157,3 +158,17 @@ def get_subnet(subnet_id):
     network.subnets.objects.append(subnet)
 
     return network
+
+
+def extract_pod_annotation(annotation):
+    obj = objects.base.VersionedObject.obj_from_primitive(annotation)
+    # FIXME(dulek): This is code to maintain compatibility with Queens. We can
+    #               remove it once we stop supporting upgrading from Queens,
+    #               most likely in Stein. Note that this requires being sure
+    #               that *all* the pod annotations are in new format.
+    if obj.obj_name() != vif.PodState.obj_name():
+        # This is old format of annotations - single VIF object. We need to
+        # pack it in PodState object.
+        obj = vif.PodState(default_vif=obj)
+
+    return obj
