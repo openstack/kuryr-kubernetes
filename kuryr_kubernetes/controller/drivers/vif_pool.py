@@ -238,12 +238,13 @@ class BaseVIFPool(base.VIFPoolDriver):
             try:
                 annotations = jsonutils.loads(pod['metadata']['annotations'][
                     constants.K8S_ANNOTATION_VIF])
+                pod_state = utils.extract_pod_annotation(annotations)
             except KeyError:
                 LOG.debug("Skipping pod without kuryr VIF annotation: %s",
                           pod)
             else:
-                for vif in annotations.values():
-                    in_use_ports.append(vif['versioned_object.data']['id'])
+                for vif in pod_state.vifs.values():
+                    in_use_ports.append(vif.id)
         return in_use_ports
 
     def list_pools(self):
