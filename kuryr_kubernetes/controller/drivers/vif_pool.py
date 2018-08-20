@@ -98,6 +98,9 @@ class NoopVIFPool(base.VIFPoolDriver):
     def activate_vif(self, pod, vif):
         self._drv_vif.activate_vif(pod, vif)
 
+    def sync_pools(self):
+        pass
+
 
 @six.add_metaclass(abc.ABCMeta)
 class BaseVIFPool(base.VIFPoolDriver):
@@ -128,17 +131,9 @@ class BaseVIFPool(base.VIFPoolDriver):
     """
 
     def __init__(self):
-        self._available_ports_pools = collections.defaultdict(
-            collections.deque)
-        self._existing_vifs = collections.defaultdict(collections.defaultdict)
-        self._recyclable_ports = collections.defaultdict(
-            collections.defaultdict)
-        self._last_update = collections.defaultdict(collections.defaultdict)
         # Note(ltomasbo) Execute the port recycling periodic actions in a
         # background thread
         eventlet.spawn(self._return_ports_to_pool)
-        # Note(ltomasbo) Delete or recover previously pre-created ports
-        eventlet.spawn(self._recover_precreated_ports)
 
     def set_vif_driver(self, driver):
         self._drv_vif = driver
@@ -268,6 +263,19 @@ class BaseVIFPool(base.VIFPoolDriver):
         except IOError:
             LOG.exception("I/O error creating the health check file.")
 
+    @lockutils.synchronized('return_to_pool_baremetal')
+    @lockutils.synchronized('return_to_pool_nested')
+    def sync_pools(self):
+        self._available_ports_pools = collections.defaultdict(
+            collections.deque)
+        self._existing_vifs = collections.defaultdict(collections.defaultdict)
+        self._recyclable_ports = collections.defaultdict(
+            collections.defaultdict)
+        self._last_update = collections.defaultdict(collections.defaultdict)
+        # NOTE(ltomasbo): Ensure previously created ports are recovered into
+        # their respective pools
+        self._recover_precreated_ports()
+
 
 class NeutronVIFPool(BaseVIFPool):
     """Manages VIFs for Bare Metal Kubernetes Pods."""
@@ -308,8 +316,8 @@ class NeutronVIFPool(BaseVIFPool):
         deleted if the maximun has been already reached.
         """
         while True:
-            self._trigger_return_to_pool()
             eventlet.sleep(oslo_cfg.CONF.vif_pool.ports_pool_update_frequency)
+            self._trigger_return_to_pool()
 
     @lockutils.synchronized('return_to_pool_baremetal')
     def _trigger_return_to_pool(self):
@@ -469,8 +477,8 @@ class NestedVIFPool(BaseVIFPool):
         deleted if the maximun has been already reached.
         """
         while True:
-            self._trigger_return_to_pool()
             eventlet.sleep(oslo_cfg.CONF.vif_pool.ports_pool_update_frequency)
+            self._trigger_return_to_pool()
 
     @lockutils.synchronized('return_to_pool_nested')
     def _trigger_return_to_pool(self):
@@ -798,6 +806,10 @@ class MultiVIFPool(base.VIFPoolDriver):
             if str(vif_drv) == 'NoopVIFPool':
                 continue
             vif_drv.delete_network_pools(net_id)
+
+    def sync_pools(self):
+        for vif_drv in self._vif_drvs.values():
+            vif_drv.sync_pools()
 
     def _get_pod_vif_type(self, pod):
         node_name = pod['spec']['nodeName']

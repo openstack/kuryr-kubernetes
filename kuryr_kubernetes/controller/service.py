@@ -26,6 +26,7 @@ from stevedore.named import NamedExtensionManager
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
+from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes.controller.handlers import pipeline as h_pipeline
 from kuryr_kubernetes.controller.ingress import ingress_ctl
 from kuryr_kubernetes.controller.managers import health
@@ -92,6 +93,9 @@ class KuryrK8sService(six.with_metaclass(KuryrK8sServiceMeta,
         for handler in handlers:
             self.watcher.add(handler.get_watch_path())
             pipeline.register(handler)
+        self.pool_driver = drivers.VIFPoolDriver.get_instance(
+            driver_alias='multi_pool')
+        self.pool_driver.set_vif_driver()
 
     def is_leader(self):
         return self.current_leader == self.node_name
@@ -105,6 +109,7 @@ class KuryrK8sService(six.with_metaclass(KuryrK8sServiceMeta,
         if not CONF.kubernetes.controller_ha:
             LOG.info('Running in non-HA mode, starting watcher immediately.')
             self.watcher.start()
+            self.pool_driver.sync_pools()
         else:
             LOG.info('Running in HA mode, watcher will be started later.')
             f = functools.partial(self.run_periodic_tasks, None)
@@ -136,6 +141,7 @@ class KuryrK8sService(six.with_metaclass(KuryrK8sServiceMeta,
         LOG.info('Controller %s becomes the leader, starting watcher.',
                  self.node_name)
         self.watcher.start()
+        self.pool_driver.sync_pools()
 
     def on_revoke_leader(self):
         LOG.info('Controller %s stops being the leader, stopping watcher.',
