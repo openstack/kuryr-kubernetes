@@ -9,4 +9,5 @@ Contents
 
    README.rst
    unreleased
+   rocky
    queens
