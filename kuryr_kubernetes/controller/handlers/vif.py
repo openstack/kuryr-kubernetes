@@ -110,7 +110,16 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         if self._is_host_network(pod):
             return
         project_id = self._drv_project.get_project(pod)
-        security_groups = self._drv_sg.get_security_groups(pod, project_id)
+        try:
+            security_groups = self._drv_sg.get_security_groups(pod, project_id)
+        except k_exc.ResourceNotReady:
+            # NOTE(ltomasbo): If the namespace object gets deleted first the
+            # namespace security group driver will raise a ResourceNotReady
+            # exception as it cannot access anymore the kuryrnet CRD annotated
+            # on the namespace object. In such case we set security groups to
+            # empty list so that if pools are enabled they will be properly
+            # released.
+            security_groups = []
 
         state = self._get_pod_state(pod)
         if state:
