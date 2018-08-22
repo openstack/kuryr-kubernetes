@@ -25,7 +25,7 @@
     timeout: 4200
     vars:
       loadbalancer: lbaasv2
-      kuryr_daemon: False
+      kuryr_daemon: false
       container_engine: kubernetes
     required-projects:
       - openstack-infra/devstack-gate
@@ -80,7 +80,7 @@
     name: kuryr-kubernetes-tempest-lbaasv2-daemon
     parent: kuryr-kubernetes-tempest-base
     vars:
-      kuryr_daemon: True
+      kuryr_daemon: true
 
 # Tempest with LBaaSV2 and OpenShift
 - job:
@@ -122,7 +122,7 @@
     name: kuryr-kubernetes-tempest-octavia-daemon
     parent: kuryr-kubernetes-tempest-octavia
     vars:
-      kuryr_daemon: True
+      kuryr_daemon: true
     voting: false
 
 # Tempest with Octavia and OpenShift
@@ -142,6 +142,12 @@
     voting: false
 
 - project:
+    templates:
+      - openstack-python-jobs
+      - openstack-python35-jobs
+      - publish-openstack-sphinx-docs
+      - release-notes-jobs
+      - check-requirements
     check:
       jobs:
         - kuryr-kubernetes-install-default
