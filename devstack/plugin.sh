@@ -419,7 +419,7 @@ function configure_neutron_defaults {
             "$allow_default_sg_id"
         openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
             security group rule create --project "$project_id" \
-            --description "allow traffic from default namespace" \
+            --description "allow icmp traffic from default namespace" \
             --remote-group "$allow_namespace_sg_id" --ethertype IPv4 --protocol icmp \
             "$allow_default_sg_id"
         openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
@@ -427,11 +427,20 @@ function configure_neutron_defaults {
             --description "allow traffic from namespaces at default namespace" \
             --remote-group "$allow_default_sg_id" --ethertype IPv4 --protocol tcp \
             "$allow_namespace_sg_id"
+        # NOTE(ltomasbo): Some tempest test are using FIP and depends on icmp
+        # traffic being allowed to the pods. To enable these tests we permit
+        # icmp traffic from everywhere on the default namespace. Note tcp
+        # traffic will be dropped, just icmp is permitted.
         openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
             security group rule create --project "$project_id" \
-            --description "allow traffic from namespaces at default namespace" \
-            --remote-group "$allow_default_sg_id" --ethertype IPv4 --protocol icmp \
-            "$allow_namespace_sg_id"
+            --description "allow imcp traffic from everywhere to default namespace" \
+            --ethertype IPv4 --protocol icmp "$allow_namespace_sg_id"
+
+        # NOTE(ltomasbo): As more security groups and rules are created, there
+        # is a need to increase the quota for it
+         openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+             quota set --secgroups 100 --secgroup-rules 100 "$project_id"
+
 
         iniset "$KURYR_CONFIG" namespace_sg sg_allow_from_namespaces "$allow_namespace_sg_id"
         iniset "$KURYR_CONFIG" namespace_sg sg_allow_from_default "$allow_default_sg_id"

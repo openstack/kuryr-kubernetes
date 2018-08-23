@@ -32,6 +32,8 @@ sudo chown ${USER}:${USER} ${HOME}/.kube/config
 /usr/local/bin/kubectl --kubeconfig=${HOME}/.kube/config get ds -o yaml --all-namespaces >> ${K8S_LOG_DIR}/daemonsets.txt
 /usr/local/bin/kubectl --kubeconfig=${HOME}/.kube/config get nodes -o yaml --all-namespaces >> ${K8S_LOG_DIR}/nodes.txt
 /usr/local/bin/kubectl --kubeconfig=${HOME}/.kube/config get ingress -o yaml --all-namespaces >> ${K8S_LOG_DIR}/ingress.txt
+/usr/local/bin/kubectl --kubeconfig=${HOME}/.kube/config get namespaces -o yaml >> ${K8S_LOG_DIR}/namespaces.txt
+/usr/local/bin/kubectl --kubeconfig=${HOME}/.kube/config get kuryrnets -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrnets_crds.txt
 
 # Kubernetes pods logs
 mkdir -p ${K8S_LOG_DIR}/pod_logs
