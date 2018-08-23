@@ -26,7 +26,7 @@ MACVLAN_MODE_BRIDGE = 'bridge'
 
 
 @six.add_metaclass(abc.ABCMeta)
-class NestedDriver(health.HealthHandler):
+class NestedDriver(health.HealthHandler, b_base.BaseBindingDriver):
 
     def __init__(self):
         super(NestedDriver, self).__init__()

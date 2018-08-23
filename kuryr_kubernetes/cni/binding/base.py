@@ -13,6 +13,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import abc
+import six
+
 import os_vif
 import pyroute2
 from stevedore import driver as stv_driver
@@ -20,6 +23,19 @@ from stevedore import driver as stv_driver
 from kuryr_kubernetes import utils
 
 _BINDING_NAMESPACE = 'kuryr_kubernetes.cni.binding'
+
+
+@six.add_metaclass(abc.ABCMeta)
+class BaseBindingDriver(object):
+    """Interface to attach ports to pods."""
+
+    @abc.abstractmethod
+    def connect(self, vif, ifname, netns):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def disconnect(self, vif, ifname, netns):
+        raise NotImplementedError()
 
 
 def _get_binding_driver(vif):

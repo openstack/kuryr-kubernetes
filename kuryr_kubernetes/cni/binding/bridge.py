@@ -24,7 +24,7 @@ LOG = log.getLogger(__name__)
 CONF = cfg.CONF
 
 
-class BaseBridgeDriver(health.HealthHandler):
+class BaseBridgeDriver(health.HealthHandler, b_base.BaseBindingDriver):
 
     def __init__(self):
         super(BaseBridgeDriver, self).__init__()
