@@ -789,9 +789,10 @@ class MultiVIFPool(base.VIFPoolDriver):
                 LOG.error("The pool and pod driver selected are not "
                           "compatible. They will be skipped")
                 raise exceptions.MultiPodDriverPoolConfigurationNotSupported()
-            drv_vif = base.PodVIFDriver.get_instance(driver_alias=pod_driver)
+            drv_vif = base.PodVIFDriver.get_instance(
+                specific_driver=pod_driver)
             drv_pool = base.VIFPoolDriver.get_instance(
-                driver_alias=pool_driver)
+                specific_driver=pool_driver)
             drv_pool.set_vif_driver(drv_vif)
             self._vif_drvs[pod_driver] = drv_pool
 
