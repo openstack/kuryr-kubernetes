@@ -27,6 +27,7 @@
           KURYR_K8S_LBAAS_USE_OCTAVIA: False
       devstack_services:
         q-lbaasv2: true
+        kuryr-daemon: false
 
 - job:
     name: kuryr-kubernetes-tempest-daemon-lbaasv2

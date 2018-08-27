@@ -44,6 +44,7 @@
         o-cw: true
         o-hk: true
         o-hm: true
+        kuryr-daemon: false
 
 - job:
     name: kuryr-kubernetes-tempest-octavia-centos-7
