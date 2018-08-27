@@ -101,10 +101,10 @@ different VIF drivers (e.g., neutron and nested-vlan).
 
 This new multi pool driver is the default pool driver used even if a different
 vif_pool_driver is set at the config option. However if the configuration
-about the mappings between the different pools and pod vif drivers is not
-provided at the pools_vif_drivers config option of vif_pool configuration
+about the mappings between the different pod vif and pools drivers is not
+provided at the vif_pool_mapping config option of vif_pool configuration
 section only one pool driver will be loaded -- using the standard
-vif_pool_driver and pod_vif_driver config options, i.e., using the one
+pod_vif_driver and vif_pool_driver  config options, i.e., using the one
 selected at kuryr.conf options.
 
 To enable the option of having different pools depending on the node's pod
@@ -114,7 +114,7 @@ driver, e.g.:
     .. code-block:: ini
 
       [vif_pool]
-      pools_vif_drivers=nested:nested-vlan,neutron:neutron-vif
+      vif_pool_mapping=nested-vlan:nested,neutron-vif:neutron
 
 This will use a pool driver nested to handle the pods whose vif driver is
 nested-vlan, and a pool driver neutron to handle the pods whose vif driver is
@@ -122,6 +122,18 @@ neutron-vif. When the controller is requesting a vif for a pod in node X, it
 will first read the node's annotation about pod_vif driver to use, e.g.,
 pod_vif: nested-vlan, and then use the corresponding pool driver -- which has
 the right pod-vif driver set.
+
+.. note::
+
+  Previously, `pools_vif_drivers` configuration option provided similar
+  functionality, but is now deprecated and not recommended.
+  It stored a mapping from pool_driver => pod_vif_driver instead, disallowing
+  the use of a single pool driver as keys for multiple pod_vif_drivers.
+
+  .. code-block:: ini
+
+    [vif_pool]
+    pools_vif_drivers=nested:nested-vlan,neutron:neutron-vif
 
 Note that if no annotation is set on a node, the default pod_vif_driver is
 used.

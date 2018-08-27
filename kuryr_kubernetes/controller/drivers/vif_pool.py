@@ -26,6 +26,7 @@ from oslo_cache import core as cache
 from oslo_concurrency import lockutils
 from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
+from oslo_log import versionutils
 from oslo_serialization import jsonutils
 
 from kuryr_kubernetes import clients
@@ -61,6 +62,17 @@ vif_pool_driver_opts = [
                             "used. If not set, it will take them from the "
                             "kubernetes driver options for pool and pod "
                             "drivers respectively"),
+                     default={}, deprecated_for_removal=True,
+                     deprecated_since="Stein",
+                     deprecated_reason=_(
+                         "Mapping from pool->vif does not allow different "
+                         "vifs to use the same pool driver. "
+                         "Use vif_pool_mapping instead.")),
+    oslo_cfg.DictOpt('vif_pool_mapping',
+                     help=_("Dict with the pod driver and the corresponding "
+                            "pool driver to be used. If not set, it will take "
+                            "them from the kubernetes driver options for pool "
+                            "and pod drivers respectively"),
                      default={}),
 ]
 
@@ -775,15 +787,16 @@ class MultiVIFPool(base.VIFPoolDriver):
 
     def set_vif_driver(self):
         self._vif_drvs = {}
-        pools_vif_drivers = oslo_cfg.CONF.vif_pool.pools_vif_drivers
-        if not pools_vif_drivers:
+        vif_pool_mapping = self._get_vif_pool_mapping()
+
+        if not vif_pool_mapping:
             pod_vif = oslo_cfg.CONF.kubernetes.pod_vif_driver
             drv_vif = base.PodVIFDriver.get_instance()
             drv_pool = base.VIFPoolDriver.get_instance()
             drv_pool.set_vif_driver(drv_vif)
             self._vif_drvs[pod_vif] = drv_pool
             return
-        for pool_driver, pod_driver in pools_vif_drivers.items():
+        for pod_driver, pool_driver in vif_pool_mapping.items():
             if not utils.check_suitable_multi_pool_driver_opt(pool_driver,
                                                               pod_driver):
                 LOG.error("The pool and pod driver selected are not "
@@ -792,7 +805,7 @@ class MultiVIFPool(base.VIFPoolDriver):
             drv_vif = base.PodVIFDriver.get_instance(
                 specific_driver=pod_driver)
             drv_pool = base.VIFPoolDriver.get_instance(
-                specific_driver=pool_driver)
+                specific_driver=pool_driver, scope='for:{}'.format(pod_driver))
             drv_pool.set_vif_driver(drv_vif)
             self._vif_drvs[pod_driver] = drv_pool
 
@@ -839,3 +852,20 @@ class MultiVIFPool(base.VIFPoolDriver):
     def _get_vif_drv_alias(self, vif):
         vif_type_name = type(vif).__name__
         return VIF_TYPE_TO_DRIVER_MAPPING[vif_type_name]
+
+    def _get_vif_pool_mapping(self):
+        vif_pool_mapping = oslo_cfg.CONF.vif_pool.vif_pool_mapping
+
+        if not vif_pool_mapping:
+            pools_vif_drivers = oslo_cfg.CONF.vif_pool.pools_vif_drivers
+
+            if pools_vif_drivers:
+                msg = ("Config option vif_pool.pools_vif_drivers is "
+                       "deprecated in favour of vif_pool.vif_pool_mapping, "
+                       "and will be removed in a future release")
+                versionutils.report_deprecated_feature(LOG, msg)
+
+            for pool_driver, pod_driver in pools_vif_drivers.items():
+                vif_pool_mapping[pod_driver] = pool_driver
+
+        return vif_pool_mapping
