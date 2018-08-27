@@ -162,5 +162,5 @@
    vars:
      devstack_localrc:
        KURYR_ENABLE_INGRESS: true
-       KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,ocproute,ingresslb
+       KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace,ocproute,ingresslb
    voting: false
