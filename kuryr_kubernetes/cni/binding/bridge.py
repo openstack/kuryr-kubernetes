@@ -29,7 +29,7 @@ class BaseBridgeDriver(health.HealthHandler, b_base.BaseBindingDriver):
     def __init__(self):
         super(BaseBridgeDriver, self).__init__()
 
-    def connect(self, vif, ifname, netns):
+    def connect(self, vif, ifname, netns, container_id):
         host_ifname = vif.vif_name
 
         with b_base.get_ipdb() as h_ipdb:
@@ -67,7 +67,7 @@ class BaseBridgeDriver(health.HealthHandler, b_base.BaseBindingDriver):
                 h_iface.mtu = interface_mtu
                 h_iface.up()
 
-    def disconnect(self, vif, ifname, netns):
+    def disconnect(self, vif, ifname, netns, container_id):
         pass
 
 
@@ -75,8 +75,8 @@ class BridgeDriver(BaseBridgeDriver):
     def __init__(self):
         super(BridgeDriver, self).__init__()
 
-    def connect(self, vif, ifname, netns):
-        super(BridgeDriver, self).connect(vif, ifname, netns)
+    def connect(self, vif, ifname, netns, container_id):
+        super(BridgeDriver, self).connect(vif, ifname, netns, container_id)
         host_ifname = vif.vif_name
         bridge_name = vif.bridge_name
 
@@ -84,7 +84,7 @@ class BridgeDriver(BaseBridgeDriver):
             with h_ipdb.interfaces[bridge_name] as h_br:
                 h_br.add_port(host_ifname)
 
-    def disconnect(self, vif, ifname, netns):
+    def disconnect(self, vif, ifname, netns, container_id):
         # NOTE(ivc): veth pair is destroyed automatically along with the
         # container namespace
         pass
@@ -95,16 +95,18 @@ class VIFOpenVSwitchDriver(BaseBridgeDriver):
     def __init__(self):
         super(VIFOpenVSwitchDriver, self).__init__()
 
-    def connect(self, vif, ifname, netns):
-        super(VIFOpenVSwitchDriver, self).connect(vif, ifname, netns)
+    def connect(self, vif, ifname, netns, container_id):
+        super(VIFOpenVSwitchDriver, self).connect(vif, ifname, netns,
+                                                  container_id)
         # FIXME(irenab) use pod_id (neutron port device_id)
         instance_id = 'kuryr'
         net_utils.create_ovs_vif_port(vif.bridge_name, vif.vif_name,
                                       vif.port_profile.interface_id,
                                       vif.address, instance_id)
 
-    def disconnect(self, vif, ifname, netns):
-        super(VIFOpenVSwitchDriver, self).disconnect(vif, ifname, netns)
+    def disconnect(self, vif, ifname, netns, container_id):
+        super(VIFOpenVSwitchDriver, self).disconnect(vif, ifname, netns,
+                                                     container_id)
         net_utils.delete_ovs_vif_port(vif.bridge_name, vif.vif_name)
 
     def is_healthy(self):

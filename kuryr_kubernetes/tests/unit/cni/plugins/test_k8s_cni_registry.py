@@ -45,7 +45,8 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
         m_lock.assert_called_with('default/foo', external=True)
         m_connect.assert_called_with(mock.ANY, mock.ANY, 'eth0', 123,
                                      report_health=mock.ANY,
-                                     is_default_gateway=mock.ANY)
+                                     is_default_gateway=mock.ANY,
+                                     container_id='cont_id')
         self.assertEqual('cont_id',
                          self.plugin.registry['default/foo']['containerid'])
 
@@ -55,7 +56,8 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
 
         m_disconnect.assert_called_with(mock.ANY, mock.ANY, 'eth0', 123,
                                         report_health=mock.ANY,
-                                        is_default_gateway=mock.ANY)
+                                        is_default_gateway=mock.ANY,
+                                        container_id='cont_id')
 
     @mock.patch('kuryr_kubernetes.cni.binding.base.disconnect')
     def test_del_wrong_container_id(self, m_disconnect):
@@ -88,7 +90,8 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
                                            'containerid': 'cont_id'})
         m_connect.assert_called_with(mock.ANY, mock.ANY, 'eth0', 123,
                                      report_health=mock.ANY,
-                                     is_default_gateway=mock.ANY)
+                                     is_default_gateway=mock.ANY,
+                                     container_id='cont_id')
 
     @mock.patch('time.sleep', mock.Mock())
     def test_add_not_present(self):
