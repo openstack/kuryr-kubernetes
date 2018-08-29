@@ -13,7 +13,7 @@
 # limitations under the License.
 
 - job:
-    name: kuryr-kubernetes-tempest-multinode-octavia
+    name: kuryr-kubernetes-tempest-multinode-daemon-octavia-containerized
     parent: kuryr-kubernetes-tempest-octavia
     description: |
         Kuryr-Kubernetes tempest multinode job using octavia
@@ -27,30 +27,44 @@
           octavia: https://git.openstack.org/openstack/octavia
     group-vars:
       subnode:
+        devstack_plugins:
+          devstack-plugin-container: https://git.openstack.org/openstack/devstack-plugin-container
+          kuryr-kubernetes: https://git.openstack.org/openstack/kuryr
         devstack_services:
+          kuryr-kubernetes: false
+          kubernetes-api: false
+          kubernetes-controller-manager: false
+          kubernetes-scheduler: false
+          kubelet: true
           tls-proxy: false
           c-vol: false
           c-bak: false
+          kuryr-daemon: true
+        devstack_localrc:
+          KURYR_FORCE_IMAGE_BUILD: true
+          KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
     vars:
+      devstack_localrc:
+          KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
+          KURYR_K8S_API_URL: "http://${SERVICE_HOST}:${KURYR_K8S_API_PORT}"
+          KURYR_K8S_MULTI_WORKER_TESTS: True
       devstack_services:
         tls-proxy: false
+        kubelet: true
+        kuryr-daemon: true
     voting: false
 
 - job:
     name: kuryr-kubernetes-tempest-multinode-daemon-octavia-ha
-    parent: kuryr-kubernetes-tempest-multinode-octavia
+    parent: kuryr-kubernetes-tempest-multinode-daemon-octavia-containerized
     description: |
         Kuryr-Kubernetes tempest multinode job using octavia and running
         containerized in HA
-    voting: false
     timeout: 7800
     vars:
       devstack_localrc:
         KURYR_CONTROLLER_REPLICAS: 2
-        KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
         KURYR_K8S_SERIAL_TESTS: true
-      devstack_services:
-        kuryr-daemon: true
       tempest_concurrency: 1
     group-vars:
       subnode:
@@ -59,6 +73,3 @@
           kuryr-kubernetes: https://git.openstack.org/openstack/kuryr-kubernetes
         devstack_services:
           kubelet: true
-        devstack_localrc:
-          KURYR_FORCE_IMAGE_BUILD: true
-          KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
