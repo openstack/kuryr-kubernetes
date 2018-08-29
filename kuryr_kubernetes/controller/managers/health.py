@@ -19,8 +19,6 @@ from flask import Flask
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from keystoneauth1 import exceptions as k_exc
-from keystoneclient import client as keystone_client
 from kuryr.lib._i18n import _
 from kuryr.lib import config as kuryr_config
 from kuryr.lib import utils
@@ -75,12 +73,9 @@ class HealthServer(object):
             return error_message, httplib.INTERNAL_SERVER_ERROR, self.headers
         try:
             self.verify_keystone_connection()
-        except k_exc.http.HttpError as h_ex:
-            error_message = 'Error when processing Keystone request %s.' % h_ex
-            LOG.exception(error_message)
-            return error_message, h_ex.http_status, self.headers
         except Exception as ex:
-            error_message = 'Error when creating a Keystone client: %s.' % ex
+            error_message = ('Error when creating a Keystone session and '
+                             'getting a token: %s.' % ex)
             LOG.exception(error_message)
             return error_message, httplib.INTERNAL_SERVER_ERROR, self.headers
         try:
@@ -121,13 +116,11 @@ class HealthServer(object):
         return True
 
     def verify_keystone_connection(self):
+        # Obtain a new token to ensure connectivity with keystone
         conf_group = kuryr_config.neutron_group.name
         auth_plugin = utils.get_auth_plugin(conf_group)
         sess = utils.get_keystone_session(conf_group, auth_plugin)
-        endpoint_type = getattr(getattr(cfg.CONF, conf_group), 'endpoint_type')
-        ks = keystone_client.Client(session=sess, auth=auth_plugin,
-                                    endpoint_type=endpoint_type)
-        ks.regions.list()
+        sess.get_token()
 
     def verify_neutron_connection(self):
         neutron = utils.get_neutron_client()
