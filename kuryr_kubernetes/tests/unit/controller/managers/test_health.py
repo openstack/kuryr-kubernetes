@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from keystoneauth1 import exceptions
 from kuryr_kubernetes.controller.managers import health
 from kuryr_kubernetes.handlers import health as h_health
 from kuryr_kubernetes.tests import base
@@ -80,11 +79,11 @@ class TestHealthServer(base.TestCase):
                                m_verify_keystone_conn):
         m_exist.return_value = True
         m_verify_k8s_conn.return_value = True, 200
-        m_verify_keystone_conn.side_effect = exceptions.http.Unauthorized
+        m_verify_keystone_conn.side_effect = Exception
         resp = self.test_client.get('/ready')
 
         m_verify_keystone_conn.assert_called_once()
-        self.assertEqual(401, resp.status_code)
+        self.assertEqual(500, resp.status_code)
 
     @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
                 'verify_neutron_connection')
