@@ -21,17 +21,17 @@ followed:
     apiVersion: apiextensions.k8s.io/v1beta1
     kind: CustomResourceDefinition
     metadata:
-    name: network-attachment-definitions.k8s.cni.cncf.io
+      name: network-attachment-definitions.k8s.cni.cncf.io
     spec:
-    group: k8s.cni.cncf.io
-    version: v1
-    scope: Namespaced
-    names:
-      plural: network-attachment-definitions
-      singular: network-attachment-definition
-      kind: NetworkAttachmentDefinition
-      shortNames:
-      - net-attach-def
+      group: k8s.cni.cncf.io
+      version: v1
+      scope: Namespaced
+      names:
+        plural: network-attachment-definitions
+        singular: network-attachment-definition
+        kind: NetworkAttachmentDefinition
+        shortNames:
+        - net-attach-def
     validation:
       openAPIV3Schema:
         properties:
@@ -40,7 +40,7 @@ followed:
               config:
                 type: string
     EOF
-    $ kubectl apply -f nad.yal
+    $ kubectl apply -f nad.yaml
 
 3. Create NetworkAttachmentDefinition object with the UUID of Neutron subnet
 defined in step 1.
@@ -51,8 +51,8 @@ defined in step 1.
     apiVersion: "k8s.cni.cncf.io/v1"
     kind: NetworkAttachmentDefinition
     metadata:
-    name: "net-a"
-    annotations:
+      name: "net-a"
+      annotations:
         openstack.org/kuryr-config: '{
         "subnetId": "uuid-of-neutron-subnet-a"
         }'
@@ -75,17 +75,19 @@ defined in step 1.
     apiVersion: v1
     kind: Pod
     metadata:
-    name: nginx4
-    annotations:
+      name: nginx4
+      annotations:
         k8s.v1.cni.cncf.io/networks: net-a
     spec:
-    containers:
-    - name: nginx
-        image: nginx:1.7.9
-        ports:
-        - containerPort: 80
+      containers:
+      - name: nginx
+          image: nginx:1.7.9
+          ports:
+          - containerPort: 80
     EOF
     $ kubectl apply -f pod.yaml
+
+You may put a list of network separated with comma to attach Pods to more networks.
 
 Reference
 ---------
