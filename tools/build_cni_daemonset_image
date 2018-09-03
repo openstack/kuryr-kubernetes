@@ -1,13 +1,58 @@
 #!/bin/bash -ex
 
-CNI_BIN_DIR=$1
-CNI_CONF_DIR=$2
-CNI_DAEMON=${3:-"True"}
-CNI_TAG="kuryr/cni"
+function print_usage() {
+    set +ex
+    echo "$0" "[options]"
+    if [[ -n "$1" ]]; then
+        echo "Option $1 not found"
+    fi
+    echo "Options -----------------------------"
+    echo "-h/--help        Displays this help message"
+    echo "-f/--dockerfile  Specify the Dockerfile to use for building the CNI container"
+    echo "-b/--bin-dir     Specify the path where to place the CNI executable"
+    echo "-c/--conf-dir    Specify the path where to place the CNI configuration"
+    echo "-t/--tag         Specify string to use as the tag part of the container image name, i.e., kuryr/cni:tag"
+    echo "-D/--no-daemon   Do not run CNI as a daemon"
+}
+
+for arg in "$@"; do
+    shift
+    case "$arg" in
+        "--help")        set -- "$@" "-h" ;;
+        "--bin-dir")     set -- "$@" "-b" ;;
+        "--conf-dir")    set -- "$@" "-c" ;;
+        "--dockerfile")  set -- "$@" "-f" ;;
+        "--tag")         set -- "$@" "-t" ;;
+        "--no-daemon")   set -- "$@" "-D" ;;
+        "--"*)           print_usage "$arg" >&2; exit 1 ;;
+        *)               set -- "$@" "$arg"
+    esac
+done
+
+#Default value
+dockerfile="cni.Dockerfile"
+image_name="kuryr/cni"
+daemonized="True"
+build_args=()
+
+OPTIND=1
+
+while getopts "hf:b:c:t:D" opt; do
+    case "$opt" in
+        "h") print_usage; exit 0 ;;
+        "D") daemonized=False ;;
+        "f") dockerfile=${OPTARG} ;;
+        "b") build_args+=('--build-arg' "CNI_BIN_DIR_PATH=${OPTARG}") ;;
+        "c") build_args+=('--build-arg' "CNI_CONFIG_DIR_PATH=${OPTARG}") ;;
+        "t") image_name=${image_name}:${OPTARG} ;;
+        "?") print_usage >&2; exit 1 ;;
+    esac
+done
+
+shift $((OPTIND - 1))
 
 # create cni daemonset image
-docker build -t "$CNI_TAG" \
-    --build-arg "CNI_BIN_DIR_PATH=$CNI_BIN_DIR" \
-    --build-arg "CNI_CONFIG_DIR_PATH=$CNI_CONF_DIR" \
-    --build-arg "CNI_DAEMON=$CNI_DAEMON" \
-    -f cni.Dockerfile .
+docker build -t "$image_name" \
+    --build-arg "CNI_DAEMON=$daemonized" \
+    "${build_args[@]}" \
+    -f "$dockerfile" .

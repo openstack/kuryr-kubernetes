@@ -378,22 +378,35 @@ EOF
 #       the local docker registry as kuryr/controller:latest and
 #       kuryr/cni:latest respectively
 function build_kuryr_containers() {
-    local cni_bin_dir
-    local cni_conf_dir
+    local cni_buildtool_args
     local cni_daemon
     local build_dir
+    local use_py3
+    local controller_dockerfile
 
-    cni_bin_dir=$1
-    cni_conf_dir=$2
+    cni_buildtool_args="--bin-dir ${1} --conf-dir ${2}"
     cni_daemon=$3
     build_dir="${DEST}/kuryr-kubernetes"
     pushd "$build_dir"
 
+    use_py3=$(trueorfalse False KURYR_CONTAINERS_USE_PY3)
+    if [[ "$use_py3" == "True" ]]; then
+        cni_buildtool_args="${cni_buildtool_args} --dockerfile cni_py3.Dockerfile"
+        controller_dockerfile="controller_py3.Dockerfile"
+    else
+        controller_dockerfile="controller.Dockerfile"
+    fi
+
+    if [[ "$cni_daemon" == "False" ]]; then
+        cni_buildtool_args="${cni_buildtool_args} --no-daemon"
+    fi
+
     # Build controller image
-    sudo docker build -t kuryr/controller -f "controller.Dockerfile" .
+    sudo docker build \
+        -t kuryr/controller -f "$controller_dockerfile" .
 
     # Build CNI image
-    sudo ./tools/build_cni_daemonset_image $cni_bin_dir $cni_conf_dir $cni_daemon
+    sudo "./tools/build_cni_daemonset_image" $cni_buildtool_args
     popd
 }
 
