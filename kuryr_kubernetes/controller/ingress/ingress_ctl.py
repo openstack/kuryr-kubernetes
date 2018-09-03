@@ -12,7 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import eventlet
 import time
 
 
@@ -68,7 +67,11 @@ class L7Router(object):
         # create/verify listeners
         self._l7_router_listeners = {}
         listener = self._drv_l7_router.ensure_listener(
-            self._router_lb, 'HTTP', k_const.KURYR_L7_ROUTER_HTTP_PORT)
+            self._router_lb, 'HTTP', k_const.KURYR_L7_ROUTER_HTTP_PORT,
+            service_type=None)
+        LOG.info("Ingress controller - "
+                 "retrieve HTTP listener details '%s'", listener)
+
         self._l7_router_listeners[k_const.KURYR_L7_ROUTER_HTTP_PORT] = listener
 
     def get_router(self):
@@ -107,9 +110,9 @@ class IngressCtrlr(object):
         try:
             self._status = 'IN_PROGRESS'
             self._l7_router.ensure_router()
-        except Exception:
+        except Exception as e:
             self._status = 'DOWN'
-            LOG.error("Ingress controller - failed to get L7 router")
+            LOG.error("Ingress controller - failed to get L7 router (%s)", e)
             return
         self._status = 'ACTIVE'
         LOG.info("Ingress controller - ACTIVE")
@@ -131,10 +134,7 @@ class IngressCtrlr(object):
                      'Ingress-LB  handlers should be enabled, and '
                      'l7_router_uuid should be specified')
             return
-        # Note(yboaron) Create a new thread for L7 router/LB configuration
-        # verification, a separate thread is needed since it might be that
-        # router not created yet and we can't block controller/service thread.
-        eventlet.spawn(self._start_operation_impl)
+        self._start_operation_impl()
 
     def get_router_and_listener(self):
         """This function returns L7 router and Listeners details,
