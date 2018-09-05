@@ -46,3 +46,4 @@ This section describes how you can install and configure kuryr-kubernetes
     multi_vif_with_npwg_spec
     sriov
     testing_udp_services
+    testing_sriov_functional

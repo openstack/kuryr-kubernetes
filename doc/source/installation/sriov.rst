@@ -1,3 +1,5 @@
+.. _sriov:
+
 How to configure SR-IOV ports
 =============================
 
