@@ -332,3 +332,14 @@ class TestWatcher(test_base.TestCase):
 
         m_handler.assert_has_calls([mock.call(e) for e in events])
         m_sys_exit.assert_called_once_with(1)
+
+    def test_watch_restart(self):
+        tg = mock.Mock()
+        w = watcher.Watcher(lambda e: None, tg)
+        w.add('/test')
+        w.start()
+        tg.add_thread.assert_called_once_with(mock.ANY, '/test')
+        w.stop()
+        tg.add_thread = mock.Mock()  # Reset mock.
+        w.start()
+        tg.add_thread.assert_called_once_with(mock.ANY, '/test')

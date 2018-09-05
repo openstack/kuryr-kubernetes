@@ -144,14 +144,17 @@ class Watcher(health.HealthHandler):
 
     def _stop_watch(self, path):
         if self._idle.get(path):
-            if self._thread_group:
+            if self._thread_group and path in self._watching:
                 self._watching[path].stop()
+                # NOTE(dulek): Thread gets killed immediately, so we need to
+                # take care of this ourselves.
+                self._watching.pop(path, None)
+                self._idle.pop(path, None)
 
     def _graceful_watch_exit(self, path):
         try:
-            self.remove(path)
-            self._watching.pop(path)
-            self._idle.pop(path)
+            self._watching.pop(path, None)
+            self._idle.pop(path, None)
             LOG.info("Stopped watching '%s'", path)
         except KeyError:
             LOG.error("Failed to exit watch gracefully")
