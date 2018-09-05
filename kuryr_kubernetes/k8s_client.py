@@ -197,7 +197,7 @@ class K8sClient(object):
                                  headers=header)) as response:
                 if not response.ok:
                     raise exc.K8sClientException(response.text)
-                for line in response.iter_lines(delimiter='\n'):
-                    line = line.strip()
+                for line in response.iter_lines():
+                    line = line.decode('utf-8').strip()
                     if line:
                         yield jsonutils.loads(line)

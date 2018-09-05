@@ -311,7 +311,7 @@ class TestK8sClient(test_base.TestCase):
     def test_watch(self, m_get):
         path = '/test'
         data = [{'obj': 'obj%s' % i} for i in range(3)]
-        lines = [jsonutils.dumps(i) for i in data]
+        lines = [jsonutils.dump_as_bytes(i) for i in data]
 
         m_resp = mock.MagicMock()
         m_resp.ok = True
