@@ -50,3 +50,4 @@
         - kuryr-kubernetes-tempest-daemon-containerized-openshift-octavia-serial
         - kuryr-kubernetes-tempest-daemon-ovn
         - kuryr-kubernetes-tempest-daemon-openshift-octavia-ingress
+        - kuryr-kubernetes-tempest-daemon-openshift-octavia-multi-vif
