@@ -76,6 +76,8 @@ class K8sClient(object):
         response = requests.get(url, cert=self.cert,
                                 verify=self.verify_server,
                                 headers=header)
+        if response.status_code == requests.codes.not_found:
+            raise exc.K8sResourceNotFound(response.text)
         if not response.ok:
             raise exc.K8sClientException(response.text)
         result = response.json() if json else response.text

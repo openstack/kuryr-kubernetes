@@ -37,6 +37,7 @@ This section describes how you can install and configure kuryr-kubernetes
     default_configuration
     trunk_ports
     network_namespace
+    network_policy
     testing_connectivity
     testing_nested_connectivity
     containerized
