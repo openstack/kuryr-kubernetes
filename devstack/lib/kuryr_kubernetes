@@ -649,9 +649,13 @@ spec:
           subPath: kuryr-cni.conf
         - name: proc
           mountPath: /host_proc
+EOF
+    if [[ -n "$OVS_HOST_PATH" ]]; then
+        cat >> "${output_dir}/cni_ds.yml" << EOF
         - name: openvswitch
           mountPath: /var/run/openvswitch
 EOF
+    fi
     if [ "$cni_daemon" == "True" ]; then
         cat >> "${output_dir}/cni_ds.yml" << EOF
         readinessProbe:
@@ -682,10 +686,14 @@ EOF
         - name: proc
           hostPath:
             path: /proc
+EOF
+    if [[ -n "$OVS_HOST_PATH" ]]; then
+        cat >> "${output_dir}/cni_ds.yml" << EOF
         - name: openvswitch
           hostPath:
             path: ${OVS_HOST_PATH}
 EOF
+    fi
 }
 
 # install_openshift_binary
