@@ -24,7 +24,6 @@ from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes import objects
 from kuryr_kubernetes import utils
 
-
 LOG = logging.getLogger(__name__)
 
 
@@ -95,13 +94,14 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                 # FIXME(ivc): improve granularity of K8sClient exceptions:
                 # only resourceVersion conflict should be ignored
                 for ifname, vif in state.vifs.items():
-                    self._drv_for_vif(vif).release_vif(pod, vif, project_id,
-                                                       security_groups)
+                    self._drv_vif_pool.release_vif(pod, vif,
+                                                   project_id,
+                                                   security_groups)
         else:
             changed = False
             for ifname, vif in state.vifs.items():
                 if not vif.active:
-                    self._drv_for_vif(vif).activate_vif(pod, vif)
+                    self._drv_vif_pool.activate_vif(pod, vif)
                     changed = True
             if changed:
                 self._set_pod_state(pod, state)
@@ -124,12 +124,8 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         state = self._get_pod_state(pod)
         if state:
             for ifname, vif in state.vifs.items():
-                self._drv_for_vif(vif).release_vif(pod, vif, project_id,
-                                                   security_groups)
-
-    def _drv_for_vif(self, vif):
-        # TODO(danil): a better polymorphism is required here
-        return self._drv_vif_pool
+                self._drv_vif_pool.release_vif(pod, vif, project_id,
+                                               security_groups)
 
     @staticmethod
     def _is_host_network(pod):

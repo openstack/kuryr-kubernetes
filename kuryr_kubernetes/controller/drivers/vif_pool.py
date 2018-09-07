@@ -81,6 +81,13 @@ MEMOIZE = cache.get_memoization_decorator(
 
 cache.configure_cache_region(oslo_cfg.CONF, node_driver_cache_region)
 
+VIF_TYPE_TO_DRIVER_MAPPING = {
+    'VIFOpenVSwitch': 'neutron-vif',
+    'VIFBridge': 'neutron-vif',
+    'VIFVlanNested': 'nested-vlan',
+    'VIFMacvlanNested': 'nested-macvlan'
+}
+
 
 class NoopVIFPool(base.VIFPoolDriver):
     """No pool VIFs for Kubernetes Pods"""
@@ -794,12 +801,12 @@ class MultiVIFPool(base.VIFPoolDriver):
             pod, project_id, subnets, security_groups)
 
     def release_vif(self, pod, vif, *argv):
-        pod_vif_type = self._get_pod_vif_type(pod)
-        self._vif_drvs[pod_vif_type].release_vif(pod, vif, *argv)
+        vif_drv_alias = self._get_vif_drv_alias(vif)
+        self._vif_drvs[vif_drv_alias].release_vif(pod, vif, *argv)
 
     def activate_vif(self, pod, vif):
-        pod_vif_type = self._get_pod_vif_type(pod)
-        self._vif_drvs[pod_vif_type].activate_vif(pod, vif)
+        vif_drv_alias = self._get_vif_drv_alias(vif)
+        self._vif_drvs[vif_drv_alias].activate_vif(pod, vif)
 
     def delete_network_pools(self, net_id):
         for vif_drv in self._vif_drvs.values():
@@ -827,3 +834,7 @@ class MultiVIFPool(base.VIFPoolDriver):
                                  oslo_cfg.CONF.kubernetes.pod_vif_driver)
             return pod_vif
         return oslo_cfg.CONF.kubernetes.pod_vif_driver
+
+    def _get_vif_drv_alias(self, vif):
+        vif_type_name = type(vif).__name__
+        return VIF_TYPE_TO_DRIVER_MAPPING[vif_type_name]
