@@ -53,7 +53,7 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         # TODO(mchiappe): provide an implementation
         raise NotImplementedError()
 
-    def release_vif(self, pod, vif):
+    def release_vif(self, pod, vif, project_id=None, security_groups=None):
         neutron = clients.get_neutron_client()
         container_port = neutron.show_port(vif.id).get('port')
 
