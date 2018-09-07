@@ -753,7 +753,8 @@ function create_ingress_l7_router {
     l7_router_fip=$(openstack --os-cloud devstack-admin \
            --os-region "$REGION_NAME" \
            floating ip create --project "$project_id" \
-            --subnet "${ext_svc_subnet_id}"  "${ext_svc_net_id}" \
+            --subnet "$KURYR_NEUTRON_DEFAULT_EXT_SVC_SUBNET" \
+             "$KURYR_NEUTRON_DEFAULT_EXT_SVC_NET" \
             -f value -c floating_ip_address)
 
     openstack  --os-cloud devstack-admin \
