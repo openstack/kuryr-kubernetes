@@ -124,6 +124,17 @@
         KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace
 
 - job:
+    name: kuryr-kubernetes-tempest-daemon-containerized-octavia-network-policy
+    description: |
+      Tempest with Octavia, CNI daemon, containers and network policy driver
+    parent: kuryr-kubernetes-tempest-daemon-containerized-octavia
+    vars:
+      tempest_test_regex: '^(kuryr_tempest_plugin.tests.scenario.test_network_policy.TestNetworkPolicyScenario)'
+      devstack_localrc:
+        KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,policy
+    voting: false
+
+- job:
     name: kuryr-kubernetes-tempest-daemon-containerized-openshift-octavia
     description: Tempest with Octavia, CNI daemon enabled, containers and OpenShift
     parent: kuryr-kubernetes-tempest-daemon-openshift-octavia
