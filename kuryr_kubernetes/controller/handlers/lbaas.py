@@ -75,7 +75,7 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
     def _has_selector(self, service):
         return service['spec'].get('selector')
 
-    def _has_clusterip(sef, service):
+    def _has_clusterip(self, service):
         # ignore headless service, clusterIP is None
         return service['spec'].get('clusterIP') != 'None'
 
