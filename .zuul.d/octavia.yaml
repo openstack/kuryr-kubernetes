@@ -62,6 +62,15 @@
         kuryr-daemon: true
 
 - job:
+    name: kuryr-kubernetes-tempest-daemon-octavia-py36
+    parent: kuryr-kubernetes-tempest-daemon-octavia
+    description: |
+      Tempest with Octavia, CNI daemon with DevStack running on Python 3.6
+    vars:
+      devstack_localrc:
+        USE_PYTHON3: true
+
+- job:
     name: kuryr-kubernetes-tempest-daemon-containerized-octavia
     parent: kuryr-kubernetes-tempest-daemon-octavia
     description: |
