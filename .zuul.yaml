@@ -32,7 +32,8 @@
       - openstack/devstack-plugin-container
       - openstack/kuryr
       - openstack/kuryr-kubernetes
-      - openstack/kuryr-tempest-plugin
+      - name: openstack/kuryr-tempest-plugin
+        override-checkout: 0.2.0
       - openstack/tempest
     irrelevant-files:
       - ^.*\.rst$
@@ -61,7 +62,8 @@
       - openstack/devstack-plugin-container
       - openstack/kuryr
       - openstack/kuryr-kubernetes
-      - openstack/kuryr-tempest-plugin
+      - name: openstack/kuryr-tempest-plugin
+        override-checkout: 0.2.0
       - openstack/tempest
     nodeset: legacy-ubuntu-xenial-2-node
     voting: false
@@ -105,16 +107,10 @@
     vars:
       loadbalancer: octavia
     required-projects:
-      - openstack-infra/devstack-gate
       - openstack/barbican
-      - openstack/devstack-plugin-container
-      - openstack/kuryr
-      - openstack/kuryr-kubernetes
-      - openstack/kuryr-tempest-plugin
       - openstack/octavia
       - openstack/python-barbicanclient
       - openstack/python-octaviaclient
-      - openstack/tempest
     voting: false
 
 # Tempest with Octavia and CNI daemon enabled
