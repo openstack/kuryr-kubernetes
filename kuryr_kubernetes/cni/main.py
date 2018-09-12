@@ -37,9 +37,6 @@ _CNI_TIMEOUT = 180
 
 
 def run():
-    # REVISIT(ivc): current CNI implementation provided by this package is
-    # experimental and its primary purpose is to enable development of other
-    # components (e.g. functional tests, service/LBaaSv2 support)
     if six.PY3:
         d = jsonutils.load(sys.stdin.buffer)
     else:
@@ -62,13 +59,8 @@ def run():
     if CONF.cni_daemon.daemon_enabled:
         runner = cni_api.CNIDaemonizedRunner()
     else:
-        # TODO(dulek): Switch that to versionutils.deprecation_warning once
-        #              bug 1754087 is fixed.
-        versionutils.report_deprecated_feature(
-            LOG,
-            'Deploying kuryr-kubernetes without kuryr-daemon service is '
-            'deprecated since Rocky release and may be removed in future '
-            'releases.')
+        versionutils.deprecation_warning(
+            'Deploying kuryr-kubernetes without kuryr-daemon service', 'R')
         runner = cni_api.CNIStandaloneRunner(k8s_cni.K8sCNIPlugin())
     LOG.info("Using '%s' ", runner.__class__.__name__)
 
