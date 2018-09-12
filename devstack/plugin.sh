@@ -969,6 +969,9 @@ elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
     if is_service_enabled tempest && [[ "$KURYR_ENABLED_HANDLERS" =~ .*policy.* ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes network_policy_enabled True
     fi
+    if is_service_enabled tempest && is_service_enabled kuryr-daemon; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes kuryr_daemon_enabled True
+    fi
 fi
 
 if [[ "$1" == "unstack" ]]; then
