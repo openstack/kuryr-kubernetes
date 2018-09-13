@@ -135,6 +135,17 @@
     voting: false
 
 - job:
+    name: kuryr-kubernetes-tempest-daemon-containerized-octavia-py36
+    description: |
+      Tempest with Octavia, CNI daemon, containers and namespace subnet driver
+      with Kuryr running on Python3.6 containers
+    parent: kuryr-kubernetes-tempest-daemon-containerized-octavia-namespace
+    vars:
+      devstack_localrc:
+        KURYR_CONTAINERS_USE_PY3: True
+        USE_PYTHON3: true
+
+- job:
     name: kuryr-kubernetes-tempest-daemon-containerized-openshift-octavia
     description: Tempest with Octavia, CNI daemon enabled, containers and OpenShift
     parent: kuryr-kubernetes-tempest-daemon-openshift-octavia
