@@ -33,9 +33,9 @@ enable_service q-dhcp
 enable_service q-l3
 enable_service q-svc
 
-# OVS HOST PATH
+# VAR RUN PATH
 # =============
-# OVS_HOST_PATH=/var/run/openvswitch
+# VAR_RUN_PATH=/var/run
 
 # OCTAVIA
 KURYR_K8S_LBAAS_USE_OCTAVIA=True
