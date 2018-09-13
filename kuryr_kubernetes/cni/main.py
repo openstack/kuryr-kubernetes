@@ -15,6 +15,7 @@
 
 import os
 import signal
+import six
 import sys
 
 import os_vif
@@ -39,7 +40,11 @@ def run():
     # REVISIT(ivc): current CNI implementation provided by this package is
     # experimental and its primary purpose is to enable development of other
     # components (e.g. functional tests, service/LBaaSv2 support)
-    cni_conf = utils.CNIConfig(jsonutils.load(sys.stdin))
+    if six.PY3:
+        d = jsonutils.load(sys.stdin.buffer)
+    else:
+        d = jsonutils.load(sys.stdin)
+    cni_conf = utils.CNIConfig(d)
     args = ['--config-file', cni_conf.kuryr_conf]
 
     try:
