@@ -44,7 +44,7 @@ deploy
 
 # Start CNI daemon if required
 if [ "$CNI_DAEMON" == "True" ]; then
-    kuryr-daemon --config-file /etc/kuryr/kuryr.conf
+    exec kuryr-daemon --config-file /etc/kuryr/kuryr.conf
 else
-    sleep infinity
+    exec sleep infinity
 fi
