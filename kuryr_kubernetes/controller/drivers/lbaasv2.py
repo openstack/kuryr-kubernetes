@@ -53,10 +53,11 @@ class LBaaSv2Driver(base.LBaaSDriver):
         return "%s/%s/%s" % (loadbalancer.name, namespace, svc_name)
 
     def ensure_loadbalancer(self, name, project_id, subnet_id, ip,
-                            security_groups_ids=None, service_type=None):
+                            security_groups_ids=None, service_type=None,
+                            provider=None):
         request = obj_lbaas.LBaaSLoadBalancer(
             name=name, project_id=project_id, subnet_id=subnet_id, ip=ip,
-            security_groups=security_groups_ids)
+            security_groups=security_groups_ids, provider=provider)
         response = self._ensure(request, self._create_loadbalancer,
                                 self._find_loadbalancer)
         if not response:
@@ -329,13 +330,25 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
     def _create_loadbalancer(self, loadbalancer):
         lbaas = clients.get_loadbalancer_client()
-        response = lbaas.create_loadbalancer({'loadbalancer': {
+
+        request = {'loadbalancer': {
             'name': loadbalancer.name,
             'project_id': loadbalancer.project_id,
             'vip_address': str(loadbalancer.ip),
-            'vip_subnet_id': loadbalancer.subnet_id}})
+            'vip_subnet_id': loadbalancer.subnet_id}}
+
+        if loadbalancer.provider is not None:
+            request['loadbalancer']['provider'] = loadbalancer.provider
+
+        response = lbaas.create_loadbalancer(request)
         loadbalancer.id = response['loadbalancer']['id']
         loadbalancer.port_id = self._get_vip_port(loadbalancer).get("id")
+        if (loadbalancer.provider is not None and
+                loadbalancer.provider != response['loadbalancer']['provider']):
+            LOG.error("Request provider(%s) != Response provider(%s)",
+                      loadbalancer.provider,
+                      response['loadbalancer']['provider'])
+            return None
         loadbalancer.provider = response['loadbalancer']['provider']
         return loadbalancer
 
