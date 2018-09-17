@@ -143,6 +143,10 @@ k8s_opts = [
                deprecated_reason="Default and supported lbaas endpoint is "
                                  "now Octavia",
                deprecated_since="Rocky"),
+    cfg.StrOpt('endpoints_driver_octavia_provider',
+               help=_("The Octavia load balancer provider that will be used "
+                      "to support Kubernetes Endpoints"),
+               default='default'),
     cfg.StrOpt('vif_pool_driver',
                help=_("The driver that manages VIFs pools for "
                       "Kubernetes Pods"),

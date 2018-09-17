@@ -457,6 +457,7 @@ function configure_neutron_defaults {
         # FIXME(dulek): This might be removed when bug 1753653 is fixed and
         #               Kuryr restarts waiting for LB on timeouts.
         iniset "$KURYR_CONFIG" neutron_defaults lbaas_activation_timeout 1200
+        iniset "$KURYR_CONFIG" kubernetes endpoints_driver_octavia_provider "$KURYR_EP_DRIVER_OCTAVIA_PROVIDER"
     fi
 }
 
