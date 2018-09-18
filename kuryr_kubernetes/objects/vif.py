@@ -68,3 +68,15 @@ class VIFMacvlanNested(obj_osvif.VIFBase):
         # Name of the device to create
         'vif_name': obj_fields.StringField(),
     }
+
+
+@obj_base.VersionedObjectRegistry.register
+class VIFSriov(obj_osvif.VIFDirect):
+    # This is OVO based SRIOV vif.
+
+    VERSION = '1.0'
+
+    fields = {
+        # physnet of the VIF
+        'physnet': obj_fields.StringField(),
+    }

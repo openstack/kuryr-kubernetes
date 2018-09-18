@@ -40,6 +40,7 @@ _kuryr_k8s_opts = [
     ('namespace_subnet', namespace_subnet.namespace_subnet_driver_opts),
     ('namespace_sg', namespace_security_groups.namespace_sg_driver_opts),
     ('ingress', config.ingress),
+    ('sriov', config.sriov_opts),
 ]
 
 
