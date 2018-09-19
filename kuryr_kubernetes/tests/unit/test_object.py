@@ -25,7 +25,7 @@ object_data = {
     '1.0-3ac4fcd50a555f433a78c67cb6a4cd52',
     'LBaaSL7Rule': '1.0-276d9d678e1a8fc4b53fdbf3b2ac39ec',
     'LBaaSListener': '1.0-a9e2d5c73687f5edc66fdb2f48650e15',
-    'LBaaSLoadBalancer': '1.2-d498ade2e705c3977eb66ff46133ed2b',
+    'LBaaSLoadBalancer': '1.3-8bc0a9bdbd160da67572aa38784378d1',
     'LBaaSMember': '1.0-a770c6884c27d6d8c21186b27d0e2ccb',
     'LBaaSPool': '1.1-6e77370d7632a902445444249eb77b01',
     'LBaaSPortSpec': '1.0-51dfa3436bec32db3614720056fcc83f',

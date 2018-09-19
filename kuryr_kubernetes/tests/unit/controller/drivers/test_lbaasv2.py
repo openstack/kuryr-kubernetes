@@ -256,6 +256,59 @@ class TestLBaaSv2Driver(test_base.TestCase):
                              getattr(ret, attr))
         self.assertEqual(loadbalancer_id, ret.id)
 
+    def test_create_loadbalancer_provider_defined(self):
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        loadbalancer = obj_lbaas.LBaaSLoadBalancer(
+            name='TEST_NAME', project_id='TEST_PROJECT', ip='1.2.3.4',
+            subnet_id='D3FA400A-F543-4B91-9CD3-047AF0CE42D1',
+            security_groups=[],
+            provider='amphora')
+        loadbalancer_id = '00EE9E11-91C2-41CF-8FD4-7970579E5C4C'
+        req = {'loadbalancer': {
+            'name': loadbalancer.name,
+            'project_id': loadbalancer.project_id,
+            'vip_address': str(loadbalancer.ip),
+            'vip_subnet_id': loadbalancer.subnet_id,
+            'provider': loadbalancer.provider,
+        }}
+        resp = {'loadbalancer': {'id': loadbalancer_id, 'provider': 'amphora'}}
+        lbaas.create_loadbalancer.return_value = resp
+        m_driver._get_vip_port.return_value = {'id': mock.sentinel.port_id}
+
+        ret = cls._create_loadbalancer(m_driver, loadbalancer)
+        lbaas.create_loadbalancer.assert_called_once_with(req)
+        for attr in loadbalancer.obj_fields:
+            self.assertEqual(getattr(loadbalancer, attr),
+                             getattr(ret, attr))
+        self.assertEqual(loadbalancer_id, ret.id)
+
+    def test_create_loadbalancer_provider_mismatch(self):
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        loadbalancer = obj_lbaas.LBaaSLoadBalancer(
+            name='TEST_NAME', project_id='TEST_PROJECT', ip='1.2.3.4',
+            subnet_id='D3FA400A-F543-4B91-9CD3-047AF0CE42D1',
+            security_groups=[],
+            provider='amphora')
+        loadbalancer_id = '00EE9E11-91C2-41CF-8FD4-7970579E5C4C'
+        req = {'loadbalancer': {
+            'name': loadbalancer.name,
+            'project_id': loadbalancer.project_id,
+            'vip_address': str(loadbalancer.ip),
+            'vip_subnet_id': loadbalancer.subnet_id,
+            'provider': loadbalancer.provider,
+        }}
+        resp = {'loadbalancer': {'id': loadbalancer_id, 'provider': 'haproxy'}}
+        lbaas.create_loadbalancer.return_value = resp
+        m_driver._get_vip_port.return_value = {'id': mock.sentinel.port_id}
+
+        ret = cls._create_loadbalancer(m_driver, loadbalancer)
+        lbaas.create_loadbalancer.assert_called_once_with(req)
+        self.assertIsNone(ret)
+
     def test_find_loadbalancer(self):
         lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         cls = d_lbaasv2.LBaaSv2Driver

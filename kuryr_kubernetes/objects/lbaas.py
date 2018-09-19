@@ -25,7 +25,8 @@ class LBaaSLoadBalancer(k_obj.KuryrK8sObjectBase):
     # Version 1.0: Initial version
     # Version 1.1: Added provider field and security_groups field.
     # Version 1.2: Added support for security_groups=None
-    VERSION = '1.2'
+    # Version 1.3: Added support for provider=None
+    VERSION = '1.3'
 
     fields = {
         'id': obj_fields.UUIDField(),
@@ -34,7 +35,8 @@ class LBaaSLoadBalancer(k_obj.KuryrK8sObjectBase):
         'ip': obj_fields.IPAddressField(),
         'subnet_id': obj_fields.UUIDField(),
         'port_id': obj_fields.UUIDField(),
-        'provider': obj_fields.StringField(),
+        'provider': obj_fields.StringField(nullable=True,
+                                           default=None),
         'security_groups': k_fields.ListOfUUIDField(nullable=True,
                                                     default=None),
     }
