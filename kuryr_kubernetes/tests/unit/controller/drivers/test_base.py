@@ -51,6 +51,7 @@ class TestDriverBase(test_base.TestCase):
     def test_get_instance_not_loaded(self, m_stv_mgr, m_cfg, m_mgrs):
         alias = _TestDriver.ALIAS
         cfg_name = '%s_driver' % (alias)
+        mgr_key = '%s:_from_cfg:default' % (alias)
         drv_name = 'driver_impl'
         namespace = '%s.%s' % (d_base._DRIVER_NAMESPACE_BASE, alias)
         m_cfg.kubernetes.__getitem__.return_value = drv_name
@@ -64,7 +65,7 @@ class TestDriverBase(test_base.TestCase):
         m_cfg.kubernetes.__getitem__.assert_called_with(cfg_name)
         m_stv_mgr.assert_called_with(namespace=namespace, name=drv_name,
                                      invoke_on_load=True)
-        m_mgrs.__setitem__.assert_called_once_with(cfg_name, m_mgr)
+        m_mgrs.__setitem__.assert_called_once_with(mgr_key, m_mgr)
 
     @mock.patch.object(d_base, '_DRIVER_MANAGERS')
     @mock.patch('kuryr_kubernetes.config.CONF')

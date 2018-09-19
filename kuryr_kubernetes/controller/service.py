@@ -94,7 +94,7 @@ class KuryrK8sService(six.with_metaclass(KuryrK8sServiceMeta,
             self.watcher.add(handler.get_watch_path())
             pipeline.register(handler)
         self.pool_driver = drivers.VIFPoolDriver.get_instance(
-            driver_alias='multi_pool')
+            specific_driver='multi_pool')
         self.pool_driver.set_vif_driver()
 
     def is_leader(self):

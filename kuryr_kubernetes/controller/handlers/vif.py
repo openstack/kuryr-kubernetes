@@ -51,7 +51,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         # VIFHandler driver, for now it is aware of the pool driver, but this
         # will be reverted as soon as a mechanism is in place.
         self._drv_vif_pool = drivers.VIFPoolDriver.get_instance(
-            driver_alias='multi_pool')
+            specific_driver='multi_pool')
         self._drv_vif_pool.set_vif_driver()
         self._drv_multi_vif = drivers.MultiVIFDriver.get_enabled_drivers()
 

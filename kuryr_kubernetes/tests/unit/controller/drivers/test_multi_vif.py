@@ -132,7 +132,7 @@ class TestNPWGMultiVIFDriver(test_base.TestCase):
         m_drv = multi_vif.NPWGMultiVIFDriver()
         self.assertEqual(self._vif_pool_drv, m_drv._drv_vif_pool)
         m_get_vif_pool_driver.assert_called_once_with(
-            driver_alias='multi_pool')
+            specific_driver='multi_pool')
         m_set_vifs_driver.assert_called_once()
 
     @mock.patch('kuryr_kubernetes.utils.get_subnet')

@@ -35,7 +35,7 @@ class NPWGMultiVIFDriver(base.MultiVIFDriver):
     def __init__(self):
         super(NPWGMultiVIFDriver, self).__init__()
         self._drv_vif_pool = base.VIFPoolDriver.get_instance(
-            driver_alias='multi_pool')
+            specific_driver='multi_pool')
         self._drv_vif_pool.set_vif_driver()
 
     def request_additional_vifs(self, pod, project_id, security_groups):
@@ -71,7 +71,7 @@ class NPWGMultiVIFDriver(base.MultiVIFDriver):
             else:
                 alias = config[constants.K8S_ANNOTATION_NPWG_CRD_DRIVER_TYPE]
                 vif_drv = base.PodVIFDriver.get_instance(
-                    driver_alias=alias)
+                    specific_driver=alias)
             vif = vif_drv.request_vif(pod, project_id, subnet, security_groups)
             if vif:
                 vifs.append(vif)
