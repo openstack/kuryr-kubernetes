@@ -724,9 +724,8 @@ function run_kuryr_kubernetes {
             "${KURYR_HYPERKUBE_DATA_DIR}/kuryr-ca.crt" 1200
     fi
 
-    run_process kuryr-kubernetes \
-        "$python_bin ${KURYR_HOME}/scripts/run_server.py  \
-            --config-file $KURYR_CONFIG"
+    local controller_bin=$(which kuryr-k8s-controller)
+    run_process kuryr-kubernetes "$controller_bin --config-file $KURYR_CONFIG"
 }
 
 
