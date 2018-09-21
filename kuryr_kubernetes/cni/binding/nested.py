@@ -35,7 +35,7 @@ class NestedDriver(health.HealthHandler, b_base.BaseBindingDriver):
     def _get_iface_create_args(self, vif):
         raise NotImplementedError()
 
-    def connect(self, vif, ifname, netns):
+    def connect(self, vif, ifname, netns, container_id):
         with b_base.get_ipdb() as h_ipdb:
             # NOTE(vikasc): Ideally 'ifname' should be used here but instead a
             # temporary name is being used while creating the device for
@@ -62,7 +62,7 @@ class NestedDriver(health.HealthHandler, b_base.BaseBindingDriver):
                 iface.address = str(vif.address)
                 iface.up()
 
-    def disconnect(self, vif, ifname, netns):
+    def disconnect(self, vif, ifname, netns, container_id):
         # NOTE(vikasc): device will get deleted with container namespace, so
         # nothing to be done here.
         pass

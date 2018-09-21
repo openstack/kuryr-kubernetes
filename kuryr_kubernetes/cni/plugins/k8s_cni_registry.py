@@ -131,7 +131,8 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
             is_default_gateway = (ifname == params.CNI_IFNAME)
             fn(vif, self._get_inst(pod), ifname, params.CNI_NETNS,
                 report_health=self.report_drivers_health,
-                is_default_gateway=is_default_gateway)
+                is_default_gateway=is_default_gateway,
+                container_id=params.CNI_CONTAINERID)
         return vifs
 
     def _get_inst(self, pod):

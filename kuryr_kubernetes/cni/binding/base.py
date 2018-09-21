@@ -30,11 +30,11 @@ class BaseBindingDriver(object):
     """Interface to attach ports to pods."""
 
     @abc.abstractmethod
-    def connect(self, vif, ifname, netns):
+    def connect(self, vif, ifname, netns, container_id):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def disconnect(self, vif, ifname, netns):
+    def disconnect(self, vif, ifname, netns, container_id):
         raise NotImplementedError()
 
 
@@ -92,19 +92,19 @@ def _configure_l3(vif, ifname, netns, is_default_gateway):
 
 
 def connect(vif, instance_info, ifname, netns=None, report_health=None,
-            is_default_gateway=True):
+            is_default_gateway=True, container_id=None):
     driver = _get_binding_driver(vif)
     if report_health:
         report_health(driver.is_healthy())
     os_vif.plug(vif, instance_info)
-    driver.connect(vif, ifname, netns)
+    driver.connect(vif, ifname, netns, container_id)
     _configure_l3(vif, ifname, netns, is_default_gateway)
 
 
 def disconnect(vif, instance_info, ifname, netns=None, report_health=None,
-               **kwargs):
+               container_id=None, **kwargs):
     driver = _get_binding_driver(vif)
     if report_health:
         report_health(driver.is_healthy())
-    driver.disconnect(vif, ifname, netns)
+    driver.disconnect(vif, ifname, netns, container_id)
     os_vif.unplug(vif, instance_info)

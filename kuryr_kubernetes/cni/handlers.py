@@ -111,7 +111,8 @@ class AddHandler(CNIHandlerBase):
             is_default_gateway = (ifname == self._cni.CNI_IFNAME)
             b_base.connect(_vif, self._get_inst(pod),
                            ifname, self._cni.CNI_NETNS,
-                           is_default_gateway=is_default_gateway)
+                           is_default_gateway=is_default_gateway,
+                           container_id=self._cni.CNI_CONTAINERID)
 
     def should_callback(self, pod, vifs):
         """Called after all vifs have been processed
@@ -147,7 +148,8 @@ class DelHandler(CNIHandlerBase):
 
     def on_vif(self, pod, vif, ifname):
         b_base.disconnect(vif, self._get_inst(pod),
-                          self._cni.CNI_IFNAME, self._cni.CNI_NETNS)
+                          self._cni.CNI_IFNAME, self._cni.CNI_NETNS,
+                          container_id=self._cni.CNI_CONTAINERID)
 
     def should_callback(self, pod, vifs):
         """Called after all vifs have been processed
