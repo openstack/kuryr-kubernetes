@@ -55,10 +55,11 @@ KURYR_K8S_LBAAS_USE_OCTAVIA=True
 # In case Octavia is used for LBaaS, you can choose the
 # Octavia's Load Balancer provider.
 # KURYR_EP_DRIVER_OCTAVIA_PROVIDER=default
-# Uncomment the next two to enable ovn provider. Note only L2 mode is
-# supported
+# Uncomment the next lines to enable ovn provider. Note L2 mode is used
+# to ensure member subnet is added
 # KURYR_EP_DRIVER_OCTAVIA_PROVIDER=ovn
 # KURYR_K8S_OCTAVIA_MEMBER_MODE=L2
+# KURYR_K8S_OCTAVIA_SG_MODE=create
 
 
 
