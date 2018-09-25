@@ -24,7 +24,6 @@
       jobs:
         - openstack-tox-lower-constraints
         - kuryr-kubernetes-tempest-octavia
-        - kuryr-kubernetes-tempest-lbaasv2
         - kuryr-kubernetes-tempest-daemon-octavia
         - kuryr-kubernetes-tempest-daemon-openshift-octavia
         - kuryr-kubernetes-tempest-daemon-lbaasv2
@@ -39,7 +38,6 @@
         - openstack-tox-lower-constraints
         - kuryr-kubernetes-tempest-octavia
         - kuryr-kubernetes-tempest-daemon-octavia
-        - kuryr-kubernetes-tempest-lbaasv2
         - kuryr-kubernetes-tempest-daemon-lbaasv2
         - kuryr-kubernetes-tempest-daemon-containerized-octavia
         - kuryr-kubernetes-tempest-daemon-octavia-py36
