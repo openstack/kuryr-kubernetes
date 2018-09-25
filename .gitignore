@@ -72,3 +72,6 @@ contrib/vagrant/user_local.conf
 # Binaries from docker images builds
 kuryr-cni-bin
 kuryr-cni
+
+# editor tags dir
+tags
