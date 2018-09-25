@@ -544,7 +544,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         k8s = clients.get_kubernetes_client()
         svc_link = self._get_service_link(endpoints)
         try:
-            k8s.patch_status(svc_link, status_data)
+            k8s.patch("status", svc_link, status_data)
         except k_exc.K8sClientException:
             # REVISIT(ivc): only raise ResourceNotReady for NotFound
             raise k_exc.ResourceNotReady(svc_link)
