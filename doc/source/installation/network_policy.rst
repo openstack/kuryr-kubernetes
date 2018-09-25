@@ -87,7 +87,53 @@ Testing the network policy support functionality
     $ openstack security group list | grep test-network-policy
     | dabdf308-7eed-43ef-a058-af84d1954acb | test-network-policy
 
-4. Check that the teardown of the resources once the network policy is removed::
+4. Check that the rules are in place for the security group::
+
+    $ kubectl get kuryrnetpolicy np-test-network-policy -o yaml
+    ...
+    spec:
+      egressSgRules:
+      - security_group_rule:
+        created_at: 2018-09-19T06:15:07Z
+        description: Kuryr-Kubernetes egress SG rule
+        direction: egress
+        ethertype: IPv4
+        id: 93a3b0cc-611c-493b-9a28-0fb8517a50f1
+        port_range_max: 5978
+        port_range_min: 5978
+        project_id: c54246797a8b485389c406e8571539ef
+        protocol: tcp
+        ...
+        security_group_id: 7f4f8003-5585-4231-9306-e5bdcc6d23df
+        tenant_id: c54246797a8b485389c406e8571539ef
+        updated_at: 2018-09-19T06:15:07Z
+      ingressSgRules:
+        - security_group_rule:
+        created_at: 2018-09-19T06:15:07Z
+        description: Kuryr-Kubernetes ingress SG rule
+        direction: ingress
+        ethertype: IPv4
+        id: 659b7d61-3a48-4c4a-8810-df20e4c1bfa2
+        port_range_max: 6379
+        port_range_min: 6379
+        project_id: c54246797a8b485389c406e8571539ef
+        protocol: tcp
+        ...
+        security_group_id: 7f4f8003-5585-4231-9306-e5bdcc6d23df
+        tenant_id: c54246797a8b485389c406e8571539ef
+        updated_at: 2018-09-19T06:15:07Z
+      securityGroupId: 7f4f8003-5585-4231-9306-e5bdcc6d23df
+      securityGroupName: test-network-policy
+
+    $ openstack security group rule list test-network-policy --protocol tcp -c "IP Protocol" -c "Port Range" -c "Direction" --long
+    +-------------+------------+-----------+
+    | IP Protocol | Port Range | Direction |
+    +-------------+------------+-----------+
+    | tcp         | 6379:6379  | ingress   |
+    | tcp         | 5978:5978  | egress    |
+    +-------------+------------+-----------+
+
+5. Confirm the teardown of the resources once the network policy is removed::
 
     $ kubectl delete -f network_policy.yml
 
