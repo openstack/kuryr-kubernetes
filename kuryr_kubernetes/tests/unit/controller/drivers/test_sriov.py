@@ -13,6 +13,7 @@
 #    under the License.
 
 import mock
+import uuid
 
 from kuryr_kubernetes.controller.drivers import sriov as sriov_drivers
 from kuryr_kubernetes.tests import base as test_base
@@ -23,7 +24,6 @@ from kuryr_kubernetes import os_vif_util as ovu
 from kuryr_kubernetes import utils
 
 from oslo_config import cfg as oslo_cfg
-from oslo_utils import uuidutils
 
 
 class TestSriovVIFDriver(test_base.TestCase):
@@ -71,7 +71,7 @@ class TestSriovVIFDriver(test_base.TestCase):
         fixed_ips = mock.sentinel.fixed_ips
         m_to_fips.return_value = fixed_ips
         network = mock.sentinel.Network
-        subnet_id = uuidutils.generate_uuid()
+        subnet_id = str(uuid.uuid4())
         subnets = {subnet_id: network}
         security_groups = mock.sentinel.security_groups
         port_fixed_ips = mock.sentinel.port_fixed_ips
@@ -102,7 +102,7 @@ class TestSriovVIFDriver(test_base.TestCase):
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
         project_id = mock.sentinel.project_id
         network = mock.sentinel.Network
-        subnet_id = uuidutils.generate_uuid()
+        subnet_id = str(uuid.uuid4())
         subnets = {subnet_id: network}
         security_groups = mock.sentinel.security_groups
 
@@ -130,7 +130,7 @@ class TestSriovVIFDriver(test_base.TestCase):
         cls = sriov_drivers.SriovVIFDriver
         m_driver = mock.Mock(spec=cls)
 
-        subnet_id = uuidutils.generate_uuid()
+        subnet_id = str(uuid.uuid4())
         oslo_cfg.CONF.set_override('default_physnet_subnets',
                                    'physnet10_4:'+str(subnet_id),
                                    group='sriov')
@@ -142,7 +142,7 @@ class TestSriovVIFDriver(test_base.TestCase):
         cls = sriov_drivers.SriovVIFDriver
         m_driver = mock.Mock(spec=cls)
 
-        subnet_id = uuidutils.generate_uuid()
+        subnet_id = str(uuid.uuid4())
         m_driver._physnet_mapping = {subnet_id: 'physnet10_4'}
 
         physnet = cls._get_physnet_for_subnet_id(m_driver, subnet_id)
@@ -152,7 +152,7 @@ class TestSriovVIFDriver(test_base.TestCase):
         cls = sriov_drivers.SriovVIFDriver
         m_driver = mock.Mock(spec=cls)
 
-        subnet_id = uuidutils.generate_uuid()
+        subnet_id = str(uuid.uuid4())
         m_driver._physnet_mapping = {}
 
         self.assertRaises(KeyError, cls._get_physnet_for_subnet_id,

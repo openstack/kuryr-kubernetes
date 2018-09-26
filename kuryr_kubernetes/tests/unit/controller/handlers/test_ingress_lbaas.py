@@ -14,7 +14,7 @@
 #    under the License.
 
 import mock
-from oslo_utils import uuidutils
+import uuid
 
 from kuryr_kubernetes.controller.handlers import ingress_lbaas as h_ing_lbaas
 from kuryr_kubernetes.objects import lbaas as obj_lbaas
@@ -129,8 +129,8 @@ class TestIngressLoadBalancerHandler(t_lbaas.TestLoadBalancerHandler):
                 '.LBaaSDriver.get_instance')
     def test__sync_lbaas_route_members(self, m_get_drv_lbaas,
                                        m_get_drv_project, m_get_drv_subnets):
-        project_id = uuidutils.generate_uuid()
-        subnet_id = uuidutils.generate_uuid()
+        project_id = str(uuid.uuid4())
+        subnet_id = str(uuid.uuid4())
         current_ip = '1.1.1.1'
         current_targets = {
             '1.1.1.101': (1001, 1001),
@@ -164,8 +164,8 @@ class TestIngressLoadBalancerHandler(t_lbaas.TestLoadBalancerHandler):
 
     def test_on_deleted(self):
         endpoints = mock.sentinel.endpoints
-        project_id = uuidutils.generate_uuid()
-        subnet_id = uuidutils.generate_uuid()
+        project_id = str(uuid.uuid4())
+        subnet_id = str(uuid.uuid4())
 
         m_handler = mock.Mock(spec=h_ing_lbaas.IngressLoadBalancerHandler)
         m_handler._l7_router = t_lbaas.FakeLBaaSDriver().ensure_loadbalancer(
