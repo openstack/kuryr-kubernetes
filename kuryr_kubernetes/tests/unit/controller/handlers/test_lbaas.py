@@ -15,9 +15,10 @@
 
 import itertools
 import mock
+import uuid
+
 import os_vif.objects.network as osv_network
 import os_vif.objects.subnet as osv_subnet
-from oslo_utils import uuidutils
 
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes.controller.drivers import base as drv_base
@@ -356,7 +357,7 @@ class FakeLBaaSDriver(drv_base.LBaaSDriver):
                                            project_id=project_id,
                                            subnet_id=subnet_id,
                                            ip=ip,
-                                           id=uuidutils.generate_uuid())
+                                           id=str(uuid.uuid4()))
 
     def ensure_listener(self, loadbalancer, protocol, port,
                         service_type='ClusterIP'):
@@ -369,7 +370,7 @@ class FakeLBaaSDriver(drv_base.LBaaSDriver):
                                        loadbalancer_id=loadbalancer.id,
                                        protocol=protocol,
                                        port=port,
-                                       id=uuidutils.generate_uuid())
+                                       id=str(uuid.uuid4()))
 
     def ensure_pool(self, loadbalancer, listener):
         return obj_lbaas.LBaaSPool(name=listener.name,
@@ -377,7 +378,7 @@ class FakeLBaaSDriver(drv_base.LBaaSDriver):
                                    loadbalancer_id=loadbalancer.id,
                                    listener_id=listener.id,
                                    protocol=listener.protocol,
-                                   id=uuidutils.generate_uuid())
+                                   id=str(uuid.uuid4()))
 
     def ensure_member(self, loadbalancer, pool, subnet_id, ip, port,
                       target_ref_namespace, target_ref_name
@@ -389,7 +390,7 @@ class FakeLBaaSDriver(drv_base.LBaaSDriver):
                                      subnet_id=subnet_id,
                                      ip=ip,
                                      port=port,
-                                     id=uuidutils.generate_uuid())
+                                     id=str(uuid.uuid4()))
 
     def release_loadbalancer(self, loadbalancer):
         pass
@@ -429,7 +430,7 @@ class FakeLBaaSDriver(drv_base.LBaaSDriver):
 
     def ensure_pool_attached_to_lb(self, loadbalancer, namespace,
                                    svc_name, protocol):
-        return obj_lbaas.LBaaSPool(id=uuidutils.generate_uuid(),
+        return obj_lbaas.LBaaSPool(id=str(uuid.uuid4()),
                                    loadbalancer_id=loadbalancer.id,
                                    project_id=loadbalancer.project_id,
                                    protocol=protocol)
@@ -758,8 +759,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
     def test_sync_lbaas_members(self, m_get_drv_lbaas, m_get_drv_project,
                                 m_get_drv_subnets):
         # REVISIT(ivc): test methods separately and verify ensure/release
-        project_id = uuidutils.generate_uuid()
-        subnet_id = uuidutils.generate_uuid()
+        project_id = str(uuid.uuid4())
+        subnet_id = str(uuid.uuid4())
         current_ip = '1.1.1.1'
         current_targets = {
             '1.1.1.101': (1001, 10001),
@@ -792,8 +793,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
     def test_sync_lbaas_members_udp(self, m_get_drv_lbaas,
                                     m_get_drv_project, m_get_drv_subnets):
         # REVISIT(ivc): test methods separately and verify ensure/release
-        project_id = uuidutils.generate_uuid()
-        subnet_id = uuidutils.generate_uuid()
+        project_id = str(uuid.uuid4())
+        subnet_id = str(uuid.uuid4())
         current_ip = '1.1.1.1'
         current_targets = {
             '1.1.1.101': (1001, 10001),
@@ -826,8 +827,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
     def test_sync_lbaas_members_svc_listener_port_edit(
             self, m_get_drv_lbaas, m_get_drv_project, m_get_drv_subnets):
         # REVISIT(ivc): test methods separately and verify ensure/release
-        project_id = uuidutils.generate_uuid()
-        subnet_id = uuidutils.generate_uuid()
+        project_id = str(uuid.uuid4())
+        subnet_id = str(uuid.uuid4())
         current_ip = '1.1.1.1'
         current_targets = {
             '1.1.1.101': (1001, 10001)}

@@ -14,13 +14,13 @@
 #    under the License.
 
 import mock
+import uuid
 
 from os_vif.objects import fixed_ip as osv_fixed_ip
 from os_vif.objects import network as osv_network
 from os_vif.objects import route as osv_route
 from os_vif.objects import subnet as osv_subnet
 from oslo_config import cfg as o_cfg
-from oslo_utils import uuidutils
 
 from kuryr_kubernetes import constants as const
 from kuryr_kubernetes import exceptions as k_exc
@@ -33,7 +33,7 @@ from kuryr_kubernetes.tests import base as test_base
 
 class TestOSVIFUtils(test_base.TestCase):
     def test_neutron_to_osvif_network(self):
-        network_id = uuidutils.generate_uuid()
+        network_id = str(uuid.uuid4())
         network_name = 'test-net'
         network_mtu = 1500
         neutron_network = {
@@ -49,7 +49,7 @@ class TestOSVIFUtils(test_base.TestCase):
         self.assertEqual(network_mtu, network.mtu)
 
     def test_neutron_to_osvif_network_no_name(self):
-        network_id = uuidutils.generate_uuid()
+        network_id = str(uuid.uuid4())
         network_mtu = 1500
         neutron_network = {
             'id': network_id,
@@ -61,7 +61,7 @@ class TestOSVIFUtils(test_base.TestCase):
         self.assertFalse(network.obj_attr_is_set('label'))
 
     def test_neutron_to_osvif_network_no_mtu(self):
-        network_id = uuidutils.generate_uuid()
+        network_id = str(uuid.uuid4())
         network_name = 'test-net'
         neutron_network = {
             'id': network_id,
@@ -350,7 +350,7 @@ class TestOSVIFUtils(test_base.TestCase):
 
     def test_neutron_to_osvif_vif_ovs_no_bridge(self):
         vif_plugin = 'ovs'
-        port = {'id': uuidutils.generate_uuid()}
+        port = {'id': str(uuid.uuid4())}
         subnets = {}
 
         self.assertRaises(o_cfg.RequiredOptError,
@@ -358,7 +358,7 @@ class TestOSVIFUtils(test_base.TestCase):
                           vif_plugin, port, subnets)
 
     def test_get_ovs_hybrid_bridge_name(self):
-        port_id = uuidutils.generate_uuid()
+        port_id = str(uuid.uuid4())
         port = {'id': port_id}
 
         self.assertEqual("qbr" + port_id[:11],
@@ -488,9 +488,9 @@ class TestOSVIFUtils(test_base.TestCase):
         ip11 = '1.1.1.1'
         ip12 = '2.2.2.2'
         ip3 = '3.3.3.3'
-        subnet_id_1 = uuidutils.generate_uuid()
-        subnet_id_2 = uuidutils.generate_uuid()
-        subnet_id_3 = uuidutils.generate_uuid()
+        subnet_id_1 = str(uuid.uuid4())
+        subnet_id_2 = str(uuid.uuid4())
+        subnet_id_3 = str(uuid.uuid4())
 
         subnet_1 = osv_subnet.Subnet(ips=osv_fixed_ip.FixedIPList(
             objects=[osv_fixed_ip.FixedIP(address=ip11),
@@ -522,7 +522,7 @@ class TestOSVIFUtils(test_base.TestCase):
                          sorted(ret, key=_sort_key))
 
     def test_osvif_to_neutron_fixed_ips_invalid(self):
-        subnet_id = uuidutils.generate_uuid()
+        subnet_id = str(uuid.uuid4())
 
         subnet_1 = osv_subnet.Subnet()
         subnet_2 = osv_subnet.Subnet()
