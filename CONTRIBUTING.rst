@@ -15,3 +15,12 @@ Pull requests submitted through GitHub will be ignored.
 Bugs should be filed on Launchpad, not GitHub:
 
    https://bugs.launchpad.net/kuryr-kubernetes
+
+If you want to have your code checked for pep8 automatically before commiting
+changes, you can just do::
+
+    pip install pre-commit
+    pre-commit install
+
+From that moment on, every time you run *git commit* it will first check your
+diff for pep8 compliance and refuse to commit if it doesn't pass.
