@@ -685,7 +685,7 @@ function run_k8s_kubelet {
 
     sudo mkdir -p "${KURYR_HYPERKUBE_DATA_DIR}/"{kubelet,kubelet.cert}
     command="$KURYR_HYPERKUBE_BINARY kubelet\
-        --kubeconfig=${HOME}/.kube/config --require-kubeconfig \
+        --kubeconfig=${HOME}/.kube/config \
         --allow-privileged=true \
         --v=2 \
         --cgroup-driver=$cgroup_driver \
@@ -697,9 +697,15 @@ function run_k8s_kubelet {
         --cert-dir=${KURYR_HYPERKUBE_DATA_DIR}/kubelet.cert \
         --root-dir=${KURYR_HYPERKUBE_DATA_DIR}/kubelet"
 
+    declare -r min_not_require_kubeconfig_ver="1.10.0"
+    if [[ "$KURYR_HYPERKUBE_VERSION" == "$(echo -e "${KURYR_HYPERKUBE_VERSION}\n${min_not_require_kubeconfig_ver}" | sort -V | head -n 1)" ]]; then
+        # Version 1.10 did away with that config option
+        command+=" --require-kubeconfig"
+    fi
+
     # Kubernetes 1.8+ requires additional option to work in the gate.
-    minor_version=${KURYR_HYPERKUBE_VERSION:3:1}
-    if [ ${minor_version} -gt 7 ]; then
+    declare -r min_no_swap_ver="1.8.0"
+    if [[ "$min_no_swap_ver" == "$(echo -e "${KURYR_HYPERKUBE_VERSION}\n${min_no_swap_ver}" | sort -V | head -n 1)" ]]; then
         command="$command --fail-swap-on=false"
     fi
 
