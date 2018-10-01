@@ -66,12 +66,7 @@ def setup_loadbalancer_client():
             service_type='load-balancer')
         lbaas_client.httpclient = octo_httpclient
         _clients[_LB_CLIENT] = lbaas_client
-        # FIXME(ltomasbo): For now ovn provider is not able to work with
-        # cascade loadbalancer deletion. Remove when fixed
-        if config.CONF.kubernetes.endpoints_driver_octavia_provider == 'ovn':
-            lbaas_client.cascading_capable = False
-        else:
-            lbaas_client.cascading_capable = True
+        lbaas_client.cascading_capable = True
 
 
 def setup_kubernetes_client():
