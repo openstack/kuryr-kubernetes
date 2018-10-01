@@ -43,8 +43,24 @@ OVS_HOST_PATH=/usr/local/var/run/openvswitch
 
 # OCTAVIA
 KURYR_K8S_LBAAS_USE_OCTAVIA=True
+
 # Uncomment it to use L2 communication between loadbalancer and member pods
 # KURYR_K8S_OCTAVIA_MEMBER_MODE=L2
+
+
+# Kuryr K8S-Endpoint driver Octavia provider
+# ==========================================
+# Kuryr uses LBaaS to provide the Kubernetes services
+# functionality.
+# In case Octavia is used for LBaaS, you can choose the
+# Octavia's Load Balancer provider.
+# KURYR_EP_DRIVER_OCTAVIA_PROVIDER=default
+# Uncomment the next two to enable ovn provider. Note only L2 mode is
+# supported
+# KURYR_EP_DRIVER_OCTAVIA_PROVIDER=ovn
+# KURYR_K8S_OCTAVIA_MEMBER_MODE=L2
+
+
 
 if [[ "$KURYR_K8S_LBAAS_USE_OCTAVIA" == "True" ]]; then
     # Octavia LBaaSv2
@@ -248,3 +264,5 @@ fi
 [[post-config|$OCTAVIA_CONF]]
 [controller_worker]
 amp_active_retries=9999
+[api_settings]
+enabled_provider_drivers = amphora:'Octavia Amphora driver',ovn:'Octavia OVN driver'

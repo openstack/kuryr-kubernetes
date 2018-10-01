@@ -229,6 +229,15 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         self._drv_pod_project = drv_base.PodProjectDriver.get_instance()
         self._drv_pod_subnets = drv_base.PodSubnetsDriver.get_instance()
         self._drv_service_pub_ip = drv_base.ServicePubIpDriver.get_instance()
+        # Note(yboaron) LBaaS driver supports 'provider' parameter in
+        # Load Balancer creation flow.
+        # We need to set the requested load balancer provider
+        # according to 'endpoints_driver_octavia_provider' configuration.
+        self._lb_provider = None
+        if (config.CONF.kubernetes.endpoints_driver_octavia_provider
+                != 'default'):
+            self._lb_provider = (
+                config.CONF.kubernetes.endpoints_driver_octavia_provider)
 
     def on_present(self, endpoints):
         lbaas_spec = self._get_lbaas_spec(endpoints)
@@ -573,7 +582,8 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                     subnet_id=lbaas_spec.subnet_id,
                     ip=lbaas_spec.ip,
                     security_groups_ids=lbaas_spec.security_groups_ids,
-                    service_type=lbaas_spec.type)
+                    service_type=lbaas_spec.type,
+                    provider=self._lb_provider)
                 if lbaas_state.service_pub_ip_info is None:
                     service_pub_ip_info = (
                         self._drv_service_pub_ip.acquire_service_pub_ip_info(
