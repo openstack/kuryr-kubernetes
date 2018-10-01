@@ -219,6 +219,11 @@ octavia_defaults = [
                help=_("Define the communication mode between load balanacer "
                       "and its members"),
                default='L3'),
+    cfg.StrOpt('sg_mode',
+               help=_("Define the LBaaS SG policy."),
+               choices=[('create', 'replace the VIP SG with a new one'),
+                        ('update', 'add rules to the existing VIP SG')],
+               default='update'),
 ]
 
 cache_defaults = [

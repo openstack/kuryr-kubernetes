@@ -450,6 +450,7 @@ function configure_neutron_defaults {
     fi
     iniset "$KURYR_CONFIG" neutron_defaults external_svc_net "$ext_svc_net_id"
     iniset "$KURYR_CONFIG" octavia_defaults member_mode "$KURYR_K8S_OCTAVIA_MEMBER_MODE"
+    iniset "$KURYR_CONFIG" octavia_defaults sg_mode "$KURYR_K8S_OCTAVIA_SG_MODE"
     if [[ "$use_octavia" == "True" ]]; then
         # Octavia takes a very long time to start the LB in the gate. We need
         # to tweak the timeout for the LB creation. Let's be generous and give

@@ -89,13 +89,17 @@ class LBaaSv2Driver(base.LBaaSDriver):
             self._release(loadbalancer, loadbalancer,
                           lbaas.delete_loadbalancer, loadbalancer.id)
 
-            sg_id = self._find_listeners_sg(loadbalancer)
-            if sg_id:
-                try:
-                    neutron.delete_security_group(sg_id)
-                except n_exc.NeutronClientException:
-                    LOG.exception('Error when deleting loadbalancer security '
-                                  'group. Leaving it orphaned.')
+        sg_id = self._find_listeners_sg(loadbalancer)
+        if sg_id:
+            # Note: reusing activation timeout as deletion timeout
+            self._wait_for_deletion(loadbalancer, _ACTIVATION_TIMEOUT)
+            try:
+                neutron.delete_security_group(sg_id)
+            except n_exc.NeutronClientException:
+                LOG.exception('Error when deleting loadbalancer security '
+                              'group. Leaving it orphaned.')
+            except n_exc.NotFound:
+                LOG.debug('Security group %s already deleted', sg_id)
 
     def _ensure_security_groups(self, loadbalancer, service_type):
         # We only handle SGs for legacy LBaaSv2, Octavia handles it dynamically
@@ -152,24 +156,45 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
     def _extend_lb_security_group_rules(self, loadbalancer, listener):
         neutron = clients.get_neutron_client()
-        sg_id = self._get_vip_port(loadbalancer).get('security_groups')[0]
+
+        if CONF.octavia_defaults.sg_mode == 'create':
+            sg_id = self._find_listeners_sg(loadbalancer)
+            # if an SG for the loadbalancer has not being created, create one
+            if not sg_id:
+                sg = neutron.create_security_group({
+                    'security_group': {
+                        'name': loadbalancer.name,
+                        'project_id': loadbalancer.project_id,
+                        },
+                    })
+                sg_id = sg['security_group']['id']
+                loadbalancer.security_groups.append(sg_id)
+                vip_port = self._get_vip_port(loadbalancer)
+                neutron.update_port(
+                    vip_port.get('id'),
+                    {'port': {
+                        'security_groups': loadbalancer.security_groups}})
+        else:
+            sg_id = self._get_vip_port(loadbalancer).get('security_groups')[0]
+
         for sg in loadbalancer.security_groups:
-            try:
-                neutron.create_security_group_rule({
-                    'security_group_rule': {
-                        'direction': 'ingress',
-                        'port_range_min': listener.port,
-                        'port_range_max': listener.port,
-                        'protocol': listener.protocol,
-                        'security_group_id': sg_id,
-                        'remote_group_id': sg,
-                        'description': listener.name,
-                    },
-                })
-            except n_exc.NeutronClientException as ex:
-                if ex.status_code != requests.codes.conflict:
-                    LOG.exception('Failed when creating security group rule '
-                                  'for listener %s.', listener.name)
+            if sg != sg_id:
+                try:
+                    neutron.create_security_group_rule({
+                        'security_group_rule': {
+                            'direction': 'ingress',
+                            'port_range_min': listener.port,
+                            'port_range_max': listener.port,
+                            'protocol': listener.protocol,
+                            'security_group_id': sg_id,
+                            'remote_group_id': sg,
+                            'description': listener.name,
+                        },
+                    })
+                except n_exc.NeutronClientException as ex:
+                    if ex.status_code != requests.codes.conflict:
+                        LOG.exception('Failed when creating security group '
+                                      'rule for listener %s.', listener.name)
 
         # ensure routes have access to the services
         service_subnet_cidr = self._get_subnet_cidr(loadbalancer.subnet_id)
@@ -539,6 +564,15 @@ class LBaaSv2Driver(base.LBaaSDriver):
                            'rem': remaining})
 
         raise k_exc.ResourceNotReady(loadbalancer)
+
+    def _wait_for_deletion(self, loadbalancer, timeout):
+        lbaas = clients.get_loadbalancer_client()
+
+        for remaining in self._provisioning_timer(timeout):
+            try:
+                lbaas.show_loadbalancer(loadbalancer.id)
+            except n_exc.NotFound:
+                return
 
     def _provisioning_timer(self, timeout):
         # REVISIT(ivc): consider integrating with Retry
