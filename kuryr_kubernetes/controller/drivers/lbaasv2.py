@@ -14,14 +14,16 @@
 #    under the License.
 
 import random
+import six
+import sys
 import time
+import traceback
 
 import requests
 
 from neutronclient.common import exceptions as n_exc
 from oslo_config import cfg
 from oslo_log import log as logging
-from oslo_utils import excutils
 from oslo_utils import timeutils
 
 from kuryr_kubernetes import clients
@@ -436,8 +438,15 @@ class LBaaSv2Driver(base.LBaaSDriver):
             pool.id = response['pool']['id']
             return pool
         except n_exc.StateInvalidClient:
-            with excutils.save_and_reraise_exception():
+            (type_, value, tb) = sys.exc_info()
+            try:
                 self._cleanup_bogus_pool(lbaas, pool, lb_algorithm)
+            except Exception:
+                LOG.error('Pool creation traceback: %s',
+                          traceback.format_exception(type_, value, tb))
+                raise
+            else:
+                six.reraise(type_, value, tb)
 
     def _cleanup_bogus_pool(self, lbaas, pool, lb_algorithm):
         # REVISIT(ivc): LBaaSv2 creates pool object despite raising an
