@@ -33,6 +33,7 @@ This section describes how you can install and configure kuryr-kubernetes
     ports-pool
     services
     ipv6
+    upgrades
     devstack/index
     default_configuration
     trunk_ports
