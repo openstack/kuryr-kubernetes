@@ -67,4 +67,8 @@ running. 4GB memory and 2 vCPUs, is the minimum resource requirement for the VM:
 
        sudo systemctl restart devstack@kuryr-kubernetes.service
 
+    - Restart kuryr-daemon::
+
+       sudo systemctl restart devstack@kuryr-daemon.service
+
 Now launch pods using kubectl, Undercloud Neutron will serve the networking.
