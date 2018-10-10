@@ -122,15 +122,18 @@
     voting: false
 
 - job:
-    name: kuryr-kubernetes-tempest-daemon-containerized-octavia-namespace
+    name: kuryr-kubernetes-tempest-daemon-containerized-octavia-pools-namespace
     description: |
-      Tempest with Octavia, CNI daemon, containers and namespace subnet driver
+      Tempest with Octavia, CNI daemon, containers, port pools and namespace subnet driver
     parent: kuryr-kubernetes-tempest-daemon-containerized-octavia
     vars:
       devstack_localrc:
         KURYR_SUBNET_DRIVER: namespace
         KURYR_SG_DRIVER: namespace
         KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace
+        KURYR_USE_PORT_POOLS: true
+        KURYR_POD_VIF_DRIVER: neutron-vif
+        KURYR_VIF_POOL_DRIVER: neutron
 
 - job:
     name: kuryr-kubernetes-tempest-daemon-containerized-octavia-network-policy
@@ -148,7 +151,7 @@
     description: |
       Tempest with Octavia, CNI daemon, containers and namespace subnet driver
       with Kuryr running on Python3.6 containers
-    parent: kuryr-kubernetes-tempest-daemon-containerized-octavia-namespace
+    parent: kuryr-kubernetes-tempest-daemon-containerized-octavia-pools-namespace
     vars:
       devstack_localrc:
         KURYR_CONTAINERS_USE_PY3: True
@@ -171,19 +174,6 @@
         KURYR_K8S_SERIAL_TESTS: True
       tempest_concurrency: 1
 
-- job:
-    name: kuryr-kubernetes-tempest-daemon-pools-octavia
-    parent: kuryr-kubernetes-tempest-daemon-octavia
-    description: |
-      Kuryr-Kubernetes tempest job using port-pool feature
-    vars:
-      tempest_test_regex: '^(kuryr_tempest_plugin.tests.scenario.test_port_pool.TestPortPoolScenario.test_port_pool)'
-      devstack_localrc:
-        KURYR_USE_PORT_POOLS: true
-        KURYR_POD_VIF_DRIVER: neutron-vif
-        KURYR_VIF_POOL_DRIVER: neutron
-        KURYR_K8S_SERIAL_TESTS: True
-      tempest_concurrency: 1
 
 - job:
    name: kuryr-kubernetes-tempest-daemon-openshift-octavia-ingress

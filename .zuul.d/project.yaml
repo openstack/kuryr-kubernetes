@@ -44,9 +44,8 @@
       jobs:
         - kuryr-kubernetes-tempest-dragonflow
         - kuryr-kubernetes-tempest-daemon-containerized-openshift-octavia
-        - kuryr-kubernetes-tempest-daemon-pools-octavia
         - kuryr-kubernetes-tempest-daemon-containerized-octavia-l2
-        - kuryr-kubernetes-tempest-daemon-containerized-octavia-namespace
+        - kuryr-kubernetes-tempest-daemon-containerized-octavia-pools-namespace
         - kuryr-kubernetes-tempest-daemon-containerized-octavia-network-policy
         - kuryr-kubernetes-tempest-daemon-octavia-py36
         - kuryr-kubernetes-tempest-daemon-containerized-octavia-py36
