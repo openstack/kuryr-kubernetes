@@ -797,6 +797,21 @@ function create_ingress_l7_router {
     fi
 }
 
+function configure_overcloud_vm_k8s_svc_sg {
+    local project_id
+    local security_group
+
+    project_id=$(get_or_create_project \
+        "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
+    security_group=$(openstack security group list \
+        --project "$project_id" -c ID -c Name -f value | \
+        awk '{if ($2=="default") print $1}')
+    openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+        security group rule create --project "$project_id" \
+        --dst-port "$KURYR_K8S_API_LB_PORT" "$security_group"
+    openstack port set "$KURYR_OVERCLOUD_VM_PORT" --security-group service_pod_access
+}
+
 source $DEST/kuryr-kubernetes/devstack/lib/kuryr_kubernetes
 
 # main loop
@@ -898,6 +913,8 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
         KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE=$(trueorfalse True KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE)
         if [[ "$KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE" == "True" ]]; then
             ovs_bind_for_kubelet "$KURYR_NEUTRON_DEFAULT_PROJECT" 6443
+        else
+            configure_overcloud_vm_k8s_svc_sg
         fi
     fi
 
