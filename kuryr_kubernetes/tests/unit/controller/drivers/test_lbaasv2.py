@@ -120,7 +120,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
 
         m_driver._ensure_provisioned.assert_called_once_with(
             loadbalancer, mock.ANY, m_driver._create_listener,
-            m_driver._find_listener)
+            m_driver._find_listener, d_lbaasv2._LB_STS_POLL_SLOW_INTERVAL)
         listener = m_driver._ensure_provisioned.call_args[0][1]
         self.assertEqual("%s:%s:%s" % (loadbalancer.name, protocol, port),
                          listener.name)
@@ -639,7 +639,8 @@ class TestLBaaSv2Driver(test_base.TestCase):
                                       find)
 
         m_driver._wait_for_provisioning.assert_has_calls(
-            [mock.call(loadbalancer, t) for t in timer])
+            [mock.call(loadbalancer, t, d_lbaasv2._LB_STS_POLL_FAST_INTERVAL)
+             for t in timer])
         m_driver._ensure.assert_has_calls(
             [mock.call(obj, create, find) for _ in timer])
         self.assertEqual(expected_result, ret)
@@ -660,7 +661,8 @@ class TestLBaaSv2Driver(test_base.TestCase):
                           loadbalancer, obj, create, find)
 
         m_driver._wait_for_provisioning.assert_has_calls(
-            [mock.call(loadbalancer, t) for t in timer])
+            [mock.call(loadbalancer, t, d_lbaasv2._LB_STS_POLL_FAST_INTERVAL)
+             for t in timer])
         m_driver._ensure.assert_has_calls(
             [mock.call(obj, create, find) for _ in timer])
 
