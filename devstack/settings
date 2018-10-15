@@ -109,3 +109,6 @@ KURYR_L7_ROUTER_NAME=${KURYR_L7_ROUTER_NAME:-kuryr-l7-router}
 
 # Whether to use Python3
 KURYR_CONTAINERS_USE_PY3=${KURYR_CONTAINERS_USE_PY3:-False}
+
+# Kuryr overcloud VM port's name
+KURYR_OVERCLOUD_VM_PORT=${KURYR_OVERCLOUD_VM_PORT:-port0}
