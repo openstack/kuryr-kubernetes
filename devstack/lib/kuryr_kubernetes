@@ -496,20 +496,27 @@ rules:
   - ""
   verbs: ["*"]
   resources:
-    - deployments
     - endpoints
     - ingress
     - pods
-    - policies
     - nodes
     - services
     - services/status
     - namespaces
+- apiGroups: ["oapi"]
+  resources:
+  - routes
+  verbs: ["*"]
 - apiGroups:
     - openstack.org
   verbs: ["*"]
   resources:
     - kuryrnets
+- apiGroups: ["k8s.cni.cncf.io"]
+  resources:
+  - network-attachment-definitions
+  verbs:
+  - get
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
