@@ -512,6 +512,14 @@ rules:
   verbs: ["*"]
   resources:
     - kuryrnets
+    - kuryrnetpolicies
+- apiGroups: ["networking.k8s.io"]
+  resources:
+  - networkpolicies
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups: ["k8s.cni.cncf.io"]
   resources:
   - network-attachment-definitions
