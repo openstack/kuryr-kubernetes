@@ -947,7 +947,7 @@ elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
     if is_service_enabled tempest && [[ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes containerized True
     fi
-    if is_service_enabled tempest && [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
+    if is_service_enabled tempest && [[ "$KURYR_SG_DRIVER" == "namespace" ]] && [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes namespace_enabled True
     fi
     if is_service_enabled tempest && [[ "$KURYR_K8S_SERIAL_TESTS" == "True" ]]; then

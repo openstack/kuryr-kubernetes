@@ -57,7 +57,11 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
                           "Rolling back created network resources.")
             self._drv_subnets.rollback_network_resources(net_crd_spec, ns_name)
             raise
-        net_crd_spec.update(net_crd_sg)
+        if net_crd_sg:
+            net_crd_spec.update(net_crd_sg)
+        else:
+            LOG.debug("No SG created for the namespace. Namespace isolation "
+                      "will not be enforced.")
 
         # create CRD resource for the network
         try:
@@ -80,7 +84,12 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
 
         self._drv_vif_pool.delete_network_pools(net_crd['spec']['netId'])
         self._drv_subnets.delete_namespace_subnet(net_crd)
-        self._drv_sg.delete_sg(net_crd['spec']['sgId'])
+        sg_id = net_crd['spec'].get('sgId')
+        if sg_id:
+            self._drv_sg.delete_sg(sg_id)
+        else:
+            LOG.debug("There is no security group associated with the "
+                      "namespace to be deleted")
 
         self._del_kuryrnet_crd(net_crd_id)
 

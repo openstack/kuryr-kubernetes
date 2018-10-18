@@ -221,7 +221,9 @@ class PodSecurityGroupsDriver(DriverBase):
         :param project_id: OpenStack project ID
         :param crd_spec: dict with the keys and values for the CRD spec, such
                          as subnetId or subnetCIDR
-        :return: dict with the keys and values for the CRD spec, such as sgId
+        :return: dict with the keys and values for the CRD spec, such as sgId.
+        If no security group need to be created for the namespace, it
+        should return an empty dict
         """
         raise NotImplementedError()
 
