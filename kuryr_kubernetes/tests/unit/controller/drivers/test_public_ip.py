@@ -121,6 +121,28 @@ class TestFipPubIpDriver(test_base.TestCase):
         self.assertRaises(n_exc.NeutronClientException, self.driver.associate,
                           res_id, vip_port_id)
 
+    def test_associate_conflict_correct(self):
+        driver = d_public_ip.FipPubIpDriver()
+        res_id = mock.sentinel.res_id
+        vip_port_id = mock.sentinel.vip_port_id
+
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        neutron.update_floatingip.side_effect = n_exc.Conflict
+        neutron.get_floatingip.return_value = {'id': res_id,
+                                               'port_id': vip_port_id}
+        self.assertIsNone(driver.associate(res_id, vip_port_id))
+
+    def test_associate_conflict_incorrect(self):
+        driver = d_public_ip.FipPubIpDriver()
+        res_id = mock.sentinel.res_id
+        vip_port_id = mock.sentinel.vip_port_id
+
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        neutron.update_floatingip.side_effect = n_exc.Conflict
+        neutron.get_floatingip.return_value = {'id': res_id, 'port_id': 'foo'}
+        self.assertRaises(n_exc.Conflict, driver.associate, res_id,
+                          vip_port_id)
+
     def test_associate_succeeded(self):
         res_id = mock.sentinel.res_id
         vip_port_id = mock.sentinel.vip_port_id
