@@ -556,7 +556,7 @@ function run_k8s_api {
     local cluster_ip_range
 
     # Runs Hyperkube's Kubernetes API Server
-    wait_for "etcd" "${KURYR_ETCD_ADVERTISE_CLIENT_URL}/v2/machines"
+    wait_for "etcd" "http://${SERVICE_HOST}:${ETCD_PORT}/v2/machines"
 
     service_cidr=$(openstack --os-cloud devstack-admin \
                          --os-region "$REGION_NAME" \
@@ -576,7 +576,7 @@ function run_k8s_api {
                 --service-cluster-ip-range="${cluster_ip_range}" \
                 --insecure-bind-address=0.0.0.0 \
                 --insecure-port="${KURYR_K8S_API_PORT}" \
-                --etcd-servers="${KURYR_ETCD_ADVERTISE_CLIENT_URL}" \
+                --etcd-servers="http://${SERVICE_HOST}:${ETCD_PORT}" \
                 --admission-control=NamespaceLifecycle,LimitRanger,ServiceAccount,ResourceQuota \
                 --client-ca-file=/srv/kubernetes/ca.crt \
                 --basic-auth-file=/srv/kubernetes/basic_auth.csv \
@@ -851,11 +851,6 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
     # sure Kuryr can start before neutron-server, so Kuryr start in "extra"
     # phase.  Bug: https://bugs.launchpad.net/kuryr/+bug/1587522
 
-    if is_service_enabled legacy_etcd; then
-        prepare_etcd_legacy
-        run_etcd_legacy
-    fi
-
     # FIXME(apuimedo): Allow running only openshift node for multinode devstack
     # We are missing generating a node config so that it does not need to
     # bootstrap from the master config.
@@ -1037,16 +1032,6 @@ if [[ "$1" == "unstack" ]]; then
         # when doing stack.sh again, openshift-node will use old certificates.
         sudo rm -rf ${OPENSHIFT_DATA_DIR}
     fi
-    if is_service_enabled legacy_etcd; then
-        stop_container etcd
-    fi
 
     cleanup_kuryr_devstack_iptables
-fi
-
-if [[ "$1" == "clean" ]]; then
-    if is_service_enabled legacy_etcd; then
-        # Cleanup Etcd for the next stacking
-        sudo rm -rf "$KURYR_ETCD_DATA_DIR"
-    fi
 fi
