@@ -138,10 +138,20 @@ class FipPubIpDriver(BasePubIpDriver):
         try:
             response = neutron.update_floatingip(
                 res_id, {'floatingip': {'port_id': vip_port_id, }})
-        except n_exc.NeutronClientException as ex:
+        except n_exc.Conflict:
+            LOG.warning("Conflict when assigning floating IP with id %s. "
+                        "Checking if it's already assigned correctly.", res_id)
+            fip = neutron.get_floatingip(res_id)
+            used_port_id = fip['port_id']
+            if used_port_id != vip_port_id:
+                LOG.exception("Floating IP already used by port %s.",
+                              used_port_id)
+                raise
+
+        except n_exc.NeutronClientException:
             LOG.error("Failed to update_floatingip ,floating_ip_id=%s,"
                       "response=%s!", res_id, response)
-            raise ex
+            raise
 
     def associate(self, res_id, vip_port_id):
         self._update(res_id, vip_port_id)
