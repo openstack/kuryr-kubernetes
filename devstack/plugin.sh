@@ -264,15 +264,10 @@ function create_k8s_api_service {
         address="${HOST_IP}"
     fi
 
-    use_octavia=$(trueorfalse True KURYR_K8S_LBAAS_USE_OCTAVIA)
-    if [[ "$use_octavia" == "True" && \
-          "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L2" ]]; then
-        create_load_balancer_member "$(hostname)" "$address" "$api_port" \
-            default/kubernetes:${KURYR_K8S_API_LB_PORT} $KURYR_NEUTRON_DEFAULT_POD_SUBNET "$lb_name" "$project_id"
-    else
-        create_load_balancer_member "$(hostname)" "$address" "$api_port" \
-            default/kubernetes:${KURYR_K8S_API_LB_PORT} public-subnet "$lb_name" "$project_id"
-    fi
+    # Regardless of the octavia mode, the k8s API will be behind an L3 mode
+    # amphora driver loadbalancer
+    create_load_balancer_member "$(hostname)" "$address" "$api_port" \
+        default/kubernetes:${KURYR_K8S_API_LB_PORT} public-subnet "$lb_name" "$project_id"
 }
 
 function configure_neutron_defaults {
@@ -325,24 +320,27 @@ function configure_neutron_defaults {
     ext_svc_subnet_id="$(openstack subnet show -c id -f value \
         "${KURYR_NEUTRON_DEFAULT_EXT_SVC_SUBNET}")"
 
+    # In order for the ports to allow service traffic under Octavia L3 mode,
+    # it is necessary for the service subnet to be allowed into the port's
+    # security groups. If L3 is used, then the pods created will include it.
+    # Otherwise it will be just used by the kubelet port used for the K8s API
+    # load balancer
+    local service_cidr
+    local service_pod_access_sg_id
+    service_cidr=$(openstack --os-cloud devstack-admin \
+        --os-region "$REGION_NAME" subnet show \
+        "${KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET}" -f value -c cidr)
+    service_pod_access_sg_id=$(openstack --os-cloud devstack-admin \
+        --os-region "$REGION_NAME" \
+        security group create --project "$project_id" \
+        service_pod_access -f value -c id)
+    openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+        security group rule create --project "$project_id" \
+        --description "k8s service subnet allowed" \
+        --remote-ip "$service_cidr" --ethertype IPv4 --protocol tcp \
+        "$service_pod_access_sg_id"
     if [[ "$use_octavia" == "True" && \
           "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L3" ]]; then
-        # In order for the pods to allow service traffic under Octavia L3 mode,
-        #it is necessary for the service subnet to be allowed into the $sg_ids
-        local service_cidr
-        local service_pod_access_sg_id
-        service_cidr=$(openstack --os-cloud devstack-admin \
-            --os-region "$REGION_NAME" subnet show \
-            "${KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET}" -f value -c cidr)
-        service_pod_access_sg_id=$(openstack --os-cloud devstack-admin \
-            --os-region "$REGION_NAME" \
-            security group create --project "$project_id" \
-            service_pod_access -f value -c id)
-        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
-            security group rule create --project "$project_id" \
-            --description "k8s service subnet allowed" \
-            --remote-ip "$service_cidr" --ethertype IPv4 --protocol tcp \
-            "$service_pod_access_sg_id"
         if [ -n "$sg_ids" ]; then
             sg_ids+=",${service_pod_access_sg_id}"
         else

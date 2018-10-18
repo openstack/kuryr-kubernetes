@@ -42,12 +42,8 @@ function ovs_bind_for_kubelet() {
     # access
     local use_octavia
     use_octavia=$(trueorfalse True KURYR_K8S_LBAAS_USE_OCTAVIA)
-    if [[ "$use_octavia" == "True" && \
-          "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L3" ]]; then
+    if [[ "$use_octavia" == "True" ]]; then
         openstack port set "$port_id" --security-group service_pod_access
-    elif [[ "$use_octavia" == "True" && \
-            "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L2" ]]; then
-        openstack port set "$port_id" --security-group octavia_pod_access
     fi
     if [[ "$KURYR_SG_DRIVER" == "namespace" ]]; then
         openstack port set "$port_id" --security-group allow_from_namespace
@@ -1077,18 +1073,10 @@ function create_load_balancer_member {
     wait_for_lb $lb
 
     if is_service_enabled octavia; then
-        if [[ "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L3" ]]; then
-            openstack loadbalancer member create --name "$name" \
-                --address "$address" \
-                --protocol-port "$port" \
-                "$pool"
-        else
-            openstack loadbalancer member create --name "$name" \
-                --address "$address" \
-                --protocol-port "$port" \
-                --subnet "$subnet" \
-                "$pool"
-        fi
+        openstack loadbalancer member create --name "$name" \
+            --address "$address" \
+            --protocol-port "$port" \
+            "$pool"
     else
         neutron lbaas-member-create --name "$name" \
             --subnet "$subnet" \
