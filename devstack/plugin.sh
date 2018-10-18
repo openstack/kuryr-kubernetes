@@ -570,6 +570,7 @@ function run_k8s_api {
 
     run_container kubernetes-api \
         --net host \
+        --restart on-failure \
         --volume="${KURYR_HYPERKUBE_DATA_DIR}:/srv/kubernetes:rw" \
         "${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}" \
             /hyperkube apiserver \
@@ -596,6 +597,7 @@ function run_k8s_controller_manager {
     run_container kubernetes-controller-manager \
         --net host \
         --volume="${KURYR_HYPERKUBE_DATA_DIR}:/srv/kubernetes:rw" \
+        --restart on-failure \
         "${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}" \
             /hyperkube controller-manager \
                 --master="$KURYR_K8S_API_URL" \
@@ -613,6 +615,7 @@ function run_k8s_scheduler {
     run_container kubernetes-scheduler \
         --net host \
         --volume="${KURYR_HYPERKUBE_DATA_DIR}:/srv/kubernetes:rw" \
+        --restart on-failure \
         "${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}" \
             /hyperkube scheduler \
                 --master="$KURYR_K8S_API_URL" \
