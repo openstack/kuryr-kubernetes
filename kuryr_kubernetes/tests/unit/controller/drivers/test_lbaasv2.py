@@ -98,7 +98,25 @@ class TestLBaaSv2Driver(test_base.TestCase):
             lbaas.lbaas_loadbalancer_path % loadbalancer.id,
             params={'cascade': True})
 
-    def test_ensure_listener(self):
+    def test_ensure_listener_tcp(self):
+        self._test_ensure_listener('TCP')
+
+    def test_ensure_listener_udp(self):
+        self._test_ensure_listener('UDP')
+
+    def test_ensure_listener_unsupported_protocol(self):
+        self._test_ensure_listener('NOT_SUPPORTED')
+
+    def test_ensure_listener_ovn_tcp(self):
+        self._test_ensure_listener('TCP', 'ovn')
+
+    def test_ensure_listener_ovn_udp(self):
+        self._test_ensure_listener('UDP', 'ovn')
+
+    def test_ensure_listener_ovn_unsupported_protocol(self):
+        self._test_ensure_listener('HTTP', 'ovn')
+
+    def _test_ensure_listener(self, protocol, provider=None):
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         expected_resp = mock.sentinel.expected_resp
@@ -107,21 +125,27 @@ class TestLBaaSv2Driver(test_base.TestCase):
         subnet_id = 'D3FA400A-F543-4B91-9CD3-047AF0CE42D1'
         ip = '1.2.3.4'
         loadbalancer_id = '00EE9E11-91C2-41CF-8FD4-7970579E5C4C'
-        protocol = 'TCP'
         port = 1234
         loadbalancer = obj_lbaas.LBaaSLoadBalancer(
             id=loadbalancer_id, name=name, project_id=project_id,
-            subnet_id=subnet_id, ip=ip)
+            subnet_id=subnet_id, ip=ip, provider=provider)
         # TODO(ivc): handle security groups
         m_driver._ensure_provisioned.return_value = expected_resp
 
         resp = cls.ensure_listener(m_driver, loadbalancer,
                                    protocol, port)
 
+        provider = loadbalancer.provider or 'amphora'
+        if (protocol not in
+                d_lbaasv2._PROVIDER_SUPPORTED_LISTENER_PROT[provider]):
+            self.assertIsNone(resp)
+            return
+
         m_driver._ensure_provisioned.assert_called_once_with(
             loadbalancer, mock.ANY, m_driver._create_listener,
             m_driver._find_listener, d_lbaasv2._LB_STS_POLL_SLOW_INTERVAL)
         listener = m_driver._ensure_provisioned.call_args[0][1]
+
         self.assertEqual("%s:%s:%s" % (loadbalancer.name, protocol, port),
                          listener.name)
         self.assertEqual(project_id, listener.project_id)
@@ -129,6 +153,26 @@ class TestLBaaSv2Driver(test_base.TestCase):
         self.assertEqual(protocol, listener.protocol)
         self.assertEqual(port, listener.port)
         self.assertEqual(expected_resp, resp)
+
+    def test_ensure_listener_bad_request_exception(self):
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        name = 'TEST_NAME'
+        project_id = 'TEST_PROJECT'
+        subnet_id = 'D3FA400A-F543-4B91-9CD3-047AF0CE42D1'
+        ip = '1.2.3.4'
+        loadbalancer_id = '00EE9E11-91C2-41CF-8FD4-7970579E5C4C'
+        port = 1234
+        protocol = 'TCP'
+        provider = 'amphora'
+        loadbalancer = obj_lbaas.LBaaSLoadBalancer(
+            id=loadbalancer_id, name=name, project_id=project_id,
+            subnet_id=subnet_id, ip=ip, provider=provider)
+        m_driver._ensure_provisioned.side_effect = n_exc.BadRequest
+
+        resp = cls.ensure_listener(m_driver, loadbalancer,
+                                   protocol, port)
+        self.assertIsNone(resp)
 
     def test_release_listener(self):
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
