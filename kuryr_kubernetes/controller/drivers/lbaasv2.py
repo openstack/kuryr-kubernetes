@@ -38,6 +38,15 @@ LOG = logging.getLogger(__name__)
 _ACTIVATION_TIMEOUT = CONF.neutron_defaults.lbaas_activation_timeout
 _SUPPORTED_LISTENER_PROT = ('HTTP', 'HTTPS', 'TCP')
 _L7_POLICY_ACT_REDIRECT_TO_POOL = 'REDIRECT_TO_POOL'
+# NOTE(yboaron):Prior to sending create request to Octavia, LBaaS driver
+# verifies that LB is in a stable state by polling LB's provisioning_status
+# using backoff timer.
+# A similar method is used also for the delete flow.
+# Unlike LB creation, rest of octavia operations are completed usually after
+# few seconds. Next constants define the intervals values for 'fast' and
+# 'slow' (will be used for LB creation)  polling.
+_LB_STS_POLL_FAST_INTERVAL = 1
+_LB_STS_POLL_SLOW_INTERVAL = 3
 
 
 class LBaaSv2Driver(base.LBaaSDriver):
@@ -257,7 +266,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                            port=port)
         result = self._ensure_provisioned(loadbalancer, listener,
                                           self._create_listener,
-                                          self._find_listener)
+                                          self._find_listener,
+                                          _LB_STS_POLL_SLOW_INTERVAL)
 
         self._ensure_security_group_rules(loadbalancer, result, service_type)
 
@@ -531,9 +541,11 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 LOG.debug("Found %(obj)s", {'obj': result})
         return result
 
-    def _ensure_provisioned(self, loadbalancer, obj, create, find):
-        for remaining in self._provisioning_timer(_ACTIVATION_TIMEOUT):
-            self._wait_for_provisioning(loadbalancer, remaining)
+    def _ensure_provisioned(self, loadbalancer, obj, create, find,
+                            interval=_LB_STS_POLL_FAST_INTERVAL):
+        for remaining in self._provisioning_timer(_ACTIVATION_TIMEOUT,
+                                                  interval):
+            self._wait_for_provisioning(loadbalancer, remaining, interval)
             try:
                 result = self._ensure(obj, create, find)
                 if result:
@@ -556,10 +568,11 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         raise k_exc.ResourceNotReady(obj)
 
-    def _wait_for_provisioning(self, loadbalancer, timeout):
+    def _wait_for_provisioning(self, loadbalancer, timeout,
+                               interval=_LB_STS_POLL_FAST_INTERVAL):
         lbaas = clients.get_loadbalancer_client()
 
-        for remaining in self._provisioning_timer(timeout):
+        for remaining in self._provisioning_timer(timeout, interval):
             response = lbaas.show_loadbalancer(loadbalancer.id)
             status = response['loadbalancer']['provisioning_status']
             if status == 'ACTIVE':
@@ -574,18 +587,19 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         raise k_exc.ResourceNotReady(loadbalancer)
 
-    def _wait_for_deletion(self, loadbalancer, timeout):
+    def _wait_for_deletion(self, loadbalancer, timeout,
+                           interval=_LB_STS_POLL_FAST_INTERVAL):
         lbaas = clients.get_loadbalancer_client()
 
-        for remaining in self._provisioning_timer(timeout):
+        for remaining in self._provisioning_timer(timeout, interval):
             try:
                 lbaas.show_loadbalancer(loadbalancer.id)
             except n_exc.NotFound:
                 return
 
-    def _provisioning_timer(self, timeout):
+    def _provisioning_timer(self, timeout,
+                            interval=_LB_STS_POLL_FAST_INTERVAL):
         # REVISIT(ivc): consider integrating with Retry
-        interval = 3
         max_interval = 15
         with timeutils.StopWatch(duration=timeout) as timer:
             while not timer.expired():
