@@ -663,7 +663,7 @@ function extract_hyperkube {
         "$tmp_loopback_cni_path"
     docker cp "${hyperkube_container}:/usr/bin/nsenter" "$tmp_nsenter_path"
 
-    docker rm "$hyperkube_container"
+    docker rm --force "$hyperkube_container"
     sudo install -o "$STACK_USER" -m 0555 -D "$tmp_hyperkube_path" \
         "$KURYR_HYPERKUBE_BINARY"
     sudo install -o "$STACK_USER" -m 0555 -D "$tmp_loopback_cni_path" \
