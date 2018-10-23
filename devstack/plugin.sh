@@ -828,6 +828,38 @@ function configure_overcloud_vm_k8s_svc_sg {
     openstack port set "$KURYR_OVERCLOUD_VM_PORT" --security-group service_pod_access
 }
 
+function update_tempest_conf_file {
+
+    local use_octavia="$1"
+
+    if [[ "$KURYR_USE_PORT_POOLS" == "True" ]]; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes port_pool_enabled True
+    fi
+    if [[ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]]; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes containerized True
+    fi
+    if [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes namespace_enabled True
+    fi
+    if [[ "$KURYR_K8S_SERIAL_TESTS" == "True" ]]; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes run_tests_serial True
+    fi
+    if [[ "$KURYR_MULTI_VIF_DRIVER" == "npwg_multiple_interfaces" ]]; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes npwg_multi_vif_enabled True
+    fi
+    if [[ "$KURYR_ENABLED_HANDLERS" =~ .*policy.* ]]; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes network_policy_enabled True
+    fi
+    if is_service_enabled kuryr-daemon; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes kuryr_daemon_enabled True
+    fi
+    # NOTE(yboaron): Services with protocol UDP are supported in Kuryr
+    # starting from Stein release and only for Octavia
+    if [[ "$use_octavia" == "True" ]]; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes test_udp_services True
+    fi
+}
+
 source $DEST/kuryr-kubernetes/devstack/lib/kuryr_kubernetes
 
 # main loop
@@ -991,26 +1023,8 @@ elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
             configure_and_run_registry
         fi
     fi
-    if is_service_enabled tempest && [[ "$KURYR_USE_PORT_POOLS" == "True" ]]; then
-        iniset $TEMPEST_CONFIG kuryr_kubernetes port_pool_enabled True
-    fi
-    if is_service_enabled tempest && [[ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]]; then
-        iniset $TEMPEST_CONFIG kuryr_kubernetes containerized True
-    fi
-    if is_service_enabled tempest && [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
-        iniset $TEMPEST_CONFIG kuryr_kubernetes namespace_enabled True
-    fi
-    if is_service_enabled tempest && [[ "$KURYR_K8S_SERIAL_TESTS" == "True" ]]; then
-        iniset $TEMPEST_CONFIG kuryr_kubernetes run_tests_serial True
-    fi
-    if is_service_enabled tempest && [[ "$KURYR_MULTI_VIF_DRIVER" == "npwg_multiple_interfaces" ]]; then
-        iniset $TEMPEST_CONFIG kuryr_kubernetes npwg_multi_vif_enabled True
-    fi
-    if is_service_enabled tempest && [[ "$KURYR_ENABLED_HANDLERS" =~ .*policy.* ]]; then
-        iniset $TEMPEST_CONFIG kuryr_kubernetes network_policy_enabled True
-    fi
-    if is_service_enabled tempest && is_service_enabled kuryr-daemon; then
-        iniset $TEMPEST_CONFIG kuryr_kubernetes kuryr_daemon_enabled True
+    if is_service_enabled tempest; then
+        update_tempest_conf_file "$use_octavia"
     fi
 fi
 
