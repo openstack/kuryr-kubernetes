@@ -14,9 +14,12 @@
 #    under the License.
 
 from oslo_config import cfg
+from oslo_log import log as logging
 
 from kuryr_kubernetes import config
 from kuryr_kubernetes.controller.drivers import base
+
+LOG = logging.getLogger(__name__)
 
 
 class DefaultPodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
@@ -34,6 +37,15 @@ class DefaultPodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
                                        cfg.OptGroup('neutron_defaults'))
 
         return sg_list[:]
+
+    def create_namespace_sg(self, namespace, project_id, crd_spec):
+        LOG.debug("Security group driver does not create SGs for the "
+                  "namespaces.")
+        return {}
+
+    def delete_sg(self, sg_id):
+        LOG.debug("Security group driver does not implement deleting "
+                  "SGs.")
 
 
 class DefaultServiceSecurityGroupsDriver(base.ServiceSecurityGroupsDriver):
