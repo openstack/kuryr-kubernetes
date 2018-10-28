@@ -156,37 +156,6 @@ function stop_container {
     stop_process "$name"
 }
 
-
-# prepare_etcd_legacy
-#   Description: Creates datadir for etcd and fetches its container image
-function prepare_etcd_legacy {
-    # Make Etcd data directory
-    sudo install -d -o "$STACK_USER" "$KURYR_ETCD_DATA_DIR"
-
-    # Get Etcd container
-    get_container "$KURYR_ETCD_IMAGE" "$KURYR_ETCD_VERSION"
-}
-
-# run_etcd_legacy
-#   Description: Deprecated way of running etcd for Kubernetes (based on
-#                coreos upstream image.
-function run_etcd_legacy {
-    run_container etcd \
-        --net host \
-        --volume="${KURYR_ETCD_DATA_DIR}:/var/etcd:rw" \
-        "${KURYR_ETCD_IMAGE}:${KURYR_ETCD_VERSION}" \
-            /usr/local/bin/etcd \
-            --name devstack \
-            --data-dir /var/etcd/data \
-            --initial-advertise-peer-urls "$KURYR_ETCD_ADVERTISE_PEER_URL" \
-            --listen-peer-urls "$KURYR_ETCD_LISTEN_PEER_URL" \
-            --listen-client-urls "$KURYR_ETCD_LISTEN_CLIENT_URL" \
-            --advertise-client-urls "$KURYR_ETCD_ADVERTISE_CLIENT_URL" \
-            --initial-cluster-token etcd-cluster-1 \
-            --initial-cluster "devstack=$KURYR_ETCD_ADVERTISE_PEER_URL" \
-            --initial-cluster-state new
-}
-
 # _allocation_range
 #   Description: Writes out tab separated usable ip range for a CIDR
 #   Params:
@@ -783,7 +752,7 @@ function run_openshift_master {
 
     # Generate master config
     "${OPENSHIFT_BIN}/openshift" start master \
-        "--etcd=${KURYR_ETCD_ADVERTISE_CLIENT_URL}" \
+        "--etcd=http://${SERVICE_HOST}:${ETCD_PORT}" \
         "--network-cidr=${pod_subnet_cidr}" \
         "--portal-net=${portal_net}" \
         "--listen=0.0.0.0:${OPENSHIFT_API_PORT}" \
@@ -811,7 +780,7 @@ function run_openshift_master {
     cmd="/usr/local/bin/openshift start master \
         --config=${OPENSHIFT_DATA_DIR}/master-config.yaml"
 
-    wait_for "etcd" "${KURYR_ETCD_ADVERTISE_CLIENT_URL}/v2/machines"
+    wait_for "etcd" "http://${SERVICE_HOST}:${ETCD_PORT}/v2/machines"
 
     if [[ "$USE_SYSTEMD" = "True" ]]; then
         # If systemd is being used, proceed as normal
