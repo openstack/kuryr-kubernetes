@@ -191,9 +191,13 @@ class BaseVIFPool(base.VIFPoolDriver):
         # from the pool_key, which will be required when multi-network is
         # supported
         now = time.time()
-        if (now - oslo_cfg.CONF.vif_pool.ports_pool_update_frequency <
-                self._last_update.get(pool_key, 0)):
-            LOG.info("Not enough time since the last pool update")
+        try:
+            if (now - oslo_cfg.CONF.vif_pool.ports_pool_update_frequency <
+                    self._last_update.get(pool_key, 0)):
+                LOG.info("Not enough time since the last pool update")
+                return
+        except AttributeError:
+            LOG.info("Kuryr-controller not yet ready to populate pools")
             return
         self._last_update[pool_key] = now
 
@@ -218,9 +222,13 @@ class BaseVIFPool(base.VIFPoolDriver):
         pool_key = self._get_pool_key(host_addr, project_id, security_groups,
                                       vif.network.id, None)
 
-        if not self._existing_vifs.get(vif.id):
-            self._existing_vifs[vif.id] = vif
-        self._recyclable_ports[vif.id] = pool_key
+        try:
+            if not self._existing_vifs.get(vif.id):
+                self._existing_vifs[vif.id] = vif
+            self._recyclable_ports[vif.id] = pool_key
+        except AttributeError:
+            LOG.info("Kuryr-controller is not ready to handle the pools yet.")
+            raise exceptions.ResourceNotReady(pod)
 
     def _return_ports_to_pool(self):
         raise NotImplementedError()
@@ -329,6 +337,10 @@ class NeutronVIFPool(BaseVIFPool):
 
     @lockutils.synchronized('return_to_pool_baremetal')
     def _trigger_return_to_pool(self):
+        if not hasattr(self, '_recyclable_ports'):
+            LOG.info("Kuryr-controller not yet ready to return ports to "
+                     "pools.")
+            return
         neutron = clients.get_neutron_client()
         sg_current = {}
         if not config.CONF.kubernetes.port_debug:
@@ -410,6 +422,10 @@ class NeutronVIFPool(BaseVIFPool):
         self._create_healthcheck_file()
 
     def delete_network_pools(self, net_id):
+        if not hasattr(self, '_available_ports_pools'):
+            LOG.info("Kuryr-controller not yet ready to delete network pools"
+                     "pools.")
+            raise exceptions.ResourceNotReady(net_id)
         neutron = clients.get_neutron_client()
 
         # NOTE(ltomasbo): Note the pods should already be deleted, but their
@@ -490,6 +506,10 @@ class NestedVIFPool(BaseVIFPool):
 
     @lockutils.synchronized('return_to_pool_nested')
     def _trigger_return_to_pool(self):
+        if not hasattr(self, '_recyclable_ports'):
+            LOG.info("Kuryr-controller not yet ready to return ports to "
+                     "pools.")
+            return
         neutron = clients.get_neutron_client()
         sg_current = {}
         if not config.CONF.kubernetes.port_debug:
@@ -730,6 +750,10 @@ class NestedVIFPool(BaseVIFPool):
         self._remove_precreated_ports(trunk_ips)
 
     def delete_network_pools(self, net_id):
+        if not hasattr(self, '_available_ports_pools'):
+            LOG.info("Kuryr-controller not yet ready to delete network pools"
+                     "pools.")
+            raise exceptions.ResourceNotReady(net_id)
         neutron = clients.get_neutron_client()
         # NOTE(ltomasbo): Note the pods should already be deleted, but their
         # associated ports may not have been recycled yet, therefore not being
