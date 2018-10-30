@@ -286,7 +286,7 @@ class NeutronVIFPool(BaseVIFPool):
     def _get_port_from_pool(self, pool_key, pod, subnets):
         try:
             port_id = self._available_ports_pools[pool_key].pop()
-        except IndexError:
+        except (IndexError, AttributeError):
             raise exceptions.ResourceNotReady(pod)
         if config.CONF.kubernetes.port_debug:
             neutron = clients.get_neutron_client()
@@ -448,7 +448,7 @@ class NestedVIFPool(BaseVIFPool):
     def _get_port_from_pool(self, pool_key, pod, subnets):
         try:
             port_id = self._available_ports_pools[pool_key].pop()
-        except IndexError:
+        except (IndexError, AttributeError):
             raise exceptions.ResourceNotReady(pod)
         if config.CONF.kubernetes.port_debug:
             neutron = clients.get_neutron_client()
