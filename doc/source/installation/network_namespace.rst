@@ -111,12 +111,16 @@ Testing the network per namespace functionality
     $ kubectl run -n test1 --image kuryr/demo demo
     deployment "demo" created
 
-    $ kubectl run -n test1 --image kuryr/demo demo
+    $ kubectl run -n test2 --image kuryr/demo demo
     deployment "demo" created
 
     $ kubectl -n test1 get pod -o wide
     NAME                    READY     STATUS    RESTARTS   AGE       IP           NODE
     demo-5995548848-lmmjc   1/1       Running   0          7s        10.0.1.136   node1
+
+    $ kubectl -n test2 get pod -o wide
+    NAME                    READY     STATUS    RESTARTS   AGE       IP           NODE
+    demo-5135352253-dfghd   1/1       Running   0          7s        10.0.1.134   node1
 
 
 4. Create a service::
