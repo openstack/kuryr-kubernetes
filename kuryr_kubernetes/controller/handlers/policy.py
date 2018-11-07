@@ -50,16 +50,57 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
         super(NetworkPolicyHandler, self).__init__()
         self._drv_policy = drivers.NetworkPolicyDriver.get_instance()
         self._drv_project = drivers.NetworkPolicyProjectDriver.get_instance()
+        self._drv_vif_pool = drivers.VIFPoolDriver.get_instance(
+            specific_driver='multi_pool')
+        self._drv_vif_pool.set_vif_driver()
+        self._drv_pod_sg = drivers.PodSecurityGroupsDriver.get_instance()
+        self._drv_svc_sg = drivers.ServiceSecurityGroupsDriver.get_instance()
 
     def on_present(self, policy):
         LOG.debug("Created or updated: %s", policy)
         project_id = self._drv_project.get_project(policy)
-        self._drv_policy.ensure_network_policy(policy, project_id)
+        pods_to_update = []
+
+        knps_on_namespace = self._drv_policy.knps_on_namespace(
+            policy['metadata']['namespace'])
+        if not knps_on_namespace:
+            namespace_pods = self._drv_policy.namespaced_pods(policy)
+            pods_to_update.extend(namespace_pods)
+
+        modified_pods = self._drv_policy.ensure_network_policy(policy,
+                                                               project_id)
+        if modified_pods:
+            pods_to_update.extend(modified_pods)
+
+        matched_pods = self._drv_policy.affected_pods(policy)
+        pods_to_update.extend(matched_pods)
+
+        for pod in pods_to_update:
+            pod_sgs = self._drv_pod_sg.get_security_groups(pod, project_id)
+            self._drv_vif_pool.update_vif_sgs(pod, pod_sgs)
 
     def on_deleted(self, policy):
         LOG.debug("Deleted network policy: %s", policy)
         project_id = self._drv_project.get_project(policy)
-        self._drv_policy.release_network_policy(policy, project_id)
+        pods_to_update = self._drv_policy.affected_pods(policy)
+        netpolicy_crd = self._drv_policy.get_kuryrnetpolicy_crd(policy)
+        crd_sg = netpolicy_crd['spec'].get('securityGroupId')
+        for pod in pods_to_update:
+            pod_sgs = self._drv_pod_sg.get_security_groups(pod, project_id)
+            if crd_sg in pod_sgs:
+                pod_sgs.remove(crd_sg)
+            self._drv_vif_pool.update_vif_sgs(pod, pod_sgs)
+
+        self._drv_policy.release_network_policy(netpolicy_crd)
+        # re-apply original security groups for the namespace
+        knps_on_namespace = self._drv_policy.knps_on_namespace(
+            policy['metadata']['namespace'])
+        if not knps_on_namespace:
+            namespace_pods = self._drv_policy.namespaced_pods(policy)
+            for pod in namespace_pods:
+                pod_sgs = self._drv_pod_sg.get_security_groups(pod,
+                                                               project_id)
+                self._drv_vif_pool.update_vif_sgs(pod, pod_sgs)
 
     @MEMOIZE
     def is_ready(self, quota):

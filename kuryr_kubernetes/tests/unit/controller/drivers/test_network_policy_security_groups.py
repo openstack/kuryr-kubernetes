@@ -99,16 +99,21 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
     def test_get_security_groups(self, m_get_crds):
         m_get_crds.return_value = self._crds
         self._driver.get_security_groups(self._pod, self._project_id)
-        m_get_crds.assert_called_with(namespace=self._namespace)
+        calls = [mock.call(self._pod['metadata']['labels'],
+                           namespace=self._namespace),
+                 mock.call(namespace=self._namespace)]
+        m_get_crds.assert_has_calls(calls)
 
     @mock.patch.object(network_policy_security_groups,
                        '_get_kuryrnetpolicy_crds')
-    def test_get_security_groups_with_label(self, m_get_crds):
+    def test_get_security_groups_without_label(self, m_get_crds):
+        pod = self._pod.copy()
+        del pod['metadata']['labels']
         labels = {'run': 'demo'}
-        self._crds['metadata']['labels'] = labels
+        self._crds['items'][0]['metadata']['labels'] = labels
         m_get_crds.return_value = self._crds
-        self._driver.get_security_groups(self._pod, self._project_id)
-        m_get_crds.assert_called()
+        self._driver.get_security_groups(pod, self._project_id)
+        m_get_crds.assert_called_once_with(namespace=self._namespace)
 
     @mock.patch.object(network_policy_security_groups,
                        '_get_kuryrnetpolicy_crds')
@@ -117,3 +122,7 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
         self.assertRaises(cfg.RequiredOptError,
                           self._driver.get_security_groups, self._pod,
                           self._project_id)
+        calls = [mock.call(self._pod['metadata']['labels'],
+                           namespace=self._namespace),
+                 mock.call(namespace=self._namespace)]
+        m_get_crds.assert_has_calls(calls)

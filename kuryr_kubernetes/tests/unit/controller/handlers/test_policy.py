@@ -28,6 +28,7 @@ class TestPolicyHandler(test_base.TestCase):
         self._policy_name = 'np-test'
         self._policy_uid = mock.sentinel.policy_uid
         self._policy_link = mock.sentinel.policy_link
+        self._pod_sg = mock.sentinel.pod_sg
 
         self._policy = {
             u'apiVersion': u'networking.k8s.io/v1',
@@ -57,32 +58,139 @@ class TestPolicyHandler(test_base.TestCase):
             spec=drivers.NetworkPolicyProjectDriver)
         self._handler._drv_policy = mock.MagicMock(
             spec=drivers.NetworkPolicyDriver)
+        self._handler._drv_pod_sg = mock.Mock(
+            spec=drivers.PodSecurityGroupsDriver)
+        self._handler._drv_svc_sg = mock.Mock(
+            spec=drivers.ServiceSecurityGroupsDriver)
+        self._handler._drv_vif_pool = mock.MagicMock(
+            spec=drivers.VIFPoolDriver)
 
         self._get_project = self._handler._drv_project.get_project
         self._get_project.return_value = self._project_id
+        self._get_security_groups = (
+            self._handler._drv_pod_sg.get_security_groups)
+        self._set_vifs_driver = self._handler._drv_vif_pool.set_vif_driver
+        self._set_vifs_driver.return_value = mock.Mock(
+            spec=drivers.PodVIFDriver)
+        self._update_vif_sgs = self._handler._drv_vif_pool.update_vif_sgs
+        self._update_vif_sgs.return_value = None
 
+    def _get_knp_obj(self):
+        knp_obj = {
+            'apiVersion': 'openstack.org/v1',
+            'kind': 'KuryrNetPolicy',
+            'metadata': {
+                'name': 'np-test-network-policy',
+                'namespace': 'test-1'
+            },
+            'spec': {
+                'securityGroupId': 'c1ac16f5-e198-4628-9d84-253c6001be8e',
+                'securityGroupName': 'sg-test-network-policy'
+            }}
+        return knp_obj
+
+    @mock.patch.object(drivers.ServiceSecurityGroupsDriver, 'get_instance')
+    @mock.patch.object(drivers.PodSecurityGroupsDriver, 'get_instance')
+    @mock.patch.object(drivers.VIFPoolDriver, 'get_instance')
     @mock.patch.object(drivers.NetworkPolicyDriver, 'get_instance')
     @mock.patch.object(drivers.NetworkPolicyProjectDriver, 'get_instance')
-    def test_init(self, m_get_project_driver, m_get_policy_driver):
+    def test_init(self, m_get_project_driver, m_get_policy_driver,
+                  m_get_vif_driver, m_get_pod_sg_driver, m_get_svc_sg_driver):
         handler = policy.NetworkPolicyHandler()
 
         m_get_project_driver.assert_called_once()
         m_get_policy_driver.assert_called_once()
+        m_get_vif_driver.assert_called_once()
+        m_get_pod_sg_driver.assert_called_once()
+        m_get_svc_sg_driver.assert_called_once()
 
         self.assertEqual(m_get_project_driver.return_value,
                          handler._drv_project)
         self.assertEqual(m_get_policy_driver.return_value, handler._drv_policy)
 
     def test_on_present(self):
-        policy.NetworkPolicyHandler.on_present(self._handler, self._policy)
+        modified_pod = mock.sentinel.modified_pod
+        match_pod = mock.sentinel.match_pod
+
+        knp_on_ns = self._handler._drv_policy.knps_on_namespace
+        knp_on_ns.return_value = True
+        namespaced_pods = self._handler._drv_policy.namespaced_pods
         ensure_nw_policy = self._handler._drv_policy.ensure_network_policy
+        ensure_nw_policy.return_value = [modified_pod]
+        affected_pods = self._handler._drv_policy.affected_pods
+        affected_pods.return_value = [match_pod]
+        sg1 = [mock.sentinel.sg1]
+        sg2 = [mock.sentinel.sg2]
+        self._get_security_groups.side_effect = [sg1, sg2]
+
+        policy.NetworkPolicyHandler.on_present(self._handler, self._policy)
+        namespaced_pods.assert_not_called()
         ensure_nw_policy.assert_called_once_with(self._policy,
                                                  self._project_id)
+        affected_pods.assert_called_once_with(self._policy)
+
+        calls = [mock.call(modified_pod, self._project_id),
+                 mock.call(match_pod, self._project_id)]
+        self._get_security_groups.assert_has_calls(calls)
+
+        calls = [mock.call(modified_pod, sg1), mock.call(match_pod, sg2)]
+        self._update_vif_sgs.assert_has_calls(calls)
+
+    def test_on_present_without_knps_on_namespace(self):
+        modified_pod = mock.sentinel.modified_pod
+        match_pod = mock.sentinel.match_pod
+        namespace_pod = mock.sentinel.namespace_pod
+
+        knp_on_ns = self._handler._drv_policy.knps_on_namespace
+        knp_on_ns.return_value = False
+        namespaced_pods = self._handler._drv_policy.namespaced_pods
+        namespaced_pods.return_value = [namespace_pod]
+        ensure_nw_policy = self._handler._drv_policy.ensure_network_policy
+        ensure_nw_policy.return_value = [modified_pod]
+        affected_pods = self._handler._drv_policy.affected_pods
+        affected_pods.return_value = [match_pod]
+        sg1 = [mock.sentinel.sg1]
+        sg2 = [mock.sentinel.sg2]
+        sg3 = [mock.sentinel.sg3]
+        self._get_security_groups.side_effect = [sg1, sg2, sg3]
+
         policy.NetworkPolicyHandler.on_present(self._handler, self._policy)
+        namespaced_pods.assert_called_once_with(self._policy)
+        ensure_nw_policy.assert_called_once_with(self._policy,
+                                                 self._project_id)
+        affected_pods.assert_called_once_with(self._policy)
+
+        calls = [mock.call(namespace_pod, self._project_id),
+                 mock.call(modified_pod, self._project_id),
+                 mock.call(match_pod, self._project_id)]
+        self._get_security_groups.assert_has_calls(calls)
+
+        calls = [mock.call(namespace_pod, sg1),
+                 mock.call(modified_pod, sg2),
+                 mock.call(match_pod, sg3)]
+        self._update_vif_sgs.assert_has_calls(calls)
 
     def test_on_deleted(self):
-        policy.NetworkPolicyHandler.on_deleted(self._handler, self._policy)
+        namespace_pod = mock.sentinel.namespace_pod
+        match_pod = mock.sentinel.match_pod
+        affected_pods = self._handler._drv_policy.affected_pods
+        affected_pods.return_value = [match_pod]
+        get_knp_crd = self._handler._drv_policy.get_kuryrnetpolicy_crd
+        knp_obj = self._get_knp_obj()
+        get_knp_crd.return_value = knp_obj
+        sg1 = [mock.sentinel.sg1]
+        sg2 = [mock.sentinel.sg2]
+        self._get_security_groups.side_effect = [sg1, sg2]
         release_nw_policy = self._handler._drv_policy.release_network_policy
-        release_nw_policy.assert_called_once_with(self._policy,
-                                                  self._project_id)
-        policy.NetworkPolicyHandler.on_present(self._handler, self._policy)
+        knp_on_ns = self._handler._drv_policy.knps_on_namespace
+        knp_on_ns.return_value = False
+        ns_pods = self._handler._drv_policy.namespaced_pods
+        ns_pods.return_value = [namespace_pod]
+
+        policy.NetworkPolicyHandler.on_deleted(self._handler, self._policy)
+        release_nw_policy.assert_called_once_with(knp_obj)
+        calls = [mock.call(match_pod, self._project_id),
+                 mock.call(namespace_pod, self._project_id)]
+        self._get_security_groups.assert_has_calls(calls)
+        calls = [mock.call(match_pod, sg1), mock.call(namespace_pod, sg2)]
+        self._update_vif_sgs.assert_has_calls(calls)

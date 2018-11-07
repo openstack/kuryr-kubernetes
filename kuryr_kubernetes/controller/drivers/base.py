@@ -379,6 +379,20 @@ class PodVIFDriver(DriverBase):
         """
         raise NotImplementedError()
 
+    @abc.abstractmethod
+    def update_vif_sgs(self, pod, security_groups):
+        """Update VIF security groups.
+
+        Implementing drivers should update the port associated to the pod
+        with the specified security groups.
+
+        :param pod: dict containing Kubernetes Pod object
+        :param security_groups: list containing security groups' IDs as
+                                returned by
+                                `PodSecurityGroupsDriver.get_security_groups`
+        """
+        raise NotImplementedError()
+
 
 @six.add_metaclass(abc.ABCMeta)
 class MultiVIFDriver(DriverBase):
@@ -718,15 +732,62 @@ class NetworkPolicyDriver(DriverBase):
 
         :param policy: dict containing Kubernetes NP object
         :param project_id: openstack project_id
+        :returns: list of Pod objects affected by the network policy
+        creation or its podSelector modification
         """
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def release_network_policy(self, policy, project_id):
+    def release_network_policy(self, kuryrnetpolicy):
         """Delete a network policy
 
+        :param kuryrnetpolicy: dict containing Kuryrnetpolicy CRD object
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def affected_pods(self, policy, selector=None):
+        """Return affected pods by the policy
+
+        This method returns the list of pod objects affected by the policy, or
+        by the selector if it is specified.
+
         :param policy: dict containing Kubernetes NP object
-        :param project_id
+        :param selector: (optional) specifc pod selector
+        :returns: list of Pods objects affected by the policy or the selector
+                  if it is pased
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def knps_on_namespace(self, namespace):
+        """Check if there si kuryr network policy CRDs on the namespace
+
+        This method returns true if there are knps on the specified namespace
+        or false otherwise
+
+        :param namespace: namespace name where the knps CRDs should be
+        :returns: true if knps CRDs on the namespace, false otherwise
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def namespaced_pods(self, policy):
+        """Return pods on the policy namespace
+
+        This method returns the pods on the network policy namespace
+
+        :param policy: dict containing Kubernetes NP object
+        :returns: list of Pods objects on the policy namespace
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def get_kuryrnetpolicy_crd(self, policy):
+        """Return kuryrnetpolicy CRD object associated to the policy
+
+        :param policy: dict containing Kubernetes NP object
+        :returns: kuryrnetpolicy CRD object associated to the policy
         """
         raise NotImplementedError()
 

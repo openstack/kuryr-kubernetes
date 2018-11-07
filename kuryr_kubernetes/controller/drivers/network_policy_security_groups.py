@@ -60,21 +60,20 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
         pod_labels = pod['metadata'].get('labels')
         LOG.debug("Using labels %s", pod_labels)
 
-        knp_crds = _get_kuryrnetpolicy_crds(pod_labels,
-                                            namespace=pod_namespace)
-
-        for crd in knp_crds.get('items'):
-            LOG.debug("Appending %s", str(crd['spec']['securityGroupId']))
-            sg_list.append(str(crd['spec']['securityGroupId']))
+        if pod_labels:
+            knp_crds = _get_kuryrnetpolicy_crds(pod_labels,
+                                                namespace=pod_namespace)
+            for crd in knp_crds.get('items'):
+                LOG.debug("Appending %s", str(crd['spec']['securityGroupId']))
+                sg_list.append(str(crd['spec']['securityGroupId']))
 
         knp_namespace_crds = _get_kuryrnetpolicy_crds(namespace=pod_namespace)
-
         for crd in knp_namespace_crds.get('items'):
             if not crd['metadata'].get('labels'):
                 LOG.debug("Appending %s", str(crd['spec']['securityGroupId']))
                 sg_list.append(str(crd['spec']['securityGroupId']))
 
-        if not sg_list:
+        if not knp_namespace_crds.get('items') and not sg_list:
             sg_list = config.CONF.neutron_defaults.pod_security_groups
             if not sg_list:
                 raise cfg.RequiredOptError('pod_security_groups',
@@ -102,21 +101,20 @@ class NetworkPolicyServiceSecurityGroupsDriver(
         svc_labels = service['metadata'].get('labels')
         LOG.debug("Using labels %s", svc_labels)
 
-        knp_crds = _get_kuryrnetpolicy_crds(svc_labels,
-                                            namespace=svc_namespace)
-
-        for crd in knp_crds.get('items'):
-            LOG.debug("Appending %s" % str(crd['spec']['securityGroupId']))
-            sg_list.append(str(crd['spec']['securityGroupId']))
+        if svc_labels:
+            knp_crds = _get_kuryrnetpolicy_crds(svc_labels,
+                                                namespace=svc_namespace)
+            for crd in knp_crds.get('items'):
+                LOG.debug("Appending %s", str(crd['spec']['securityGroupId']))
+                sg_list.append(str(crd['spec']['securityGroupId']))
 
         knp_namespace_crds = _get_kuryrnetpolicy_crds(namespace=svc_namespace)
-
         for crd in knp_namespace_crds.get('items'):
             if not crd['metadata'].get('labels'):
                 LOG.debug("Appending %s", str(crd['spec']['securityGroupId']))
                 sg_list.append(str(crd['spec']['securityGroupId']))
 
-        if not sg_list:
+        if not knp_namespace_crds.get('items') and not sg_list:
             sg_list = config.CONF.neutron_defaults.pod_security_groups
             if not sg_list:
                 raise cfg.RequiredOptError('pod_security_groups',
