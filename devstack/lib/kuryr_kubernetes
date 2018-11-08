@@ -522,6 +522,21 @@ metadata:
   namespace: kube-system
 spec:
   replicas: ${KURYR_CONTROLLER_REPLICAS:-1}
+EOF
+
+    # When running without HA we should make sure that we won't have more than
+    # one kuryr-controller pod in the deployment.
+    if [ "$controller_ha" == "False" ]; then
+        cat >> "${output_dir}/controller_deployment.yml" << EOF
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+EOF
+    fi
+
+    cat >> "${output_dir}/controller_deployment.yml" << EOF
   template:
     metadata:
       labels:
