@@ -631,6 +631,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: CNI_DAEMON
+          value: "${cni_daemon}"
         securityContext:
           privileged: true
         volumeMounts:

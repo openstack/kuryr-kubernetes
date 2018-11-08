@@ -390,22 +390,6 @@ function configure_neutron_defaults {
         fi
     fi
 
-    KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
-    if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "False" ]; then
-        local service_cidr
-        local k8s_api_clusterip
-        service_cidr=$(openstack --os-cloud devstack-admin \
-                                 --os-region "$REGION_NAME" \
-                                 subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
-                                 -c cidr -f value)
-        k8s_api_clusterip=$(_cidr_range "$service_cidr" | cut -f1)
-        # NOTE(dulek): KURYR_K8S_API_LB_URL will be a global to be used by next
-        #              deployment phases.
-        KURYR_K8S_API_LB_URL="https://${k8s_api_clusterip}:${KURYR_K8S_API_LB_PORT}"
-        iniset "$KURYR_CONFIG" kubernetes api_root ${KURYR_K8S_API_LB_URL}
-    else
-        iniset "$KURYR_CONFIG" kubernetes api_root '""'
-    fi
     iniset "$KURYR_CONFIG" neutron_defaults project "$project_id"
     iniset "$KURYR_CONFIG" neutron_defaults pod_subnet "$pod_subnet_id"
     iniset "$KURYR_CONFIG" neutron_defaults pod_security_groups "$sg_ids"
@@ -858,6 +842,9 @@ function update_tempest_conf_file {
     if [[ "$use_octavia" == "True" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes test_udp_services True
     fi
+    if [[ "$KURYR_CONTROLLER_HA" == "True" ]]; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes ap_ha True
+    fi
 }
 
 source $DEST/kuryr-kubernetes/devstack/lib/kuryr_kubernetes
@@ -878,12 +865,28 @@ elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
 fi
 
 if [[ "$1" == "stack" && "$2" == "extra" ]]; then
-    if is_service_enabled kuryr-kubernetes; then
+    if [ "$KURYR_CONFIGURE_NEUTRON_DEFAULTS" == "True" ]; then
         KURYR_CONFIGURE_NEUTRON_DEFAULTS=$(trueorfalse True KURYR_CONFIGURE_NEUTRON_DEFAULTS)
-        if [ "$KURYR_CONFIGURE_NEUTRON_DEFAULTS" == "True" ]; then
+        if is_service_enabled kuryr-kubernetes; then
             configure_neutron_defaults
         fi
+
+        KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
+        if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "False" ]; then
+            service_cidr=$(openstack --os-cloud devstack-admin \
+                                     --os-region "$REGION_NAME" \
+                                     subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
+                                     -c cidr -f value)
+            k8s_api_clusterip=$(_cidr_range "$service_cidr" | cut -f1)
+            # NOTE(dulek): KURYR_K8S_API_LB_URL will be a global to be used by next
+            #              deployment phases.
+            KURYR_K8S_API_LB_URL="https://${k8s_api_clusterip}:${KURYR_K8S_API_LB_PORT}"
+            iniset "$KURYR_CONFIG" kubernetes api_root ${KURYR_K8S_API_LB_URL}
+        else
+            iniset "$KURYR_CONFIG" kubernetes api_root '""'
+        fi
     fi
+
     # FIXME(limao): When Kuryr start up, it need to detect if neutron
     # support tag plugin.
     #
@@ -967,15 +970,24 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
     fi
 
     KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
+    KURYR_FORCE_IMAGE_BUILD=$(trueorfalse False KURYR_FORCE_IMAGE_BUILD)
+    if is_service_enabled kuryr-kubernetes || [[ ${KURYR_FORCE_IMAGE_BUILD} == "True" ]]; then
+        if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
+            if is_service_enabled kuryr-daemon; then
+                build_kuryr_containers $CNI_BIN_DIR $CNI_CONF_DIR True
+            else
+                build_kuryr_containers $CNI_BIN_DIR $CNI_CONF_DIR False
+            fi
+        fi
+    fi
+
     if is_service_enabled kuryr-kubernetes; then
         /usr/local/bin/kubectl apply -f ${KURYR_HOME}/kubernetes_crds/kuryrnet.yaml
         /usr/local/bin/kubectl apply -f ${KURYR_HOME}/kubernetes_crds/kuryrnetpolicy.yaml
         if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
             if is_service_enabled kuryr-daemon; then
-                build_kuryr_containers $CNI_BIN_DIR $CNI_CONF_DIR True
                 generate_containerized_kuryr_resources True
             else
-                build_kuryr_containers $CNI_BIN_DIR $CNI_CONF_DIR False
                 generate_containerized_kuryr_resources False
             fi
         fi

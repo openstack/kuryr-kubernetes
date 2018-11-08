@@ -35,3 +35,30 @@
       devstack_services:
         tls-proxy: false
     voting: false
+
+- job:
+    name: kuryr-kubernetes-tempest-multinode-daemon-octavia-ha
+    parent: kuryr-kubernetes-tempest-multinode-octavia
+    description: |
+        Kuryr-Kubernetes tempest multinode job using octavia and running
+        containerized in HA
+    voting: false
+    timeout: 7800
+    vars:
+      devstack_localrc:
+        KURYR_CONTROLLER_REPLICAS: 2
+        KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
+        KURYR_K8S_SERIAL_TESTS: true
+      devstack_services:
+        kuryr-daemon: true
+      tempest_concurrency: 1
+    group-vars:
+      subnode:
+        devstack_plugins:
+          devstack-plugin-container: https://git.openstack.org/openstack/devstack-plugin-container
+          kuryr-kubernetes: https://git.openstack.org/openstack/kuryr
+        devstack_services:
+          kubelet: true
+        devstack_localrc:
+          KURYR_FORCE_IMAGE_BUILD: true
+          KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
