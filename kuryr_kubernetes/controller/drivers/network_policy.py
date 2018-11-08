@@ -167,14 +167,14 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     'networkpolicy_name': networkpolicy_name,
                     'networkpolicy_namespace': namespace,
                     'networkpolicy_uid': policy['metadata']['uid'],
-                    'networkpolicy_spec': policy['spec']
                 },
             },
             'spec': {
                 'securityGroupName': "sg-" + networkpolicy_name,
                 'securityGroupId': sg_id,
                 'ingressSgRules': i_rules,
-                'egressSgRules': e_rules
+                'egressSgRules': e_rules,
+                'networkpolicy_spec': policy['spec']
             },
         }
         try:
