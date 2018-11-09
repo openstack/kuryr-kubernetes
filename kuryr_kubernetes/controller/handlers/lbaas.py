@@ -50,7 +50,7 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
         lbaas_spec = self._get_lbaas_spec(service)
 
         if self._should_ignore(service):
-            LOG.debug("Skiping Kubernetes service of an unsupported kind or"
+            LOG.debug("Skiping Kubernetes service of an unsupported kind or "
                       "without a selector as Kubernetes does not create an "
                       "endpoint object for it.")
             return
