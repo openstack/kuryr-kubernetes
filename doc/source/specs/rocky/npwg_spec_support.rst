@@ -17,7 +17,7 @@ functionality are using different way of defining the additional interfaces in
 Pods. There is no standard approach among those CNI plugins.
 
 Therefore, the Networking Plumbing Working Group [#]_ drafted a spec (the NPWG
-spec) trying to standardize the the way of attaching Pods to multiple networks.
+spec) trying to standardize the way of attaching Pods to multiple networks.
 
 Proposed Change
 ---------------
