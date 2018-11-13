@@ -23,6 +23,7 @@ from kuryr.lib._i18n import _
 from kuryr.lib import config as kuryr_config
 from kuryr.lib import utils
 from kuryr_kubernetes import clients
+from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes import exceptions as exc
 from kuryr_kubernetes.handlers import health as h_health
 
@@ -57,6 +58,16 @@ class HealthServer(object):
             '/alive', methods=['GET'], view_func=self.liveness_status)
         self.headers = {'Connection': 'close'}
 
+    def _has_kuryr_crd(self, crd_url):
+        k8s = clients.get_kubernetes_client()
+        try:
+            k8s.get(crd_url, json=False, headers={'Connection': 'close'})
+        except exc.K8sClientException:
+            LOG.exception("Kubernetes Client Exception fetching"
+                          " CRD. %s" % exc.K8sClientException)
+            return False
+        return True
+
     def readiness_status(self):
         data = 'ok'
 
@@ -84,6 +95,14 @@ class HealthServer(object):
             error_message = 'Error when creating a Neutron client: %s.' % ex
             LOG.exception(error_message)
             return error_message, httplib.INTERNAL_SERVER_ERROR, self.headers
+
+        crds = [k_const.K8S_API_CRD_KURYRNETS,
+                k_const.K8S_API_CRD_KURYRNETPOLICIES]
+        for crd in crds:
+            if not self._has_kuryr_crd(crd):
+                error_msg = "Error when processing '%s' CRD request." % crd
+                LOG.error(error_msg)
+                return error_msg, httplib.INTERNAL_SERVER_ERROR, self.headers
 
         LOG.info('Kuryr Controller readiness verified.')
         return data, httplib.OK, self.headers
