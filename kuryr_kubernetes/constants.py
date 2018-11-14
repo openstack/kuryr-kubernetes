@@ -17,6 +17,8 @@ K8S_API_BASE = '/api/v1'
 K8S_API_NAMESPACES = K8S_API_BASE + '/namespaces'
 K8S_API_CRD = '/apis/openstack.org/v1'
 K8S_API_CRD_NAMESPACES = K8S_API_CRD + '/namespaces'
+K8S_API_CRD_KURYRNETS = K8S_API_CRD + '/kuryrnets'
+K8S_API_CRD_KURYRNETPOLICIES = K8S_API_CRD + '/kuryrnetpolicies'
 K8S_API_POLICIES = '/apis/networking.k8s.io/v1/networkpolicies'
 
 K8S_API_NPWG_CRD = '/apis/k8s.cni.cncf.io/v1'
