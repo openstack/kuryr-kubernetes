@@ -128,8 +128,8 @@ class TestFipPubIpDriver(test_base.TestCase):
 
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
         neutron.update_floatingip.side_effect = n_exc.Conflict
-        neutron.get_floatingip.return_value = {'id': res_id,
-                                               'port_id': vip_port_id}
+        neutron.show_floatingip.return_value = {'id': res_id,
+                                                'port_id': vip_port_id}
         self.assertIsNone(driver.associate(res_id, vip_port_id))
 
     def test_associate_conflict_incorrect(self):
@@ -139,7 +139,7 @@ class TestFipPubIpDriver(test_base.TestCase):
 
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
         neutron.update_floatingip.side_effect = n_exc.Conflict
-        neutron.get_floatingip.return_value = {'id': res_id, 'port_id': 'foo'}
+        neutron.show_floatingip.return_value = {'id': res_id, 'port_id': 'foo'}
         self.assertRaises(n_exc.Conflict, driver.associate, res_id,
                           vip_port_id)
 
