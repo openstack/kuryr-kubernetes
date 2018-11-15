@@ -77,4 +77,4 @@ Reference
 ---------
 
 .. [1] https://docs.openstack.org/kuryr-kubernetes/latest/specs/rocky/npwg_spec_support.html
-.. [2] https://docs.google.com/document/d/1Ewe9Of84GkP0b2Q2PC0y9RVZNkN2WeVEagX9m99Nrzc
+.. [2] https://docs.google.com/document/d/1D3dJeUUmta3sMzqw8JtWFoG2rvcJiWitVro9bsfUTEw
