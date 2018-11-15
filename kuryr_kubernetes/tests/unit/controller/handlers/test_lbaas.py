@@ -900,3 +900,45 @@ class TestLoadBalancerHandler(test_base.TestCase):
     def test_set_lbaas_state(self):
         self.skipTest("skipping until generalised annotation handling is "
                       "implemented")
+
+    @mock.patch('kuryr_kubernetes.controller.drivers.base'
+                '.PodSubnetsDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base'
+                '.PodProjectDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base'
+                '.LBaaSDriver.get_instance')
+    def test_add_new_members_udp(self, m_get_drv_lbaas,
+                                 m_get_drv_project, m_get_drv_subnets):
+        project_id = str(uuid.uuid4())
+        subnet_id = str(uuid.uuid4())
+        current_ip = '1.1.1.1'
+        current_targets = {
+            '1.1.1.101': (1001, 10001),
+            '1.1.1.111': (1001, 10001),
+            '1.1.1.201': (2001, 20001)}
+        expected_ip = '2.2.2.2'
+        expected_targets = {
+            '2.2.2.101': (1201, 12001),
+            '2.2.2.111': (1201, 12001),
+            '2.2.2.201': (2201, 22001)}
+        endpoints = self._generate_endpoints(expected_targets)
+        state = self._generate_lbaas_state(
+            current_ip, current_targets, project_id, subnet_id)
+        spec = self._generate_lbaas_spec(expected_ip, expected_targets,
+                                         project_id, subnet_id, 'UDP')
+
+        m_drv_lbaas = mock.Mock(wraps=FakeLBaaSDriver())
+        m_drv_project = mock.Mock()
+        m_drv_project.get_project.return_value = project_id
+        m_drv_subnets = mock.Mock()
+        m_drv_subnets.get_subnets.return_value = {
+            subnet_id: mock.sentinel.subnet}
+        m_get_drv_lbaas.return_value = m_drv_lbaas
+        m_get_drv_project.return_value = m_drv_project
+        m_get_drv_subnets.return_value = m_drv_subnets
+
+        handler = h_lbaas.LoadBalancerHandler()
+        member_added = handler._add_new_members(endpoints, state, spec)
+
+        self.assertEqual(member_added, False)
+        m_drv_lbaas.ensure_member.assert_not_called()

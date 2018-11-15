@@ -371,7 +371,11 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                     if (target_ip, target_port) in current_targets:
                         continue
                     port_name = subset_port.get('name')
-                    pool = pool_by_tgt_name[port_name]
+                    try:
+                        pool = pool_by_tgt_name[port_name]
+                    except KeyError:
+                        LOG.debug("No pool found for port: %r", port_name)
+                        continue
                     # TODO(apuimedo): Do not pass subnet_id at all when in
                     # L3 mode once old neutron-lbaasv2 is not supported, as
                     # octavia does not require it
