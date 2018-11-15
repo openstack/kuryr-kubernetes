@@ -254,7 +254,7 @@ The following should be done on Controller startup:
 
     * Get it's main security-group and check if it's updated. This validation
       will be done by the generation tag. Generation is part of k8s metadata
-      and and increased by one on every policy change. When the policy will
+      and increased by one on every policy change. When the policy will
       applied by kuryr, it's should be annotated with current policy generation.
       If the generation in the policy meta-data is newer than
       the generation in the annotation, it's mean that the policy had been
