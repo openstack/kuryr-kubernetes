@@ -141,11 +141,13 @@ class FipPubIpDriver(BasePubIpDriver):
         except n_exc.Conflict:
             LOG.warning("Conflict when assigning floating IP with id %s. "
                         "Checking if it's already assigned correctly.", res_id)
-            fip = neutron.get_floatingip(res_id)
-            used_port_id = fip['port_id']
-            if used_port_id != vip_port_id:
-                LOG.exception("Floating IP already used by port %s.",
-                              used_port_id)
+            fip = neutron.show_floatingip(res_id).get('floatingip')
+            if fip is not None and fip.get('port_id') == vip_port_id:
+                LOG.debug('FIP %s already assigned to %s', res_id,
+                          vip_port_id)
+            else:
+                LOG.exception('Failed to assign FIP %s to VIP port %s. It is '
+                              'probably already bound', res_id, vip_port_id)
                 raise
 
         except n_exc.NeutronClientException:
