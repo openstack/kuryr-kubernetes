@@ -534,6 +534,37 @@ function wait_for {
     echo ""
 }
 
+function wait_for_ok_health {
+    local name
+    local url
+    local cacert_path
+    local start_time
+    local key_path
+    local cert_path
+    local curr_time
+    local time_diff
+    name="$1"
+    url="$2"
+    cacert_path=${3:-}
+    key_path=${4:-}
+    cert_path=${5:-}
+    timeout=${6:-$KURYR_WAIT_TIMEOUT}
+
+
+    extra_flags=('-s' ${cacert_path:+--cacert "$cacert_path"} ${key_path:+--key "$key_path"} ${cert_path:+--cert "$cert_path"})
+
+    start_time=$(date +%s)
+    echo -n "Waiting for $name to be healthy"
+    until [[ "$(curl "${extra_flags[@]}" "$url")" == "ok" ]]; do
+        echo -n "."
+        curr_time=$(date +%s)
+        time_diff=$((curr_time - start_time))
+        [[ $time_diff -le $timeout ]] || die "Timed out waiting for $name"
+        sleep 1
+    done
+    echo ""
+}
+
 function run_k8s_api {
     local service_cidr
     local cluster_ip_range
@@ -712,8 +743,11 @@ function run_kuryr_kubernetes {
         wait_for "OpenShift API Server" "$KURYR_K8S_API_LB_URL" \
             "${OPENSHIFT_DATA_DIR}/ca.crt" 1200
     else
-        wait_for "Kubernetes API Server" "$KURYR_K8S_API_LB_URL" \
-            "${KURYR_HYPERKUBE_DATA_DIR}/kuryr-ca.crt" 1200
+        wait_for_ok_health "Kubernetes API Server" "${KURYR_K8S_API_LB_URL}/healthz" \
+            "${KURYR_HYPERKUBE_DATA_DIR}/kuryr-ca.crt" \
+            "${KURYR_HYPERKUBE_DATA_DIR}/kuryr.key" \
+            "${KURYR_HYPERKUBE_DATA_DIR}/kuryr.crt" \
+            1200
     fi
 
     local controller_bin=$(which kuryr-k8s-controller)
