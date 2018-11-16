@@ -7,7 +7,7 @@ handlers at kuryr.conf (further info on how to do this can be found  at
 :doc:`./devstack/containerized`)::
 
     [kubernetes]
-    enabled_handlers=vif,lb,lbaasspec,policy
+    enabled_handlers=vif,lb,lbaasspec,policy,pod_label
 
 After that, enable also the security group drivers for policies::
 
@@ -28,7 +28,7 @@ Same for containerized deployments::
 For directly enabling the driver when deploying with devstack, you just need
 to add the policy handler and drivers with::
 
-    KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,policy
+    KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,policy,pod_label
     KURYR_SG_DRIVER=policy
 
 Testing the network policy support functionality
@@ -44,7 +44,7 @@ Testing the network policy support functionality
     spec:
       podSelector:
         matchLabels:
-          role: db
+          project: default
       policyTypes:
       - Ingress
       - Egress
@@ -143,7 +143,7 @@ Testing the network policy support functionality
             protocol: TCP
         podSelector:
           matchLabels:
-            role: db
+            project: default
         policyTypes:
         - Ingress
         - Egress
@@ -246,6 +246,9 @@ Testing the network policy support functionality
           - namespaceSelector:
               matchLabels:
                 project: default
+        podSelector:
+          matchLabels:
+            project: default
         policyTypes:
         - Ingress
         - Egress
@@ -264,10 +267,40 @@ Testing the network policy support functionality
     demo-5558c7865d-fdkdv: HELLO! I AM ALIVE!!!
 
 
-Note the ping will only work from pods (neutron ports) on a namespace that has
-the label 'project: default' as stated on the policy namespaceSelector.
+Note the curl only works from pods (neutron ports) on a namespace that has
+the label `project: default` as stated on the policy namespaceSelector.
 
-10. Confirm the teardown of the resources once the network policy is removed::
+
+10. We can also create a single pod, without a label and check that there is
+    no connectivity to it, as it does not match the network policy
+    podSelector::
+
+      $ cat sample-pod.yml
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: demo-pod
+      spec:
+        containers:
+        - image: kuryr/demo
+          imagePullPolicy: Always
+          name: demo-pod
+
+      $ kubectl apply -f sample-pod.yml
+      $ curl demo-pod-IP:8080
+      NO REPLY
+
+
+11. If we add to the pod a label that match a network policy podSelector, in
+    this case 'project: default', the network policy will get applied on the
+    pod, and the traffic will be allowed::
+
+      $ kubectl label pod demo-pod project=default
+      $ curl demo-pod-IP:8080
+      demo-pod-XXX: HELLO! I AM ALIVE!!!
+
+
+12. Confirm the teardown of the resources once the network policy is removed::
 
     $ kubectl delete -f network_policy.yml
     $ kubectl get kuryrnetpolicies
