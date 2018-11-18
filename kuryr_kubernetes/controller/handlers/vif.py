@@ -13,6 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_cache import core as cache
+from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
@@ -25,6 +27,22 @@ from kuryr_kubernetes import objects
 from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
+
+
+vif_handler_caching_opts = [
+    oslo_cfg.BoolOpt('caching', default=True),
+    oslo_cfg.IntOpt('cache_time', default=120),
+]
+
+oslo_cfg.CONF.register_opts(vif_handler_caching_opts,
+                            "vif_handler_caching")
+
+cache.configure(oslo_cfg.CONF)
+vif_handler_cache_region = cache.create_region()
+MEMOIZE = cache.get_memoization_decorator(
+    oslo_cfg.CONF, vif_handler_cache_region, "vif_handler_caching")
+
+cache.configure_cache_region(oslo_cfg.CONF, vif_handler_cache_region)
 
 
 class VIFHandler(k8s_base.ResourceEventHandler):
@@ -126,6 +144,14 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             for ifname, vif in state.vifs.items():
                 self._drv_vif_pool.release_vif(pod, vif, project_id,
                                                security_groups)
+
+    @MEMOIZE
+    def is_ready(self, quota):
+        neutron = clients.get_neutron_client()
+        port_quota = quota['port']
+        port_func = neutron.list_ports
+        if utils.has_limit(port_quota):
+            return utils.is_available('ports', port_quota, port_func)
 
     @staticmethod
     def _is_host_network(pod):

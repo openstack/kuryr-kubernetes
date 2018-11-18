@@ -16,6 +16,7 @@
 import itertools
 import time
 
+from neutronclient.common import exceptions as n_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
 
@@ -54,16 +55,20 @@ class Retry(base.EventHandler):
             try:
                 self._handler(event)
                 break
+            except n_exc.OverQuotaClient:
+                with excutils.save_and_reraise_exception() as ex:
+                    if self._sleep(deadline, attempt, ex.value):
+                        ex.reraise = False
             except self._exceptions:
                 with excutils.save_and_reraise_exception() as ex:
                     if self._sleep(deadline, attempt, ex.value):
                         ex.reraise = False
                     else:
                         LOG.debug('Report handler unhealthy %s', self._handler)
-                        self._handler.set_health_status(healthy=False)
+                        self._handler.set_liveness(alive=False)
             except Exception:
                 LOG.exception('Report handler unhealthy %s', self._handler)
-                self._handler.set_health_status(healthy=False)
+                self._handler.set_liveness(alive=False)
                 raise
 
     def _sleep(self, deadline, attempt, exception):

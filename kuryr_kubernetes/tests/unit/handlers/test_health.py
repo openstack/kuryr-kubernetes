@@ -18,7 +18,7 @@ import mock
 
 
 class _TestHandler(h_health.HealthHandler):
-    def is_healthy(self):
+    def is_alive(self):
         pass
 
 
@@ -42,6 +42,7 @@ class TestHealthHandler(test_base.TestCase):
 
         health_handler = _TestHandler()
 
-        self.assertTrue(health_handler._healthy)
+        self.assertTrue(health_handler._alive)
+        self.assertTrue(health_handler._ready)
         m_health_register_obj.register.assert_called_once_with(health_handler)
         self.assertEqual(m_health_register_obj, health_handler._manager)

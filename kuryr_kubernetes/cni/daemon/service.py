@@ -203,7 +203,7 @@ class CNIDaemonWatcherService(cotyledon.Service):
 
     def _start_watcher_health_checker(self):
         while self.is_running:
-            if not self.watcher.is_healthy():
+            if not self.watcher.is_alive():
                 LOG.debug("Reporting watcher not healthy.")
                 with self.healthy.get_lock():
                     self.healthy.value = False

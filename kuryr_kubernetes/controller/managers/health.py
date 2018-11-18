@@ -23,6 +23,7 @@ from kuryr.lib._i18n import _
 from kuryr.lib import config as kuryr_config
 from kuryr.lib import utils
 from kuryr_kubernetes import clients
+from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes import exceptions as exc
 from kuryr_kubernetes.handlers import health as h_health
@@ -58,6 +59,17 @@ class HealthServer(object):
             '/alive', methods=['GET'], view_func=self.liveness_status)
         self.headers = {'Connection': 'close'}
 
+    def _components_ready(self):
+        neutron = clients.get_neutron_client()
+        project_id = config.CONF.neutron_defaults.project
+        quota = neutron.show_quota(project_id).get('quota')
+
+        for component in self._registry:
+            if not component.is_ready(quota):
+                LOG.debug('Controller components are not ready.')
+                return False
+        return True
+
     def _has_kuryr_crd(self, crd_url):
         k8s = clients.get_kubernetes_client()
         try:
@@ -89,12 +101,6 @@ class HealthServer(object):
                              'getting a token: %s.' % ex)
             LOG.exception(error_message)
             return error_message, httplib.INTERNAL_SERVER_ERROR, self.headers
-        try:
-            self.verify_neutron_connection()
-        except Exception as ex:
-            error_message = 'Error when creating a Neutron client: %s.' % ex
-            LOG.exception(error_message)
-            return error_message, httplib.INTERNAL_SERVER_ERROR, self.headers
 
         crds = [k_const.K8S_API_CRD_KURYRNETS,
                 k_const.K8S_API_CRD_KURYRNETPOLICIES]
@@ -104,13 +110,21 @@ class HealthServer(object):
                 LOG.error(error_msg)
                 return error_msg, httplib.INTERNAL_SERVER_ERROR, self.headers
 
+        try:
+            if not self._components_ready():
+                return '', httplib.INTERNAL_SERVER_ERROR, self.headers
+        except Exception as ex:
+            error_message = ('Error when processing neutron request %s' % ex)
+            LOG.exception(error_message)
+            return error_message, httplib.INTERNAL_SERVER_ERROR, self.headers
+
         LOG.info('Kuryr Controller readiness verified.')
         return data, httplib.OK, self.headers
 
     def liveness_status(self):
         data = 'ok'
         for component in self._registry:
-            if not component.is_healthy():
+            if not component.is_alive():
                 LOG.debug('Kuryr Controller not healthy.')
                 return '', httplib.INTERNAL_SERVER_ERROR, self.headers
         LOG.debug('Kuryr Controller Liveness verified.')
@@ -140,7 +154,3 @@ class HealthServer(object):
         auth_plugin = utils.get_auth_plugin(conf_group)
         sess = utils.get_keystone_session(conf_group, auth_plugin)
         sess.get_token()
-
-    def verify_neutron_connection(self):
-        neutron = utils.get_neutron_client()
-        neutron.list_extensions()
