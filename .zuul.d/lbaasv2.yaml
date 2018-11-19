@@ -28,7 +28,6 @@
       devstack_services:
         q-lbaasv2: true
         kuryr-daemon: false
-    voting: false
 
 - job:
     name: kuryr-kubernetes-tempest-daemon-lbaasv2
