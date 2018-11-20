@@ -6,7 +6,7 @@ is possible and safe:
 
 .. code-block:: bash
 
-    $ kuryr-status upgrade check
+    $ kuryr-k8s-status upgrade check
     +---------------------------------------+
     | Upgrade Check Results                 |
     +---------------------------------------+
@@ -24,21 +24,21 @@ Stein (0.6.x) to T (0.7.x) upgrade
 
 In T we want to drop support for old format of Pod annotations (switch was
 motivated by multi-vif support feature implemented in Rocky). To make sure that
-you don't have unsupported Pod annotations you need to run ``kuryr-status
+you don't have unsupported Pod annotations you need to run ``kuryr-k8s-status
 upgrade check`` utility **before upgrading Kuryr-Kubernetes services to T**.
 
 .. note::
 
     In case of running Kuryr-Kubernetes containerized you can use ``kubectl
-    exec`` to run kuryr-status
+    exec`` to run kuryr-k8s-status
 
     .. code-block:: bash
 
-        $ kubectl -n kube-system exec -it <controller-pod-name> kuryr-status upgrade check
+        $ kubectl -n kube-system exec -it <controller-pod-name> kuryr-k8s-status upgrade check
 
 .. code-block:: bash
 
-    $ kuryr-status upgrade check
+    $ kuryr-k8s-status upgrade check
     +---------------------------------------+
     | Upgrade Check Results                 |
     +---------------------------------------+
@@ -48,21 +48,21 @@ upgrade check`` utility **before upgrading Kuryr-Kubernetes services to T**.
     +---------------------------------------+
 
 In case of *Failure* result of *Pod annotations* check you should run
-``kuryr-status upgrade update-annotations`` command and check again:
+``kuryr-k8s-status upgrade update-annotations`` command and check again:
 
 .. code-block:: bash
 
-    $ kuryr-status upgrade check
+    $ kuryr-k8s-status upgrade check
     +----------------------------------------------------------------------+
     | Upgrade Check Results                                                |
     +----------------------------------------------------------------------+
     | Check: Pod annotations                                               |
     | Result: Failure                                                      |
     | Details: You have 3 Kuryr pod annotations in old format. You need to |
-    |          run `kuryr-status upgrade update-annotations`               |
+    |          run `kuryr-k8s-status upgrade update-annotations`           |
     |          before proceeding with the upgrade.                         |
     +----------------------------------------------------------------------+
-    $ kuryr-status upgrade update-annotations
+    $ kuryr-k8s-status upgrade update-annotations
     +-----------------------+--------+
     | Stat                  | Number |
     +-----------------------+--------+
@@ -72,7 +72,7 @@ In case of *Failure* result of *Pod annotations* check you should run
     +-----------------------+--------+
     | Annotations left      | 0      |
     +-----------------------+--------+
-    $ kuryr-status upgrade check
+    $ kuryr-k8s-status upgrade check
     +---------------------------------------+
     | Upgrade Check Results                 |
     +---------------------------------------+
@@ -86,4 +86,4 @@ a warning that should be investigated, but isn't blocking upgrading to T
 (it won't make things any worse).
 
 If in any case you need to rollback those changes, there is
-``kuryr-status upgrade downgrade-annotations`` command as well.
+``kuryr-k8s-status upgrade downgrade-annotations`` command as well.

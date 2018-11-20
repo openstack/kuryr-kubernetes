@@ -51,7 +51,7 @@ UPGRADE_CHECK_MSG_MAP = {
 
 
 class UpgradeCheckResult(object):
-    """Class used for 'kuryr-status upgrade check' results.
+    """Class used for 'kuryr-k8s-status upgrade check' results.
 
     The 'code' attribute is an UpgradeCheckCode enum.
     The 'details' attribute is a message generally only used for
@@ -118,8 +118,8 @@ class UpgradeCommands(object):
             return UpgradeCheckResult(1, msg)
         elif old_count > 0:
             msg = ('You have %d Kuryr pod annotations in old format. You need '
-                   'to run `kuryr-status upgrade update-annotations` before '
-                   'proceeding with the upgrade.' % old_count)
+                   'to run `kuryr-k8s-status upgrade update-annotations` '
+                   'before proceeding with the upgrade.' % old_count)
             return UpgradeCheckResult(2, msg)
 
     def upgrade_check(self):
@@ -244,7 +244,7 @@ def add_parsers(subparsers):
 def main():
     opt = cfg.SubCommandOpt(
         'category', title='command',
-        description='kuryr-status command or category to execute',
+        description='kuryr-k8s-status command or category to execute',
         handler=add_parsers)
 
     conf = cfg.ConfigOpts()
