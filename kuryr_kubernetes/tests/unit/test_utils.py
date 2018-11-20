@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import mock
-import os
 
 from os_vif import objects
 from oslo_config import cfg
@@ -27,24 +26,11 @@ CONF = cfg.CONF
 
 class TestUtils(test_base.TestCase):
     @mock.patch('socket.gethostname')
-    def test_get_node_name_socket(self, m_gethostname):
-        try:
-            del os.environ['KUBERNETES_NODE_NAME']
-        except KeyError:
-            pass
-
+    def test_get_node_name(self, m_gethostname):
         m_gethostname.return_value = 'foo'
         res = utils.get_node_name()
         self.assertEqual('foo', res)
         m_gethostname.assert_called_once_with()
-
-    @mock.patch('socket.gethostname')
-    def test_get_node_name_envvar(self, m_gethostname):
-        os.environ['KUBERNETES_NODE_NAME'] = 'bar'
-        m_gethostname.return_value = 'foo'
-        res = utils.get_node_name()
-        self.assertEqual('bar', res)
-        m_gethostname.assert_not_called()
 
     @mock.patch('requests.get')
     def test_get_leader_name(self, m_get):
