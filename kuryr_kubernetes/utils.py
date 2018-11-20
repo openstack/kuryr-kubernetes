@@ -10,7 +10,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import os
 import random
 import socket
 import time
@@ -129,10 +128,10 @@ def exponential_sleep(deadline, attempt, interval=DEFAULT_INTERVAL):
 
 
 def get_node_name():
-    try:
-        return os.environ['KUBERNETES_NODE_NAME']
-    except KeyError:
-        return socket.gethostname()
+    # leader-elector container based on K8s way of doing leader election is
+    # assuming that hostname it sees is the node id. Containers within a pod
+    # are sharing the hostname, so this will match what leader-elector returns.
+    return socket.gethostname()
 
 
 def get_leader_name():
