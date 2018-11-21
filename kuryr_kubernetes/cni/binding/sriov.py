@@ -113,7 +113,7 @@ class VIFSriovDriver(object):
                     self._release()
                     continue
                 if not vf_names:
-                    LOG.debug("No interfaces in %s"
+                    LOG.debug("No interfaces in %s. "
                               "Skipping vf %s for pf %s", vf_sys_path,
                               vf_index, pf)
                     self._release()

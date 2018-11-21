@@ -423,7 +423,7 @@ class NeutronVIFPool(BaseVIFPool):
 
     def delete_network_pools(self, net_id):
         if not hasattr(self, '_available_ports_pools'):
-            LOG.info("Kuryr-controller not yet ready to delete network pools"
+            LOG.info("Kuryr-controller not yet ready to delete network "
                      "pools.")
             raise exceptions.ResourceNotReady(net_id)
         neutron = clients.get_neutron_client()
@@ -751,7 +751,7 @@ class NestedVIFPool(BaseVIFPool):
 
     def delete_network_pools(self, net_id):
         if not hasattr(self, '_available_ports_pools'):
-            LOG.info("Kuryr-controller not yet ready to delete network pools"
+            LOG.info("Kuryr-controller not yet ready to delete network "
                      "pools.")
             raise exceptions.ResourceNotReady(net_id)
         neutron = clients.get_neutron_client()

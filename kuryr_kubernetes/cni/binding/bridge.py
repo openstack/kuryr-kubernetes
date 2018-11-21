@@ -38,7 +38,7 @@ class BaseBridgeDriver(health.HealthHandler, b_base.BaseBindingDriver):
                 #              connect for this iface and there's a leftover
                 #              host-side vif. Let's remove it, its peer should
                 #              get deleted automatically by the kernel.
-                LOG.debug('Found leftover host vif %s. Removing it before'
+                LOG.debug('Found leftover host vif %s. Removing it before '
                           'connecting.', host_ifname)
                 with h_ipdb.interfaces[host_ifname] as h_iface:
                     h_iface.remove()
