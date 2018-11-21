@@ -280,6 +280,7 @@ function configure_neutron_defaults {
     local router_id
     local ext_svc_net_id
     local ext_svc_subnet_id
+    local prot
 
     # If a subnetpool is not passed, we get the one created in devstack's
     # Neutron module
@@ -425,21 +426,24 @@ function configure_neutron_defaults {
             --os-region "$REGION_NAME" \
             security group create --project "$project_id" \
             allow_from_default -f value -c id)
-        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
-            security group rule create --project "$project_id" \
-            --description "allow traffic from default namespace" \
-            --remote-group "$allow_namespace_sg_id" --ethertype IPv4 --protocol tcp \
-            "$allow_default_sg_id"
-        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
-            security group rule create --project "$project_id" \
-            --description "allow icmp traffic from default namespace" \
-            --remote-group "$allow_namespace_sg_id" --ethertype IPv4 --protocol icmp \
-            "$allow_default_sg_id"
-        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
-            security group rule create --project "$project_id" \
-            --description "allow traffic from namespaces at default namespace" \
-            --remote-group "$allow_default_sg_id" --ethertype IPv4 --protocol tcp \
-            "$allow_namespace_sg_id"
+
+        for prot in icmp tcp udp ;
+          do
+            openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+              security group rule create --project "$project_id" \
+              --description "allow traffic from default namespace" \
+              --remote-group "$allow_namespace_sg_id" --ethertype IPv4 --protocol "$prot" \
+              "$allow_default_sg_id"
+
+            if [ "$prot" != "icmp" ] ; then
+              openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+              security group rule create --project "$project_id" \
+              --description "allow traffic from namespaces at default namespace" \
+              --remote-group "$allow_default_sg_id" --ethertype IPv4 --protocol "$prot" \
+              "$allow_namespace_sg_id"
+            fi
+          done
+
         # NOTE(ltomasbo): Some tempest test are using FIP and depends on icmp
         # traffic being allowed to the pods. To enable these tests we permit
         # icmp traffic from everywhere on the default namespace. Note tcp
