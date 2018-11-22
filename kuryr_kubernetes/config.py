@@ -62,7 +62,7 @@ daemon_opts = [
                 help=_('Set to True when you are running kuryr-daemon inside '
                        'a Docker container on Kubernetes host. E.g. as '
                        'DaemonSet on Kubernetes cluster Kuryr is supposed to '
-                       'provide networking for. This mainly means that'
+                       'provide networking for. This mainly means that '
                        'kuryr-daemon will look for network namespaces in '
                        '$netns_proc_dir instead of /proc.'),
                 default=False),
@@ -181,7 +181,7 @@ k8s_opts = [
                help=_("Driver for network policies"),
                default='default'),
     cfg.ListOpt('multi_vif_drivers',
-                help=_("The drivers that provide additional VIFs for"
+                help=_("The drivers that provide additional VIFs for "
                        "Kubernetes Pods."),
                 default='noop'),
 ]

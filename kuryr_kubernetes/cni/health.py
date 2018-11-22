@@ -37,7 +37,7 @@ cni_health_server_opts = [
                default=-1),
     cfg.StrOpt(
         'cg_path',
-        help=_('sysfs path to the CNI cgroup. This is used for resource'
+        help=_('sysfs path to the CNI cgroup. This is used for resource '
                'tracking and as such should point to the cgroup hierarchy '
                'leaf. It only applies when non containerized'),
         default='/sys/fs/cgroup/memory/system.slice/kuryr-cni.service')

@@ -208,7 +208,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                     raise ex
 
             except n_exc.NeutronClientException as ex:
-                LOG.error("Error happened during subport"
+                LOG.error("Error happened during subport "
                           "addition to trunk, %s", trunk_id)
                 raise ex
             return vlan_id
