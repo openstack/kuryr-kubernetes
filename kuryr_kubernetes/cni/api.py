@@ -70,7 +70,7 @@ class CNIRunner(object):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def get_container_id(self):
+    def get_container_id(self, params):
         raise NotImplementedError()
 
     def run(self, env, fin, fout):
