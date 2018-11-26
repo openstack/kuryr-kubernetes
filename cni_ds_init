@@ -16,20 +16,39 @@ finder="
 import json
 import sys
 
+mode = 'docker' if len(sys.argv) == 1 else sys.argv[1]
+
+if mode == 'docker':
+    label_key = 'Labels'
+    id_key = 'Id'
+else:
+    label_key = 'annotations'
+    id_key = 'id'
+
 containers=json.load(sys.stdin)
+# Looping over all the containers until we find the right one. We print it.
 for container in containers:
-    if ('Labels' in container and
-            container['Labels'].get('io.kubernetes.pod.name') == '${KURYR_CNI_POD_NAME}' and
-            container['Labels'].get('io.kubernetes.pod.namespace') == '${POD_NAMESPACE}' and
-            container['Labels'].get('io.kubernetes.docker.type') == 'container'):
-        print(container['Id'])
+    if (label_key in container and
+            container[label_key].get('io.kubernetes.pod.name') == '${KURYR_CNI_POD_NAME}' and
+            container[label_key].get('io.kubernetes.pod.namespace') == '${POD_NAMESPACE}' and
+            container[label_key].get('io.kubernetes.container.name') != 'POD'):
+        print(container[id_key])
         break
 "
 
-# TODO(dulek): We might want to fetch socket path from config.
-CONTAINERID=\`curl --unix-socket /var/run/docker.sock http://v1.24/containers/json 2> /dev/null | python -c "\${finder}"\`
-
 envs=(\$(env | grep ^CNI_))
+
+if command -v runc > /dev/null; then
+    # We have runc binary, let's see if that works.
+    CONTAINERID=\`runc list -f json 2> /dev/null | python -c "\${finder}" runc\`
+    if [[ ! -z \${CONTAINERID} ]]; then
+        exec runc exec \${envs[@]/#/--env } "\${CONTAINERID}" kuryr-cni --config-file /etc/kuryr/kuryr.conf
+    fi
+fi
+
+# Fall back to using Docker binary.
+# TODO(dulek): We might want to fetch socket path from config.
+CONTAINERID=\`curl --unix-socket /var/run/docker.sock http://v1.24/containers/json 2> /dev/null | python -c "\${finder}" docker\`
 docker exec \${envs[@]/#/--env } -i "\${CONTAINERID}" kuryr-cni --config-file /etc/kuryr/kuryr.conf
 EOF
 

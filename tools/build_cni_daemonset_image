@@ -13,6 +13,7 @@ function print_usage() {
     echo "-c/--conf-dir    Specify the path where to place the CNI configuration"
     echo "-t/--tag         Specify string to use as the tag part of the container image name, i.e., kuryr/cni:tag"
     echo "-D/--no-daemon   Do not run CNI as a daemon"
+    echo "-p/--podman      Use podman instead of docker to build image"
 }
 
 for arg in "$@"; do
@@ -24,6 +25,7 @@ for arg in "$@"; do
         "--dockerfile")  set -- "$@" "-f" ;;
         "--tag")         set -- "$@" "-t" ;;
         "--no-daemon")   set -- "$@" "-D" ;;
+        "--podman")      set -- "$@" "-p" ;;
         "--"*)           print_usage "$arg" >&2; exit 1 ;;
         *)               set -- "$@" "$arg"
     esac
@@ -34,16 +36,20 @@ dockerfile="cni.Dockerfile"
 image_name="kuryr/cni"
 daemonized="True"
 build_args=()
+build_cmd="docker build"
 
 OPTIND=1
 
-while getopts "hf:b:c:t:D" opt; do
+while getopts "hf:b:c:t:D:p" opt; do
     case "$opt" in
         "h") print_usage; exit 0 ;;
         "D") daemonized=False ;;
         "f") dockerfile=${OPTARG} ;;
         "b") build_args+=('--build-arg' "CNI_BIN_DIR_PATH=${OPTARG}") ;;
         "c") build_args+=('--build-arg' "CNI_CONFIG_DIR_PATH=${OPTARG}") ;;
+        # Until https://github.com/containers/buildah/issues/1206 is resolved
+        # we need to use buildah directly.
+        "p") build_cmd="sudo buildah bud" && image_name="docker.io/kuryr/cni" ;;
         "t") image_name=${image_name}:${OPTARG} ;;
         "?") print_usage >&2; exit 1 ;;
     esac
@@ -52,7 +58,7 @@ done
 shift $((OPTIND - 1))
 
 # create cni daemonset image
-docker build -t "$image_name" \
+${build_cmd} -t "$image_name" \
     --build-arg "CNI_DAEMON=$daemonized" \
     "${build_args[@]}" \
     -f "$dockerfile" .

@@ -11,6 +11,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+function container_runtime {
+    if [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
+        sudo podman "$@"
+    else
+        docker "$@"
+    fi
+}
+
 function create_kuryr_account {
     if is_service_enabled kuryr-kubernetes; then
         create_service_user "kuryr" "admin"
@@ -551,59 +559,71 @@ function run_k8s_api {
         cluster_ip_range="$service_cidr"
     fi
 
-    run_container kubernetes-api \
-        --net host \
-        --restart on-failure \
-        --volume="${KURYR_HYPERKUBE_DATA_DIR}:/srv/kubernetes:rw" \
-        "${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}" \
-            /hyperkube apiserver \
-                --service-cluster-ip-range="${cluster_ip_range}" \
-                --insecure-bind-address=0.0.0.0 \
-                --insecure-port="${KURYR_K8S_API_PORT}" \
-                --etcd-servers="http://${SERVICE_HOST}:${ETCD_PORT}" \
-                --admission-control=NamespaceLifecycle,LimitRanger,ServiceAccount,ResourceQuota \
-                --client-ca-file=/srv/kubernetes/ca.crt \
-                --basic-auth-file=/srv/kubernetes/basic_auth.csv \
-                --min-request-timeout=300 \
-                --tls-cert-file=/srv/kubernetes/server.cert \
-                --tls-private-key-file=/srv/kubernetes/server.key \
-                --token-auth-file=/srv/kubernetes/known_tokens.csv \
-                --allow-privileged=true \
-                --v=2 \
-                --logtostderr=true
+    local command
+    command=(--net=host
+             --volume=${KURYR_HYPERKUBE_DATA_DIR}:/srv/kubernetes:rw)
+    if [[ ${CONTAINER_ENGINE} == 'docker' ]]; then
+        command+=(--restart=on-failure)
+    fi
+    command+=(${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}
+              /hyperkube apiserver
+                --service-cluster-ip-range=${cluster_ip_range}
+                --insecure-bind-address=0.0.0.0
+                --insecure-port=${KURYR_K8S_API_PORT}
+                --etcd-servers=http://${SERVICE_HOST}:${ETCD_PORT}
+                --admission-control=NamespaceLifecycle,LimitRanger,ServiceAccount,ResourceQuota
+                --client-ca-file=/srv/kubernetes/ca.crt
+                --basic-auth-file=/srv/kubernetes/basic_auth.csv
+                --min-request-timeout=300
+                --tls-cert-file=/srv/kubernetes/server.cert
+                --tls-private-key-file=/srv/kubernetes/server.key
+                --token-auth-file=/srv/kubernetes/known_tokens.csv
+                --allow-privileged=true
+                --v=2
+                --logtostderr=true)
+
+    run_container kubernetes-api "${command[@]}"
 }
 
 function run_k8s_controller_manager {
     # Runs Hyperkube's Kubernetes controller manager
     wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
 
-    run_container kubernetes-controller-manager \
-        --net host \
-        --volume="${KURYR_HYPERKUBE_DATA_DIR}:/srv/kubernetes:rw" \
-        --restart on-failure \
-        "${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}" \
-            /hyperkube controller-manager \
-                --master="$KURYR_K8S_API_URL" \
-                --service-account-private-key-file=/srv/kubernetes/server.key \
-                --root-ca-file=/srv/kubernetes/ca.crt \
-                --min-resync-period=3m \
-                --v=2 \
-                --logtostderr=true
+    local command
+    command=(--net=host
+             --volume=${KURYR_HYPERKUBE_DATA_DIR}:/srv/kubernetes:rw)
+    if [[ ${CONTAINER_ENGINE} == 'docker' ]]; then
+        command+=(--restart=on-failure)
+    fi
+    command+=(${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}
+              /hyperkube controller-manager
+                --master=$KURYR_K8S_API_URL
+                --service-account-private-key-file=/srv/kubernetes/server.key
+                --root-ca-file=/srv/kubernetes/ca.crt
+                --min-resync-period=3m
+                --v=2
+                --logtostderr=true)
+
+    run_container kubernetes-controller-manager "${command[@]}"
 }
 
 function run_k8s_scheduler {
     # Runs Hyperkube's Kubernetes scheduler
     wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
 
-    run_container kubernetes-scheduler \
-        --net host \
-        --volume="${KURYR_HYPERKUBE_DATA_DIR}:/srv/kubernetes:rw" \
-        --restart on-failure \
-        "${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}" \
-            /hyperkube scheduler \
-                --master="$KURYR_K8S_API_URL" \
-                --v=2 \
-                --logtostderr=true
+    local command
+    command=(--net=host
+             --volume=${KURYR_HYPERKUBE_DATA_DIR}:/srv/kubernetes:rw)
+    if [[ ${CONTAINER_ENGINE} == 'docker' ]]; then
+        command+=(--restart=on-failure)
+    fi
+    command+=(${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}
+              /hyperkube scheduler
+                --master=$KURYR_K8S_API_URL
+                --v=2
+                --logtostderr=true)
+
+    run_container kubernetes-scheduler "${command[@]}"
 }
 
 function prepare_kubeconfig {
@@ -622,16 +642,24 @@ function extract_hyperkube {
     tmp_loopback_cni_path="/tmp/loopback"
     tmp_nsenter_path="/tmp/nsenter"
 
-    hyperkube_container=$(docker run -d \
+    hyperkube_container=$(container_runtime run -d \
         --net host \
        "${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}" \
        /bin/false)
-    docker cp "${hyperkube_container}:/hyperkube" "$tmp_hyperkube_path"
-    docker cp "${hyperkube_container}:/opt/cni/bin/loopback" \
-        "$tmp_loopback_cni_path"
-    docker cp "${hyperkube_container}:/usr/bin/nsenter" "$tmp_nsenter_path"
+    if [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
+        mnt=`container_runtime mount "${hyperkube_container}"`
+        sudo cp "${mnt}/hyperkube" "$tmp_hyperkube_path"
+        sudo cp "${mnt}/opt/cni/bin/loopback" "$tmp_loopback_cni_path"
+        sudo cp "${mnt}/usr/bin/nsenter" "$tmp_nsenter_path"
+        container_runtime umount ${hyperkube_container}
+    else
+        container_runtime cp "${hyperkube_container}:/hyperkube" "$tmp_hyperkube_path"
+        container_runtime cp "${hyperkube_container}:/opt/cni/bin/loopback" \
+            "$tmp_loopback_cni_path"
+        container_runtime cp "${hyperkube_container}:/usr/bin/nsenter" "$tmp_nsenter_path"
+    fi
 
-    docker rm --force "$hyperkube_container"
+    container_runtime rm --force "$hyperkube_container"
     sudo install -o "$STACK_USER" -m 0555 -D "$tmp_hyperkube_path" \
         "$KURYR_HYPERKUBE_BINARY"
     sudo install -o "$STACK_USER" -m 0555 -D "$tmp_loopback_cni_path" \
@@ -663,16 +691,12 @@ function run_k8s_kubelet {
     # adding Python and all our CNI/binding dependencies.
     local command
     local minor_version
-    local cgroup_driver
-
-    cgroup_driver="$(docker info|awk '/Cgroup/ {print $NF}')"
 
     sudo mkdir -p "${KURYR_HYPERKUBE_DATA_DIR}/"{kubelet,kubelet.cert}
     command="$KURYR_HYPERKUBE_BINARY kubelet\
         --kubeconfig=${HOME}/.kube/config \
         --allow-privileged=true \
         --v=2 \
-        --cgroup-driver=$cgroup_driver \
         --address=0.0.0.0 \
         --enable-server \
         --network-plugin=cni \
@@ -680,6 +704,22 @@ function run_k8s_kubelet {
         --cni-conf-dir=$CNI_CONF_DIR \
         --cert-dir=${KURYR_HYPERKUBE_DATA_DIR}/kubelet.cert \
         --root-dir=${KURYR_HYPERKUBE_DATA_DIR}/kubelet"
+
+    if [[ ${CONTAINER_ENGINE} == 'docker' ]]; then
+        command+=" --cgroup-driver $(docker info|awk '/Cgroup/ {print $NF}')"
+    elif [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
+        local crio_conf
+        crio_conf=/etc/crio/crio.conf
+
+        command+=" --cgroup-driver=$(iniget ${crio_conf} crio.runtime cgroup_manager)"
+        command+=" --container-runtime=remote --container-runtime-endpoint=unix:///var/run/crio/crio.sock --runtime-request-timeout=10m"
+
+        # We need to reconfigure CRI-O in this case as well.
+        # FIXME(dulek): This should probably go to devstack-plugin-container
+        iniset -sudo ${crio_conf} crio.network network_dir \"${CNI_CONF_DIR}\"
+        iniset -sudo ${crio_conf} crio.network plugin_dir \"${CNI_BIN_DIR}\"
+        sudo systemctl --no-block restart crio.service
+    fi
 
     declare -r min_not_require_kubeconfig_ver="1.10.0"
     if [[ "$KURYR_HYPERKUBE_VERSION" == "$(echo -e "${KURYR_HYPERKUBE_VERSION}\n${min_not_require_kubeconfig_ver}" | sort -V | head -n 1)" ]]; then
