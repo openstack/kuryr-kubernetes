@@ -168,7 +168,7 @@ class VIFSriovDriver(object):
             LOG.exception("Unable to execute %s", cmd)
             raise
 
-    def is_healthy(self):
+    def is_alive(self):
         bridge_name = CONF.neutron_defaults.ovs_bridge
         try:
             with b_base.get_ipdb() as h_ipdb:

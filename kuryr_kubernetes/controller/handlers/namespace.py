@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from oslo_cache import core as cache
+from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
@@ -19,10 +21,26 @@ from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.handlers import k8s_base
+from kuryr_kubernetes import utils
 
 from neutronclient.common import exceptions as n_exc
 
 LOG = logging.getLogger(__name__)
+
+namespace_handler_caching_opts = [
+    oslo_cfg.BoolOpt('caching', default=True),
+    oslo_cfg.IntOpt('cache_time', default=120),
+]
+
+oslo_cfg.CONF.register_opts(namespace_handler_caching_opts,
+                            "namespace_handler_caching")
+
+cache.configure(oslo_cfg.CONF)
+namespace_handler_cache_region = cache.create_region()
+MEMOIZE = cache.get_memoization_decorator(
+    oslo_cfg.CONF, namespace_handler_cache_region, "namespace_handler_caching")
+
+cache.configure_cache_region(oslo_cfg.CONF, namespace_handler_cache_region)
 
 
 class NamespaceHandler(k8s_base.ResourceEventHandler):
@@ -92,6 +110,22 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
                       "namespace to be deleted")
 
         self._del_kuryrnet_crd(net_crd_id)
+
+    @MEMOIZE
+    def is_ready(self, quota):
+        neutron = clients.get_neutron_client()
+        resources = {'subnet': neutron.list_subnets,
+                     'network': neutron.list_networks,
+                     'security_group': neutron.list_security_groups}
+
+        for resource, neutron_func in resources.items():
+            resource_quota = quota[resource]
+            resource_name = resource + 's'
+            if utils.has_limit(resource_quota):
+                if not utils.is_available(resource_name, resource_quota,
+                                          neutron_func):
+                    return False
+        return True
 
     def _get_net_crd_id(self, namespace):
         try:

@@ -313,7 +313,7 @@ class TestWatcher(test_base.TestCase):
             "Connection Broken")
 
         self.client.watch.assert_called_once()
-        self.assertFalse(watcher_obj._healthy)
+        self.assertFalse(watcher_obj._alive)
         m_sys_exit.assert_called_once_with(1)
 
     @mock.patch('sys.exit')

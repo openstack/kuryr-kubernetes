@@ -12,13 +12,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from oslo_cache import core as cache
+from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 
+from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes.handlers import k8s_base
+from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
+
+np_handler_caching_opts = [
+    oslo_cfg.BoolOpt('caching', default=True),
+    oslo_cfg.IntOpt('cache_time', default=120),
+]
+
+oslo_cfg.CONF.register_opts(np_handler_caching_opts,
+                            "np_handler_caching")
+
+cache.configure(oslo_cfg.CONF)
+np_handler_cache_region = cache.create_region()
+MEMOIZE = cache.get_memoization_decorator(
+    oslo_cfg.CONF, np_handler_cache_region, "np_handler_caching")
+
+cache.configure_cache_region(oslo_cfg.CONF, np_handler_cache_region)
 
 
 class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
@@ -41,3 +60,11 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
         LOG.debug("Deleted network policy: %s", policy)
         project_id = self._drv_project.get_project(policy)
         self._drv_policy.release_network_policy(policy, project_id)
+
+    @MEMOIZE
+    def is_ready(self, quota):
+        neutron = clients.get_neutron_client()
+        sg_quota = quota['security_group']
+        sg_func = neutron.list_security_groups
+        if utils.has_limit(sg_quota):
+            return utils.is_available('security_groups', sg_quota, sg_func)

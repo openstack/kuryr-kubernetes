@@ -22,8 +22,27 @@ import mock
 from oslo_config import cfg as oslo_cfg
 
 
+def get_quota_obj():
+    return {
+        'quota': {
+            'subnet': 100,
+            'network': 100,
+            'floatingip': 50,
+            'subnetpool': -1,
+            'security_group_rule': 100,
+            'security_group': 10,
+            'router': 10,
+            'rbac_policy': 10,
+            'port': 500
+        }
+    }
+
+
 class _TestHandler(h_health.HealthHandler):
-    def is_healthy(self):
+    def is_alive(self):
+        pass
+
+    def is_ready(self):
         pass
 
 
@@ -36,27 +55,27 @@ class TestHealthServer(base.TestCase):
         self.test_client = self.srv.application.test_client()
 
     @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
+                '_components_ready')
+    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
                 '_has_kuryr_crd')
     @mock.patch('os.path.exists')
-    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
-                'verify_neutron_connection')
     @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
                 'verify_keystone_connection')
     @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
                 'verify_k8s_connection')
     def test_readiness(self, m_verify_k8s_conn, m_verify_keystone_conn,
-                       m_verify_neutron_conn, m_exist,
-                       m_has_kuryr_crd):
+                       m_exist, m_has_kuryr_crd, m_components_ready):
         m_has_kuryr_crd.side_effect = [True, True]
         m_verify_k8s_conn.return_value = True, 200
         m_exist.return_value = True
+        m_components_ready.return_value = True
 
         resp = self.test_client.get('/ready')
 
         m_verify_k8s_conn.assert_called_once()
         m_verify_keystone_conn.assert_called_once()
-        m_verify_neutron_conn.assert_called_once_with()
         self.assertEqual(m_has_kuryr_crd.call_count, 2)
+        m_components_ready.assert_called_once()
 
         self.assertEqual(200, resp.status_code)
         self.assertEqual('ok', resp.data.decode())
@@ -96,36 +115,15 @@ class TestHealthServer(base.TestCase):
         self.assertEqual(500, resp.status_code)
 
     @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
-                'verify_neutron_connection')
-    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
-                'verify_keystone_connection')
-    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
-                'verify_k8s_connection')
-    @mock.patch('os.path.exists')
-    def test_readiness_neutron_error(self, m_exist, m_verify_k8s_conn,
-                                     m_verify_keystone_conn,
-                                     m_verify_neutron_conn):
-        m_exist.return_value = True
-        m_verify_k8s_conn.return_value = True, 200
-        m_verify_neutron_conn.side_effect = Exception
-        resp = self.test_client.get('/ready')
-
-        m_verify_neutron_conn.assert_called_once()
-        self.assertEqual(500, resp.status_code)
-
-    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
                 '_has_kuryr_crd')
     @mock.patch('os.path.exists')
-    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
-                'verify_neutron_connection')
     @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
                 'verify_keystone_connection')
     @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
                 'verify_k8s_connection')
     def test_readiness_kuryrnet_crd_error(self, m_verify_k8s_conn,
                                           m_verify_keystone_conn,
-                                          m_verify_neutron_conn, m_exist,
-                                          m_has_kuryr_crd):
+                                          m_exist, m_has_kuryr_crd):
         kuryrnets_url = k_const.K8S_API_CRD_KURYRNETS
         m_has_kuryr_crd.side_effect = [False]
 
@@ -139,15 +137,12 @@ class TestHealthServer(base.TestCase):
                 '_has_kuryr_crd')
     @mock.patch('os.path.exists')
     @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
-                'verify_neutron_connection')
-    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
                 'verify_keystone_connection')
     @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
                 'verify_k8s_connection')
     def test_readiness_kuryrnetpolicy_crd_error(self, m_verify_k8s_conn,
                                                 m_verify_keystone_conn,
-                                                m_verify_neutron_conn, m_exist,
-                                                m_has_kuryr_crd):
+                                                m_exist, m_has_kuryr_crd):
         kuryrnetpolicies_url = k_const.K8S_API_CRD_KURYRNETPOLICIES
         m_has_kuryr_crd.side_effect = [True, False]
 
@@ -155,6 +150,46 @@ class TestHealthServer(base.TestCase):
 
         self.assertEqual(m_has_kuryr_crd.call_count, 2)
         m_has_kuryr_crd.assert_called_with(kuryrnetpolicies_url)
+        self.assertEqual(500, resp.status_code)
+
+    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
+                '_components_ready')
+    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
+                '_has_kuryr_crd')
+    @mock.patch('os.path.exists')
+    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
+                'verify_keystone_connection')
+    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
+                'verify_k8s_connection')
+    def test_readiness_neutron_error(self, m_verify_k8s_conn,
+                                     m_verify_keystone_conn,
+                                     m_exist, m_has_kuryr_crd,
+                                     m_components_ready):
+        m_components_ready.side_effect = Exception
+
+        resp = self.test_client.get('/ready')
+
+        m_components_ready.assert_called_once()
+        self.assertEqual(500, resp.status_code)
+
+    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
+                '_components_ready')
+    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
+                '_has_kuryr_crd')
+    @mock.patch('os.path.exists')
+    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
+                'verify_keystone_connection')
+    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
+                'verify_k8s_connection')
+    def test_readiness_components_ready_error(self, m_verify_k8s_conn,
+                                              m_verify_keystone_conn,
+                                              m_exist, m_has_kuryr_crd,
+                                              m_components_ready):
+        m_components_ready.return_value = False
+
+        resp = self.test_client.get('/ready')
+
+        m_components_ready.assert_called_once()
         self.assertEqual(500, resp.status_code)
 
     def test__has_kuryrnet_crd(self):
@@ -212,7 +247,33 @@ class TestHealthServer(base.TestCase):
 
             kubernetes.get.assert_called_once()
 
-    @mock.patch.object(_TestHandler, 'is_healthy')
+    @mock.patch.object(_TestHandler, 'is_ready')
+    def test__components_ready(self, m_status):
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        neutron.show_quota.return_value = get_quota_obj()
+        self.srv._registry = [_TestHandler()]
+        m_status.return_value = True
+
+        resp = self.srv._components_ready()
+
+        m_status.assert_called_once()
+        self.assertEqual(resp, True)
+        neutron.show_quota.assert_called_once()
+
+    @mock.patch.object(_TestHandler, 'is_ready')
+    def test__components_ready_error(self, m_status):
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        neutron.show_quota.return_value = get_quota_obj()
+        self.srv._registry = [_TestHandler()]
+        m_status.return_value = False
+
+        resp = self.srv._components_ready()
+
+        m_status.assert_called_once()
+        self.assertEqual(resp, False)
+        neutron.show_quota.assert_called_once()
+
+    @mock.patch.object(_TestHandler, 'is_alive')
     def test_liveness(self, m_status):
         m_status.return_value = True
         self.srv._registry = [_TestHandler()]
@@ -222,7 +283,7 @@ class TestHealthServer(base.TestCase):
         m_status.assert_called_once()
         self.assertEqual(200, resp.status_code)
 
-    @mock.patch.object(_TestHandler, 'is_healthy')
+    @mock.patch.object(_TestHandler, 'is_alive')
     def test_liveness_error(self, m_status):
         m_status.return_value = False
         self.srv._registry = [_TestHandler()]

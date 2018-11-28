@@ -179,7 +179,7 @@ class Watcher(health.HealthHandler):
                 if (attempts > 0 and
                    utils.exponential_sleep(deadline, attempts) == 0):
                     LOG.error("Failed watching '%s': deadline exceeded", path)
-                    self._healthy = False
+                    self._alive = False
                     return
 
                 LOG.info("Started watching '%s'", path)

@@ -173,3 +173,17 @@ def extract_pod_annotation(annotation):
         obj = vif.PodState(default_vif=obj)
 
     return obj
+
+
+def has_limit(quota):
+    NO_LIMIT = -1
+    return quota != NO_LIMIT
+
+
+def is_available(resource, resource_quota, neutron_func):
+    qnt_resources = len(neutron_func().get(resource))
+    availability = resource_quota - qnt_resources
+    if availability <= 0:
+        LOG.error("Quota exceeded for resource: %s", resource)
+        return False
+    return True

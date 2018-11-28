@@ -33,12 +33,19 @@ class HealthHandler(object):
     """Base class for health handlers."""
     def __init__(self):
         super(HealthHandler, self).__init__()
-        self._healthy = True
+        self._alive = True
+        self._ready = True
         self._manager = HealthRegister.get_instance()
         self._manager.register(self)
 
-    def set_health_status(self, healthy):
-        self._healthy = healthy
+    def set_liveness(self, alive):
+        self._alive = alive
 
-    def is_healthy(self):
-        return self._healthy
+    def set_readiness(self, ready):
+        self._ready = ready
+
+    def is_alive(self):
+        return self._alive
+
+    def is_ready(self, *args):
+        return self._ready

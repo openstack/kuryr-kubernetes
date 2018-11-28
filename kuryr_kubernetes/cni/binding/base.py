@@ -95,7 +95,7 @@ def connect(vif, instance_info, ifname, netns=None, report_health=None,
             is_default_gateway=True, container_id=None):
     driver = _get_binding_driver(vif)
     if report_health:
-        report_health(driver.is_healthy())
+        report_health(driver.is_alive())
     os_vif.plug(vif, instance_info)
     driver.connect(vif, ifname, netns, container_id)
     _configure_l3(vif, ifname, netns, is_default_gateway)
@@ -105,6 +105,6 @@ def disconnect(vif, instance_info, ifname, netns=None, report_health=None,
                container_id=None, **kwargs):
     driver = _get_binding_driver(vif)
     if report_health:
-        report_health(driver.is_healthy())
+        report_health(driver.is_alive())
     driver.disconnect(vif, ifname, netns, container_id)
     os_vif.unplug(vif, instance_info)

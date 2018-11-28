@@ -109,7 +109,7 @@ class VIFOpenVSwitchDriver(BaseBridgeDriver):
                                                      container_id)
         net_utils.delete_ovs_vif_port(vif.bridge_name, vif.vif_name)
 
-    def is_healthy(self):
+    def is_alive(self):
         bridge_name = CONF.neutron_defaults.ovs_bridge
         try:
             with b_base.get_ipdb() as h_ipdb:
