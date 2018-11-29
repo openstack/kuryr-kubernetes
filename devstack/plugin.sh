@@ -32,19 +32,6 @@ function create_kuryr_lock_dir {
     sudo install -d -o "$STACK_USER" "$KURYR_LOCK_DIR"
 }
 
-function get_distutils_data_path {
-    cat << EOF | python -
-from __future__ import print_function
-import distutils.dist
-import distutils.command.install
-
-inst = distutils.command.install.install(distutils.dist.Distribution())
-inst.finalize_options()
-
-print(inst.install_data)
-EOF
-}
-
 function configure_kuryr {
     local dir
     sudo install -d -o "$STACK_USER" "$KURYR_CONFIG_DIR"
@@ -475,13 +462,6 @@ function configure_k8s_pod_sg_rules {
                       --project "$project_id" -c ID -c Name -f value | \
                       awk '{if ($2=="default") print $1}')
     create_k8s_icmp_sg_rules "$sg_id" ingress
-}
-
-function get_hyperkube_container_cacert_setup_dir {
-    case "$1" in
-        1.[0-3].*) echo "/data";;
-        *) echo "/srv/kubernetes"
-    esac
 }
 
 function create_token() {
