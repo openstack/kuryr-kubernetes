@@ -152,6 +152,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         port_func = neutron.list_ports
         if utils.has_limit(port_quota):
             return utils.is_available('ports', port_quota, port_func)
+        return True
 
     @staticmethod
     def _is_host_network(pod):
