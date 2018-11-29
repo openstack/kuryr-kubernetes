@@ -569,11 +569,6 @@ EOF
         imagePullPolicy: Never
         name: controller
         terminationMessagePath: "/dev/termination-log"
-        env:
-        - name: KUBERNETES_NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
         volumeMounts:
         - name: config-volume
           mountPath: "/etc/kuryr/kuryr.conf"
@@ -642,6 +637,10 @@ spec:
         imagePullPolicy: Never
         command: [ "cni_ds_init" ]
         env:
+        - name: KUBERNETES_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
         - name: KURYR_CNI_POD_NAME
           valueFrom:
             fieldRef:
