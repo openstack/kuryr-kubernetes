@@ -68,3 +68,4 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
         sg_func = neutron.list_security_groups
         if utils.has_limit(sg_quota):
             return utils.is_available('security_groups', sg_quota, sg_func)
+        return True

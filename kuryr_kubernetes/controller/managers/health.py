@@ -66,7 +66,7 @@ class HealthServer(object):
 
         for component in self._registry:
             if not component.is_ready(quota):
-                LOG.debug('Controller components are not ready.')
+                LOG.debug('Controller component not ready: %s.' % component)
                 return False
         return True
 
