@@ -92,14 +92,13 @@ class K8sClient(object):
 
         return url, header
 
-    def patch_status(self, path, data):
-
-        LOG.debug("Patch_status %(path)s: %(data)s", {
+    def patch(self, field, path, data):
+        LOG.debug("Patch %(path)s: %(data)s", {
             'path': path, 'data': data})
-        path = path + '/status'
+        if field == 'status':
+            path = path + '/' + str(field)
         url, header = self._get_url_and_header(path)
-
-        response = requests.patch(url, json={"status": data},
+        response = requests.patch(url, json={field: data},
                                   headers=header, cert=self.cert,
                                   verify=self.verify_server)
         if response.ok:
