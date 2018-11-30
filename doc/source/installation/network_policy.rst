@@ -9,23 +9,27 @@ handlers at kuryr.conf (further info on how to do this can be found  at
     [kubernetes]
     enabled_handlers=vif,lb,lbaasspec,policy
 
+After that, enable also the security group drivers for policies::
+
+    [kubernetes]
+    service_security_groups_driver = policy
+    pod_security_groups_driver = policy
+
 Note you need to restart the kuryr controller after applying the above step.
 For devstack non-containerized deployments::
 
     $ sudo systemctl restart devstack@kuryr-kubernetes.service
-
 
 Same for containerized deployments::
 
     $ kubectl -n kube-system get pod | grep kuryr-controller
     $ kubectl -n kube-system delete pod KURYR_CONTROLLER_POD_NAME
 
-
 For directly enabling the driver when deploying with devstack, you just need
-to add the policy handler with::
+to add the policy handler and drivers with::
 
     KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,policy
-
+    KURYR_SG_DRIVER=policy
 
 Testing the network policy support functionality
 ------------------------------------------------
@@ -35,25 +39,25 @@ Testing the network policy support functionality
     apiVersion: networking.k8s.io/v1
     kind: NetworkPolicy
     metadata:
-    name: test-network-policy
-    namespace: default
+      name: test-network-policy
+      namespace: default
     spec:
-    podSelector:
+      podSelector:
         matchLabels:
-        role: db
-    policyTypes:
-    - Ingress
-    - Egress
-    ingress:
-    - from:
+          role: db
+      policyTypes:
+      - Ingress
+      - Egress
+      ingress:
+      - from:
         ports:
         - protocol: TCP
-        port: 6379
-    egress:
-    - to:
+          port: 6379
+      egress:
+      - to:
         ports:
         - protocol: TCP
-        port: 5978
+          port: 5978
 
 2. Apply the network policy::
 
@@ -116,10 +120,10 @@ Testing the network policy support functionality
       securityGroupName: sg-test-network-policy
       networkpolicy_spec:
         egress:
-        - ports:
+        - to:
+          ports:
           - port: 5978
             protocol: TCP
-          to:
         ingress:
         - from:
           ports:
@@ -140,9 +144,39 @@ Testing the network policy support functionality
     | tcp         | 5978:5978  | egress    |
     +-------------+------------+-----------+
 
-5. Network policies can also be updated in the following way::
+5. Create a pod::
 
-    $ kubectl patch networkpolicy test-network-policy -p '{"spec":{"ingress":[{"ports":[{"port": 8081,"protocol": "UDP"}]}]}}'
+    $ kubectl create deployment --image kuryr/demo demo
+    deployment "demo" created
+
+    $ kubectl get pod -o wide
+    NAME                    READY     STATUS    RESTARTS   AGE       IP
+    demo-5558c7865d-fdkdv   1/1       Running   0          44s       10.0.0.68
+
+6. Get the pod port and check its security group rules::
+
+    $ openstack port list --fixed-ip ip-address=10.0.0.68 -f value -c ID
+    5d29b83c-714c-4579-8987-d0c0558420b3
+
+    $ openstack port show 5d29b83c-714c-4579-8987-d0c0558420b3 | grep security_group_ids
+    | security_group_ids    | bb2ac605-56ff-4688-b4f1-1d045ad251d0
+
+    $ openstack security group rule list bb2ac605-56ff-4688-b4f1-1d045ad251d0
+    --protocol tcp -c "IP Protocol" -c "Port Range"
+    +-------------+------------+-----------+
+    | IP Protocol | Port Range | Direction |
+    +-------------+------------+-----------+
+    | tcp         | 6379:6379  | ingress   |
+    | tcp         | 5978:5978  | egress    |
+    +-------------+------------+-----------+
+
+7. Try to curl the pod on port 8080 (hint: it won't work!)::
+
+    $ curl 10.0.0.68:8080
+
+8. Update network policy to allow ingress 8080 port::
+
+    $ kubectl patch networkpolicy test-network-policy -p '{"spec":{"ingress":[{"ports":[{"port": 8080,"protocol": "TCP"}]}]}}'
     networkpolicy "test-network-policy" patched
 
     $ kubectl get knp np-test-network-policy -o yaml
@@ -178,9 +212,9 @@ Testing the network policy support functionality
           direction: ingress
           ethertype: IPv4
           id: 6598aa1f-4f94-4fb2-81ce-d3649ba28f33
-          port_range_max: 8081
-          port_range_min: 8081
-          protocol: udp
+          port_range_max: 8080
+          port_range_min: 8080
+          protocol: tcp
           security_group_id: cdee7815-3b49-4a3e-abc8-31e384ab75c5
       securityGroupId: cdee7815-3b49-4a3e-abc8-31e384ab75c5
       networkpolicy_spec:
@@ -191,8 +225,8 @@ Testing the network policy support functionality
           to:
         ingress:
         - ports:
-          - port: 8081
-            protocol: UDP
+          - port: 8080
+            protocol: TCP
         policyTypes:
         - Ingress
         - Egress
@@ -201,16 +235,18 @@ Testing the network policy support functionality
     +-------------+------------+-----------+
     | IP Protocol | Port Range | Direction |
     +-------------+------------+-----------+
-    | tcp         | 6379:6379  | ingress   |
-    | udp         | 8081:8081  | egress    |
+    | tcp         | 8080:8080  | ingress   |
+    | tcp         | 5978:5978  | egress    |
     +-------------+------------+-----------+
 
-6. Confirm the teardown of the resources once the network policy is removed::
+9. Try to curl the pod ip after patching the network policy::
+
+    $ curl 10.0.0.68:8080
+    demo-5558c7865d-fdkdv: HELLO! I AM ALIVE!!!
+
+10. Confirm the teardown of the resources once the network policy is removed::
 
     $ kubectl delete -f network_policy.yml
-
     $ kubectl get kuryrnetpolicies
-
     $ kubectl get networkpolicies
-
     $ openstack security group list | grep sg-test-network-policy

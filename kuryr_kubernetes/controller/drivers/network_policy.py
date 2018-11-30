@@ -299,6 +299,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         networkpolicy_name = policy['metadata']['name']
         netpolicy_crd_name = "np-" + networkpolicy_name
         namespace = policy['metadata']['namespace']
+        pod_selector = policy['spec'].get('podSelector')
 
         netpolicy_crd = {
             'apiVersion': 'openstack.org/v1',
@@ -320,6 +321,14 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 'networkpolicy_spec': policy['spec']
             },
         }
+        if pod_selector:
+            try:
+                netpolicy_crd['metadata']['labels'] = pod_selector[
+                    'matchLabels']
+            except KeyError:
+                # NOTE(ltomasbo): Only supporting matchLabels for now
+                LOG.info("Pod Selector only allowed with matchLabels")
+
         try:
             LOG.debug("Creating KuryrNetPolicy CRD %s" % netpolicy_crd)
             kubernetes_post = '{}/{}/kuryrnetpolicies'.format(
