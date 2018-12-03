@@ -731,8 +731,8 @@ EOF
     # Make oc easily available
     cat << EOF | sudo tee /usr/local/bin/oc
 #!/bin/bash
-CURL_CA_BUNDLE=${OPENSHIFT_DATA_DIR}/ca.crt \
-    KUBECONFIG=${OPENSHIFT_DATA_DIR}/admin.kubeconfig \
+CURL_CA_BUNDLE=${OPENSHIFT_DATA_DIR}/master/ca.crt \
+    KUBECONFIG=${OPENSHIFT_DATA_DIR}/master/admin.kubeconfig \
     ${OPENSHIFT_BIN}/oc "\$@"
 EOF
     sudo chmod a+x /usr/local/bin/oc
@@ -740,8 +740,8 @@ EOF
     # Make kubectl easily available
     cat << EOF | sudo tee /usr/local/bin/kubectl
 #!/bin/bash
-CURL_CA_BUNDLE=${OPENSHIFT_DATA_DIR}/ca.crt \
-    KUBECONFIG=${OPENSHIFT_DATA_DIR}/admin.kubeconfig \
+CURL_CA_BUNDLE=${OPENSHIFT_DATA_DIR}/master/ca.crt \
+    KUBECONFIG=${OPENSHIFT_DATA_DIR}/master/admin.kubeconfig \
     ${OPENSHIFT_BIN}/kubectl "\$@"
 EOF
     sudo chmod a+x /usr/local/bin/kubectl
@@ -779,28 +779,28 @@ function run_openshift_master {
         "--portal-net=${portal_net}" \
         "--listen=0.0.0.0:${OPENSHIFT_API_PORT}" \
         "--master=${OPENSHIFT_API_URL}" \
-        "--write-config=${OPENSHIFT_DATA_DIR}"
+        "--write-config=${OPENSHIFT_DATA_DIR}/master"
 
     # Enable externalIPs
-    sed -i 's/externalIPNetworkCIDRs: null/externalIPNetworkCIDRs: ["0.0.0.0\/0"]/' "${OPENSHIFT_DATA_DIR}/master-config.yaml"
+    sed -i 's/externalIPNetworkCIDRs: null/externalIPNetworkCIDRs: ["0.0.0.0\/0"]/' "${OPENSHIFT_DATA_DIR}/master/master-config.yaml"
 
     # Reconfigure Kuryr-Kubernetes to use the certs generated
-    iniset "$KURYR_CONFIG" kubernetes ssl_client_crt_file "${OPENSHIFT_DATA_DIR}/admin.crt"
-    iniset "$KURYR_CONFIG" kubernetes ssl_client_key_file "${OPENSHIFT_DATA_DIR}/admin.key"
-    iniset "$KURYR_CONFIG" kubernetes ssl_ca_crt_file "${OPENSHIFT_DATA_DIR}/ca.crt"
+    iniset "$KURYR_CONFIG" kubernetes ssl_client_crt_file "${OPENSHIFT_DATA_DIR}/master/admin.crt"
+    iniset "$KURYR_CONFIG" kubernetes ssl_client_key_file "${OPENSHIFT_DATA_DIR}/master/admin.key"
+    iniset "$KURYR_CONFIG" kubernetes ssl_ca_crt_file "${OPENSHIFT_DATA_DIR}/master/ca.crt"
 
     sudo chown "${STACK_USER}:${STACK_USER}" -R "$OPENSHIFT_DATA_DIR"
 
     # Generate kubelet kubeconfig
     "${OPENSHIFT_BIN}/oc" adm create-kubeconfig \
-        "--client-key=${OPENSHIFT_DATA_DIR}/master.kubelet-client.key" \
-        "--client-certificate=${OPENSHIFT_DATA_DIR}/master.kubelet-client.crt" \
-        "--certificate-authority=${OPENSHIFT_DATA_DIR}/ca.crt" \
+        "--client-key=${OPENSHIFT_DATA_DIR}/master/master.kubelet-client.key" \
+        "--client-certificate=${OPENSHIFT_DATA_DIR}/master/master.kubelet-client.crt" \
+        "--certificate-authority=${OPENSHIFT_DATA_DIR}/master/ca.crt" \
         "--master=${OPENSHIFT_API_URL}" \
-        "--kubeconfig=${OPENSHIFT_DATA_DIR}/master.kubelet-client.kubeconfig"
+        "--kubeconfig=${OPENSHIFT_DATA_DIR}/master/master.kubelet-client.kubeconfig"
 
     cmd="/usr/local/bin/openshift start master \
-        --config=${OPENSHIFT_DATA_DIR}/master-config.yaml"
+        --config=${OPENSHIFT_DATA_DIR}/master/master-config.yaml"
 
     wait_for "etcd" "http://${SERVICE_HOST}:${ETCD_PORT}/v2/machines"
 
@@ -820,9 +820,9 @@ function run_openshift_master {
 #   Description: Gives the system:admin permissions over the cluster
 function make_admin_cluster_admin {
     wait_for "OpenShift API Server" "$OPENSHIFT_API_URL" \
-        "${OPENSHIFT_DATA_DIR}/ca.crt"
+        "${OPENSHIFT_DATA_DIR}/master/ca.crt"
     /usr/local/bin/oc adm policy add-cluster-role-to-user cluster-admin admin \
-        "--config=${OPENSHIFT_DATA_DIR}/openshift-master.kubeconfig"
+        "--config=${OPENSHIFT_DATA_DIR}/master/openshift-master.kubeconfig"
 }
 
 # run_openshift_node
@@ -834,7 +834,7 @@ function run_openshift_node {
     sudo mkdir -p "$CNI_BIN_DIR"
     curl -L "$OPENSHIFT_CNI_BINARY_URL" | sudo tar -C "$CNI_BIN_DIR" -xzvf - ./loopback
     command="/usr/local/bin/openshift start node \
-        --kubeconfig=${OPENSHIFT_DATA_DIR}/master.kubelet-client.kubeconfig \
+        --kubeconfig=${OPENSHIFT_DATA_DIR}/master/master.kubelet-client.kubeconfig \
         --enable=kubelet,plugins \
         --network-plugin=cni \
         --listen=https://0.0.0.0:8442"
@@ -842,7 +842,7 @@ function run_openshift_node {
     # Link master config necessary for bootstrapping
     # TODO: This needs to be generated so we don't depend on it on multinode
     mkdir -p "${OPENSHIFT_BIN}/openshift.local.config"
-    ln -fs "${OPENSHIFT_DATA_DIR}" "${OPENSHIFT_BIN}/openshift.local.config/master"
+    ln -fs "${OPENSHIFT_DATA_DIR}/master" "${OPENSHIFT_BIN}/openshift.local.config/master"
     mkdir -p "${OPENSHIFT_DATA_DIR}/node"
     ln -fs "${OPENSHIFT_DATA_DIR}/node" "${OPENSHIFT_BIN}/openshift.local.config/node"
 
@@ -1285,11 +1285,11 @@ function run_openshift_registry {
     mkdir -p "${OPENSHIFT_DATA_DIR}/registry"
     registry_yaml=$(mktemp)
     oc adm registry \
-        --config=${OPENSHIFT_DATA_DIR}/admin.kubeconfig \
+        --config=${OPENSHIFT_DATA_DIR}/master/admin.kubeconfig \
         --service-account=registry \
         --mount-host=${OPENSHIFT_DATA_DIR}/registry \
-        --tls-certificate=${OPENSHIFT_DATA_DIR}/registry.crt \
-        --tls-key=${OPENSHIFT_DATA_DIR}/registry.key \
+        --tls-certificate=${OPENSHIFT_DATA_DIR}/master/registry.crt \
+        --tls-key=${OPENSHIFT_DATA_DIR}/master/registry.key \
         -o yaml > $registry_yaml
 
     python - <<EOF "$registry_yaml" "$registry_ip"
@@ -1353,12 +1353,12 @@ function oc_generate_server_certificates {
     name="$1"
     cert_hostnames="$2"
     oc adm ca create-server-cert \
-    --signer-cert="${OPENSHIFT_DATA_DIR}/ca.crt" \
-    --signer-key="${OPENSHIFT_DATA_DIR}/ca.key" \
-    --signer-serial="${OPENSHIFT_DATA_DIR}/ca.serial.txt" \
+    --signer-cert="${OPENSHIFT_DATA_DIR}/master/ca.crt" \
+    --signer-key="${OPENSHIFT_DATA_DIR}/master/ca.key" \
+    --signer-serial="${OPENSHIFT_DATA_DIR}/master/ca.serial.txt" \
     --hostnames="$cert_hostnames" \
-    --cert="${OPENSHIFT_DATA_DIR}/${name}.crt" \
-    --key="${OPENSHIFT_DATA_DIR}/${name}.key"
+    --cert="${OPENSHIFT_DATA_DIR}/master/${name}.crt" \
+    --key="${OPENSHIFT_DATA_DIR}/master/${name}.key"
 }
 
 # docker_install_ca_certs
@@ -1373,7 +1373,7 @@ function docker_install_ca_certs {
     for hostname in ${registry_hostnames[@]}; do
         destdir="/etc/docker/certs.d/${hostname}:5000"
         sudo install -d -o "$STACK_USER" "$destdir"
-        sudo install -o "$STACK_USER" "${OPENSHIFT_DATA_DIR}/ca.crt" "${destdir}/"
+        sudo install -o "$STACK_USER" "${OPENSHIFT_DATA_DIR}/master/ca.crt" "${destdir}/"
     done
 }
 
