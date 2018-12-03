@@ -402,10 +402,7 @@ EOF
 
     cat $controller_conf_path | indent >> "${output_dir}/config_map.yml"
 
-    # kuryr-cni config (different token_file location)
-    # token_file = /etc/kuryr/token
-    # ssl_ca_crt_file = /etc/kuryr/ca.crt
-    # ssl_verify_server_crt = true
+    # kuryr-cni config
     cat >> "${output_dir}/config_map.yml" << EOF
   kuryr-cni.conf: |
 EOF
