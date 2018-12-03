@@ -106,6 +106,9 @@ class NoopVIFPool(base.VIFPoolDriver):
     def activate_vif(self, pod, vif):
         self._drv_vif.activate_vif(pod, vif)
 
+    def update_vif_sgs(self, pod, sgs):
+        self._drv_vif.update_vif_sgs(pod, sgs)
+
     def sync_pools(self):
         pass
 
@@ -148,6 +151,9 @@ class BaseVIFPool(base.VIFPoolDriver):
 
     def activate_vif(self, pod, vif):
         self._drv_vif.activate_vif(pod, vif)
+
+    def update_vif_sgs(self, pod, sgs):
+        self._drv_vif.update_vif_sgs(pod, sgs)
 
     def _get_pool_size(self, pool_key=None):
         return len(self._available_ports_pools.get(pool_key, []))
@@ -833,6 +839,10 @@ class MultiVIFPool(base.VIFPoolDriver):
     def activate_vif(self, pod, vif):
         vif_drv_alias = self._get_vif_drv_alias(vif)
         self._vif_drvs[vif_drv_alias].activate_vif(pod, vif)
+
+    def update_vif_sgs(self, pod, sgs):
+        pod_vif_type = self._get_pod_vif_type(pod)
+        self._vif_drvs[pod_vif_type].update_vif_sgs(pod, sgs)
 
     def delete_network_pools(self, net_id):
         for vif_drv in self._vif_drvs.values():

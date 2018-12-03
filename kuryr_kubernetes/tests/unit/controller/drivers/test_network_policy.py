@@ -90,7 +90,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         self._driver = network_policy.NetworkPolicyDriver()
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_get_kuryrnetpolicy_crd', return_value=False)
+                       'get_kuryrnetpolicy_crd', return_value=False)
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        'create_security_group_rules_from_network_policy')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
@@ -102,22 +102,47 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         m_create.assert_called_once_with(self._policy, self._project_id)
         m_update.assert_not_called()
 
+    @mock.patch.object(network_policy.NetworkPolicyDriver, 'affected_pods')
+    @mock.patch.object(network_policy.NetworkPolicyDriver, 'namespaced_pods')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_get_kuryrnetpolicy_crd', return_value=True)
+                       'get_kuryrnetpolicy_crd', return_value=True)
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        'create_security_group_rules_from_network_policy')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        'update_security_group_rules_from_network_policy')
-    def test_ensure_network_policy_with_existing_crd(self, m_update, m_create,
-                                                     m_get_crd):
+    def test_ensure_network_policy_with_existing_crd(
+            self, m_update, m_create, m_get_crd, m_namespaced, m_affected):
+        previous_selector = mock.sentinel.previous_selector
+        m_update.return_value = previous_selector
         self._driver.ensure_network_policy(self._policy, self._project_id)
 
         m_get_crd.assert_called_once_with(self._policy)
         m_create.assert_not_called()
         m_update.assert_called_once_with(self._policy)
+        m_affected.assert_called_once_with(self._policy, previous_selector)
+        m_namespaced.assert_not_called()
+
+    @mock.patch.object(network_policy.NetworkPolicyDriver, 'affected_pods')
+    @mock.patch.object(network_policy.NetworkPolicyDriver, 'namespaced_pods')
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       'get_kuryrnetpolicy_crd', return_value=True)
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       'create_security_group_rules_from_network_policy')
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       'update_security_group_rules_from_network_policy')
+    def test_ensure_network_policy_with_existing_crd_no_selector(
+            self, m_update, m_create, m_get_crd, m_namespaced, m_affected):
+        m_update.return_value = None
+        self._driver.ensure_network_policy(self._policy, self._project_id)
+
+        m_get_crd.assert_called_once_with(self._policy)
+        m_create.assert_not_called()
+        m_update.assert_called_once_with(self._policy)
+        m_affected.assert_not_called()
+        m_namespaced.assert_called_once_with(self._policy)
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_get_kuryrnetpolicy_crd')
+                       'get_kuryrnetpolicy_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_add_kuryrnetpolicy_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
@@ -136,7 +161,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         m_add_crd.assert_called_once()
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_get_kuryrnetpolicy_crd')
+                       'get_kuryrnetpolicy_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_add_kuryrnetpolicy_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
@@ -156,7 +181,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         m_add_crd.assert_called_once()
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_get_kuryrnetpolicy_crd')
+                       'get_kuryrnetpolicy_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_add_kuryrnetpolicy_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
@@ -186,21 +211,23 @@ class TestNetworkPolicyDriver(test_base.TestCase):
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_create_security_group_rule')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_get_kuryrnetpolicy_crd')
+                       'get_kuryrnetpolicy_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        'parse_network_policy_rules')
     def test_update_security_group_rules(self, m_parse, m_get_crd,
                                          m_create_sgr):
+        policy = self._policy.copy()
+        policy['spec']['podSelector'] = {'matchLabels': {'test': 'test'}}
         m_get_crd.return_value = self._crd
         m_parse.return_value = (self._i_rules, self._e_rules)
         self._driver.update_security_group_rules_from_network_policy(
-            self._policy)
-        m_parse.assert_called_with(self._policy, self._sg_id)
+            policy)
+        m_parse.assert_called_with(policy, self._sg_id)
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_create_security_group_rule')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_get_kuryrnetpolicy_crd')
+                       'get_kuryrnetpolicy_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        'parse_network_policy_rules')
     def test_update_security_group_rules_with_k8s_exc(self, m_parse, m_get_crd,
@@ -237,3 +264,36 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         self._policy['spec'] = {}
         self._driver.parse_network_policy_rules(self._policy, self._sg_id)
         m_create.assert_not_called()
+
+    def test_knps_on_namespace(self):
+        self.kubernetes.get.return_value = {'items': ['not-empty']}
+        namespace = 'test1'
+
+        resp = self._driver.knps_on_namespace(namespace)
+        self.assertTrue(resp)
+
+    def test_knps_on_namespace_empty(self):
+        self.kubernetes.get.return_value = {'items': []}
+        namespace = 'test1'
+
+        resp = self._driver.knps_on_namespace(namespace)
+        self.assertFalse(resp)
+
+    @mock.patch.object(network_policy.NetworkPolicyDriver, 'namespaced_pods')
+    def test_affected_pods(self, m_namespaced):
+        self._driver.affected_pods(self._policy)
+        m_namespaced.assert_called_once_with(self._policy)
+        self.kubernetes.assert_not_called()
+
+    @mock.patch.object(network_policy.NetworkPolicyDriver, 'namespaced_pods')
+    def test_affected_pods_with_podselector(self, m_namespaced):
+        self.kubernetes.get.return_value = {'items': []}
+        selector = {'matchLabels': {'test': 'test'}}
+        self._driver.affected_pods(self._policy, selector)
+        m_namespaced.assert_not_called()
+
+    def test_namespaced_pods(self):
+        self.kubernetes.get.return_value = {'items': []}
+
+        resp = self._driver.namespaced_pods(self._policy)
+        self.assertEqual([], resp)

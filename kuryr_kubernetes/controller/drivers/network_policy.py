@@ -13,6 +13,8 @@
 # limitations under the License.
 
 
+from six.moves.urllib.parse import urlencode
+
 from oslo_log import log as logging
 
 from neutronclient.common import exceptions as n_exc
@@ -38,11 +40,22 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         Triggered by events from network policies, this method ensures that
         security groups and security group rules are created or updated in
         reaction to kubernetes network policies events.
+
+        In addition it returns the pods affected by the policy:
+        - Creation: pods on the namespace of the created policy
+        - Update: pods that needs to be updated in case of PodSelector
+        modification, i.e., the pods that were affected by the previous
+        PodSelector
         """
         LOG.debug("Creating network policy %s", policy['metadata']['name'])
 
-        if self._get_kuryrnetpolicy_crd(policy):
-            self.update_security_group_rules_from_network_policy(policy)
+        if self.get_kuryrnetpolicy_crd(policy):
+            previous_selector = (
+                self.update_security_group_rules_from_network_policy(policy))
+            if previous_selector:
+                return self.affected_pods(policy, previous_selector)
+            if previous_selector is None:
+                return self.namespaced_pods(policy)
         else:
             self.create_security_group_rules_from_network_policy(policy,
                                                                  project_id)
@@ -53,7 +66,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         This method updates security group rules based on CRUD events gotten
         from a configuration or patch to an existing network policy
         """
-        crd = self._get_kuryrnetpolicy_crd(policy)
+        crd = self.get_kuryrnetpolicy_crd(policy)
         crd_name = crd['metadata']['name']
         LOG.debug("Already existing CRD %s", crd_name)
         sg_id = crd['spec']['securityGroupId']
@@ -63,6 +76,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         existing_e_rules = crd['spec'].get('egressSgRules')
         if existing_i_rules or existing_e_rules:
             existing_sg_rules = existing_i_rules + existing_e_rules
+        existing_pod_selector = crd['spec'].get('podSelector')
         # Parse network policy update and get new ruleset
         i_rules, e_rules = self.parse_network_policy_rules(policy, sg_id)
         current_sg_rules = i_rules + e_rules
@@ -98,15 +112,24 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     if sg_rule == e_rule:
                         e_rule["security_group_rule"]["id"] = sgr_id
         # Annotate kuryrnetpolicy CRD with current policy and ruleset
-        LOG.debug('Patching KuryrNetPolicy CRD %s', crd_name)
+        pod_selector = policy['spec'].get('podSelector')
+        LOG.debug('Patching KuryrNetPolicy CRD %s' % crd_name)
         try:
             self.kubernetes.patch('spec', crd['metadata']['selfLink'],
                                   {'ingressSgRules': i_rules,
                                    'egressSgRules': e_rules,
+                                   'podSelector': pod_selector,
                                    'networkpolicy_spec': policy['spec']})
+            # TODO(ltomasbo): allow patching both spec and metadata in the
+            # same call
+            self.kubernetes.patch('metadata', crd['metadata']['selfLink'],
+                                  {'labels': pod_selector.get('matchLabels')})
         except exceptions.K8sClientException:
             LOG.exception('Error updating kuryrnetpolicy CRD %s', crd_name)
             raise
+        if existing_pod_selector != pod_selector:
+            return existing_pod_selector
+        return False
 
     def create_security_group_rules_from_network_policy(self, policy,
                                                         project_id):
@@ -154,7 +177,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             self.neutron.delete_security_group(sg['security_group']['id'])
             raise
         try:
-            crd = self._get_kuryrnetpolicy_crd(policy)
+            crd = self.get_kuryrnetpolicy_crd(policy)
             self.kubernetes.annotate(policy['metadata']['selfLink'],
                                      {"kuryrnetpolicy_selfLink":
                                       crd['metadata']['selfLink']})
@@ -260,18 +283,19 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                       security_group_rule_id)
             raise
 
-    def release_network_policy(self, policy, project_id):
-        netpolicy_crd = self._get_kuryrnetpolicy_crd(policy)
+    def release_network_policy(self, netpolicy_crd):
         if netpolicy_crd is not None:
             try:
                 sg_id = netpolicy_crd['spec']['securityGroupId']
                 self.neutron.delete_security_group(sg_id)
             except n_exc.NotFound:
                 LOG.debug("Security Group not found: %s", sg_id)
-                raise
             except n_exc.Conflict:
-                LOG.debug("Segurity Group already in use: %s", sg_id)
-                raise
+                LOG.debug("Security Group already in use: %s", sg_id)
+                # raising ResourceNotReady to retry this action in case ports
+                # associated to affected pods are not updated on time, i.e.,
+                # they are still using the security group to be removed
+                raise exceptions.ResourceNotReady(sg_id)
             except n_exc.NeutronClientException:
                 LOG.exception("Error deleting security group %s.", sg_id)
                 raise
@@ -279,7 +303,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 netpolicy_crd['metadata']['name'],
                 netpolicy_crd['metadata']['namespace'])
 
-    def _get_kuryrnetpolicy_crd(self, policy):
+    def get_kuryrnetpolicy_crd(self, policy):
         netpolicy_crd_name = "np-" + policy['metadata']['name']
         netpolicy_crd_namespace = policy['metadata']['namespace']
         try:
@@ -293,6 +317,19 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             LOG.exception("Kubernetes Client Exception.")
             raise
         return netpolicy_crd
+
+    def knps_on_namespace(self, namespace):
+        try:
+            netpolicy_crds = self.kubernetes.get(
+                '{}/{}/kuryrnetpolicies'.format(
+                    constants.K8S_API_CRD_NAMESPACES,
+                    namespace))
+        except exceptions.K8sClientException:
+            LOG.exception("Kubernetes Client Exception.")
+            raise
+        if netpolicy_crds.get('items'):
+            return True
+        return False
 
     def _add_kuryrnetpolicy_crd(self, policy,  project_id, sg_id, i_rules,
                                 e_rules):
@@ -318,6 +355,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 'securityGroupId': sg_id,
                 'ingressSgRules': i_rules,
                 'egressSgRules': e_rules,
+                'podSelector': pod_selector,
                 'networkpolicy_spec': policy['spec']
             },
         }
@@ -353,3 +391,32 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             LOG.exception("Kubernetes Client Exception deleting kuryrnetpolicy"
                           " CRD.")
             raise
+
+    def affected_pods(self, policy, selector=None):
+        if selector:
+            pod_selector = selector
+        else:
+            pod_selector = policy['spec'].get('podSelector')
+        if pod_selector:
+            pod_label = pod_selector['matchLabels']
+            pod_namespace = policy['metadata']['namespace']
+            # Removing pod-template-hash as pods will not have it and
+            # otherwise there will be no match
+            pod_label.pop('pod-template-hash', None)
+            pod_label = urlencode(pod_label)
+            # NOTE(ltomasbo): K8s API does not accept &, so we need to AND
+            # the matchLabels with ',' or '%2C' instead
+            pod_label = pod_label.replace('&', ',')
+            pods = self.kubernetes.get(
+                '{}/namespaces/{}/pods?labelSelector={}'.format(
+                    constants.K8S_API_BASE, pod_namespace, pod_label))
+            return pods.get('items')
+        else:
+            # NOTE(ltomasbo): It affects all the pods on the namespace
+            return self.namespaced_pods(policy)
+
+    def namespaced_pods(self, policy):
+        pod_namespace = policy['metadata']['namespace']
+        pods = self.kubernetes.get('{}/namespaces/{}/pods'.format(
+            constants.K8S_API_BASE, pod_namespace))
+        return pods.get('items')

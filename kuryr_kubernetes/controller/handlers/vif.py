@@ -21,6 +21,7 @@ from oslo_serialization import jsonutils
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base as drivers
+from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes import objects
@@ -80,7 +81,8 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             # where certain pods/namespaces/nodes can be managed by other
             # networking solutions/CNI drivers.
             return
-        state = self._get_pod_state(pod)
+        state = driver_utils.get_pod_state(pod)
+        LOG.debug("Got VIFs from annotation: %r", state)
 
         if not state:
             project_id = self._drv_project.get_project(pod)
@@ -139,7 +141,8 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             # released.
             security_groups = []
 
-        state = self._get_pod_state(pod)
+        state = driver_utils.get_pod_state(pod)
+        LOG.debug("Got VIFs from annotation: %r", state)
         if state:
             for ifname, vif in state.vifs.items():
                 self._drv_vif_pool.release_vif(pod, vif, project_id,
@@ -187,15 +190,3 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         k8s.annotate(pod['metadata']['selfLink'],
                      {constants.K8S_ANNOTATION_VIF: annotation},
                      resource_version=pod['metadata']['resourceVersion'])
-
-    def _get_pod_state(self, pod):
-        # TODO(ivc): same as '_set_vif'
-        try:
-            annotations = pod['metadata']['annotations']
-            state_annotation = annotations[constants.K8S_ANNOTATION_VIF]
-        except KeyError:
-            return None
-        state_annotation = jsonutils.loads(state_annotation)
-        state = utils.extract_pod_annotation(state_annotation)
-        LOG.debug("Got VIFs from annotation: %r", state)
-        return state

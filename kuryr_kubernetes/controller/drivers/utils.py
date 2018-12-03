@@ -13,8 +13,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_serialization import jsonutils
+
+from kuryr_kubernetes import constants
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes import os_vif_util as ovu
+from kuryr_kubernetes import utils
 
 
 def get_network_id(subnets):
@@ -39,3 +43,14 @@ def get_device_id(pod):
 
 def get_host_id(pod):
     return pod['spec']['nodeName']
+
+
+def get_pod_state(pod):
+    try:
+        annotations = pod['metadata']['annotations']
+        state_annotation = annotations[constants.K8S_ANNOTATION_VIF]
+    except KeyError:
+        return None
+    state_annotation = jsonutils.loads(state_annotation)
+    state = utils.extract_pod_annotation(state_annotation)
+    return state
