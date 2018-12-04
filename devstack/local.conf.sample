@@ -176,7 +176,6 @@ enable_service kuryr-kubernetes
 # Since Rocky release this is a default deployment configuration.
 enable_service kuryr-daemon
 
-
 # Containerized Kuryr
 # ===================
 #
@@ -192,6 +191,14 @@ enable_service kuryr-daemon
 # a nested deployment is desired, the corresponding driver need to be set,
 # e.g.: nested-vlan or nested-macvlan
 # KURYR_POD_VIF_DRIVER=neutron-vif
+
+# Kuryr Enabled Handlers
+# ======================
+#
+# By default, some Kuryr Handlers are set for DevStack installation. This can be
+# further tweaked in order to enable additional ones such as Network Policy. If
+# you want to add additional handlers those can be set here:
+# KURYR_ENABLED_HANDLERS = vif,lb,lbaasspec
 
 # Kuryr Ports Pools
 # =================
