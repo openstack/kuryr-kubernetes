@@ -125,7 +125,7 @@ function configure_kuryr {
 function generate_containerized_kuryr_resources {
     local cni_daemon
     cni_daemon=$1
-    if [[ KURYR_CONTROLLER_REPLICAS -eq 1 ]]; then
+    if [[ $KURYR_CONTROLLER_REPLICAS -eq 1 ]]; then
         KURYR_CONTROLLER_HA="False"
     else
         KURYR_CONTROLLER_HA="True"
