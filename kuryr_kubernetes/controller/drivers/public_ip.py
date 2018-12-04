@@ -26,10 +26,11 @@ class BasePubIpDriver(object):
     """Base class for public IP functionality."""
 
     @abc.abstractmethod
-    def is_ip_available(self, ip_addr):
+    def is_ip_available(self, ip_addr, port_id_to_be_associated):
         """check availability of ip address
 
         :param ip_address:
+        :param port_id_to_be_associated
         :returns res_id in case ip is available returns resources id else None
 
         """
@@ -37,13 +38,14 @@ class BasePubIpDriver(object):
 
     @abc.abstractmethod
     def allocate_ip(self, pub_net_id, project_id, pub_subnet_id=None,
-                    description=None):
+                    description=None, port_id_to_be_associated=None):
         """allocate ip address from public network id
 
         :param pub_net_id: public network id
         :param project_id:
         :param pub_subnet_id: public subnet id (Optional)
         :param description: string describing request (Optional)
+        :param port_id_to_be_associated: (optional)
         :returns res_id , ip_addr
                 :res_id - resource id
                 :ip_addr - ip aaddress
@@ -84,7 +86,7 @@ class BasePubIpDriver(object):
 class FipPubIpDriver(BasePubIpDriver):
     """Floating IP implementation for public IP capability ."""
 
-    def is_ip_available(self, ip_addr):
+    def is_ip_available(self, ip_addr, port_id_to_be_associated=None):
         if ip_addr:
             neutron = clients.get_neutron_client()
             floating_ips_list = neutron.list_floatingips(
@@ -92,9 +94,11 @@ class FipPubIpDriver(BasePubIpDriver):
             for entry in floating_ips_list['floatingips']:
                 if not entry:
                     continue
-                if (entry['floating_ip_address'] == ip_addr and
-                        not entry['port_id']):
-                    return entry['id']
+                if (entry['floating_ip_address'] == ip_addr):
+                    if not entry['port_id'] or (
+                            port_id_to_be_associated is not None
+                            and entry['port_id'] == port_id_to_be_associated):
+                        return entry['id']
             # floating IP not available
             LOG.error("Floating IP=%s not available", ip_addr)
         else:
@@ -102,8 +106,21 @@ class FipPubIpDriver(BasePubIpDriver):
         return None
 
     def allocate_ip(self, pub_net_id, project_id, pub_subnet_id=None,
-                    description=None):
+                    description=None, port_id_to_be_associated=None):
         neutron = clients.get_neutron_client()
+
+        if port_id_to_be_associated is not None:
+            floating_ips_list = neutron.list_floatingips(
+                port_id=port_id_to_be_associated)
+            for entry in floating_ips_list['floatingips']:
+                if not entry:
+                    continue
+                if (entry['floating_ip_address']):
+                    LOG.debug('FIP %s already allocated to port %s',
+                              entry['floating_ip_address'],
+                              port_id_to_be_associated)
+                    return entry['id'], entry['floating_ip_address']
+
         request = {'floatingip': {
             'tenant_id': project_id,
             'project_id': project_id,
