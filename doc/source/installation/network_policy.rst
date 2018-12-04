@@ -50,11 +50,17 @@ Testing the network policy support functionality
       - Egress
       ingress:
       - from:
+        - namespaceSelector:
+            matchLabels:
+              project: default
         ports:
         - protocol: TCP
           port: 6379
       egress:
       - to:
+        - namespaceSelector:
+            matchLabels:
+              project: default
         ports:
         - protocol: TCP
           port: 5978
@@ -121,11 +127,17 @@ Testing the network policy support functionality
       networkpolicy_spec:
         egress:
         - to:
+          - namespaceSelector:
+              matchLabels:
+                project: default
           ports:
           - port: 5978
             protocol: TCP
         ingress:
         - from:
+          - namespaceSelector:
+              matchLabels:
+                project: default
           ports:
           - port: 6379
             protocol: TCP
@@ -223,10 +235,17 @@ Testing the network policy support functionality
           - port: 5978
             protocol: TCP
           to:
+          - namespaceSelector:
+              matchLabels:
+                project: default
         ingress:
         - ports:
           - port: 8080
             protocol: TCP
+          from:
+          - namespaceSelector:
+              matchLabels:
+                project: default
         policyTypes:
         - Ingress
         - Egress
@@ -243,6 +262,10 @@ Testing the network policy support functionality
 
     $ curl 10.0.0.68:8080
     demo-5558c7865d-fdkdv: HELLO! I AM ALIVE!!!
+
+
+Note the ping will only work from pods (neutron ports) on a namespace that has
+the label 'project: default' as stated on the policy namespaceSelector.
 
 10. Confirm the teardown of the resources once the network policy is removed::
 

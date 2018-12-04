@@ -185,6 +185,33 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             LOG.exception('Error annotating network policy')
             raise
 
+    def _get_namespaces_cidr(self, namespace_selector):
+        cidrs = []
+        namespace_label = urlencode(namespace_selector[
+            'matchLabels'])
+        matching_namespaces = self.kubernetes.get(
+            '{}/namespaces?labelSelector={}'.format(
+                constants.K8S_API_BASE, namespace_label)).get('items')
+        for ns in matching_namespaces:
+            # NOTE(ltomasbo): This requires the namespace handler to be
+            # also enabled
+            try:
+                ns_annotations = ns['metadata']['annotations']
+                ns_name = ns_annotations[constants.K8S_ANNOTATION_NET_CRD]
+            except KeyError:
+                LOG.exception('Namespace handler must be enabled to support '
+                              'Network Policies with namespaceSelector')
+                raise
+            try:
+                net_crd = self.kubernetes.get('{}/kuryrnets/{}'.format(
+                    constants.K8S_API_CRD, ns_name))
+            except exceptions.K8sClientException:
+                LOG.exception("Kubernetes Client Exception.")
+                raise
+            ns_cidr = net_crd['spec']['subnetCIDR']
+            cidrs.append(ns_cidr)
+        return cidrs
+
     def parse_network_policy_rules(self, policy, sg_id):
         """Create security group rule bodies out of network policies.
 
@@ -207,15 +234,38 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 ingress_sg_rule_body_list.append(i_rule)
             for ingress_rule in ingress_rule_list:
                 LOG.debug('Parsing Ingress Rule %s', ingress_rule)
+                allowed_cidrs = []
+                for from_rule in ingress_rule.get('from', []):
+                    namespace_selector = from_rule.get('namespaceSelector')
+                    if namespace_selector:
+                        allowed_cidrs = self._get_namespaces_cidr(
+                            namespace_selector)
                 if 'ports' in ingress_rule:
                     for port in ingress_rule['ports']:
+                        if allowed_cidrs:
+                            for cidr in allowed_cidrs:
+                                i_rule = self._create_security_group_rule_body(
+                                    sg_id, 'ingress', port.get('port'),
+                                    protocol=port.get('protocol'),
+                                    cidr=cidr)
+                                ingress_sg_rule_body_list.append(i_rule)
+                        else:
+                            i_rule = self._create_security_group_rule_body(
+                                sg_id, 'ingress', port.get('port'),
+                                protocol=port.get('protocol'))
+                            ingress_sg_rule_body_list.append(i_rule)
+                elif allowed_cidrs:
+                    for cidr in allowed_cidrs:
                         i_rule = self._create_security_group_rule_body(
-                            sg_id, 'ingress', port['port'],
-                            protocol=port['protocol'].lower())
+                            sg_id, 'ingress',
+                            port_range_min=1,
+                            port_range_max=65535,
+                            cidr=cidr)
                         ingress_sg_rule_body_list.append(i_rule)
                 else:
-                    LOG.debug('This network policy specifies no ingress '
-                              'ports: %s', policy['metadata']['selfLink'])
+                    LOG.debug('This network policy specifies no ingress from '
+                              'and no ports: %s',
+                              policy['metadata']['selfLink'])
 
         if egress_rule_list:
             if egress_rule_list[0] == {}:
@@ -226,35 +276,66 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 egress_sg_rule_body_list.append(e_rule)
             for egress_rule in egress_rule_list:
                 LOG.debug('Parsing Egress Rule %s', egress_rule)
+                allowed_cidrs = []
+                for from_rule in egress_rule.get('to', []):
+                    namespace_selector = from_rule.get('namespaceSelector')
+                    if namespace_selector:
+                        allowed_cidrs = self._get_namespaces_cidr(
+                            namespace_selector)
                 if 'ports' in egress_rule:
                     for port in egress_rule['ports']:
+                        if allowed_cidrs:
+                            for cidr in allowed_cidrs:
+                                e_rule = self._create_security_group_rule_body(
+                                    sg_id, 'egress', port.get('port'),
+                                    protocol=port.get('protocol'),
+                                    cidr=cidr)
+                                egress_sg_rule_body_list.append(e_rule)
+                        else:
+                            e_rule = self._create_security_group_rule_body(
+                                sg_id, 'egress', port.get('port'),
+                                protocol=port.get('protocol'))
+                            egress_sg_rule_body_list.append(e_rule)
+                elif allowed_cidrs:
+                    for cidr in allowed_cidrs:
                         e_rule = self._create_security_group_rule_body(
-                            sg_id, 'egress', port['port'],
-                            protocol=port['protocol'].lower())
+                            sg_id, 'egress',
+                            port_range_min=1,
+                            port_range_max=65535,
+                            cidr=cidr)
                         egress_sg_rule_body_list.append(e_rule)
                 else:
-                    LOG.debug('This network policy specifies no egress '
-                              'ports: %s', policy['metadata']['selfLink'])
+                    LOG.debug('This network policy specifies no egrees to '
+                              'and no ports: %s',
+                              policy['metadata']['selfLink'])
 
         return ingress_sg_rule_body_list, egress_sg_rule_body_list
 
     def _create_security_group_rule_body(
             self, security_group_id, direction, port_range_min,
-            port_range_max=None, protocol='TCP', ethertype='IPv4',
+            port_range_max=None, protocol=None, ethertype='IPv4', cidr=None,
             description="Kuryr-Kubernetes NetPolicy SG rule"):
-        if not port_range_max:
+        if not port_range_min:
+            port_range_min = 1
+            port_range_max = 65535
+        elif not port_range_max:
             port_range_max = port_range_min
+        if not protocol:
+            protocol = 'TCP'
         security_group_rule_body = {
             u'security_group_rule': {
                 u'ethertype': ethertype,
                 u'security_group_id': security_group_id,
                 u'description': description,
                 u'direction': direction,
-                u'protocol': protocol,
+                u'protocol': protocol.lower(),
                 u'port_range_min': port_range_min,
                 u'port_range_max': port_range_max
             }
         }
+        if cidr:
+            security_group_rule_body[u'security_group_rule'][
+                u'remote_ip_prefix'] = cidr
         LOG.debug("Creating sg rule body %s", security_group_rule_body)
         return security_group_rule_body
 

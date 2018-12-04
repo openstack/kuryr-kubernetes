@@ -14,12 +14,41 @@
 
 import mock
 
+from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import network_policy
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
 
 from neutronclient.common import exceptions as n_exc
+
+
+def get_pod_obj():
+    return {
+        'status': {
+            'qosClass': 'BestEffort',
+            'hostIP': '192.168.1.2',
+        },
+        'kind': 'Pod',
+        'spec': {
+            'schedulerName': 'default-scheduler',
+            'containers': [{
+                'name': 'busybox',
+                'image': 'busybox',
+                'resources': {}
+            }],
+            'nodeName': 'kuryr-devstack'
+        },
+        'metadata': {
+            'name': 'busybox-sleep1',
+            'namespace': 'default',
+            'resourceVersion': '53808',
+            'selfLink': '/api/v1/namespaces/default/pods/busybox-sleep1',
+            'uid': '452176db-4a85-11e7-80bd-fa163e29dbbb',
+            'annotations': {
+                'openstack.org/kuryr-vif': {}
+            }
+        }}
 
 
 class TestNetworkPolicyDriver(test_base.TestCase):
@@ -49,9 +78,17 @@ class TestNetworkPolicyDriver(test_base.TestCase):
             },
             'spec': {
                 'egress': [{'ports':
-                            [{'port': 5978, 'protocol': 'TCP'}]}],
+                            [{'port': 5978, 'protocol': 'TCP'}],
+                            'to':
+                                [{'namespaceSelector': {
+                                    'matchLabels': {
+                                        'project': 'myproject'}}}]}],
                 'ingress': [{'ports':
-                             [{'port': 6379, 'protocol': 'TCP'}]}],
+                             [{'port': 6379, 'protocol': 'TCP'}],
+                            'from':
+                                [{'namespaceSelector': {
+                                    'matchLabels': {
+                                        'project': 'myproject'}}}]}],
                 'policyTypes': ['Ingress', 'Egress']
             }
         }
@@ -242,28 +279,107 @@ class TestNetworkPolicyDriver(test_base.TestCase):
             self._policy)
         m_parse.assert_called_with(self._policy, self._sg_id)
 
-    def test_parse_network_policy_rules(self):
-        i_rule, e_rule = (
-            self._driver.parse_network_policy_rules(self._policy, self._sg_id))
-        self.assertEqual(
-            self._policy['spec']['ingress'][0]['ports'][0]['port'],
-            i_rule[0]['security_group_rule']['port_range_min'])
-        self.assertEqual(
-            self._policy['spec']['egress'][0]['ports'][0]['port'],
-            e_rule[0]['security_group_rule']['port_range_min'])
+    def test_get_namespaces_cidr(self):
+        namespace_selector = {'matchLabels': {'test': 'test'}}
+        pod = get_pod_obj()
+        annotation = mock.sentinel.annotation
+        subnet_cidr = mock.sentinel.subnet_cidr
+        net_crd = {'spec': {'subnetCIDR': subnet_cidr}}
+        pod['metadata']['annotations'][constants.K8S_ANNOTATION_NET_CRD] = (
+            annotation)
+        self.kubernetes.get.side_effect = [{'items': [pod]}, net_crd]
+
+        resp = self._driver._get_namespaces_cidr(namespace_selector)
+        self.assertEqual([subnet_cidr], resp)
+        self.kubernetes.get.assert_called()
+
+    def test_get_namespaces_cidr_no_matches(self):
+        namespace_selector = {'matchLabels': {'test': 'test'}}
+        self.kubernetes.get.return_value = {'items': []}
+
+        resp = self._driver._get_namespaces_cidr(namespace_selector)
+        self.assertEqual([], resp)
+        self.kubernetes.get.assert_called_once()
+
+    def test_get_namespaces_cidr_no_annotations(self):
+        namespace_selector = {'matchLabels': {'test': 'test'}}
+        pod = get_pod_obj()
+        self.kubernetes.get.return_value = {'items': [pod]}
+
+        self.assertRaises(KeyError, self._driver._get_namespaces_cidr,
+                          namespace_selector)
+        self.kubernetes.get.assert_called_once()
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_get_namespaces_cidr')
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_create_security_group_rule_body')
-    def test_parse_network_policy_rules_with_rules(self, m_create):
+    def test_parse_network_policy_rules_with_rules(self, m_create,
+                                                   m_get_ns_cidr):
+        subnet_cidr = '10.10.0.0/24'
+        m_get_ns_cidr.return_value = [subnet_cidr]
         self._driver.parse_network_policy_rules(self._policy, self._sg_id)
         m_create.assert_called()
+        m_get_ns_cidr.assert_called()
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_get_namespaces_cidr')
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_create_security_group_rule_body')
-    def test_parse_network_policy_rules_with_no_rules(self, m_create):
-        self._policy['spec'] = {}
-        self._driver.parse_network_policy_rules(self._policy, self._sg_id)
-        m_create.assert_not_called()
+    def test_parse_network_policy_rules_with_no_rules(self, m_create,
+                                                      m_get_ns_cidr):
+        policy = self._policy.copy()
+        policy['spec']['ingress'] = [{}]
+        policy['spec']['egress'] = [{}]
+        self._driver.parse_network_policy_rules(policy, self._sg_id)
+        m_get_ns_cidr.assert_not_called()
+        calls = [mock.call(self._sg_id, 'ingress', port_range_min=1,
+                           port_range_max=65535),
+                 mock.call(self._sg_id, 'egress', port_range_min=1,
+                           port_range_max=65535)]
+        m_create.assert_has_calls(calls)
+
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_get_namespaces_cidr')
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_create_security_group_rule_body')
+    def test_parse_network_policy_rules_with_no_pod_selector(self, m_create,
+                                                             m_get_ns_cidr):
+        policy = self._policy.copy()
+        policy['spec']['ingress'] = [{'ports':
+                                      [{'port': 6379, 'protocol': 'TCP'}]}]
+        policy['spec']['egress'] = [{'ports':
+                                     [{'port': 6379, 'protocol': 'TCP'}]}]
+        self._driver.parse_network_policy_rules(policy, self._sg_id)
+        m_create.assert_called()
+        m_get_ns_cidr.assert_not_called()
+
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_get_namespaces_cidr')
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_create_security_group_rule_body')
+    def test_parse_network_policy_rules_with_no_ports(self, m_create,
+                                                      m_get_ns_cidr):
+        subnet_cidr = '10.10.0.0/24'
+        m_get_ns_cidr.return_value = [subnet_cidr]
+        policy = self._policy.copy()
+        policy['spec']['egress'] = [
+            {'to':
+                [{'namespaceSelector': {
+                    'matchLabels': {
+                        'project': 'myproject'}}}]}]
+        policy['spec']['ingress'] = [
+            {'from':
+                [{'namespaceSelector': {
+                    'matchLabels': {
+                        'project': 'myproject'}}}]}]
+        self._driver.parse_network_policy_rules(policy, self._sg_id)
+        m_get_ns_cidr.assert_called()
+        calls = [mock.call(self._sg_id, 'ingress', port_range_min=1,
+                           port_range_max=65535, cidr=subnet_cidr),
+                 mock.call(self._sg_id, 'egress', port_range_min=1,
+                           port_range_max=65535, cidr=subnet_cidr)]
+        m_create.assert_has_calls(calls)
 
     def test_knps_on_namespace(self):
         self.kubernetes.get.return_value = {'items': ['not-empty']}
