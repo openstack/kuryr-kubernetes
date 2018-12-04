@@ -708,7 +708,13 @@ EOF
 #                installs it in the system
 function install_openshift_binary {
     mkdir -p "$OPENSHIFT_BIN"
-    curl -L "$OPENSHIFT_BINARY_URL" -o "${OPENSHIFT_BIN}/openshift.tar.gz" --retry 2
+
+    curl -L ${OPENSHIFT_BINARY_BASE_URL}/${OPENSHIFT_BINARY_VERSION}/CHECKSUM --silent | \
+        awk -v "ver=${OPENSHIFT_BINARY_VERSION}" \
+            -v "dest=${OPENSHIFT_BIN}/openshift.tar.gz" \
+            -v "baseurl=${OPENSHIFT_BINARY_BASE_URL}" \
+            '/server/ {system("curl -L " baseurl "/" ver "/" $2 " --retry 2 -o " dest)}'
+
     tar xzvf "${OPENSHIFT_BIN}/openshift.tar.gz" --strip 1 -C "$OPENSHIFT_BIN"
 
     # Make openshift run from its untarred directory
