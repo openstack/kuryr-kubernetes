@@ -39,14 +39,16 @@ class FloatingIpServicePubIPDriver(base.ServicePubIpDriver):
         super(FloatingIpServicePubIPDriver, self).__init__()
         self._drv_pub_ip = public_ip.FipPubIpDriver()
 
-    def acquire_service_pub_ip_info(self, spec_type, spec_lb_ip, project_id):
+    def acquire_service_pub_ip_info(self, spec_type, spec_lb_ip, project_id,
+                                    port_id_to_be_associated=None):
 
         if spec_type != 'LoadBalancer':
             return None
 
         if spec_lb_ip:
             user_specified_ip = spec_lb_ip.format()
-            res_id = self._drv_pub_ip.is_ip_available(user_specified_ip)
+            res_id = self._drv_pub_ip.is_ip_available(user_specified_ip,
+                                                      port_id_to_be_associated)
             if res_id:
                 service_pub_ip_info = (obj_lbaas.LBaaSPubIp(
                                        ip_id=res_id,
@@ -69,9 +71,10 @@ class FloatingIpServicePubIPDriver(base.ServicePubIpDriver):
                                        cfg.OptGroup('neutron_defaults'))
 
         res_id, alloc_ip_addr = (
-            self._drv_pub_ip.allocate_ip(public_network_id, project_id,
-                                         pub_subnet_id=public_subnet_id,
-                                         description='kuryr_lb'))
+            self._drv_pub_ip.allocate_ip(
+                public_network_id, project_id, pub_subnet_id=public_subnet_id,
+                description='kuryr_lb',
+                port_id_to_be_associated=port_id_to_be_associated))
         service_pub_ip_info = obj_lbaas.LBaaSPubIp(ip_id=res_id,
                                                    ip_addr=alloc_ip_addr,
                                                    alloc_method='pool')
