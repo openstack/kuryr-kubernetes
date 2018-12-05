@@ -183,7 +183,8 @@ class CNIDaemonWatcherService(cotyledon.Service):
         try:
             nodename = os.environ['KUBERNETES_NODE_NAME']
         except KeyError:
-            nodename = socket.gethostname()
+            # NOTE(dulek): By default K8s nodeName is lowercased hostname.
+            nodename = socket.gethostname().lower()
         return nodename
 
     def run(self):
