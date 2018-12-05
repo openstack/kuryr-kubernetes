@@ -34,6 +34,9 @@ def _get_kuryrnetpolicy_crds(labels=None, namespace='default'):
             labels.pop('pod-template-hash', None)
             # removing pod-template-hash is necessary to fetch the proper list
             labels = urlencode(labels)
+            # NOTE(maysams): K8s API does not accept &, so we need to replace
+            # it with ',' or '%2C' instead
+            labels = labels.replace('&', ',')
             knp_path = '{}/{}/kuryrnetpolicies?labelSelector={}'.format(
                 constants.K8S_API_CRD_NAMESPACES, namespace, labels)
             LOG.debug("K8s API Query %s", knp_path)

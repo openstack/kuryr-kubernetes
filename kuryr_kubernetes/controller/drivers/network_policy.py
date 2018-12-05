@@ -189,6 +189,9 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         cidrs = []
         namespace_label = urlencode(namespace_selector[
             'matchLabels'])
+        # NOTE(maysams): K8s API does not accept &, so we need to replace
+        # it with ',' or '%2C' instead
+        namespace_label = namespace_label.replace('&', ',')
         matching_namespaces = self.kubernetes.get(
             '{}/namespaces?labelSelector={}'.format(
                 constants.K8S_API_BASE, namespace_label)).get('items')
