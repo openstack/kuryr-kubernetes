@@ -117,8 +117,8 @@ function get_container {
     fi
 
     image="${image_name}:${version}"
-    if [ -z "$(docker images -q "$image")" ]; then
-        docker pull "$image"
+    if [ -z "$(container_runtime images -q "$image")" ]; then
+        container_runtime pull "$image"
     fi
 }
 
@@ -131,16 +131,17 @@ function run_container {
     # Runs a detached container and uses devstack's run process to monitor
     # its logs
     local name
-    local docker_bin
 
-    docker_bin=$(which docker)
     name="$1"
     shift
     args="$@"
-    $docker_bin create --name $name $args
+    container_runtime create --name $name $args
 
-    run_process "$name" \
-        "$docker_bin start --attach $name"
+    if [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
+        run_process "$name"  "$(which podman) start --attach $name" root root
+    else
+        run_process "$name"  "$(which docker) start --attach $name"
+    fi
 }
 
 # stop_container
@@ -151,8 +152,8 @@ function stop_container {
     local name
     name="$1"
 
-    docker kill "$name"
-    docker rm "$name"
+    container_runtime kill "$name"
+    container_runtime rm "$name"
     stop_process "$name"
 }
 
@@ -366,12 +367,22 @@ function build_kuryr_containers() {
         cni_buildtool_args="${cni_buildtool_args} --no-daemon"
     fi
 
+    if [[ "$CONTAINER_ENGINE" == "crio" ]]; then
+        cni_buildtool_args="${cni_buildtool_args} --podman"
+    fi
+
     # Build controller image
-    sudo docker build \
-        -t kuryr/controller -f "$controller_dockerfile" .
+    # FIXME(dulek): Until https://github.com/containers/buildah/issues/1206 is
+    #               resolved instead of podman we need to use buildah directly,
+    #               hence this awful if clause.
+    if [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
+        sudo buildah bud -t docker.io/kuryr/controller -f "$controller_dockerfile" .
+    else
+        container_runtime build -t kuryr/controller -f "$controller_dockerfile" .
+    fi
 
     # Build CNI image
-    sudo "./tools/build_cni_daemonset_image" $cni_buildtool_args
+    "./tools/build_cni_daemonset_image" $cni_buildtool_args
     popd
 }
 
@@ -1366,6 +1377,7 @@ function docker_install_ca_certs {
     local registry_hostnames
     local destdir
 
+    # TODO(dulek): Support for CRI-O.
     registry_hostnames=(${1//,/ })
     for hostname in ${registry_hostnames[@]}; do
         destdir="/etc/docker/certs.d/${hostname}:5000"
@@ -1396,6 +1408,7 @@ function configure_and_run_registry {
     local registry_ip
     local hostnames
 
+    # TODO(dulek): Support for CRI-O.
     service_cidr=$(openstack --os-cloud devstack-admin \
                              --os-region "$REGION_NAME" \
                              subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \

@@ -1,0 +1,5 @@
+---
+features:
+  - |
+    Added support for using cri-o (and podman & buildah) as container engine in
+    both container images and DevStack.
