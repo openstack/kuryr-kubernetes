@@ -34,7 +34,7 @@ sudo chown ${USER}:${USER} ${HOME}/.kube/config
 /usr/local/bin/kubectl --kubeconfig=${HOME}/.kube/config get ingress -o yaml --all-namespaces >> ${K8S_LOG_DIR}/ingress.txt
 /usr/local/bin/kubectl --kubeconfig=${HOME}/.kube/config get namespaces -o yaml >> ${K8S_LOG_DIR}/namespaces.txt
 /usr/local/bin/kubectl --kubeconfig=${HOME}/.kube/config get kuryrnets -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrnets_crds.txt
-
+/usr/local/bin/kubectl --kubeconfig=${HOME}/.kube/config get endpoints -o yaml --all-namespaces >> ${K8S_LOG_DIR}/endpoints.txt
 # Kubernetes pods logs
 mkdir -p ${K8S_LOG_DIR}/pod_logs
 while read -r line
