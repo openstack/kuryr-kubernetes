@@ -12,17 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-- project:
-    templates:
-      - openstack-python-jobs
-      - openstack-python35-jobs
-      - openstack-python36-jobs
-      - publish-openstack-docs-pti
-      - release-notes-jobs-python3
-      - check-requirements
+- project-template:
+    name: kuryr-kubernetes-tempest-jobs
     check:
       jobs:
-        - openstack-tox-lower-constraints
         - kuryr-kubernetes-tempest-octavia
         - kuryr-kubernetes-tempest-daemon-octavia
         - kuryr-kubernetes-tempest-daemon-openshift-octavia
@@ -35,7 +28,6 @@
         - kuryr-kubernetes-tempest-octavia-centos-7
     gate:
       jobs:
-        - openstack-tox-lower-constraints
         - kuryr-kubernetes-tempest-octavia
         - kuryr-kubernetes-tempest-daemon-octavia
         - kuryr-kubernetes-tempest-daemon-lbaasv2
@@ -55,3 +47,14 @@
         - kuryr-kubernetes-tempest-daemon-openshift-octavia-multi-vif
         - kuryr-kubernetes-tempest-multinode-daemon-octavia-ha
         - kuryr-kubernetes-tempest-daemon-containerized-octavia-crio
+
+- project:
+    templates:
+      - openstack-python-jobs
+      - openstack-python35-jobs
+      - openstack-python36-jobs
+      - openstack-lower-constraints-jobs
+      - publish-openstack-docs-pti
+      - release-notes-jobs-python3
+      - check-requirements
+      - kuryr-kubernetes-tempest-jobs
