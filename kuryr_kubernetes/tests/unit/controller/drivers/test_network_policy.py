@@ -306,7 +306,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         pod = get_pod_obj()
         self.kubernetes.get.return_value = {'items': [pod]}
 
-        self.assertRaises(KeyError, self._driver._get_namespaces_cidr,
+        self.assertRaises(exceptions.ResourceNotReady,
+                          self._driver._get_namespaces_cidr,
                           namespace_selector)
         self.kubernetes.get.assert_called_once()
 

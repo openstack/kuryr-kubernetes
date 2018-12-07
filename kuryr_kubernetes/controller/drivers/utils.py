@@ -66,6 +66,18 @@ def is_host_network(pod):
 
 
 def get_pods(selector, namespace):
+    """Return a k8s object list with the pods matching the selector.
+
+    It accepts an optional parameter to state the namespace where the pod
+    selector will be apply. If empty namespace is passed, then the pod
+    selector is applied in all namespaces.
+
+    param selector: k8s selector of types matchLabels or matchExpressions
+    param namespace: namespace name where the selector will be applied. If
+                     None, the pod selector is applied in all namespaces
+    return: k8s list objec containing all matching pods
+
+    """
     kubernetes = clients.get_kubernetes_client()
     labels = selector.get('matchLabels', None)
     if labels:
@@ -83,11 +95,43 @@ def get_pods(selector, namespace):
         else:
             labels = parse.quote(exps)
 
-    pods = kubernetes.get(
-        '{}/namespaces/{}/pods?labelSelector={}'.format(
-            constants.K8S_API_BASE, namespace, labels))
+    if namespace:
+        pods = kubernetes.get(
+            '{}/namespaces/{}/pods?labelSelector={}'.format(
+                constants.K8S_API_BASE, namespace, labels))
+    else:
+        pods = kubernetes.get(
+            '{}/pods?labelSelector={}'.format(constants.K8S_API_BASE, labels))
 
     return pods
+
+
+def get_namespaces(selector):
+    """Return a k8s object list with the namespaces matching the selector.
+
+    param selector: k8s selector of types matchLabels or matchExpressions
+    return: k8s list objec containing all matching namespaces
+
+    """
+    kubernetes = clients.get_kubernetes_client()
+    labels = selector.get('matchLabels', None)
+    if labels:
+        labels = replace_encoded_characters(labels)
+
+    exps = selector.get('matchExpressions', None)
+    if exps:
+        exps = ', '.join(format_expression(exp) for exp in exps)
+        if labels:
+            expressions = parse.quote("," + exps)
+            labels += expressions
+        else:
+            labels = parse.quote(exps)
+
+    namespaces = kubernetes.get(
+        '{}/namespaces?labelSelector={}'.format(
+            constants.K8S_API_BASE, labels))
+
+    return namespaces
 
 
 def format_expression(expression):
