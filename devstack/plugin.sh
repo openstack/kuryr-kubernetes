@@ -892,8 +892,8 @@ function update_tempest_conf_file {
     if [[ "$KURYR_ENABLED_HANDLERS" =~ .*policy.* ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes network_policy_enabled True
     fi
-    if is_service_enabled kuryr-daemon; then
-        iniset $TEMPEST_CONFIG kuryr_kubernetes kuryr_daemon_enabled True
+    if ! is_service_enabled kuryr-daemon; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes kuryr_daemon_enabled False
     fi
     # NOTE(yboaron): Services with protocol UDP are supported in Kuryr
     # starting from Stein release and only for Octavia
