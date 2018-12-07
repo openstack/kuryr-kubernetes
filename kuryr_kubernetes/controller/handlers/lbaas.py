@@ -248,14 +248,23 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         if not lbaas_state:
             lbaas_state = obj_lbaas.LBaaSState()
 
-        prev_service_pub_ip_info = lbaas_state.service_pub_ip_info
         if self._sync_lbaas_members(endpoints, lbaas_state, lbaas_spec):
-            # For LoadBalancer service type, update k8s-service status with
-            # floating IP address if needed.
-            if (prev_service_pub_ip_info != lbaas_state.service_pub_ip_info
-                    and lbaas_state.service_pub_ip_info is not None):
-                self._update_lb_status(
-                    endpoints, lbaas_state.service_pub_ip_info.ip_addr)
+            # Note(yboaron) For LoadBalancer services, we should allocate FIP,
+            # associate it to LB VIP and update K8S service status
+            if lbaas_state.service_pub_ip_info is None:
+                service_pub_ip_info = (
+                    self._drv_service_pub_ip.acquire_service_pub_ip_info(
+                        lbaas_spec.type,
+                        lbaas_spec.lb_ip,
+                        lbaas_spec.project_id,
+                        lbaas_state.loadbalancer.port_id))
+                if service_pub_ip_info:
+                    self._drv_service_pub_ip.associate_pub_ip(
+                        service_pub_ip_info, lbaas_state.loadbalancer.port_id)
+                    lbaas_state.service_pub_ip_info = service_pub_ip_info
+                    self._update_lb_status(
+                        endpoints,
+                        lbaas_state.service_pub_ip_info.ip_addr)
             # REVISIT(ivc): since _sync_lbaas_members is responsible for
             # creating all lbaas components (i.e. load balancer, listeners,
             # pools, members), it is currently possible for it to fail (due
@@ -588,18 +597,6 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                     security_groups_ids=lbaas_spec.security_groups_ids,
                     service_type=lbaas_spec.type,
                     provider=self._lb_provider)
-                if lbaas_state.service_pub_ip_info is None:
-                    service_pub_ip_info = (
-                        self._drv_service_pub_ip.acquire_service_pub_ip_info(
-                            lbaas_spec.type,
-                            lbaas_spec.lb_ip,
-                            lbaas_spec.project_id))
-                    if service_pub_ip_info:
-                        # if loadbalancerIP should be defined for lbaas,
-                        #  associate it to lbaas VIP
-                        self._drv_service_pub_ip.associate_pub_ip(
-                            service_pub_ip_info, lb.port_id)
-                        lbaas_state.service_pub_ip_info = service_pub_ip_info
                 changed = True
             elif lbaas_state.service_pub_ip_info:
                 self._drv_service_pub_ip.release_pub_ip(

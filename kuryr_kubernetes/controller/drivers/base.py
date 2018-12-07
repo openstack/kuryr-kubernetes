@@ -681,12 +681,14 @@ class ServicePubIpDriver(DriverBase):
     ALIAS = 'service_public_ip'
 
     @abc.abstractmethod
-    def acquire_service_pub_ip_info(self, spec_type, spec_lb_ip, project_id):
+    def acquire_service_pub_ip_info(self, spec_type, spec_lb_ip, project_id,
+                                    port_id_to_be_associated=None):
         """Get k8s service loadbalancer IP info based on service spec
 
         :param spec_type: service.spec.type field
         :param spec_lb_ip: service spec LoadBlaceIP field
         :param project_id: openstack project id
+        :param port_id_to_be_associated: port id to associate
 
         """
         raise NotImplementedError()
