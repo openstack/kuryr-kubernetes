@@ -40,7 +40,7 @@ build_cmd="docker build"
 
 OPTIND=1
 
-while getopts "hf:b:c:t:D:p" opt; do
+while getopts "hf:b:c:t:Dp" opt; do
     case "$opt" in
         "h") print_usage; exit 0 ;;
         "D") daemonized=False ;;
