@@ -186,3 +186,12 @@
        KURYR_ENABLE_INGRESS: true
        KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace,ocproute,ingresslb
    voting: false
+
+- job:
+    name: kuryr-kubernetes-tempest-daemon-containerized-octavia-crio
+    parent: kuryr-kubernetes-tempest-daemon-containerized-octavia
+    nodeset: openstack-single-node-bionic
+    vars:
+      devstack_localrc:
+        CONTAINER_ENGINE: crio
+    voting: false
