@@ -668,10 +668,10 @@ spec:
         - name: proc
           mountPath: /host_proc
 EOF
-    if [[ -n "$OVS_HOST_PATH" ]]; then
+    if [[ -n "$VAR_RUN_PATH" ]]; then
         cat >> "${output_dir}/cni_ds.yml" << EOF
         - name: openvswitch
-          mountPath: /var/run/openvswitch
+          mountPath: /var/run
 EOF
     fi
     if [ "$cni_daemon" == "True" ]; then
@@ -705,11 +705,11 @@ EOF
           hostPath:
             path: /proc
 EOF
-    if [[ -n "$OVS_HOST_PATH" ]]; then
+    if [[ -n "$VAR_RUN_PATH" ]]; then
         cat >> "${output_dir}/cni_ds.yml" << EOF
         - name: openvswitch
           hostPath:
-            path: ${OVS_HOST_PATH}
+            path: ${VAR_RUN_PATH}
 EOF
     fi
 }

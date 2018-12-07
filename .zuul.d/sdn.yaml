@@ -26,7 +26,7 @@
           neutron: https://git.openstack.org/openstack/neutron
     vars:
       devstack_localrc:
-        OVS_HOST_PATH: /usr/local/var/run/openvswitch
+        VAR_RUN_PATH: /usr/local/var/run
         Q_USE_PROVIDERNET_FOR_PUBLIC: true
         PHYSICAL_NETWORK: public
         OVN_L3_CREATE_PUBLIC_NETWORK: true
