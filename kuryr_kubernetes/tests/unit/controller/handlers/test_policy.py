@@ -139,34 +139,25 @@ class TestPolicyHandler(test_base.TestCase):
     def test_on_present_without_knps_on_namespace(self):
         modified_pod = mock.sentinel.modified_pod
         match_pod = mock.sentinel.match_pod
-        namespace_pod = mock.sentinel.namespace_pod
 
-        knp_on_ns = self._handler._drv_policy.knps_on_namespace
-        knp_on_ns.return_value = False
-        namespaced_pods = self._handler._drv_policy.namespaced_pods
-        namespaced_pods.return_value = [namespace_pod]
         ensure_nw_policy = self._handler._drv_policy.ensure_network_policy
         ensure_nw_policy.return_value = [modified_pod]
         affected_pods = self._handler._drv_policy.affected_pods
         affected_pods.return_value = [match_pod]
-        sg1 = [mock.sentinel.sg1]
         sg2 = [mock.sentinel.sg2]
         sg3 = [mock.sentinel.sg3]
-        self._get_security_groups.side_effect = [sg1, sg2, sg3]
+        self._get_security_groups.side_effect = [sg2, sg3]
 
         policy.NetworkPolicyHandler.on_present(self._handler, self._policy)
-        namespaced_pods.assert_called_once_with(self._policy)
         ensure_nw_policy.assert_called_once_with(self._policy,
                                                  self._project_id)
         affected_pods.assert_called_once_with(self._policy)
 
-        calls = [mock.call(namespace_pod, self._project_id),
-                 mock.call(modified_pod, self._project_id),
+        calls = [mock.call(modified_pod, self._project_id),
                  mock.call(match_pod, self._project_id)]
         self._get_security_groups.assert_has_calls(calls)
 
-        calls = [mock.call(namespace_pod, sg1),
-                 mock.call(modified_pod, sg2),
+        calls = [mock.call(modified_pod, sg2),
                  mock.call(match_pod, sg3)]
         self._update_vif_sgs.assert_has_calls(calls)
 
@@ -189,8 +180,6 @@ class TestPolicyHandler(test_base.TestCase):
 
         policy.NetworkPolicyHandler.on_deleted(self._handler, self._policy)
         release_nw_policy.assert_called_once_with(knp_obj)
-        calls = [mock.call(match_pod, self._project_id),
-                 mock.call(namespace_pod, self._project_id)]
-        self._get_security_groups.assert_has_calls(calls)
-        calls = [mock.call(match_pod, sg1), mock.call(namespace_pod, sg2)]
-        self._update_vif_sgs.assert_has_calls(calls)
+        self._get_security_groups.assert_called_once_with(match_pod,
+                                                          self._project_id)
+        self._update_vif_sgs.assert_called_once_with(match_pod, sg1)

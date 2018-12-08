@@ -61,12 +61,6 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
         project_id = self._drv_project.get_project(policy)
         pods_to_update = []
 
-        knps_on_namespace = self._drv_policy.knps_on_namespace(
-            policy['metadata']['namespace'])
-        if not knps_on_namespace:
-            namespace_pods = self._drv_policy.namespaced_pods(policy)
-            pods_to_update.extend(namespace_pods)
-
         modified_pods = self._drv_policy.ensure_network_policy(policy,
                                                                project_id)
         if modified_pods:
@@ -89,18 +83,15 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
             pod_sgs = self._drv_pod_sg.get_security_groups(pod, project_id)
             if crd_sg in pod_sgs:
                 pod_sgs.remove(crd_sg)
+            if not pod_sgs:
+                pod_sgs = oslo_cfg.CONF.neutron_defaults.pod_security_groups
+                if not pod_sgs:
+                    raise oslo_cfg.RequiredOptError('pod_security_groups',
+                                                    oslo_cfg.OptGroup(
+                                                        'neutron_defaults'))
             self._drv_vif_pool.update_vif_sgs(pod, pod_sgs)
 
         self._drv_policy.release_network_policy(netpolicy_crd)
-        # re-apply original security groups for the namespace
-        knps_on_namespace = self._drv_policy.knps_on_namespace(
-            policy['metadata']['namespace'])
-        if not knps_on_namespace:
-            namespace_pods = self._drv_policy.namespaced_pods(policy)
-            for pod in namespace_pods:
-                pod_sgs = self._drv_pod_sg.get_security_groups(pod,
-                                                               project_id)
-                self._drv_vif_pool.update_vif_sgs(pod, pod_sgs)
 
     @MEMOIZE
     def is_ready(self, quota):

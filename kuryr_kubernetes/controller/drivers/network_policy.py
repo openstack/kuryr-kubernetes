@@ -22,6 +22,7 @@ from neutronclient.common import exceptions as n_exc
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base
+from kuryr_kubernetes.controller.drivers import utils
 from kuryr_kubernetes import exceptions
 
 LOG = logging.getLogger(__name__)
@@ -120,10 +121,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                                    'egressSgRules': e_rules,
                                    'podSelector': pod_selector,
                                    'networkpolicy_spec': policy['spec']})
-            # TODO(ltomasbo): allow patching both spec and metadata in the
-            # same call
-            self.kubernetes.patch('metadata', crd['metadata']['selfLink'],
-                                  {'labels': pod_selector.get('matchLabels')})
+
         except exceptions.K8sClientException:
             LOG.exception('Error updating kuryrnetpolicy CRD %s', crd_name)
             raise
@@ -443,13 +441,6 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 'networkpolicy_spec': policy['spec']
             },
         }
-        if pod_selector:
-            try:
-                netpolicy_crd['metadata']['labels'] = pod_selector[
-                    'matchLabels']
-            except KeyError:
-                # NOTE(ltomasbo): Only supporting matchLabels for now
-                LOG.info("Pod Selector only allowed with matchLabels")
 
         try:
             LOG.debug("Creating KuryrNetPolicy CRD %s" % netpolicy_crd)
@@ -482,18 +473,8 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         else:
             pod_selector = policy['spec'].get('podSelector')
         if pod_selector:
-            pod_label = pod_selector['matchLabels']
-            pod_namespace = policy['metadata']['namespace']
-            # Removing pod-template-hash as pods will not have it and
-            # otherwise there will be no match
-            pod_label.pop('pod-template-hash', None)
-            pod_label = urlencode(pod_label)
-            # NOTE(ltomasbo): K8s API does not accept &, so we need to AND
-            # the matchLabels with ',' or '%2C' instead
-            pod_label = pod_label.replace('&', ',')
-            pods = self.kubernetes.get(
-                '{}/namespaces/{}/pods?labelSelector={}'.format(
-                    constants.K8S_API_BASE, pod_namespace, pod_label))
+            policy_namespace = policy['metadata']['namespace']
+            pods = utils.get_pods(pod_selector, policy_namespace)
             return pods.get('items')
         else:
             # NOTE(ltomasbo): It affects all the pods on the namespace
