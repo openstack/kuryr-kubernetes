@@ -23,7 +23,7 @@
         devstack_plugins:
           barbican: https://git.openstack.org/openstack/barbican
           devstack-plugin-container: https://git.openstack.org/openstack/devstack-plugin-container
-          kuryr-kubernetes: https://git.openstack.org/openstack/kuryr
+          kuryr-kubernetes: https://git.openstack.org/openstack/kuryr-kubernetes
           octavia: https://git.openstack.org/openstack/octavia
     group-vars:
       subnode:
@@ -56,7 +56,7 @@
       subnode:
         devstack_plugins:
           devstack-plugin-container: https://git.openstack.org/openstack/devstack-plugin-container
-          kuryr-kubernetes: https://git.openstack.org/openstack/kuryr
+          kuryr-kubernetes: https://git.openstack.org/openstack/kuryr-kubernetes
         devstack_services:
           kubelet: true
         devstack_localrc:
