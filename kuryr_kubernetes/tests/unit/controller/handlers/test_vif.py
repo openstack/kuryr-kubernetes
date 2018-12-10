@@ -67,14 +67,12 @@ class TestVIFHandler(test_base.TestCase):
         self._release_vif = self._handler._drv_vif_pool.release_vif
         self._activate_vif = self._handler._drv_vif_pool.activate_vif
         self._set_pod_state = self._handler._set_pod_state
-        self._is_host_network = self._handler._is_host_network
         self._is_pending_node = self._handler._is_pending_node
         self._request_additional_vifs = \
             self._multi_vif_drv.request_additional_vifs
 
         self._request_vif.return_value = self._vif
         self._request_additional_vifs.return_value = self._additioan_vifs
-        self._is_host_network.return_value = False
         self._is_pending_node.return_value = True
         self._get_project.return_value = self._project_id
         self._get_subnets.return_value = self._subnets
@@ -113,18 +111,6 @@ class TestVIFHandler(test_base.TestCase):
         self.assertEqual(vif_pool_driver, handler._drv_vif_pool)
         self.assertEqual(multi_vif_drivers, handler._drv_multi_vif)
 
-    def test_is_host_network(self):
-        self._pod['spec']['hostNetwork'] = True
-        self.assertTrue(h_vif.VIFHandler._is_host_network(self._pod))
-
-    def test_is_not_host_network(self):
-        self.assertFalse(h_vif.VIFHandler._is_host_network(self._pod))
-
-    def test_unset_host_network(self):
-        pod = self._pod.copy()
-        del pod['spec']['hostNetwork']
-        self.assertFalse(h_vif.VIFHandler._is_host_network(pod))
-
     def test_is_pending_node(self):
         self.assertTrue(h_vif.VIFHandler._is_pending_node(self._pod))
 
@@ -140,9 +126,11 @@ class TestVIFHandler(test_base.TestCase):
         self.assertFalse(h_vif.VIFHandler._is_pending_node({'spec': {},
                                                             'status': {}}))
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_present(self, m_get_pod_state):
+    def test_on_present(self, m_get_pod_state, m_host_network):
         m_get_pod_state.return_value = self._state
+        m_host_network.return_value = False
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
         m_get_pod_state.assert_called_once_with(self._pod)
@@ -151,10 +139,11 @@ class TestVIFHandler(test_base.TestCase):
         self._activate_vif.assert_not_called()
         self._set_pod_state.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_present_host_network(self, m_get_pod_state):
+    def test_on_present_host_network(self, m_get_pod_state, m_host_network):
         m_get_pod_state.return_value = self._state
-        self._is_host_network.return_value = True
+        m_host_network.return_value = True
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
@@ -164,9 +153,11 @@ class TestVIFHandler(test_base.TestCase):
         self._activate_vif.assert_not_called()
         self._set_pod_state.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_present_not_pending(self, m_get_pod_state):
+    def test_on_present_not_pending(self, m_get_pod_state, m_host_network):
         m_get_pod_state.return_value = self._state
+        m_host_network.return_value = False
         self._is_pending_node.return_value = False
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
@@ -177,9 +168,11 @@ class TestVIFHandler(test_base.TestCase):
         self._activate_vif.assert_not_called()
         self._set_pod_state.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_present_activate(self, m_get_pod_state):
+    def test_on_present_activate(self, m_get_pod_state, m_host_network):
         m_get_pod_state.return_value = self._state
+        m_host_network.return_value = False
         self._vif.active = False
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
@@ -190,9 +183,11 @@ class TestVIFHandler(test_base.TestCase):
         self._request_vif.assert_not_called()
         self._request_additional_vifs.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_present_create(self, m_get_pod_state):
+    def test_on_present_create(self, m_get_pod_state, m_host_network):
         m_get_pod_state.return_value = None
+        m_host_network.return_value = False
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
@@ -204,9 +199,12 @@ class TestVIFHandler(test_base.TestCase):
         self._set_pod_state.assert_called_once_with(self._pod, self._state)
         self._activate_vif.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_present_create_with_additional_vifs(self, m_get_pod_state):
+    def test_on_present_create_with_additional_vifs(self, m_get_pod_state,
+                                                    m_host_network):
         m_get_pod_state.return_value = None
+        m_host_network.return_value = False
         additional_vif = os_obj.vif.VIFBase()
         self._state.additional_vifs = {'eth1': additional_vif}
         self._request_additional_vifs.return_value = [additional_vif]
@@ -221,9 +219,11 @@ class TestVIFHandler(test_base.TestCase):
         self._set_pod_state.assert_called_once_with(self._pod, self._state)
         self._activate_vif.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_present_rollback(self, m_get_pod_state):
+    def test_on_present_rollback(self, m_get_pod_state, m_host_network):
         m_get_pod_state.return_value = None
+        m_host_network.return_value = False
         self._set_pod_state.side_effect = k_exc.K8sClientException
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
@@ -239,9 +239,11 @@ class TestVIFHandler(test_base.TestCase):
                                                   self._security_groups)
         self._activate_vif.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_deleted(self, m_get_pod_state):
+    def test_on_deleted(self, m_get_pod_state, m_host_network):
         m_get_pod_state.return_value = self._state
+        m_host_network.return_value = False
         h_vif.VIFHandler.on_deleted(self._handler, self._pod)
 
         m_get_pod_state.assert_called_once_with(self._pod)
@@ -249,11 +251,14 @@ class TestVIFHandler(test_base.TestCase):
                                                   self._project_id,
                                                   self._security_groups)
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_deleted_with_additional_vifs(self, m_get_pod_state):
+    def test_on_deleted_with_additional_vifs(self, m_get_pod_state,
+                                             m_host_network):
         additional_vif = os_obj.vif.VIFBase()
         self._state.additional_vifs = {'eth1': additional_vif}
         m_get_pod_state.return_value = self._state
+        m_host_network.return_value = False
 
         h_vif.VIFHandler.on_deleted(self._handler, self._pod)
 
@@ -264,19 +269,22 @@ class TestVIFHandler(test_base.TestCase):
                                           self._project_id,
                                           self._security_groups)
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_deleted_host_network(self, m_get_pod_state):
+    def test_on_deleted_host_network(self, m_get_pod_state, m_host_network):
         m_get_pod_state.return_value = self._state
-        self._is_host_network.return_value = True
+        m_host_network.return_value = True
 
         h_vif.VIFHandler.on_deleted(self._handler, self._pod)
 
         m_get_pod_state.assert_not_called()
         self._release_vif.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_deleted_no_annotation(self, m_get_pod_state):
+    def test_on_deleted_no_annotation(self, m_get_pod_state, m_host_network):
         m_get_pod_state.return_value = None
+        m_host_network.return_value = False
 
         h_vif.VIFHandler.on_deleted(self._handler, self._pod)
 

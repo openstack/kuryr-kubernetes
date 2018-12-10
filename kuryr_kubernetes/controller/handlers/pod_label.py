@@ -19,6 +19,7 @@ from oslo_serialization import jsonutils
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base as drivers
+from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.handlers import k8s_base
 
@@ -44,6 +45,8 @@ class PodLabelHandler(k8s_base.ResourceEventHandler):
         self._drv_vif_pool.set_vif_driver()
 
     def on_modified(self, pod):
+        if driver_utils.is_host_network(pod):
+            return
         if not self._has_pod_state(pod):
             # NOTE(ltomasbo): Ensuring the event is retried and the right
             # pod label annotation is added to the pod

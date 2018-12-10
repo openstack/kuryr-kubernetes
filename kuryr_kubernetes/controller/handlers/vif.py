@@ -75,7 +75,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         self._drv_multi_vif = drivers.MultiVIFDriver.get_enabled_drivers()
 
     def on_present(self, pod):
-        if self._is_host_network(pod) or not self._is_pending_node(pod):
+        if driver_utils.is_host_network(pod) or not self._is_pending_node(pod):
             # REVISIT(ivc): consider an additional configurable check that
             # would allow skipping pods to enable heterogeneous environments
             # where certain pods/namespaces/nodes can be managed by other
@@ -127,7 +127,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                 self._set_pod_state(pod, state)
 
     def on_deleted(self, pod):
-        if self._is_host_network(pod):
+        if driver_utils.is_host_network(pod):
             return
         project_id = self._drv_project.get_project(pod)
         try:
@@ -156,10 +156,6 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         if utils.has_limit(port_quota):
             return utils.is_available('ports', port_quota, port_func)
         return True
-
-    @staticmethod
-    def _is_host_network(pod):
-        return pod['spec'].get('hostNetwork', False)
 
     @staticmethod
     def _is_pending_node(pod):

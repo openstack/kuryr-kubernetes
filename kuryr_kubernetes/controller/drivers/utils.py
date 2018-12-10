@@ -54,3 +54,7 @@ def get_pod_state(pod):
     state_annotation = jsonutils.loads(state_annotation)
     state = utils.extract_pod_annotation(state_annotation)
     return state
+
+
+def is_host_network(pod):
+    return pod['spec'].get('hostNetwork', False)
