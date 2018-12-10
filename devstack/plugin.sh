@@ -206,7 +206,7 @@ function copy_tempest_kubeconfig {
     tempest_home='/home/tempest'
     if is_service_enabled openshift-master; then
         sudo mkdir -p "${HOME}/.kube"
-        sudo cp "${OPENSHIFT_DATA_DIR}/admin.kubeconfig" "${HOME}/.kube/config"
+        sudo cp "${OPENSHIFT_DATA_DIR}/master/admin.kubeconfig" "${HOME}/.kube/config"
         sudo chown -R $STACK_USER "${HOME}/.kube"
     fi
 
@@ -781,7 +781,7 @@ function run_kuryr_kubernetes {
     local python_bin=$(which python)
     if is_service_enabled openshift-master; then
         wait_for "OpenShift API Server" "$KURYR_K8S_API_LB_URL" \
-            "${OPENSHIFT_DATA_DIR}/ca.crt" 1200
+            "${OPENSHIFT_DATA_DIR}/master/ca.crt" 1200
     else
         wait_for_ok_health "Kubernetes API Server" "${KURYR_K8S_API_LB_URL}/healthz" \
             "${KURYR_HYPERKUBE_DATA_DIR}/kuryr-ca.crt" \
