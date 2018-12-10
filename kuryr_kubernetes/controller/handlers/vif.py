@@ -180,7 +180,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             annotation = jsonutils.dumps(state_dict, sort_keys=True)
             LOG.debug("Setting VIFs annotation: %r", annotation)
 
-        # NOTE(dulek): We don't care about compatiblity with Queens format
+        # NOTE(dulek): We don't care about compatibility with Queens format
         #              here, as eventually all Kuryr services will be upgraded
         #              and cluster will start working normally. Meanwhile
         #              we just ignore issue of old services being unable to
