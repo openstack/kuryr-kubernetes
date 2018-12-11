@@ -79,7 +79,7 @@ function ovs_bind_for_kubelet() {
             cut -f2 -d/)
         sudo ip addr add "${port_ips[$i]}/${prefix}" dev "$ifname"
     done
-    if [[ "$KURYR_SG_DRIVER" == "namespace" ]]; then
+    if [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
         subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}}
         subnetpool_cidr=$(openstack subnet pool show "${subnetpool_id}" \
             -c prefixes -f value | cut -f2)
