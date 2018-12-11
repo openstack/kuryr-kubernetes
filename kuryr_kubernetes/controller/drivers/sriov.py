@@ -100,7 +100,7 @@ class SriovVIFDriver(neutron_vif.NeutronPodVIFDriver):
         return total_amount
 
     def _reduce_remaining_sriov_vfs(self, pod):
-        """Reduces number of avaliable vfs for request"""
+        """Reduces number of available vfs for request"""
         containers = pod['spec']['containers']
         for container in containers:
             try:

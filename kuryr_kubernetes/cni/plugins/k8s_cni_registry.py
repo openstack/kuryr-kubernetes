@@ -32,9 +32,9 @@ RETRY_DELAY = 1000  # 1 second in milliseconds
 # TODO(dulek): Another corner case is (and was) when pod is deleted before it's
 #              annotated by controller or even noticed by any watcher. Kubelet
 #              will try to delete such vif, but we will have no data about it.
-#              This is currently worked around by returning succesfully in case
-#              of timing out in delete. To solve this properly we need to watch
-#              for pod deletes as well.
+#              This is currently worked around by returning successfully in
+#              case of timing out in delete. To solve this properly we need
+#              to watch for pod deletes as well.
 
 
 class K8sCNIRegistryPlugin(base_cni.CNIPlugin):

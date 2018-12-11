@@ -120,7 +120,7 @@ class AddHandler(CNIHandlerBase):
         Determines if CNI is ready to call the callback and stop watching for
         more events. For AddHandler the callback should be called if there
         is at least one VIF in the annotation and all the
-        VIFs recieved are marked active
+        VIFs received are marked active
 
         :param pod: dict containing Kubernetes Pod object
         :param vifs: dict containing os_vif VIF objects and ifnames
