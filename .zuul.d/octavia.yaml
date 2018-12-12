@@ -143,7 +143,9 @@
     vars:
       tempest_test_regex: '^(kuryr_tempest_plugin.tests.scenario.test_network_policy.TestNetworkPolicyScenario)'
       devstack_localrc:
-        KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,policy
+        KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace,pod_label,policy
+        KURYR_SG_DRIVER: policy
+        KURYR_SUBNET_DRIVER: namespace
     voting: false
 
 - job:
