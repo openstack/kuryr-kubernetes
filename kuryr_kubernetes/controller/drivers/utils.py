@@ -14,11 +14,16 @@
 #    under the License.
 
 from oslo_serialization import jsonutils
+from six.moves.urllib import parse
 
+from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes import os_vif_util as ovu
 from kuryr_kubernetes import utils
+
+OPERATORS_WITH_VALUES = [constants.K8S_OPERATOR_IN,
+                         constants.K8S_OPERATOR_NOT_IN]
 
 
 def get_network_id(subnets):
@@ -58,3 +63,51 @@ def get_pod_state(pod):
 
 def is_host_network(pod):
     return pod['spec'].get('hostNetwork', False)
+
+
+def get_pods(selector, namespace):
+    kubernetes = clients.get_kubernetes_client()
+    labels = selector.get('matchLabels', None)
+    if labels:
+        # Removing pod-template-hash as pods will not have it and
+        # otherwise there will be no match
+        labels.pop('pod-template-hash', None)
+        labels = replace_encoded_characters(labels)
+
+    exps = selector.get('matchExpressions', None)
+    if exps:
+        exps = ', '.join(format_expression(exp) for exp in exps)
+        if labels:
+            expressions = parse.quote("," + exps)
+            labels += expressions
+        else:
+            labels = parse.quote(exps)
+
+    pods = kubernetes.get(
+        '{}/namespaces/{}/pods?labelSelector={}'.format(
+            constants.K8S_API_BASE, namespace, labels))
+
+    return pods
+
+
+def format_expression(expression):
+    key = expression['key']
+    operator = expression['operator'].lower()
+    if operator in OPERATORS_WITH_VALUES:
+        values = expression['values']
+        values = str(', '.join(values))
+        values = "(%s)" % values
+        return "%s %s %s" % (key, operator, values)
+    else:
+        if operator == constants.K8S_OPERATOR_DOES_NOT_EXIST:
+            return "!%s" % key
+        else:
+            return key
+
+
+def replace_encoded_characters(labels):
+    labels = parse.urlencode(labels)
+    # NOTE(ltomasbo): K8s API does not accept &, so we need to AND
+    # the matchLabels with ',' or '%2C' instead
+    labels = labels.replace('&', ',')
+    return labels
