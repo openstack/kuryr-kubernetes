@@ -108,9 +108,11 @@ class TestPolicyHandler(test_base.TestCase):
                          handler._drv_project)
         self.assertEqual(m_get_policy_driver.return_value, handler._drv_policy)
 
-    def test_on_present(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
+    def test_on_present(self, m_host_network):
         modified_pod = mock.sentinel.modified_pod
         match_pod = mock.sentinel.match_pod
+        m_host_network.return_value = False
 
         knp_on_ns = self._handler._drv_policy.knps_on_namespace
         knp_on_ns.return_value = True
@@ -136,9 +138,11 @@ class TestPolicyHandler(test_base.TestCase):
         calls = [mock.call(modified_pod, sg1), mock.call(match_pod, sg2)]
         self._update_vif_sgs.assert_has_calls(calls)
 
-    def test_on_present_without_knps_on_namespace(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
+    def test_on_present_without_knps_on_namespace(self, m_host_network):
         modified_pod = mock.sentinel.modified_pod
         match_pod = mock.sentinel.match_pod
+        m_host_network.return_value = False
 
         ensure_nw_policy = self._handler._drv_policy.ensure_network_policy
         ensure_nw_policy.return_value = [modified_pod]
@@ -161,9 +165,11 @@ class TestPolicyHandler(test_base.TestCase):
                  mock.call(match_pod, sg3)]
         self._update_vif_sgs.assert_has_calls(calls)
 
-    def test_on_deleted(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
+    def test_on_deleted(self, m_host_network):
         namespace_pod = mock.sentinel.namespace_pod
         match_pod = mock.sentinel.match_pod
+        m_host_network.return_value = False
         affected_pods = self._handler._drv_policy.affected_pods
         affected_pods.return_value = [match_pod]
         get_knp_crd = self._handler._drv_policy.get_kuryrnetpolicy_crd

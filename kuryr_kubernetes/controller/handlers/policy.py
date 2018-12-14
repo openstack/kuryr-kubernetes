@@ -19,6 +19,7 @@ from oslo_log import log as logging
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes.controller.drivers import base as drivers
+from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes import utils
 
@@ -70,6 +71,8 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
         pods_to_update.extend(matched_pods)
 
         for pod in pods_to_update:
+            if driver_utils.is_host_network(pod):
+                continue
             pod_sgs = self._drv_pod_sg.get_security_groups(pod, project_id)
             self._drv_vif_pool.update_vif_sgs(pod, pod_sgs)
 
@@ -80,6 +83,8 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
         netpolicy_crd = self._drv_policy.get_kuryrnetpolicy_crd(policy)
         crd_sg = netpolicy_crd['spec'].get('securityGroupId')
         for pod in pods_to_update:
+            if driver_utils.is_host_network(pod):
+                continue
             pod_sgs = self._drv_pod_sg.get_security_groups(pod, project_id)
             if crd_sg in pod_sgs:
                 pod_sgs.remove(crd_sg)
