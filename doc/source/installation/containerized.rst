@@ -13,15 +13,11 @@ For creating controller image on local machine: ::
 
 For creating cni daemonset image on local machine: ::
 
-    $ ./tools/build_cni_daemonset_image
-
-You can customize the build by setting some options. In order to list them run: ::
-
-    $ ./tools/build_cni_daemonset_image -h
+    $ docker build -t kuryr/cni -f cni.Dockerfile .
 
 If you want to run kuryr CNI without the daemon, build theimage with: ::
 
-    $ ./tools/build_cni_daemonset_image --no-daemon
+    $ docker build -t kuryr/cni -f cni.Dockerfile --build-arg CNI_DAEMON=False .
 
 Alternatively, you can remove ``imagePullPolicy: Never`` from kuryr-controller
 Deployment and kuryr-cni DaemonSet definitions to use pre-built

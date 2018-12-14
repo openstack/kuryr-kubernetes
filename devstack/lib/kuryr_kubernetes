@@ -344,45 +344,36 @@ EOF
 #       the local docker registry as kuryr/controller:latest and
 #       kuryr/cni:latest respectively
 function build_kuryr_containers() {
-    local cni_buildtool_args
+    local cni_build_args
     local cni_daemon
     local build_dir
     local use_py3
-    local controller_dockerfile
+    local py_suffix
 
-    cni_buildtool_args="--bin-dir ${1} --conf-dir ${2}"
-    cni_daemon=$3
+    cni_daemon=$1
     build_dir="${DEST}/kuryr-kubernetes"
     pushd "$build_dir"
 
     use_py3=$(trueorfalse False KURYR_CONTAINERS_USE_PY3)
     if [[ "$use_py3" == "True" ]]; then
-        cni_buildtool_args="${cni_buildtool_args} --dockerfile cni_py3.Dockerfile"
-        controller_dockerfile="controller_py3.Dockerfile"
-    else
-        controller_dockerfile="controller.Dockerfile"
+        py_suffix="_py3"
     fi
 
     if [[ "$cni_daemon" == "False" ]]; then
-        cni_buildtool_args="${cni_buildtool_args} --no-daemon"
+        cni_build_args="--build-arg CNI_DAEMON=False"
     fi
 
-    if [[ "$CONTAINER_ENGINE" == "crio" ]]; then
-        cni_buildtool_args="${cni_buildtool_args} --podman"
-    fi
-
-    # Build controller image
+    # Build images
     # FIXME(dulek): Until https://github.com/containers/buildah/issues/1206 is
     #               resolved instead of podman we need to use buildah directly,
     #               hence this awful if clause.
     if [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
-        sudo buildah bud -t docker.io/kuryr/controller -f "$controller_dockerfile" .
+        sudo buildah bud -t docker.io/kuryr/controller -f controller${py_suffix}.Dockerfile .
+        sudo buildah bud -t docker.io/kuryr/cni -f cni${py_suffix}.Dockerfile .
     else
-        container_runtime build -t kuryr/controller -f "$controller_dockerfile" .
+        container_runtime build -t kuryr/controller -f controller${py_suffix}.Dockerfile  .
+        container_runtime build -t kuryr/cni -f cni${py_suffix}.Dockerfile ${cni_build_args} .
     fi
-
-    # Build CNI image
-    "./tools/build_cni_daemonset_image" $cni_buildtool_args
     popd
 }
 
