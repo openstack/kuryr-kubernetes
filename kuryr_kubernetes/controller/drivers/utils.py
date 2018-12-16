@@ -65,7 +65,7 @@ def is_host_network(pod):
     return pod['spec'].get('hostNetwork', False)
 
 
-def get_pods(selector, namespace):
+def get_pods(selector, namespace=None):
     """Return a k8s object list with the pods matching the selector.
 
     It accepts an optional parameter to state the namespace where the pod
@@ -75,7 +75,7 @@ def get_pods(selector, namespace):
     param selector: k8s selector of types matchLabels or matchExpressions
     param namespace: namespace name where the selector will be applied. If
                      None, the pod selector is applied in all namespaces
-    return: k8s list objec containing all matching pods
+    return: k8s list object containing all matching pods
 
     """
     kubernetes = clients.get_kubernetes_client()
@@ -110,7 +110,7 @@ def get_namespaces(selector):
     """Return a k8s object list with the namespaces matching the selector.
 
     param selector: k8s selector of types matchLabels or matchExpressions
-    return: k8s list objec containing all matching namespaces
+    return: k8s list object containing all matching namespaces
 
     """
     kubernetes = clients.get_kubernetes_client()
