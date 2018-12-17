@@ -17,6 +17,7 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base
+from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes import exceptions
 
 from oslo_config import cfg
@@ -29,12 +30,15 @@ OPERATORS_WITH_VALUES = [constants.K8S_OPERATOR_IN,
                          constants.K8S_OPERATOR_NOT_IN]
 
 
-def _get_kuryrnetpolicy_crds(namespace='default'):
+def _get_kuryrnetpolicy_crds(namespace=None):
     kubernetes = clients.get_kubernetes_client()
 
     try:
-        knp_path = '{}/{}/kuryrnetpolicies'.format(
-            constants.K8S_API_CRD_NAMESPACES, namespace)
+        if namespace:
+            knp_path = '{}/{}/kuryrnetpolicies'.format(
+                constants.K8S_API_CRD_NAMESPACES, namespace)
+        else:
+            knp_path = constants.K8S_API_CRD_KURYRNETPOLICIES
         LOG.debug("K8s API Query %s", knp_path)
         knps = kubernetes.get(knp_path)
         LOG.debug("Return Kuryr Network Policies with label %s", knps)
@@ -47,26 +51,26 @@ def _get_kuryrnetpolicy_crds(namespace='default'):
     return knps
 
 
-def _match_expressions(expressions, pod_labels):
+def _match_expressions(expressions, labels):
     for exp in expressions:
         exp_op = exp['operator'].lower()
-        if pod_labels:
+        if labels:
             if exp_op in OPERATORS_WITH_VALUES:
                 exp_values = exp['values']
-                pod_value = pod_labels.get(str(exp['key']), None)
+                label_value = labels.get(str(exp['key']), None)
                 if exp_op == constants.K8S_OPERATOR_IN:
-                    if pod_value is None or pod_value not in exp_values:
+                    if label_value is None or label_value not in exp_values:
                             return False
                 elif exp_op == constants.K8S_OPERATOR_NOT_IN:
-                    if pod_value in exp_values:
+                    if label_value in exp_values:
                         return False
             else:
                 if exp_op == constants.K8S_OPERATOR_EXISTS:
-                    exists = pod_labels.get(str(exp['key']), None)
+                    exists = labels.get(str(exp['key']), None)
                     if exists is None:
                         return False
                 elif exp_op == constants.K8S_OPERATOR_DOES_NOT_EXIST:
-                    exists = pod_labels.get(str(exp['key']), None)
+                    exists = labels.get(str(exp['key']), None)
                     if exists is not None:
                         return False
         else:
@@ -76,12 +80,116 @@ def _match_expressions(expressions, pod_labels):
     return True
 
 
-def _match_labels(crd_labels, pod_labels):
-    for label_key, label_value in crd_labels.items():
-        pod_value = pod_labels.get(label_key, None)
-        if not pod_value or label_value != pod_value:
+def _match_labels(crd_labels, labels):
+    for crd_key, crd_value in crd_labels.items():
+        label_value = labels.get(crd_key, None)
+        if not label_value or crd_value != label_value:
                 return False
     return True
+
+
+def _match_selector(selector, labels):
+    crd_labels = selector.get('matchLabels', None)
+    crd_expressions = selector.get('matchExpressions', None)
+
+    match_exp = match_lb = True
+    if crd_expressions:
+        match_exp = _match_expressions(crd_expressions,
+                                       labels)
+    if crd_labels and labels:
+        match_lb = _match_labels(crd_labels, labels)
+    return match_exp and match_lb
+
+
+def _get_namespace_labels(namespace):
+    kubernetes = clients.get_kubernetes_client()
+
+    try:
+        path = '{}/{}'.format(
+            constants.K8S_API_NAMESPACES, namespace)
+        LOG.debug("K8s API Query %s", path)
+        namespaces = kubernetes.get(path)
+        LOG.debug("Return Namespace: %s", namespaces)
+    except exceptions.K8sResourceNotFound:
+        LOG.exception("Namespace not found")
+        raise
+    except exceptions.K8sClientException:
+        LOG.exception("Kubernetes Client Exception")
+        raise
+    return namespaces['metadata'].get('labels')
+
+
+def _create_sg_rules(crd, pod, namespace_selector, pod_selector,
+                     rule_block, crd_rules, direction,
+                     matched):
+    pod_labels = pod['metadata'].get('labels')
+
+    # NOTE (maysams) No need to differentiate between podSelector
+    # with empty value or with '{}', as they have same result in here.
+    if (pod_selector and
+            _match_selector(pod_selector, pod_labels)):
+        matched = True
+        pod_ip = driver_utils.get_pod_ip(pod)
+        sg_id = crd['spec']['securityGroupId']
+        if 'ports' in rule_block:
+            for port in rule_block['ports']:
+                sg_rule = driver_utils.create_security_group_rule_body(
+                    sg_id, direction, port.get('port'),
+                    protocol=port.get('protocol'), cidr=pod_ip)
+                sgr_id = driver_utils.create_security_group_rule(sg_rule)
+                sg_rule['security_group_rule']['id'] = sgr_id
+                crd_rules.append(sg_rule)
+        else:
+            sg_rule = driver_utils.create_security_group_rule_body(
+                sg_id, direction,
+                port_range_min=1,
+                port_range_max=65535,
+                cidr=pod_ip)
+            sgr_id = driver_utils.create_security_group_rule(sg_rule)
+            sg_rule['security_group_rule']['id'] = sgr_id
+            crd_rules.append(sg_rule)
+    return matched
+
+
+def _parse_rules(direction, crd, pod):
+    policy = crd['spec']['networkpolicy_spec']
+
+    pod_namespace = pod['metadata']['namespace']
+    pod_namespace_labels = _get_namespace_labels(pod_namespace)
+    policy_namespace = crd['metadata']['namespace']
+
+    rule_direction = 'from'
+    crd_rules = crd['spec'].get('ingressSgRules')
+    if direction == 'egress':
+        rule_direction = 'to'
+        crd_rules = crd['spec'].get('egressSgRules')
+
+    matched = False
+    rule_list = policy.get(direction, None)
+    for rule_block in rule_list:
+        for rule in rule_block.get(rule_direction, []):
+            namespace_selector = rule.get('namespaceSelector')
+            pod_selector = rule.get('podSelector')
+            if namespace_selector == {}:
+                if _create_sg_rules(crd, pod, namespace_selector,
+                                    pod_selector, rule_block, crd_rules,
+                                    direction, matched):
+                    matched = True
+            elif namespace_selector:
+                if (pod_namespace_labels and
+                    _match_selector(namespace_selector,
+                                    pod_namespace_labels)):
+                    if _create_sg_rules(crd, pod, namespace_selector,
+                                        pod_selector, rule_block, crd_rules,
+                                        direction, matched):
+                        matched = True
+            else:
+                if pod_namespace == policy_namespace:
+                    if _create_sg_rules(crd, pod, namespace_selector,
+                                        pod_selector, rule_block, crd_rules,
+                                        direction, matched):
+                        matched = True
+    return matched, crd_rules
 
 
 class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
@@ -97,16 +205,7 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
         for crd in knp_crds.get('items'):
             pod_selector = crd['spec'].get('podSelector')
             if pod_selector:
-                crd_labels = pod_selector.get('matchLabels', None)
-                crd_expressions = pod_selector.get('matchExpressions', None)
-
-                match_exp = match_lb = True
-                if crd_expressions:
-                    match_exp = _match_expressions(crd_expressions,
-                                                   pod_labels)
-                if crd_labels and pod_labels:
-                    match_lb = _match_labels(crd_labels, pod_labels)
-                if match_exp and match_lb:
+                if _match_selector(pod_selector, pod_labels):
                     LOG.debug("Appending %s",
                               str(crd['spec']['securityGroupId']))
                     sg_list.append(str(crd['spec']['securityGroupId']))
@@ -123,6 +222,63 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
                                            cfg.OptGroup('neutron_defaults'))
 
         return sg_list[:]
+
+    def create_sg_rules(self, pod):
+        LOG.debug("Creating sg rule for pod: %s", pod['metadata']['name'])
+        knp_crds = _get_kuryrnetpolicy_crds()
+        for crd in knp_crds.get('items'):
+            crd_selector = crd['spec'].get('podSelector')
+
+            i_matched, i_rules = _parse_rules('ingress', crd, pod)
+            e_matched, e_rules = _parse_rules('egress', crd, pod)
+
+            if i_matched or e_matched:
+                driver_utils.patch_kuryr_crd(crd, i_rules,
+                                             e_rules, crd_selector)
+
+    def delete_sg_rules(self, pod):
+        LOG.debug("Deleting sg rule for pod: %s", pod['metadata']['name'])
+        pod_ip = driver_utils.get_pod_ip(pod)
+
+        knp_crds = _get_kuryrnetpolicy_crds()
+        for crd in knp_crds.get('items'):
+            crd_selector = crd['spec'].get('podSelector')
+            ingress_rule_list = crd['spec'].get('ingressSgRules')
+            egress_rule_list = crd['spec'].get('egressSgRules')
+            i_rules = []
+            e_rules = []
+
+            matched = False
+            for i_rule in ingress_rule_list:
+                LOG.debug("Parsing ingress rule: %r", i_rule)
+                remote_ip_prefix = i_rule['security_group_rule'].get(
+                    'remote_ip_prefix')
+                if remote_ip_prefix and remote_ip_prefix == pod_ip:
+                    matched = True
+                    driver_utils.delete_security_group_rule(
+                        i_rule['security_group_rule']['id'])
+                else:
+                    i_rules.append(i_rule)
+
+            for e_rule in egress_rule_list:
+                LOG.debug("Parsing egress rule: %r", e_rule)
+                remote_ip_prefix = e_rule['security_group_rule'].get(
+                    'remote_ip_prefix')
+                if remote_ip_prefix and remote_ip_prefix == pod_ip:
+                    matched = True
+                    driver_utils.delete_security_group_rule(
+                        e_rule['security_group_rule']['id'])
+                else:
+                    e_rules.append(e_rule)
+
+            if matched:
+                driver_utils.patch_kuryr_crd(crd, i_rules, e_rules,
+                                             crd_selector)
+
+    def update_sg_rules(self, pod):
+        LOG.debug("Updating sg rule for pod: %s", pod['metadata']['name'])
+        self.delete_sg_rules(pod)
+        self.create_sg_rules(pod)
 
     def create_namespace_sg(self, namespace, project_id, crd_spec):
         LOG.debug("Security group driver does not create SGs for the "

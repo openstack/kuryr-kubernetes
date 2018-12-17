@@ -93,14 +93,14 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                               current_sg_rules]
         for sg_rule in sg_rules_to_delete:
             try:
-                self._delete_security_group_rule(sgr_ids[sg_rule])
+                utils.delete_security_group_rule(sgr_ids[sg_rule])
             except n_exc.NotFound:
                 LOG.debug('Trying to delete non existing sg_rule %s', sg_rule)
         # Create new rules that weren't already on the security group
         sg_rules_to_add = [rule for rule in current_sg_rules if rule not in
                            existing_sg_rules]
         for sg_rule in sg_rules_to_add:
-            sgr_id = self._create_security_group_rule(sg_rule)
+            sgr_id = utils.create_security_group_rule(sg_rule)
             if sg_rule['security_group_rule'].get('direction') == 'ingress':
                 for i_rule in i_rules:
                     if sg_rule == i_rule:
@@ -111,17 +111,9 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                         e_rule["security_group_rule"]["id"] = sgr_id
         # Annotate kuryrnetpolicy CRD with current policy and ruleset
         pod_selector = policy['spec'].get('podSelector')
-        LOG.debug('Patching KuryrNetPolicy CRD %s' % crd_name)
-        try:
-            self.kubernetes.patch('spec', crd['metadata']['selfLink'],
-                                  {'ingressSgRules': i_rules,
-                                   'egressSgRules': e_rules,
-                                   'podSelector': pod_selector,
-                                   'networkpolicy_spec': policy['spec']})
+        utils.patch_kuryr_crd(crd, i_rules, e_rules, pod_selector,
+                              np_spec=policy['spec'])
 
-        except exceptions.K8sClientException:
-            LOG.exception('Error updating kuryrnetpolicy CRD %s', crd_name)
-            raise
         if existing_pod_selector != pod_selector:
             return existing_pod_selector
         return False
@@ -150,11 +142,13 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             sg_id = sg['security_group']['id']
             i_rules, e_rules = self.parse_network_policy_rules(policy, sg_id)
             for i_rule in i_rules:
-                sgr_id = self._create_security_group_rule(i_rule)
+                sgr_id = utils.create_security_group_rule(i_rule)
                 i_rule['security_group_rule']['id'] = sgr_id
+
             for e_rule in e_rules:
-                sgr_id = self._create_security_group_rule(e_rule)
+                sgr_id = utils.create_security_group_rule(e_rule)
                 e_rule['security_group_rule']['id'] = sgr_id
+
         except (n_exc.NeutronClientException, exceptions.ResourceNotReady):
             LOG.exception("Error creating security group for network policy "
                           " %s", policy['metadata']['name'])
@@ -270,6 +264,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     allowed_cidrs.extend(self._get_pods_ips(
                         pod_selector,
                         namespace=policy_namespace))
+
         return allow_all, selectors, allowed_cidrs
 
     def _parse_sg_rules(self, sg_rule_body_list, direction, policy, sg_id):
@@ -285,7 +280,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         if rule_list[0] == {}:
             LOG.debug('Applying default all open policy from %s',
                       policy['metadata']['selfLink'])
-            rule = self._create_security_group_rule_body(
+            rule = utils.create_security_group_rule_body(
                 sg_id, direction, port_range_min=1, port_range_max=65535)
             sg_rule_body_list.append(rule)
 
@@ -299,31 +294,31 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 for port in rule_block['ports']:
                     if allowed_cidrs or allow_all or selectors:
                         for cidr in allowed_cidrs:
-                            rule = self._create_security_group_rule_body(
+                            rule = utils.create_security_group_rule_body(
                                 sg_id, direction, port.get('port'),
                                 protocol=port.get('protocol'),
                                 cidr=cidr)
                             sg_rule_body_list.append(rule)
                         if allow_all:
-                            rule = self._create_security_group_rule_body(
+                            rule = utils.create_security_group_rule_body(
                                 sg_id, direction, port.get('port'),
                                 protocol=port.get('protocol'))
                             sg_rule_body_list.append(rule)
                     else:
-                        rule = self._create_security_group_rule_body(
+                        rule = utils.create_security_group_rule_body(
                             sg_id, direction, port.get('port'),
                             protocol=port.get('protocol'))
                         sg_rule_body_list.append(rule)
             elif allowed_cidrs or allow_all or selectors:
                 for cidr in allowed_cidrs:
-                    rule = self._create_security_group_rule_body(
+                    rule = utils.create_security_group_rule_body(
                         sg_id, direction,
                         port_range_min=1,
                         port_range_max=65535,
                         cidr=cidr)
                     sg_rule_body_list.append(rule)
                 if allow_all:
-                    rule = self._create_security_group_rule_body(
+                    rule = utils.create_security_group_rule_body(
                         sg_id, direction,
                         port_range_min=1,
                         port_range_max=65535)
@@ -352,59 +347,6 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                              sg_id)
 
         return ingress_sg_rule_body_list, egress_sg_rule_body_list
-
-    def _create_security_group_rule_body(
-            self, security_group_id, direction, port_range_min,
-            port_range_max=None, protocol=None, ethertype='IPv4', cidr=None,
-            description="Kuryr-Kubernetes NetPolicy SG rule"):
-        if not port_range_min:
-            port_range_min = 1
-            port_range_max = 65535
-        elif not port_range_max:
-            port_range_max = port_range_min
-        if not protocol:
-            protocol = 'TCP'
-        security_group_rule_body = {
-            u'security_group_rule': {
-                u'ethertype': ethertype,
-                u'security_group_id': security_group_id,
-                u'description': description,
-                u'direction': direction,
-                u'protocol': protocol.lower(),
-                u'port_range_min': port_range_min,
-                u'port_range_max': port_range_max
-            }
-        }
-        if cidr:
-            security_group_rule_body[u'security_group_rule'][
-                u'remote_ip_prefix'] = cidr
-        LOG.debug("Creating sg rule body %s", security_group_rule_body)
-        return security_group_rule_body
-
-    def _create_security_group_rule(self, body):
-        sgr = ''
-        try:
-            sgr = self.neutron.create_security_group_rule(
-                body=body)
-        except n_exc.Conflict:
-            LOG.debug("Failed to create already existing security group "
-                      "rule %s", body)
-        except n_exc.NeutronClientException:
-            LOG.debug("Error creating security group rule")
-            raise
-        return sgr["security_group_rule"]["id"]
-
-    def _delete_security_group_rule(self, security_group_rule_id):
-        try:
-            self.neutron.delete_security_group_rule(
-                security_group_rule=security_group_rule_id)
-        except n_exc.NotFound:
-            LOG.debug("Error deleting security group rule as it does not "
-                      "exist: %s", security_group_rule_id)
-        except n_exc.NeutronClientException:
-            LOG.debug("Error deleting security group rule: %s",
-                      security_group_rule_id)
-            raise
 
     def release_network_policy(self, netpolicy_crd):
         if netpolicy_crd is not None:
@@ -460,7 +402,6 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         netpolicy_crd_name = "np-" + networkpolicy_name
         namespace = policy['metadata']['namespace']
         pod_selector = policy['spec'].get('podSelector')
-
         netpolicy_crd = {
             'apiVersion': 'openstack.org/v1',
             'kind': constants.K8S_OBJ_KURYRNETPOLICY,
