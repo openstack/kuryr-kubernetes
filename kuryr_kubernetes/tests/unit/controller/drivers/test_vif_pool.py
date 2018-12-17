@@ -642,6 +642,7 @@ class NeutronVIFPool(test_base.TestCase):
         pool_key = (port['binding:host_id'], port['project_id'],
                     tuple(port['security_groups']), net_id)
         m_driver._get_pool_key.return_value = pool_key
+        m_driver._get_trunks_info.return_value = ({}, {}, {})
 
         cls._recover_precreated_ports(m_driver)
 
@@ -661,6 +662,7 @@ class NeutronVIFPool(test_base.TestCase):
 
         filtered_ports = []
         m_driver._get_ports_by_attrs.return_value = filtered_ports
+        m_driver._get_trunks_info.return_value = ({}, {}, {})
 
         oslo_cfg.CONF.set_override('port_debug',
                                    False,

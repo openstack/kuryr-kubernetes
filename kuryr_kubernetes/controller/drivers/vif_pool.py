@@ -298,6 +298,66 @@ class BaseVIFPool(base.VIFPoolDriver):
         # their respective pools
         self._recover_precreated_ports()
 
+    def _get_trunks_info(self):
+        """Returns information about trunks and their subports.
+
+        This method searches for parent ports and subports among the active
+        neutron ports.
+        To find the parent ports it filters the ones that have trunk_details,
+        i.e., the ones that are the parent port of a trunk.
+        To find the subports to recover, it filters out the ports that are
+        already in used by running kubernetes pods. It also filters out the
+        ports whose device_owner is not related to subports, i.e., the ports
+        that are not attached to trunks, such as active ports allocated to
+        running VMs.
+        At the same time it collects information about ports subnets to
+        minimize the number of interaction with Neutron API.
+
+        It returns three dictionaries with the needed information about the
+        parent ports, subports and subnets
+
+        :return: 3 dicts with the trunk details (Key: trunk_id; Value: dict
+        containing ip and subports), subport details (Key: port_id; Value:
+        port_object), and subnet details (Key: subnet_id; Value: subnet dict)
+        """
+        # REVISIT(ltomasbo): there is no need to recover the subports
+        # belonging to trunk ports whose parent port is DOWN as that means no
+        # pods can be scheduled there. We may need to update this if we allow
+        # lively extending the kubernetes cluster with VMs that already have
+        # precreated subports. For instance by shutting down and up a
+        # kubernetes Worker VM with subports already attached, and the
+        # controller is restarted in between.
+        parent_ports = {}
+        subports = {}
+        subnets = {}
+
+        all_active_ports = self._get_ports_by_attrs(status='ACTIVE')
+        in_use_ports = self._get_in_use_ports()
+
+        for port in all_active_ports:
+            trunk_details = port.get('trunk_details')
+            # Parent port
+            if trunk_details:
+                parent_ports[trunk_details['trunk_id']] = {
+                    'ip': port['fixed_ips'][0]['ip_address'],
+                    'subports': trunk_details['sub_ports']}
+            else:
+                # Filter to only get subports that are not in use
+                if (port['id'] not in in_use_ports and
+                    port['device_owner'] in ['trunk:subport',
+                                             kl_const.DEVICE_OWNER]):
+                    subports[port['id']] = port
+                    # NOTE(ltomasbo): _get_subnet can be costly as it
+                    # needs to call neutron to get network and subnet
+                    # information. This ensures it is only called once
+                    # per subnet in use
+                    subnet_id = port['fixed_ips'][0]['subnet_id']
+                    if not subnets.get(subnet_id):
+                        subnets[subnet_id] = {subnet_id:
+                                              utils.get_subnet(
+                                                  subnet_id)}
+        return parent_ports, subports, subnets
+
 
 class NeutronVIFPool(BaseVIFPool):
     """Manages VIFs for Bare Metal Kubernetes Pods."""
@@ -408,14 +468,27 @@ class NeutronVIFPool(BaseVIFPool):
             available_ports = [port for port in kuryr_ports
                                if port['id'] not in in_use_ports]
 
+        _, available_subports, _ = self._get_trunks_info()
         for port in available_ports:
+            # NOTE(ltomasbo): ensure subports are not considered for
+            # recovering in the case of multi pools
+            if available_subports.get(port['id']):
+                continue
+            vif_plugin = self._drv_vif._get_vif_plugin(port)
+            port_host = port['binding:host_id']
+            if not vif_plugin or not port_host:
+                # NOTE(ltomasbo): kuryr-controller is running without the
+                # rights to get the needed information to recover the ports.
+                # Thus, removing the port instead
+                neutron = clients.get_neutron_client()
+                neutron.delete_port(port['id'])
+                continue
             subnet_id = port['fixed_ips'][0]['subnet_id']
             subnet = {
                 subnet_id: utils.get_subnet(subnet_id)}
-            vif_plugin = self._drv_vif._get_vif_plugin(port)
             vif = ovu.neutron_to_osvif_vif(vif_plugin, port, subnet)
             net_obj = subnet[subnet_id]
-            pool_key = self._get_pool_key(port['binding:host_id'],
+            pool_key = self._get_pool_key(port_host,
                                           port['project_id'],
                                           port['security_groups'],
                                           net_obj.id, None)
@@ -585,66 +658,6 @@ class NestedVIFPool(BaseVIFPool):
         neutron = clients.get_neutron_client()
         parent_port = neutron.show_port(port_id).get('port')
         return parent_port['fixed_ips'][0]['ip_address']
-
-    def _get_trunks_info(self):
-        """Returns information about trunks and their subports.
-
-        This method searches for parent ports and subports among the active
-        neutron ports.
-        To find the parent ports it filters the ones that have trunk_details,
-        i.e., the ones that are the parent port of a trunk.
-        To find the subports to recover, it filters out the ports that are
-        already in used by running kubernetes pods. It also filters out the
-        ports whose device_owner is not related to subports, i.e., the ports
-        that are not attached to trunks, such as active ports allocated to
-        running VMs.
-        At the same time it collects information about ports subnets to
-        minimize the number of interaction with Neutron API.
-
-        It returns three dictionaries with the needed information about the
-        parent ports, subports and subnets
-
-        :return: 3 dicts with the trunk details (Key: trunk_id; Value: dict
-        containing ip and subports), subport details (Key: port_id; Value:
-        port_object), and subnet details (Key: subnet_id; Value: subnet dict)
-        """
-        # REVISIT(ltomasbo): there is no need to recover the subports
-        # belonging to trunk ports whose parent port is DOWN as that means no
-        # pods can be scheduled there. We may need to update this if we allow
-        # lively extending the kubernetes cluster with VMs that already have
-        # precreated subports. For instance by shutting down and up a
-        # kubernetes Worker VM with subports already attached, and the
-        # controller is restarted in between.
-        parent_ports = {}
-        subports = {}
-        subnets = {}
-
-        all_active_ports = self._get_ports_by_attrs(status='ACTIVE')
-        in_use_ports = self._get_in_use_ports()
-
-        for port in all_active_ports:
-            trunk_details = port.get('trunk_details')
-            # Parent port
-            if trunk_details:
-                parent_ports[trunk_details['trunk_id']] = {
-                    'ip': port['fixed_ips'][0]['ip_address'],
-                    'subports': trunk_details['sub_ports']}
-            else:
-                # Filter to only get subports that are not in use
-                if (port['id'] not in in_use_ports and
-                    port['device_owner'] in ['trunk:subport',
-                                             kl_const.DEVICE_OWNER]):
-                    subports[port['id']] = port
-                    # NOTE(ltomasbo): _get_subnet can be costly as it
-                    # needs to call neutron to get network and subnet
-                    # information. This ensures it is only called once
-                    # per subnet in use
-                    subnet_id = port['fixed_ips'][0]['subnet_id']
-                    if not subnets.get(subnet_id):
-                        subnets[subnet_id] = {subnet_id:
-                                              utils.get_subnet(
-                                                  subnet_id)}
-        return parent_ports, subports, subnets
 
     def _recover_precreated_ports(self):
         self._precreated_ports(action='recover')
