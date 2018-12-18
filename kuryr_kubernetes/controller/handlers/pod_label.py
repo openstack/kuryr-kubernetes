@@ -20,7 +20,6 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes.controller.drivers import utils as driver_utils
-from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.handlers import k8s_base
 
 LOG = logging.getLogger(__name__)
@@ -44,13 +43,11 @@ class PodLabelHandler(k8s_base.ResourceEventHandler):
             specific_driver='multi_pool')
         self._drv_vif_pool.set_vif_driver()
 
-    def on_modified(self, pod):
-        if driver_utils.is_host_network(pod):
+    def on_present(self, pod):
+        if driver_utils.is_host_network(pod) or not self._has_pod_state(pod):
+            # NOTE(ltomasbo): The event will be retried once the vif handler
+            # annotates the pod with the pod state.
             return
-        if not self._has_pod_state(pod):
-            # NOTE(ltomasbo): Ensuring the event is retried and the right
-            # pod label annotation is added to the pod
-            raise exceptions.ResourceNotReady(pod)
 
         current_pod_labels = pod['metadata'].get('labels')
         previous_pod_labels = self._get_pod_labels(pod)

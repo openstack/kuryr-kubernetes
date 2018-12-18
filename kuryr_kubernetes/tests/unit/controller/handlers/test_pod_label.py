@@ -17,7 +17,6 @@ import mock
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes.controller.handlers import pod_label as p_label
-from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.tests import base as test_base
 
 
@@ -73,11 +72,11 @@ class TestPodLabelHandler(test_base.TestCase):
         self.assertEqual(sg_driver, handler._drv_sg)
         self.assertEqual(vif_pool_driver, handler._drv_vif_pool)
 
-    def test_on_modified(self):
+    def test_on_present(self):
         self._has_pod_state.return_value = True
         self._get_pod_labels.return_value = {'test1': 'test'}
 
-        p_label.PodLabelHandler.on_modified(self._handler, self._pod)
+        p_label.PodLabelHandler.on_present(self._handler, self._pod)
 
         self._has_pod_state.assert_called_once_with(self._pod)
         self._get_pod_labels.assert_called_once_with(self._pod)
@@ -86,34 +85,33 @@ class TestPodLabelHandler(test_base.TestCase):
         self._update_vif_sgs.assert_called_once_with(self._pod, [self._sg_id])
         self._set_pod_labels.assert_called_once_with(self._pod, None)
 
-    def test_on_modified_no_state(self):
+    def test_on_present_no_state(self):
         self._has_pod_state.return_value = False
 
-        self.assertRaises(exceptions.ResourceNotReady,
-                          p_label.PodLabelHandler.on_modified, self._handler,
-                          self._pod)
+        resp = p_label.PodLabelHandler.on_present(self._handler, self._pod)
 
+        self.assertIsNone(resp)
         self._has_pod_state.assert_called_once_with(self._pod)
         self._get_pod_labels.assert_not_called()
         self._set_pod_labels.assert_not_called()
 
-    def test_on_modified_no_labels(self):
+    def test_on_present_no_labels(self):
         self._has_pod_state.return_value = True
         self._get_pod_labels.return_value = None
 
-        p_label.PodLabelHandler.on_modified(self._handler, self._pod)
+        p_label.PodLabelHandler.on_present(self._handler, self._pod)
 
         self._has_pod_state.assert_called_once_with(self._pod)
         self._get_pod_labels.assert_called_once_with(self._pod)
         self._set_pod_labels.assert_not_called()
 
-    def test_on_modified_no_changes(self):
+    def test_on_present_no_changes(self):
         self._has_pod_state.return_value = True
         pod_with_label = self._pod.copy()
         pod_with_label['metadata']['labels'] = {'test1': 'test'}
         self._get_pod_labels.return_value = {'test1': 'test'}
 
-        p_label.PodLabelHandler.on_modified(self._handler, pod_with_label)
+        p_label.PodLabelHandler.on_present(self._handler, pod_with_label)
 
         self._has_pod_state.assert_called_once_with(pod_with_label)
         self._get_pod_labels.assert_called_once_with(pod_with_label)
