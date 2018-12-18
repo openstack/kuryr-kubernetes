@@ -24,7 +24,7 @@
         - kuryr-kubernetes-tempest-daemon-containerized-ovn
         - kuryr-kubernetes-tempest-daemon-octavia-py36
         - kuryr-kubernetes-tempest-daemon-containerized-octavia-py36
-        - kuryr-kubernetes-tempest-multinode-octavia
+        - kuryr-kubernetes-tempest-multinode-daemon-octavia-containerized
         - kuryr-kubernetes-tempest-octavia-centos-7
     gate:
       jobs:

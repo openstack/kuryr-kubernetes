@@ -903,6 +903,9 @@ function update_tempest_conf_file {
     if [[ "$KURYR_CONTROLLER_HA" == "True" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes ap_ha True
     fi
+    if [[ "$KURYR_K8S_MULTI_WORKER_TESTS" == "True" ]]; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes multi_worker_setup True
+    fi
 }
 
 source $DEST/kuryr-kubernetes/devstack/lib/kuryr_kubernetes
