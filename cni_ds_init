@@ -31,7 +31,7 @@ for container in containers:
     if (label_key in container and
             container[label_key].get('io.kubernetes.pod.name') == '${KURYR_CNI_POD_NAME}' and
             container[label_key].get('io.kubernetes.pod.namespace') == '${POD_NAMESPACE}' and
-            container[label_key].get('io.kubernetes.container.name') != 'POD'):
+            container[label_key].get('io.kubernetes.container.name') == 'kuryr-cni'):
         print(container[id_key])
         break
 "
