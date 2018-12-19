@@ -70,9 +70,10 @@ class TestDriverMixin(test_base.TestCase):
             }
         )
         mock_exit = mock.Mock(return_value=None)
-        self.ipdbs[netns] = mock.Mock(
-            __enter__=mock.Mock(return_value=mock_ipdb),
-            __exit__=mock_exit)
+        mock_ipdb.__exit__ = mock_exit
+        mock_ipdb.__enter__ = mock.Mock(return_value=mock_ipdb)
+        self.ipdbs[netns] = mock_ipdb
+
         return mock_ipdb, mock_exit
 
     @mock.patch('kuryr_kubernetes.cni.binding.base.get_ipdb')
@@ -203,6 +204,30 @@ class TestNestedMacvlanDriver(TestDriverMixin, test_base.TestCase):
         self.assertEqual(1, self.m_h_iface.mtu)
         self.assertEqual(str(self.vif.address), self.m_h_iface.address)
         self.m_h_iface.up.assert_called_once_with()
+
+    def test_disconnect(self):
+        self._test_disconnect()
+
+
+class TestSriovDriver(TestDriverMixin, test_base.TestCase):
+    def setUp(self):
+        super(TestSriovDriver, self).setUp()
+        self.vif = fake._fake_vif(objects.vif.VIFSriov)
+        self.vif.physnet = 'test_physnet'
+
+    @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
+                '_get_host_pf_names')
+    @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
+                '_get_available_vf_info')
+    def test_connect(self, m_avail_vf_info, m_host_pf_names):
+        m_avail_vf_info.return_value = [self.ifname, 1, 'h_interface']
+        m_host_pf_names.return_value = 'h_interface'
+        self._test_connect()
+
+        self.assertEqual(self.ifname, self.m_c_iface.ifname)
+        self.assertEqual(1, self.m_c_iface.mtu)
+        self.assertEqual(str(self.vif.address), self.m_c_iface.address)
+        self.m_c_iface.up.assert_called_once_with()
 
     def test_disconnect(self):
         self._test_disconnect()

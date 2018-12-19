@@ -40,13 +40,13 @@ class VIFSriovDriver(object):
             try:
                 func(self, *args, **kwargs)
             finally:
-                if self._lock.acquired:
+                if self._lock and self._lock.acquired:
                     self._lock.release()
                 return
         return wrapped
 
     @release_lock_object
-    def connect(self, vif, ifname, netns):
+    def connect(self, vif, ifname, netns, container_id):
         physnet = vif.physnet
 
         h_ipdb = b_base.get_ipdb()
@@ -74,7 +74,7 @@ class VIFSriovDriver(object):
             iface.mtu = vif.network.mtu
             iface.up()
 
-    def disconnect(self, vif, ifname, netns):
+    def disconnect(self, vif, ifname, netns, container_id):
         # NOTE(k.zaitsev): when netns is deleted the interface is
         # returned automatically to host netns. We may reset
         # it to all-zero state
