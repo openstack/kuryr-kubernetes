@@ -55,7 +55,7 @@ EOF
     # Copy the script into the designated location
     cp /kuryr-cni "/opt/cni/bin/kuryr-cni"
     chmod +x /opt/cni/bin/kuryr-cni
-    cp /opt/kuryr-kubernetes/etc/cni/net.d/* /etc/cni/net.d
+    cp /etc/kuryr-cni/* /etc/cni/net.d
 }
 
 cleanup

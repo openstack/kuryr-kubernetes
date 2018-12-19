@@ -1035,9 +1035,9 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
     if is_service_enabled kuryr-kubernetes || [[ ${KURYR_FORCE_IMAGE_BUILD} == "True" ]]; then
         if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
             if is_service_enabled kuryr-daemon; then
-                build_kuryr_containers $CNI_BIN_DIR $CNI_CONF_DIR True
+                build_kuryr_containers True
             else
-                build_kuryr_containers $CNI_BIN_DIR $CNI_CONF_DIR False
+                build_kuryr_containers False
             fi
         fi
     fi

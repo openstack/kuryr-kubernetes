@@ -5,22 +5,19 @@ ARG UPPER_CONSTRAINTS_FILE="https://git.openstack.org/cgit/openstack/requirement
 
 RUN yum install -y epel-release \
     && yum install -y --setopt=tsflags=nodocs python-pip \
-    && yum install --setopt=tsflags=nodocs --assumeyes inet-tools gcc python-devel wget git \
-    && pip install -U setuptools
+    && yum install -y --setopt=tsflags=nodocs gcc python-devel git
 
 COPY . /opt/kuryr-kubernetes
 
-RUN cd /opt/kuryr-kubernetes \
-    && pip install -c $UPPER_CONSTRAINTS_FILE --no-cache-dir . \
-    && rm -fr .git \
+RUN pip install -c $UPPER_CONSTRAINTS_FILE --no-cache-dir /opt/kuryr-kubernetes \
     && yum -y history undo last \
+    && rm -rf /opt/kuryr-kubernetes \
     && groupadd -r kuryr -g 711 \
     && useradd -u 711 -g kuryr \
          -d /opt/kuryr-kubernetes \
          -s /sbin/nologin \
          -c "Kuryr controller user" \
-         kuryr \
-    && chown kuryr:kuryr /opt/kuryr-kubernetes
+         kuryr
 
 USER kuryr
 CMD ["--config-dir", "/etc/kuryr"]
