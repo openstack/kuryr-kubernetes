@@ -210,9 +210,12 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
     def _ensure_security_group_rules(self, loadbalancer, listener,
                                      service_type):
+        namespace_isolation = (
+            'namespace' in CONF.kubernetes.enabled_handlers and
+            CONF.kubernetes.service_security_groups_driver == 'namespace')
         if loadbalancer.provider == const.NEUTRON_LBAAS_HAPROXY_PROVIDER:
             self._ensure_lb_security_group_rule(loadbalancer, listener)
-        elif service_type == 'ClusterIP':
+        elif service_type == 'ClusterIP' and namespace_isolation:
             self._extend_lb_security_group_rules(loadbalancer, listener)
 
     def ensure_listener(self, loadbalancer, protocol, port,
