@@ -314,7 +314,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         vlan_id = mock.sentinel.vlan_id
         vif = mock.Mock()
         m_driver._port_vlan_mapping = {vif.id: vlan_id}
-        self.assertTrue(vif.id in m_driver._port_vlan_mapping.keys())
+        self.assertTrue(vif.id in m_driver._port_vlan_mapping)
         neutron.delete_port.side_effect = n_exc.PortNotFoundClient
 
         cls.release_vif(m_driver, pod, vif)

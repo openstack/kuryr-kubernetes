@@ -231,7 +231,7 @@ class CNIDaemonWatcherService(cotyledon.Service):
                         ifname, vif_obj in (
                             self.registry[pod_name]['vifs'].items())
                 }
-                for iface in vifs.keys():
+                for iface in vifs:
                     if old_vifs[iface].active != vifs[iface].active:
                         pod_dict = self.registry[pod_name]
                         pod_dict['vifs'] = vif_dict
