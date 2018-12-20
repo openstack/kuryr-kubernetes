@@ -30,6 +30,8 @@
         Q_USE_PROVIDERNET_FOR_PUBLIC: true
         PHYSICAL_NETWORK: public
         OVN_L3_CREATE_PUBLIC_NETWORK: true
+        # OVN already builds from source by default
+        Q_BUILD_OVS_FROM_GIT: false
       devstack_services:
         ovn-northd: true
         ovn-controller: true
