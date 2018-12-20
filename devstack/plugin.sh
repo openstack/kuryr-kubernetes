@@ -567,9 +567,18 @@ function wait_for_ok_health {
     echo ""
 }
 
+function get_k8s_log_level {
+  if [[ ${ENABLE_DEBUG_LOG_LEVEL} == "True" ]]; then
+    echo "4"
+  else
+    echo "2"
+  fi
+}
+
 function run_k8s_api {
     local service_cidr
     local cluster_ip_range
+    local command
 
     # Runs Hyperkube's Kubernetes API Server
     wait_for "etcd" "http://${SERVICE_HOST}:${ETCD_PORT}/v2/machines"
@@ -584,7 +593,6 @@ function run_k8s_api {
         cluster_ip_range="$service_cidr"
     fi
 
-    local command
     command=(--net=host
              --volume=${KURYR_HYPERKUBE_DATA_DIR}:/srv/kubernetes:rw)
     if [[ ${CONTAINER_ENGINE} == 'docker' ]]; then
@@ -604,17 +612,18 @@ function run_k8s_api {
                 --tls-private-key-file=/srv/kubernetes/server.key
                 --token-auth-file=/srv/kubernetes/known_tokens.csv
                 --allow-privileged=true
-                --v=2
+                --v=$(get_k8s_log_level)
                 --logtostderr=true)
 
     run_container kubernetes-api "${command[@]}"
 }
 
 function run_k8s_controller_manager {
+    local command
+
     # Runs Hyperkube's Kubernetes controller manager
     wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
 
-    local command
     command=(--net=host
              --volume=${KURYR_HYPERKUBE_DATA_DIR}:/srv/kubernetes:rw)
     if [[ ${CONTAINER_ENGINE} == 'docker' ]]; then
@@ -626,17 +635,18 @@ function run_k8s_controller_manager {
                 --service-account-private-key-file=/srv/kubernetes/server.key
                 --root-ca-file=/srv/kubernetes/ca.crt
                 --min-resync-period=3m
-                --v=2
+                --v=$(get_k8s_log_level)
                 --logtostderr=true)
 
     run_container kubernetes-controller-manager "${command[@]}"
 }
 
 function run_k8s_scheduler {
+    local command
+
     # Runs Hyperkube's Kubernetes scheduler
     wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
 
-    local command
     command=(--net=host
              --volume=${KURYR_HYPERKUBE_DATA_DIR}:/srv/kubernetes:rw)
     if [[ ${CONTAINER_ENGINE} == 'docker' ]]; then
@@ -645,7 +655,7 @@ function run_k8s_scheduler {
     command+=(${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}
               /hyperkube scheduler
                 --master=$KURYR_K8S_API_URL
-                --v=2
+                --v=$(get_k8s_log_level)
                 --logtostderr=true)
 
     run_container kubernetes-scheduler "${command[@]}"
