@@ -36,12 +36,6 @@ CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
 _ACTIVATION_TIMEOUT = CONF.neutron_defaults.lbaas_activation_timeout
-
-_PROVIDER_SUPPORTED_LISTENER_PROT = {
-    'amphora': ['HTTP', 'HTTPS', 'TCP', 'UDP'],
-    'ovn': ['TCP', 'UDP'],
-    'haproxy':  ['HTTP', 'HTTPS', 'TCP']}
-
 _L7_POLICY_ACT_REDIRECT_TO_POOL = 'REDIRECT_TO_POOL'
 # NOTE(yboaron):Prior to sending create request to Octavia, LBaaS driver
 # verifies that LB is in a stable state by polling LB's provisioning_status
@@ -262,25 +256,6 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
     def ensure_listener(self, loadbalancer, protocol, port,
                         service_type='ClusterIP'):
-
-        # NOTE(yboaron): Since retrieving Octavia capabilities/version is not
-        # supported via  the OpenstackSdk, the list of allowed listener's
-        # protocols will be defined statically.
-        # Kuryr still need to handle the case in which listener's protocol
-        # (e.g: UDP) is not supported by Octavia.
-        provider = loadbalancer.provider or 'amphora'
-        try:
-            if protocol not in _PROVIDER_SUPPORTED_LISTENER_PROT[provider]:
-                LOG.info("Protocol: %(prot)s: is not supported by "
-                         "%(provider)s",
-                         {'prot': protocol, 'provider': provider})
-                return None
-        except KeyError:
-            LOG.info("Provider %(provider)s doesnt exist in "
-                     "_PROVIDER_SUPPORTED_LISTENER_PROT",
-                     {'provider': provider})
-            return None
-
         name = "%s:%s:%s" % (loadbalancer.name, protocol, port)
         listener = obj_lbaas.LBaaSListener(name=name,
                                            project_id=loadbalancer.project_id,
