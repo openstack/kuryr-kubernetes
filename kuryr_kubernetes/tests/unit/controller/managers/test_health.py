@@ -12,9 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes.controller.managers import health
-from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import health as h_health
 from kuryr_kubernetes.tests import base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
@@ -56,16 +54,13 @@ class TestHealthServer(base.TestCase):
 
     @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
                 '_components_ready')
-    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
-                '_has_kuryr_crd')
     @mock.patch('os.path.exists')
     @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
                 'verify_keystone_connection')
     @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
                 'verify_k8s_connection')
     def test_readiness(self, m_verify_k8s_conn, m_verify_keystone_conn,
-                       m_exist, m_has_kuryr_crd, m_components_ready):
-        m_has_kuryr_crd.side_effect = [True, True]
+                       m_exist, m_components_ready):
         m_verify_k8s_conn.return_value = True, 200
         m_exist.return_value = True
         m_components_ready.return_value = True
@@ -74,7 +69,6 @@ class TestHealthServer(base.TestCase):
 
         m_verify_k8s_conn.assert_called_once()
         m_verify_keystone_conn.assert_called_once()
-        self.assertEqual(m_has_kuryr_crd.call_count, 2)
         m_components_ready.assert_called_once()
 
         self.assertEqual(200, resp.status_code)
@@ -115,47 +109,7 @@ class TestHealthServer(base.TestCase):
         self.assertEqual(500, resp.status_code)
 
     @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
-                '_has_kuryr_crd')
-    @mock.patch('os.path.exists')
-    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
-                'verify_keystone_connection')
-    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
-                'verify_k8s_connection')
-    def test_readiness_kuryrnet_crd_error(self, m_verify_k8s_conn,
-                                          m_verify_keystone_conn,
-                                          m_exist, m_has_kuryr_crd):
-        kuryrnets_url = k_const.K8S_API_CRD_KURYRNETS
-        m_has_kuryr_crd.side_effect = [False]
-
-        resp = self.test_client.get('/ready')
-
-        m_has_kuryr_crd.assert_called_with(kuryrnets_url)
-        self.assertEqual(m_has_kuryr_crd.call_count, 1)
-        self.assertEqual(500, resp.status_code)
-
-    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
-                '_has_kuryr_crd')
-    @mock.patch('os.path.exists')
-    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
-                'verify_keystone_connection')
-    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
-                'verify_k8s_connection')
-    def test_readiness_kuryrnetpolicy_crd_error(self, m_verify_k8s_conn,
-                                                m_verify_keystone_conn,
-                                                m_exist, m_has_kuryr_crd):
-        kuryrnetpolicies_url = k_const.K8S_API_CRD_KURYRNETPOLICIES
-        m_has_kuryr_crd.side_effect = [True, False]
-
-        resp = self.test_client.get('/ready')
-
-        self.assertEqual(m_has_kuryr_crd.call_count, 2)
-        m_has_kuryr_crd.assert_called_with(kuryrnetpolicies_url)
-        self.assertEqual(500, resp.status_code)
-
-    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
                 '_components_ready')
-    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
-                '_has_kuryr_crd')
     @mock.patch('os.path.exists')
     @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
                 'verify_keystone_connection')
@@ -163,8 +117,7 @@ class TestHealthServer(base.TestCase):
                 'verify_k8s_connection')
     def test_readiness_neutron_error(self, m_verify_k8s_conn,
                                      m_verify_keystone_conn,
-                                     m_exist, m_has_kuryr_crd,
-                                     m_components_ready):
+                                     m_exist, m_components_ready):
         m_components_ready.side_effect = Exception
 
         resp = self.test_client.get('/ready')
@@ -174,8 +127,6 @@ class TestHealthServer(base.TestCase):
 
     @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
                 '_components_ready')
-    @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
-                '_has_kuryr_crd')
     @mock.patch('os.path.exists')
     @mock.patch('kuryr_kubernetes.controller.managers.health.HealthServer.'
                 'verify_keystone_connection')
@@ -183,69 +134,13 @@ class TestHealthServer(base.TestCase):
                 'verify_k8s_connection')
     def test_readiness_components_ready_error(self, m_verify_k8s_conn,
                                               m_verify_keystone_conn,
-                                              m_exist, m_has_kuryr_crd,
-                                              m_components_ready):
+                                              m_exist, m_components_ready):
         m_components_ready.return_value = False
 
         resp = self.test_client.get('/ready')
 
         m_components_ready.assert_called_once()
         self.assertEqual(500, resp.status_code)
-
-    def test__has_kuryrnet_crd(self):
-        kuryrnet_crd = {
-            "apiVersion": "openstack.org/v1",
-            "items": [
-
-            ],
-            "kind": "KuryrNetList",
-            "metadata": {
-                "continue": "",
-                "resourceVersion": "33018",
-                "selfLink": "/apis/openstack.org/v1/kuryrnets"
-            }
-        }
-
-        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
-        kubernetes.get.return_value = kuryrnet_crd
-
-        kuryrnets_url = k_const.K8S_API_CRD_KURYRNETS
-        resp = self.srv._has_kuryr_crd(kuryrnets_url)
-
-        self.assertEqual(resp, True)
-
-    def test__has_kuryrnetpolicy_crd(self):
-        kuryrnetpolicies_crd = {
-            "apiVersion": "openstack.org/v1",
-            "items": [
-
-            ],
-            "kind": "KuryrNetPolicyList",
-            "metadata": {
-                "continue": "",
-                "resourceVersion": "34186",
-                "selfLink": "/apis/openstack.org/v1/kuryrnetpolicies"
-            }
-        }
-        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
-        kubernetes.get.return_value = kuryrnetpolicies_crd
-
-        kuryrnetpolicies_url = k_const.K8S_API_CRD_KURYRNETPOLICIES
-        resp = self.srv._has_kuryr_crd(kuryrnetpolicies_url)
-
-        self.assertEqual(resp, True)
-
-    def test__has_kuryr_crd_error(self):
-        crds = [k_const.K8S_API_CRD_KURYRNETS,
-                k_const.K8S_API_CRD_KURYRNETPOLICIES]
-        for crd_url in crds:
-            kubernetes = self.useFixture(k_fix.MockK8sClient()).client
-            kubernetes.get.side_effect = k_exc.K8sClientException
-
-            resp = self.srv._has_kuryr_crd(crd_url)
-            self.assertEqual(resp, False)
-
-            kubernetes.get.assert_called_once()
 
     @mock.patch.object(_TestHandler, 'is_ready')
     def test__components_ready(self, m_status):

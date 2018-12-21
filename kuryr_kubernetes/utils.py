@@ -23,6 +23,7 @@ from oslo_log import log
 from oslo_serialization import jsonutils
 
 from kuryr_kubernetes import clients
+from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.objects import vif
 from kuryr_kubernetes import os_vif_util
 
@@ -184,5 +185,16 @@ def is_available(resource, resource_quota, neutron_func):
     availability = resource_quota - qnt_resources
     if availability <= 0:
         LOG.error("Quota exceeded for resource: %s", resource)
+        return False
+    return True
+
+
+def has_kuryr_crd(crd_url):
+    k8s = clients.get_kubernetes_client()
+    try:
+        k8s.get(crd_url, json=False, headers={'Connection': 'close'})
+    except exceptions.K8sClientException:
+        LOG.exception("Kubernetes Client Exception fetching"
+                      " CRD. %s" % exceptions.K8sClientException)
         return False
     return True

@@ -98,8 +98,13 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
 
         self._drv_policy.release_network_policy(netpolicy_crd)
 
-    @MEMOIZE
     def is_ready(self, quota):
+        if not utils.has_kuryr_crd(k_const.K8S_API_CRD_KURYRNETPOLICIES):
+            return False
+        return self._check_quota(quota)
+
+    @MEMOIZE
+    def _check_quota(self, quota):
         neutron = clients.get_neutron_client()
         sg_quota = quota['security_group']
         sg_func = neutron.list_security_groups

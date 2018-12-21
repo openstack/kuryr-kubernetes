@@ -111,8 +111,13 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
 
         self._del_kuryrnet_crd(net_crd_id)
 
-    @MEMOIZE
     def is_ready(self, quota):
+        if not utils.has_kuryr_crd(constants.K8S_API_CRD_KURYRNETS):
+            return False
+        return self._check_quota(quota)
+
+    @MEMOIZE
+    def _check_quota(self, quota):
         neutron = clients.get_neutron_client()
         resources = {'subnet': neutron.list_subnets,
                      'network': neutron.list_networks,

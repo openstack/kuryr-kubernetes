@@ -16,6 +16,8 @@ import mock
 from os_vif import objects
 from oslo_config import cfg
 
+from kuryr_kubernetes import constants as k_const
+from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.objects import vif
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
@@ -100,3 +102,58 @@ class TestUtils(test_base.TestCase):
         result = utils.extract_pod_annotation(d)
         self.assertEqual(vif.PodState.obj_name(), result.obj_name())
         self.assertEqual(vif_obj, result.default_vif)
+
+    def test__has_kuryrnet_crd(self):
+        kuryrnet_crd = {
+            "apiVersion": "openstack.org/v1",
+            "items": [
+
+            ],
+            "kind": "KuryrNetList",
+            "metadata": {
+                "continue": "",
+                "resourceVersion": "33018",
+                "selfLink": "/apis/openstack.org/v1/kuryrnets"
+            }
+        }
+
+        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
+        kubernetes.get.return_value = kuryrnet_crd
+
+        kuryrnets_url = k_const.K8S_API_CRD_KURYRNETS
+        resp = utils.has_kuryr_crd(kuryrnets_url)
+
+        self.assertEqual(resp, True)
+
+    def test__has_kuryrnetpolicy_crd(self):
+        kuryrnetpolicies_crd = {
+            "apiVersion": "openstack.org/v1",
+            "items": [
+
+            ],
+            "kind": "KuryrNetPolicyList",
+            "metadata": {
+                "continue": "",
+                "resourceVersion": "34186",
+                "selfLink": "/apis/openstack.org/v1/kuryrnetpolicies"
+            }
+        }
+        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
+        kubernetes.get.return_value = kuryrnetpolicies_crd
+
+        kuryrnetpolicies_url = k_const.K8S_API_CRD_KURYRNETPOLICIES
+        resp = utils.has_kuryr_crd(kuryrnetpolicies_url)
+
+        self.assertEqual(resp, True)
+
+    def test__has_kuryr_crd_error(self):
+        crds = [k_const.K8S_API_CRD_KURYRNETS,
+                k_const.K8S_API_CRD_KURYRNETPOLICIES]
+        for crd_url in crds:
+            kubernetes = self.useFixture(k_fix.MockK8sClient()).client
+            kubernetes.get.side_effect = k_exc.K8sClientException
+
+            resp = utils.has_kuryr_crd(crd_url)
+            self.assertEqual(resp, False)
+
+            kubernetes.get.assert_called_once()
