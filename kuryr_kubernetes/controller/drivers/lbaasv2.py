@@ -164,6 +164,41 @@ class LBaaSv2Driver(base.LBaaSDriver):
                     LOG.exception('Failed when creating security group rule '
                                   'for listener %s.', listener.name)
 
+    def _create_lb_security_group_rule(self, loadbalancer, listener):
+        neutron = clients.get_neutron_client()
+        sg_id = self._find_listeners_sg(loadbalancer)
+        # if an SG for the loadbalancer has not being created, create one
+        if not sg_id:
+            sg = neutron.create_security_group({
+                'security_group': {
+                    'name': loadbalancer.name,
+                    'project_id': loadbalancer.project_id,
+                    },
+                })
+            sg_id = sg['security_group']['id']
+            loadbalancer.security_groups.append(sg_id)
+            vip_port = self._get_vip_port(loadbalancer)
+            neutron.update_port(
+                vip_port.get('id'),
+                {'port': {
+                    'security_groups': loadbalancer.security_groups}})
+
+        try:
+            neutron.create_security_group_rule({
+                'security_group_rule': {
+                    'direction': 'ingress',
+                    'port_range_min': listener.port,
+                    'port_range_max': listener.port,
+                    'protocol': listener.protocol,
+                    'security_group_id': sg_id,
+                    'description': listener.name,
+                },
+            })
+        except n_exc.NeutronClientException as ex:
+            if ex.status_code != requests.codes.conflict:
+                LOG.exception('Failed when creating security group rule '
+                              'for listener %s.', listener.name)
+
     def _extend_lb_security_group_rules(self, loadbalancer, listener):
         neutron = clients.get_neutron_client()
 
@@ -249,10 +284,15 @@ class LBaaSv2Driver(base.LBaaSDriver):
         namespace_isolation = (
             'namespace' in CONF.kubernetes.enabled_handlers and
             CONF.kubernetes.service_security_groups_driver == 'namespace')
+        create_sg = CONF.octavia_defaults.sg_mode == 'create'
+
         if loadbalancer.provider == const.NEUTRON_LBAAS_HAPROXY_PROVIDER:
             self._ensure_lb_security_group_rule(loadbalancer, listener)
-        elif service_type == 'ClusterIP' and namespace_isolation:
+        elif namespace_isolation and (service_type == 'ClusterIP' or
+                                      create_sg):
             self._extend_lb_security_group_rules(loadbalancer, listener)
+        elif create_sg:
+            self._create_lb_security_group_rule(loadbalancer, listener)
 
     def ensure_listener(self, loadbalancer, protocol, port,
                         service_type='ClusterIP'):
