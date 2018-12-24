@@ -364,7 +364,8 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                                                              p.port]
             except KeyError:
                 continue
-        current_targets = {(str(m.ip), m.port) for m in lbaas_state.members}
+        current_targets = {(str(m.ip), m.port, m.pool_id)
+                           for m in lbaas_state.members}
 
         for subset in endpoints.get('subsets', []):
             subset_ports = subset.get('ports', [])
@@ -380,13 +381,13 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                     continue
                 for subset_port in subset_ports:
                     target_port = subset_port['port']
-                    if (target_ip, target_port) in current_targets:
-                        continue
                     port_name = subset_port.get('name')
                     try:
                         pool = pool_by_tgt_name[port_name]
                     except KeyError:
                         LOG.debug("No pool found for port: %r", port_name)
+                        continue
+                    if (target_ip, target_port, pool.id) in current_targets:
                         continue
                     # TODO(apuimedo): Do not pass subnet_id at all when in
                     # L3 mode once old neutron-lbaasv2 is not supported, as
@@ -400,6 +401,15 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                         # from VIP to pods happens in layer 3 mode, i.e.,
                         # routed.
                         member_subnet_id = lbaas_state.loadbalancer.subnet_id
+                    first_member_of_the_pool = True
+                    for member in lbaas_state.members:
+                        if pool.id == member.pool_id:
+                            first_member_of_the_pool = False
+                            break
+                    if first_member_of_the_pool:
+                        listener_port = lsnr_by_id[pool.listener_id].port
+                    else:
+                        listener_port = None
                     member = self._drv_lbaas.ensure_member(
                         loadbalancer=lbaas_state.loadbalancer,
                         pool=pool,
@@ -407,7 +417,8 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                         ip=target_ip,
                         port=target_port,
                         target_ref_namespace=target_ref['namespace'],
-                        target_ref_name=target_ref['name'])
+                        target_ref_name=target_ref['name'],
+                        listener_port=listener_port)
                     lbaas_state.members.append(member)
                     changed = True
 

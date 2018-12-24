@@ -19,6 +19,7 @@ from kuryr_kubernetes.controller.drivers import network_policy
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
+from kuryr_kubernetes import utils
 
 from neutronclient.common import exceptions as n_exc
 
@@ -185,11 +186,15 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                        '_add_kuryrnetpolicy_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        'parse_network_policy_rules')
-    def test_create_security_group_rules_from_network_policy(self, m_parse,
+    @mock.patch.object(utils, 'get_subnet_cidr')
+    def test_create_security_group_rules_from_network_policy(self, m_utils,
+                                                             m_parse,
                                                              m_add_crd,
                                                              m_get_crd):
         self._driver.neutron.create_security_group.return_value = {
             'security_group': {'id': mock.sentinel.id}}
+        m_utils.get_subnet_cidr.return_value = {
+            'subnet': {'cidr': mock.sentinel.cidr}}
         m_parse.return_value = (self._i_rules, self._e_rules)
         self._driver.neutron.create_security_group_rule.return_value = {
             'security_group_rule': {'id': mock.sentinel.id}}
@@ -204,10 +209,13 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                        '_add_kuryrnetpolicy_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        'parse_network_policy_rules')
-    def test_create_security_group_rules_with_k8s_exc(self, m_parse,
+    @mock.patch.object(utils, 'get_subnet_cidr')
+    def test_create_security_group_rules_with_k8s_exc(self, m_utils, m_parse,
                                                       m_add_crd, m_get_crd):
         self._driver.neutron.create_security_group.return_value = {
             'security_group': {'id': mock.sentinel.id}}
+        m_utils.get_subnet_cidr.return_value = {
+            'subnet': {'cidr': mock.sentinel.cidr}}
         m_parse.return_value = (self._i_rules, self._e_rules)
         m_get_crd.side_effect = exceptions.K8sClientException
         self._driver.neutron.create_security_group_rule.return_value = {
@@ -224,10 +232,13 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                        '_add_kuryrnetpolicy_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        'parse_network_policy_rules')
-    def test_create_security_group_rules_error_add_crd(self, m_parse,
+    @mock.patch.object(utils, 'get_subnet_cidr')
+    def test_create_security_group_rules_error_add_crd(self, m_utils, m_parse,
                                                        m_add_crd, m_get_crd):
         self._driver.neutron.create_security_group.return_value = {
             'security_group': {'id': mock.sentinel.id}}
+        m_utils.get_subnet_cidr.return_value = {
+            'subnet': {'cidr': mock.sentinel.cidr}}
         m_parse.return_value = (self._i_rules, self._e_rules)
         m_add_crd.side_effect = exceptions.K8sClientException
         self._driver.neutron.create_security_group_rule.return_value = {

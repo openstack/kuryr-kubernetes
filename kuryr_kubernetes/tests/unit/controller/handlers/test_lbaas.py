@@ -382,7 +382,7 @@ class FakeLBaaSDriver(drv_base.LBaaSDriver):
                                    id=str(uuid.uuid4()))
 
     def ensure_member(self, loadbalancer, pool, subnet_id, ip, port,
-                      target_ref_namespace, target_ref_name
+                      target_ref_namespace, target_ref_name, listener_port=None
                       ):
         name = "%s:%s:%s" % (loadbalancer.name, ip, port)
         return obj_lbaas.LBaaSMember(name=name,

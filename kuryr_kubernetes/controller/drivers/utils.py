@@ -102,21 +102,26 @@ def get_pods(selector, namespace=None):
 
     """
     kubernetes = clients.get_kubernetes_client()
-    labels = selector.get('matchLabels', None)
-    if labels:
-        # Removing pod-template-hash as pods will not have it and
-        # otherwise there will be no match
-        labels.pop('pod-template-hash', None)
-        labels = replace_encoded_characters(labels)
 
-    exps = selector.get('matchExpressions', None)
-    if exps:
-        exps = ', '.join(format_expression(exp) for exp in exps)
+    svc_selector = selector.get('selector')
+    if svc_selector:
+        labels = replace_encoded_characters(svc_selector)
+    else:
+        labels = selector.get('matchLabels', None)
         if labels:
-            expressions = parse.quote("," + exps)
-            labels += expressions
-        else:
-            labels = parse.quote(exps)
+            # Removing pod-template-hash as pods will not have it and
+            # otherwise there will be no match
+            labels.pop('pod-template-hash', None)
+            labels = replace_encoded_characters(labels)
+
+        exps = selector.get('matchExpressions', None)
+        if exps:
+            exps = ', '.join(format_expression(exp) for exp in exps)
+            if labels:
+                expressions = parse.quote("," + exps)
+                labels += expressions
+            else:
+                labels = parse.quote(exps)
 
     if namespace:
         pods = kubernetes.get(

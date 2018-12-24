@@ -16,6 +16,7 @@ import time
 
 import requests
 
+from neutronclient.common import exceptions as n_exc
 from os_vif import objects
 from oslo_cache import core as cache
 from oslo_config import cfg
@@ -159,6 +160,17 @@ def get_subnet(subnet_id):
     network.subnets.objects.append(subnet)
 
     return network
+
+
+@MEMOIZE
+def get_subnet_cidr(subnet_id):
+    neutron = clients.get_neutron_client()
+    try:
+        subnet_obj = neutron.show_subnet(subnet_id)
+    except n_exc.NeutronClientException:
+        LOG.exception("Subnet %s CIDR not found!", subnet_id)
+        raise
+    return subnet_obj.get('subnet')['cidr']
 
 
 def extract_pod_annotation(annotation):

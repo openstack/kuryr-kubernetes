@@ -17,10 +17,12 @@ from oslo_log import log as logging
 from neutronclient.common import exceptions as n_exc
 
 from kuryr_kubernetes import clients
+from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base
-from kuryr_kubernetes.controller.drivers import utils
+from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes import exceptions
+from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -93,14 +95,14 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                               current_sg_rules]
         for sg_rule in sg_rules_to_delete:
             try:
-                utils.delete_security_group_rule(sgr_ids[sg_rule])
+                driver_utils.delete_security_group_rule(sgr_ids[sg_rule])
             except n_exc.NotFound:
                 LOG.debug('Trying to delete non existing sg_rule %s', sg_rule)
         # Create new rules that weren't already on the security group
         sg_rules_to_add = [rule for rule in current_sg_rules if rule not in
                            existing_sg_rules]
         for sg_rule in sg_rules_to_add:
-            sgr_id = utils.create_security_group_rule(sg_rule)
+            sgr_id = driver_utils.create_security_group_rule(sg_rule)
             if sg_rule['security_group_rule'].get('direction') == 'ingress':
                 for i_rule in i_rules:
                     if sg_rule == i_rule:
@@ -111,8 +113,8 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                         e_rule["security_group_rule"]["id"] = sgr_id
         # Annotate kuryrnetpolicy CRD with current policy and ruleset
         pod_selector = policy['spec'].get('podSelector')
-        utils.patch_kuryr_crd(crd, i_rules, e_rules, pod_selector,
-                              np_spec=policy['spec'])
+        driver_utils.patch_kuryr_crd(crd, i_rules, e_rules, pod_selector,
+                                     np_spec=policy['spec'])
 
         if existing_pod_selector != pod_selector:
             return existing_pod_selector
@@ -142,13 +144,26 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             sg_id = sg['security_group']['id']
             i_rules, e_rules = self.parse_network_policy_rules(policy, sg_id)
             for i_rule in i_rules:
-                sgr_id = utils.create_security_group_rule(i_rule)
+                sgr_id = driver_utils.create_security_group_rule(i_rule)
                 i_rule['security_group_rule']['id'] = sgr_id
 
             for e_rule in e_rules:
-                sgr_id = utils.create_security_group_rule(e_rule)
+                sgr_id = driver_utils.create_security_group_rule(e_rule)
                 e_rule['security_group_rule']['id'] = sgr_id
 
+            # NOTE(ltomasbo): Add extra SG rule to allow traffic from services
+            # subnet
+            svc_cidr = utils.get_subnet_cidr(
+                config.CONF.neutron_defaults.service_subnet)
+            svc_rule = {
+                u'security_group_rule': {
+                    u'ethertype': 'IPv4',
+                    u'security_group_id': sg_id,
+                    u'direction': 'ingress',
+                    u'description': 'Kuryr-Kubernetes NetPolicy SG rule',
+                    u'remote_ip_prefix': svc_cidr
+                }}
+            driver_utils.create_security_group_rule(svc_rule)
         except (n_exc.NeutronClientException, exceptions.ResourceNotReady):
             LOG.exception("Error creating security group for network policy "
                           " %s", policy['metadata']['name'])
@@ -179,12 +194,13 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         ips = []
         matching_pods = []
         if namespace_selector:
-            matching_namespaces = utils.get_namespaces(namespace_selector)
+            matching_namespaces = driver_utils.get_namespaces(
+                namespace_selector)
             for ns in matching_namespaces.get('items'):
-                matching_pods = utils.get_pods(pod_selector,
-                                               ns['metadata']['name'])
+                matching_pods = driver_utils.get_pods(pod_selector,
+                                                      ns['metadata']['name'])
         else:
-            matching_pods = utils.get_pods(pod_selector, namespace)
+            matching_pods = driver_utils.get_pods(pod_selector, namespace)
         for pod in matching_pods.get('items'):
             if pod['status']['podIP']:
                 ips.append(pod['status']['podIP'])
@@ -214,7 +230,8 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             ns_cidr = self._get_namespace_subnet_cidr(ns)
             cidrs.append(ns_cidr)
         else:
-            matching_namespaces = utils.get_namespaces(namespace_selector)
+            matching_namespaces = driver_utils.get_namespaces(
+                namespace_selector)
             for ns in matching_namespaces.get('items'):
                 # NOTE(ltomasbo): This requires the namespace handler to be
                 # also enabled
@@ -280,7 +297,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         if rule_list[0] == {}:
             LOG.debug('Applying default all open policy from %s',
                       policy['metadata']['selfLink'])
-            rule = utils.create_security_group_rule_body(
+            rule = driver_utils.create_security_group_rule_body(
                 sg_id, direction, port_range_min=1, port_range_max=65535)
             sg_rule_body_list.append(rule)
 
@@ -294,31 +311,33 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 for port in rule_block['ports']:
                     if allowed_cidrs or allow_all or selectors:
                         for cidr in allowed_cidrs:
-                            rule = utils.create_security_group_rule_body(
-                                sg_id, direction, port.get('port'),
-                                protocol=port.get('protocol'),
-                                cidr=cidr)
+                            rule = (
+                                driver_utils.create_security_group_rule_body(
+                                    sg_id, direction, port.get('port'),
+                                    protocol=port.get('protocol'),
+                                    cidr=cidr))
                             sg_rule_body_list.append(rule)
                         if allow_all:
-                            rule = utils.create_security_group_rule_body(
-                                sg_id, direction, port.get('port'),
-                                protocol=port.get('protocol'))
+                            rule = (
+                                driver_utils.create_security_group_rule_body(
+                                    sg_id, direction, port.get('port'),
+                                    protocol=port.get('protocol')))
                             sg_rule_body_list.append(rule)
                     else:
-                        rule = utils.create_security_group_rule_body(
+                        rule = driver_utils.create_security_group_rule_body(
                             sg_id, direction, port.get('port'),
                             protocol=port.get('protocol'))
                         sg_rule_body_list.append(rule)
             elif allowed_cidrs or allow_all or selectors:
                 for cidr in allowed_cidrs:
-                    rule = utils.create_security_group_rule_body(
+                    rule = driver_utils.create_security_group_rule_body(
                         sg_id, direction,
                         port_range_min=1,
                         port_range_max=65535,
                         cidr=cidr)
                     sg_rule_body_list.append(rule)
                 if allow_all:
-                    rule = utils.create_security_group_rule_body(
+                    rule = driver_utils.create_security_group_rule_body(
                         sg_id, direction,
                         port_range_min=1,
                         port_range_max=65535)
@@ -456,7 +475,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             pod_selector = policy['spec'].get('podSelector')
         if pod_selector:
             policy_namespace = policy['metadata']['namespace']
-            pods = utils.get_pods(pod_selector, policy_namespace)
+            pods = driver_utils.get_pods(pod_selector, policy_namespace)
             return pods.get('items')
         else:
             # NOTE(ltomasbo): It affects all the pods on the namespace
