@@ -288,8 +288,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         if loadbalancer.provider == const.NEUTRON_LBAAS_HAPROXY_PROVIDER:
             self._ensure_lb_security_group_rule(loadbalancer, listener)
-        elif namespace_isolation and (service_type == 'ClusterIP' or
-                                      create_sg):
+        elif namespace_isolation and service_type == 'ClusterIP':
             self._extend_lb_security_group_rules(loadbalancer, listener)
         elif create_sg:
             self._create_lb_security_group_rule(loadbalancer, listener)
