@@ -413,7 +413,7 @@ class NeutronVIFPool(BaseVIFPool):
             kuryr_ports = self._get_ports_by_attrs(
                 device_owner=kl_const.DEVICE_OWNER)
             for port in kuryr_ports:
-                if port['id'] in self._recyclable_ports.keys():
+                if port['id'] in self._recyclable_ports:
                     sg_current[port['id']] = port['security_groups']
 
         for port_id, pool_key in self._recyclable_ports.copy().items():
@@ -595,7 +595,7 @@ class NestedVIFPool(BaseVIFPool):
             kuryr_subports = self._get_ports_by_attrs(
                 device_owner=['trunk:subport', kl_const.DEVICE_OWNER])
             for subport in kuryr_subports:
-                if subport['id'] in self._recyclable_ports.keys():
+                if subport['id'] in self._recyclable_ports:
                     sg_current[subport['id']] = subport['security_groups']
 
         for port_id, pool_key in self._recyclable_ports.copy().items():
