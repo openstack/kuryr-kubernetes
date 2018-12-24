@@ -90,7 +90,7 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         m_handler._set_lbaas_spec.assert_not_called()
 
     def test_on_present_no_selector(self):
-        svc_event = mock.sentinel.svc_event
+        svc_event = {'metadata': {'name': 'dummy_name'}}
         old_spec = mock.sentinel.old_spec
 
         m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)

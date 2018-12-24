@@ -50,9 +50,10 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
         lbaas_spec = self._get_lbaas_spec(service)
 
         if self._should_ignore(service):
-            LOG.debug("Skiping Kubernetes service of an unsupported kind or "
-                      "without a selector as Kubernetes does not create an "
-                      "endpoint object for it.")
+            LOG.debug("Skipping Kubernetes service %s of an unsupported kind "
+                      "or without a selector as Kubernetes does not create "
+                      "an endpoint object for it.",
+                      service['metadata']['name'])
             return
 
         if self._has_lbaas_spec_changes(service, lbaas_spec):
@@ -242,6 +243,8 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
     def on_present(self, endpoints):
         lbaas_spec = self._get_lbaas_spec(endpoints)
         if self._should_ignore(endpoints, lbaas_spec):
+            LOG.debug("Ignoring Kubernetes endpoints %s",
+                      endpoints['metadata']['name'])
             return
 
         lbaas_state = self._get_lbaas_state(endpoints)
