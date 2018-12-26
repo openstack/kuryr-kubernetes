@@ -57,7 +57,7 @@ Feel free to edit it if you'd like, but it should work as-is.
 
 Note that due to OVN compiling OVS from source at
 /usr/local/var/run/openvswitch we need to state at the local.conf that the path
-is different from the default one (i.e., /var/run/openvswtich).
+is different from the default one (i.e., /var/run/openvswitch).
 
 Optionally, the ports pool funcionality can be enabled by following:
 :doc:`./ports-pool`
