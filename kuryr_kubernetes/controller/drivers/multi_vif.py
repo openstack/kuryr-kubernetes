@@ -16,6 +16,7 @@ from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
 from kuryr_kubernetes import clients
+from kuryr_kubernetes import config as kuryr_config
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes import exceptions
@@ -64,7 +65,10 @@ class NPWGMultiVIFDriver(base.MultiVIFDriver):
 
             config = jsonutils.loads(nad_obj['metadata']['annotations']
                                      ['openstack.org/kuryr-config'])
-            subnet_id = config[constants.K8S_ANNOTATION_NPWG_CRD_SUBNET_ID]
+            subnet_id = config.get(
+                constants.K8S_ANNOTATION_NPWG_CRD_SUBNET_ID,
+                kuryr_config.CONF.neutron_defaults.pod_subnet
+                )
             subnet = {subnet_id: utils.get_subnet(subnet_id)}
             if constants.K8S_ANNOTATION_NPWG_CRD_DRIVER_TYPE not in config:
                 vif_drv = self._drv_vif_pool
