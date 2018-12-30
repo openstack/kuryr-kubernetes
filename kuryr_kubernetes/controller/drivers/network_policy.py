@@ -203,40 +203,27 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             matching_pods = driver_utils.get_pods(pod_selector, namespace)
         for pod in matching_pods.get('items'):
             if pod['status']['podIP']:
-                ips.append(pod['status']['podIP'])
+                pod_ip = pod['status']['podIP']
+                ns = pod['metadata']['namespace']
+                ips.append({'cidr': pod_ip, 'namespace': ns})
         return ips
-
-    def _get_namespace_subnet_cidr(self, namespace):
-        try:
-            ns_annotations = namespace['metadata']['annotations']
-            ns_name = ns_annotations[constants.K8S_ANNOTATION_NET_CRD]
-        except KeyError:
-            LOG.exception('Namespace handler must be enabled to support '
-                          'Network Policies with namespaceSelector')
-            raise exceptions.ResourceNotReady(namespace)
-        try:
-            net_crd = self.kubernetes.get('{}/kuryrnets/{}'.format(
-                constants.K8S_API_CRD, ns_name))
-        except exceptions.K8sClientException:
-            LOG.exception("Kubernetes Client Exception.")
-            raise
-        return net_crd['spec']['subnetCIDR']
 
     def _get_namespaces_cidr(self, namespace_selector, namespace=None):
         cidrs = []
         if not namespace_selector and namespace:
             ns = self.kubernetes.get(
                 '{}/namespaces/{}'.format(constants.K8S_API_BASE, namespace))
-            ns_cidr = self._get_namespace_subnet_cidr(ns)
-            cidrs.append(ns_cidr)
+            ns_cidr = driver_utils.get_namespace_subnet_cidr(ns)
+            cidrs.append({'cidr': ns_cidr, 'namespace': namespace})
         else:
             matching_namespaces = driver_utils.get_namespaces(
                 namespace_selector)
             for ns in matching_namespaces.get('items'):
                 # NOTE(ltomasbo): This requires the namespace handler to be
                 # also enabled
-                ns_cidr = self._get_namespace_subnet_cidr(ns)
-                cidrs.append(ns_cidr)
+                ns_cidr = driver_utils.get_namespace_subnet_cidr(ns)
+                ns_name = ns['metadata']['name']
+                cidrs.append({'cidr': ns_cidr, 'namespace': ns_name})
         return cidrs
 
     def _parse_selectors(self, rule_block, rule_direction, policy_namespace):
@@ -315,7 +302,8 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                                 driver_utils.create_security_group_rule_body(
                                     sg_id, direction, port.get('port'),
                                     protocol=port.get('protocol'),
-                                    cidr=cidr))
+                                    cidr=cidr.get('cidr'),
+                                    namespace=cidr.get('namespace')))
                             sg_rule_body_list.append(rule)
                         if allow_all:
                             rule = (
@@ -334,7 +322,8 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                         sg_id, direction,
                         port_range_min=1,
                         port_range_max=65535,
-                        cidr=cidr)
+                        cidr=cidr.get('cidr'),
+                        namespace=cidr.get('namespace'))
                     sg_rule_body_list.append(rule)
                 if allow_all:
                     rule = driver_utils.create_security_group_rule_body(

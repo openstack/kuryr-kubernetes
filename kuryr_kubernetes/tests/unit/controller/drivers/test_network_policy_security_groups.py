@@ -258,8 +258,8 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
                 'create_security_group_rule')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'create_security_group_rule_body')
-    @mock.patch.object(network_policy_security_groups,
-                       '_match_selector', return_value=True)
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'match_selector', return_value=True)
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_ip')
     def test__create_sg_rules(self, m_get_pod_ip,
                               m_match_selector,
@@ -277,16 +277,15 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
         policy = crd['spec']['networkpolicy_spec']
         rule_list = policy.get('ingress', None)
         crd_rules = crd['spec'].get('ingressSgRules')
+        pod_ns = pod['metadata']['namespace']
 
         for rule_block in rule_list:
             for rule in rule_block.get('from', []):
-                namespace_selector = rule.get('namespaceSelector')
                 pod_selector = rule.get('podSelector')
                 matched = network_policy_security_groups._create_sg_rules(
-                    crd, pod, namespace_selector, pod_selector, rule_block,
-                    crd_rules, 'ingress', matched)
-                new_sg_rule['namespaceSelector'] = namespace_selector
-                new_sg_rule['podSelector'] = pod_selector
+                    crd, pod, pod_selector, rule_block,
+                    crd_rules, 'ingress', matched, pod_ns)
+                new_sg_rule['namespace'] = pod_ns
                 new_sg_rule['security_group_rule']['id'] = sgr_id
                 m_match_selector.assert_called_once_with(
                     pod_selector, pod['metadata']['labels'])
@@ -296,8 +295,8 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
                 self.assertEqual([new_sg_rule], crd_rules)
                 self.assertEqual(matched, True)
 
-    @mock.patch.object(network_policy_security_groups,
-                       '_match_selector', return_value=False)
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'match_selector', return_value=False)
     def test__create_sg_rules_no_match(self, m_match_selector):
         crd = self._crd_without_rules
         pod = self._pod2
@@ -308,17 +307,16 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
 
         for rule_block in rule_list:
             for rule in rule_block.get('from', []):
-                namespace_selector = rule.get('namespaceSelector')
                 pod_selector = rule.get('podSelector')
                 matched = network_policy_security_groups._create_sg_rules(
-                    crd, pod, namespace_selector, pod_selector, rule_block,
-                    crd_rules, 'ingress', False)
+                    crd, pod, pod_selector, rule_block,
+                    crd_rules, 'ingress', False, self._namespace)
                 self.assertEqual(matched, False)
 
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'patch_kuryr_crd')
-    @mock.patch.object(network_policy_security_groups,
-                       '_get_kuryrnetpolicy_crds')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'get_kuryrnetpolicy_crds')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'delete_security_group_rule')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_ip')
@@ -347,8 +345,8 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
             crd, i_rules, e_rules, crd['spec'].get('podSelector'))
 
     @mock.patch('kuryr_kubernetes.config.CONF')
-    @mock.patch.object(network_policy_security_groups,
-                       '_get_kuryrnetpolicy_crds')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'get_kuryrnetpolicy_crds')
     def test_get_sgs_for_pod_without_label(self, m_get_crds, m_cfg):
         m_get_crds.return_value = self._crds
         sg_list = [str(mock.sentinel.sg_id)]
@@ -360,12 +358,12 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
         m_get_crds.assert_called_once_with(namespace=self._namespace)
         self.assertEqual(sg_list, sgs)
 
-    @mock.patch.object(network_policy_security_groups,
-                       '_match_expressions')
-    @mock.patch.object(network_policy_security_groups,
-                       '_match_labels')
-    @mock.patch.object(network_policy_security_groups,
-                       '_get_kuryrnetpolicy_crds')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'match_expressions')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'match_labels')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'get_kuryrnetpolicy_crds')
     def test_get_sgs_for_pod_with_label(self, m_get_crds, m_match_labels,
                                         m_match_expressions):
         m_get_crds.return_value = self._crds
@@ -382,12 +380,12 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
         self.assertEqual(resp, [str(self._sg_id)])
 
     @mock.patch('kuryr_kubernetes.config.CONF')
-    @mock.patch.object(network_policy_security_groups,
-                       '_match_expressions')
-    @mock.patch.object(network_policy_security_groups,
-                       '_match_labels')
-    @mock.patch.object(network_policy_security_groups,
-                       '_get_kuryrnetpolicy_crds')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'match_expressions')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'match_labels')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'get_kuryrnetpolicy_crds')
     def test_get_sgs_for_pod_with_label_no_match(self, m_get_crds,
                                                  m_match_labels,
                                                  m_match_expressions, m_cfg):
@@ -407,8 +405,8 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
             self._crd['spec']['podSelector']['matchLabels'], pod_labels)
         self.assertEqual(sg_list, sgs)
 
-    @mock.patch.object(network_policy_security_groups,
-                       '_get_kuryrnetpolicy_crds')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'get_kuryrnetpolicy_crds')
     def test_get_sgs_no_crds(self, m_get_crds):
         m_get_crds.return_value = self._empty_crds
         cfg.CONF.set_override('pod_security_groups', [],
@@ -419,12 +417,12 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
                           self._project_id)
         m_get_crds.assert_called_with(namespace=self._namespace)
 
-    @mock.patch.object(network_policy_security_groups,
-                       '_match_expressions')
-    @mock.patch.object(network_policy_security_groups,
-                       '_match_labels')
-    @mock.patch.object(network_policy_security_groups,
-                       '_get_kuryrnetpolicy_crds')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'match_expressions')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'match_labels')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'get_kuryrnetpolicy_crds')
     def test_get_sgs_multiple_crds(self, m_get_crds, m_match_labels,
                                    m_match_expressions):
         m_match_expressions.return_value = True

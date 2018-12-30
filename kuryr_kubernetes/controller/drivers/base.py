@@ -268,6 +268,27 @@ class PodSecurityGroupsDriver(DriverBase):
         """
         raise NotImplementedError()
 
+    def delete_namespace_sg_rules(self, namespace):
+        """Delete security group rule associated to a namespace.
+
+        :param namespace: dict containing K8S Namespace object
+        """
+        raise NotImplementedError()
+
+    def create_namespace_sg_rules(self, namespace):
+        """Create security group rule associated to a namespace.
+
+        :param namespace: dict containing K8S Namespace object
+        """
+        raise NotImplementedError()
+
+    def update_namespace_sg_rules(self, namespace):
+        """Update security group rule associated to a namespace.
+
+        :param namespace: dict containing K8S Namespace object
+        """
+        raise NotImplementedError()
+
 
 @six.add_metaclass(abc.ABCMeta)
 class ServiceSecurityGroupsDriver(DriverBase):

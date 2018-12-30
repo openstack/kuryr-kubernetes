@@ -15,10 +15,12 @@
 from oslo_cache import core as cache
 from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
+from oslo_serialization import jsonutils
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base as drivers
+from kuryr_kubernetes.controller.drivers import utils as drivers_utils
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes import utils
@@ -57,6 +59,17 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         self._drv_vif_pool.set_vif_driver()
 
     def on_present(self, namespace):
+        current_namespace_labels = namespace['metadata'].get('labels')
+        previous_namespace_labels = drivers_utils.get_annotated_labels(
+            namespace, constants.K8S_ANNOTATION_NAMESPACE_LABEL)
+        LOG.debug("Got previous namespace labels from annotation: %r",
+                  previous_namespace_labels)
+
+        if (previous_namespace_labels and
+                current_namespace_labels != previous_namespace_labels):
+            self._drv_sg.update_namespace_sg_rules(namespace)
+            self._set_namespace_labels(namespace, current_namespace_labels)
+
         ns_name = namespace['metadata']['name']
         project_id = self._drv_project.get_project(namespace)
         net_crd_id = self._get_net_crd_id(namespace)
@@ -85,6 +98,8 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         try:
             net_crd = self._add_kuryrnet_crd(ns_name, net_crd_spec)
             self._set_net_crd(namespace, net_crd)
+            self._drv_sg.create_namespace_sg_rules(namespace)
+            self._set_namespace_labels(namespace, current_namespace_labels)
         except exceptions.K8sClientException:
             LOG.exception("Kuryrnet CRD could not be added. Rolling back "
                           "network resources created for the namespace.")
@@ -108,8 +123,8 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         else:
             LOG.debug("There is no security group associated with the "
                       "namespace to be deleted")
-
         self._del_kuryrnet_crd(net_crd_id)
+        self._drv_sg.delete_namespace_sg_rules(namespace)
 
     def is_ready(self, quota):
         if not utils.has_kuryr_crd(constants.K8S_API_CRD_KURYRNETS):
@@ -191,3 +206,16 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
             LOG.exception("Kubernetes Client Exception deleting kuryrnet "
                           "CRD.")
             raise
+
+    def _set_namespace_labels(self, namespace, labels):
+        if not labels:
+            LOG.debug("Removing Label annotation: %r", labels)
+            annotation = None
+        else:
+            annotation = jsonutils.dumps(labels, sort_keys=True)
+            LOG.debug("Setting Labels annotation: %r", annotation)
+
+        k8s = clients.get_kubernetes_client()
+        k8s.annotate(namespace['metadata']['selfLink'],
+                     {constants.K8S_ANNOTATION_NAMESPACE_LABEL: annotation},
+                     resource_version=namespace['metadata']['resourceVersion'])

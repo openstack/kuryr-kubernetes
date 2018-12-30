@@ -238,7 +238,7 @@ def patch_kuryr_crd(crd, i_rules, e_rules, pod_selector, np_spec=None):
 def create_security_group_rule_body(
         security_group_id, direction, port_range_min,
         port_range_max=None, protocol=None, ethertype='IPv4', cidr=None,
-        description="Kuryr-Kubernetes NetPolicy SG rule"):
+        description="Kuryr-Kubernetes NetPolicy SG rule", namespace=None):
     if not port_range_min:
         port_range_min = 1
         port_range_max = 65535
@@ -260,6 +260,8 @@ def create_security_group_rule_body(
     if cidr:
         security_group_rule_body[u'security_group_rule'][
             u'remote_ip_prefix'] = cidr
+    if namespace:
+        security_group_rule_body['namespace'] = namespace
     LOG.debug("Creating sg rule body %s", security_group_rule_body)
     return security_group_rule_body
 
@@ -280,11 +282,100 @@ def get_pod_ip(pod):
     return first_subnet_ip
 
 
-def get_pod_annotated_labels(pod):
+def get_annotated_labels(resource, annotation_labels):
     try:
-        annotations = pod['metadata']['annotations']
-        pod_labels_annotation = annotations[constants.K8S_ANNOTATION_LABEL]
+        annotations = resource['metadata']['annotations']
+        labels_annotation = annotations[annotation_labels]
     except KeyError:
         return None
-    pod_labels = jsonutils.loads(pod_labels_annotation)
-    return pod_labels
+    labels = jsonutils.loads(labels_annotation)
+    return labels
+
+
+def get_kuryrnetpolicy_crds(namespace=None):
+    kubernetes = clients.get_kubernetes_client()
+
+    try:
+        if namespace:
+            knp_path = '{}/{}/kuryrnetpolicies'.format(
+                constants.K8S_API_CRD_NAMESPACES, namespace)
+        else:
+            knp_path = constants.K8S_API_CRD_KURYRNETPOLICIES
+        LOG.debug("K8s API Query %s", knp_path)
+        knps = kubernetes.get(knp_path)
+        LOG.debug("Return Kuryr Network Policies with label %s", knps)
+    except k_exc.K8sResourceNotFound:
+        LOG.exception("KuryrNetPolicy CRD not found")
+        raise
+    except k_exc.K8sClientException:
+        LOG.exception("Kubernetes Client Exception")
+        raise
+    return knps
+
+
+def match_expressions(expressions, labels):
+    for exp in expressions:
+        exp_op = exp['operator'].lower()
+        if labels:
+            if exp_op in OPERATORS_WITH_VALUES:
+                exp_values = exp['values']
+                label_value = labels.get(str(exp['key']), None)
+                if exp_op == constants.K8S_OPERATOR_IN:
+                    if label_value is None or label_value not in exp_values:
+                            return False
+                elif exp_op == constants.K8S_OPERATOR_NOT_IN:
+                    if label_value in exp_values:
+                        return False
+            else:
+                if exp_op == constants.K8S_OPERATOR_EXISTS:
+                    exists = labels.get(str(exp['key']), None)
+                    if exists is None:
+                        return False
+                elif exp_op == constants.K8S_OPERATOR_DOES_NOT_EXIST:
+                    exists = labels.get(str(exp['key']), None)
+                    if exists is not None:
+                        return False
+        else:
+            if exp_op in (constants.K8S_OPERATOR_IN,
+                          constants.K8S_OPERATOR_EXISTS):
+                return False
+    return True
+
+
+def match_labels(crd_labels, labels):
+    for crd_key, crd_value in crd_labels.items():
+        label_value = labels.get(crd_key, None)
+        if not label_value or crd_value != label_value:
+                return False
+    return True
+
+
+def match_selector(selector, labels):
+    crd_labels = selector.get('matchLabels', None)
+    crd_expressions = selector.get('matchExpressions', None)
+
+    match_exp = match_lb = True
+    if crd_expressions:
+        match_exp = match_expressions(crd_expressions,
+                                      labels)
+    if crd_labels and labels:
+        match_lb = match_labels(crd_labels, labels)
+    return match_exp and match_lb
+
+
+def get_namespace_subnet_cidr(namespace):
+    kubernetes = clients.get_kubernetes_client()
+    try:
+        ns_annotations = namespace['metadata']['annotations']
+        ns_name = ns_annotations[constants.K8S_ANNOTATION_NET_CRD]
+    except KeyError:
+        LOG.exception('Namespace handler must be enabled to support '
+                      'Network Policies with namespaceSelector')
+        raise k_exc.ResourceNotReady(namespace)
+    try:
+        net_crd = kubernetes.get('{}/kuryrnets/{}'.format(
+            constants.K8S_API_CRD, ns_name))
+    except k_exc.K8sClientException:
+        LOG.exception("Kubernetes Client Exception.")
+        raise
+    return net_crd['spec']['subnetCIDR']

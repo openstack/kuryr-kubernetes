@@ -302,7 +302,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         self.kubernetes.get.side_effect = [{'items': [pod]}, net_crd]
 
         resp = self._driver._get_namespaces_cidr(namespace_selector)
-        self.assertEqual([subnet_cidr], resp)
+        self.assertEqual(subnet_cidr, resp[0].get('cidr'))
         self.kubernetes.get.assert_called()
 
     def test_get_namespaces_cidr_no_matches(self):
@@ -330,7 +330,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
     def test_parse_network_policy_rules_with_rules(self, m_create,
                                                    m_get_ns_cidr):
         subnet_cidr = '10.10.0.0/24'
-        m_get_ns_cidr.return_value = [subnet_cidr]
+        m_get_ns_cidr.return_value = [{'cidr': subnet_cidr, 'namespace': ''}]
         self._driver.parse_network_policy_rules(self._policy, self._sg_id)
         m_create.assert_called()
         m_get_ns_cidr.assert_called()
@@ -374,7 +374,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
     def test_parse_network_policy_rules_with_no_ports(self, m_create,
                                                       m_get_ns_cidr):
         subnet_cidr = '10.10.0.0/24'
-        m_get_ns_cidr.return_value = [subnet_cidr]
+        m_get_ns_cidr.return_value = [{'cidr': subnet_cidr, 'namespace': ''}]
         policy = self._policy.copy()
         selectors = {'namespaceSelector': {
                      'matchLabels': {
@@ -389,9 +389,11 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         self._driver.parse_network_policy_rules(policy, self._sg_id)
         m_get_ns_cidr.assert_called()
         calls = [mock.call(self._sg_id, 'ingress', port_range_min=1,
-                           port_range_max=65535, cidr=subnet_cidr),
+                           port_range_max=65535, cidr=subnet_cidr,
+                           namespace=''),
                  mock.call(self._sg_id, 'egress', port_range_min=1,
-                           port_range_max=65535, cidr=subnet_cidr)]
+                           port_range_max=65535, cidr=subnet_cidr,
+                           namespace='')]
         m_create.assert_has_calls(calls)
 
     def test_knps_on_namespace(self):
