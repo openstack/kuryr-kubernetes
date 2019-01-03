@@ -233,10 +233,10 @@ KURYR_K8S_CONTAINERIZED_DEPLOYMENT=True
 # maximum (0 to unset), and the batch size for the repopulation actions, i.e.,
 # the number of neutron ports to create in bulk operations. Finally, the update
 # frequency between actions over the pool can be set too
-# KURYR_VIF_POOL_MIN=5
+# KURYR_VIF_POOL_MIN=2
 # KURYR_VIF_POOL_MAX=0
-# KURYR_VIF_POOL_BATCH=10
-# KURYR_VIF_POOL_UPDATE_FREQ=20
+# KURYR_VIF_POOL_BATCH=5
+# KURYR_VIF_POOL_UPDATE_FREQ=30
 
 # Kuryr VIF Pool Manager
 # ======================
