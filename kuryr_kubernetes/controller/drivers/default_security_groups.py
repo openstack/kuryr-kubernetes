@@ -47,6 +47,18 @@ class DefaultPodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
         LOG.debug("Security group driver does not implement deleting "
                   "SGs.")
 
+    def create_sg_rules(self, pod):
+        LOG.debug("Security group driver does not create SG rules for "
+                  "the pods.")
+
+    def delete_sg_rules(self, pod):
+        LOG.debug("Security group driver does not delete SG rules for "
+                  "the pods.")
+
+    def update_sg_rules(self, pod):
+        LOG.debug("Security group driver does not update SG rules for "
+                  "the pods.")
+
 
 class DefaultServiceSecurityGroupsDriver(base.ServiceSecurityGroupsDriver):
     """Provides security groups for Service based on a configuration option."""

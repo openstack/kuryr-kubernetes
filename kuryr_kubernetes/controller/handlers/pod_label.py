@@ -57,6 +57,8 @@ class PodLabelHandler(k8s_base.ResourceEventHandler):
         if current_pod_labels == previous_pod_labels:
             return
 
+        self._drv_sg.update_sg_rules(pod)
+
         project_id = self._drv_project.get_project(pod)
         security_groups = self._drv_sg.get_security_groups(pod, project_id)
         self._drv_vif_pool.update_vif_sgs(pod, security_groups)

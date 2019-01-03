@@ -18,6 +18,7 @@ from kuryr_kubernetes.cni import health as cni_health
 from kuryr_kubernetes import config
 from kuryr_kubernetes.controller.drivers import namespace_security_groups
 from kuryr_kubernetes.controller.drivers import namespace_subnet
+from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes.controller.drivers import vif_pool
 from kuryr_kubernetes.controller.handlers import namespace
 from kuryr_kubernetes.controller.handlers import policy
@@ -47,6 +48,7 @@ _kuryr_k8s_opts = [
     ('namespace_handler_caching', namespace.namespace_handler_caching_opts),
     ('np_handler_caching', policy.np_handler_caching_opts),
     ('vif_handler_caching', vif.vif_handler_caching_opts),
+    ('pod_ip_caching', driver_utils.pod_ip_caching_opts),
 ]
 
 

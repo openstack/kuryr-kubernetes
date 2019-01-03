@@ -119,6 +119,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                       'security_group_id': self._sg_id,
                       'id': mock.sentinel.id
                       }}],
+                'networkpolicy_spec': self._policy['spec'],
                 'securityGroupId': self._sg_id,
                 'securityGroupName': mock.sentinel.sg_name}}
 
@@ -245,8 +246,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
             self._driver.create_security_group_rules_from_network_policy,
             self._policy, self._project_id)
 
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_create_security_group_rule')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'create_security_group_rule')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        'get_kuryrnetpolicy_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
@@ -261,8 +262,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
             policy)
         m_parse.assert_called_with(policy, self._sg_id)
 
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_create_security_group_rule')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'create_security_group_rule')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        'get_kuryrnetpolicy_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
@@ -313,8 +314,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_get_namespaces_cidr')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_create_security_group_rule_body')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'create_security_group_rule_body')
     def test_parse_network_policy_rules_with_rules(self, m_create,
                                                    m_get_ns_cidr):
         subnet_cidr = '10.10.0.0/24'
@@ -325,8 +326,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_get_namespaces_cidr')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_create_security_group_rule_body')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'create_security_group_rule_body')
     def test_parse_network_policy_rules_with_no_rules(self, m_create,
                                                       m_get_ns_cidr):
         policy = self._policy.copy()
@@ -342,8 +343,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_get_namespaces_cidr')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_create_security_group_rule_body')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'create_security_group_rule_body')
     def test_parse_network_policy_rules_with_no_pod_selector(self, m_create,
                                                              m_get_ns_cidr):
         policy = self._policy.copy()
@@ -357,23 +358,23 @@ class TestNetworkPolicyDriver(test_base.TestCase):
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_get_namespaces_cidr')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_create_security_group_rule_body')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'create_security_group_rule_body')
     def test_parse_network_policy_rules_with_no_ports(self, m_create,
                                                       m_get_ns_cidr):
         subnet_cidr = '10.10.0.0/24'
         m_get_ns_cidr.return_value = [subnet_cidr]
         policy = self._policy.copy()
+        selectors = {'namespaceSelector': {
+                     'matchLabels': {
+                         'project': 'myproject'}}}
         policy['spec']['egress'] = [
             {'to':
-                [{'namespaceSelector': {
-                    'matchLabels': {
-                        'project': 'myproject'}}}]}]
+                [selectors]}]
         policy['spec']['ingress'] = [
             {'from':
-                [{'namespaceSelector': {
-                    'matchLabels': {
-                        'project': 'myproject'}}}]}]
+                [selectors]}]
+        selectors = {'namespace_selector': selectors['namespaceSelector']}
         self._driver.parse_network_policy_rules(policy, self._sg_id)
         m_get_ns_cidr.assert_called()
         calls = [mock.call(self._sg_id, 'ingress', port_range_min=1,

@@ -13,6 +13,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_cache import core as cache
+from oslo_config import cfg
+from oslo_log import log
 from oslo_serialization import jsonutils
 from six.moves.urllib import parse
 
@@ -22,8 +25,28 @@ from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes import os_vif_util as ovu
 from kuryr_kubernetes import utils
 
+from neutronclient.common import exceptions as n_exc
+
 OPERATORS_WITH_VALUES = [constants.K8S_OPERATOR_IN,
                          constants.K8S_OPERATOR_NOT_IN]
+
+LOG = log.getLogger(__name__)
+
+CONF = cfg.CONF
+
+pod_ip_caching_opts = [
+    cfg.BoolOpt('caching', default=True),
+    cfg.IntOpt('cache_time', default=3600),
+]
+
+CONF.register_opts(pod_ip_caching_opts, "pod_ip_caching")
+
+cache.configure(CONF)
+pod_ip_cache_region = cache.create_region()
+MEMOIZE = cache.get_memoization_decorator(
+    CONF, pod_ip_cache_region, "pod_ip_caching")
+
+cache.configure_cache_region(CONF, pod_ip_cache_region)
 
 
 def get_network_id(subnets):
@@ -155,3 +178,108 @@ def replace_encoded_characters(labels):
     # the matchLabels with ',' or '%2C' instead
     labels = labels.replace('&', ',')
     return labels
+
+
+def create_security_group_rule(body):
+    neutron = clients.get_neutron_client()
+    sgr = ''
+    try:
+        sgr = neutron.create_security_group_rule(
+            body=body)
+    except n_exc.Conflict as ex:
+        LOG.debug("Failed to create already existing security group "
+                  "rule %s", body)
+        # Get existent sg rule id from exception message
+        sgr_id = str(ex).split("Rule id is", 1)[1].split()[0][:-1]
+        return sgr_id
+    except n_exc.NeutronClientException:
+        LOG.debug("Error creating security group rule")
+        raise
+    return sgr["security_group_rule"]["id"]
+
+
+def delete_security_group_rule(security_group_rule_id):
+    neutron = clients.get_neutron_client()
+    try:
+        LOG.debug("Deleting sg rule with ID: %s", security_group_rule_id)
+        neutron.delete_security_group_rule(
+            security_group_rule=security_group_rule_id)
+    except n_exc.NotFound:
+        LOG.debug("Error deleting security group rule as it does not "
+                  "exist: %s", security_group_rule_id)
+    except n_exc.NeutronClientException:
+        LOG.debug("Error deleting security group rule: %s",
+                  security_group_rule_id)
+        raise
+
+
+def patch_kuryr_crd(crd, i_rules, e_rules, pod_selector, np_spec=None):
+    kubernetes = clients.get_kubernetes_client()
+    crd_name = crd['metadata']['name']
+    if not np_spec:
+        np_spec = crd['spec']['networkpolicy_spec']
+    LOG.debug('Patching KuryrNetPolicy CRD %s' % crd_name)
+    try:
+        kubernetes.patch('spec', crd['metadata']['selfLink'],
+                         {'ingressSgRules': i_rules,
+                          'egressSgRules': e_rules,
+                          'podSelector': pod_selector,
+                          'networkpolicy_spec': np_spec})
+    except k_exc.K8sClientException:
+        LOG.exception('Error updating kuryrnetpolicy CRD %s', crd_name)
+        raise
+
+
+def create_security_group_rule_body(
+        security_group_id, direction, port_range_min,
+        port_range_max=None, protocol=None, ethertype='IPv4', cidr=None,
+        description="Kuryr-Kubernetes NetPolicy SG rule"):
+    if not port_range_min:
+        port_range_min = 1
+        port_range_max = 65535
+    elif not port_range_max:
+        port_range_max = port_range_min
+    if not protocol:
+        protocol = 'TCP'
+    security_group_rule_body = {
+        u'security_group_rule': {
+            u'ethertype': ethertype,
+            u'security_group_id': security_group_id,
+            u'description': description,
+            u'direction': direction,
+            u'protocol': protocol.lower(),
+            u'port_range_min': port_range_min,
+            u'port_range_max': port_range_max,
+        }
+    }
+    if cidr:
+        security_group_rule_body[u'security_group_rule'][
+            u'remote_ip_prefix'] = cidr
+    LOG.debug("Creating sg rule body %s", security_group_rule_body)
+    return security_group_rule_body
+
+
+@MEMOIZE
+def get_pod_ip(pod):
+    vif = pod['metadata']['annotations'].get('openstack.org/kuryr-vif')
+    if vif is None:
+        return vif
+    vif = jsonutils.loads(vif)
+    vif = vif['versioned_object.data']['default_vif']
+    network = (vif['versioned_object.data']['network']
+                  ['versioned_object.data'])
+    first_subnet = (network['subnets']['versioned_object.data']
+                    ['objects'][0]['versioned_object.data'])
+    first_subnet_ip = (first_subnet['ips']['versioned_object.data']
+                       ['objects'][0]['versioned_object.data']['address'])
+    return first_subnet_ip
+
+
+def get_pod_annotated_labels(pod):
+    try:
+        annotations = pod['metadata']['annotations']
+        pod_labels_annotation = annotations[constants.K8S_ANNOTATION_LABEL]
+    except KeyError:
+        return None
+    pod_labels = jsonutils.loads(pod_labels_annotation)
+    return pod_labels

@@ -125,11 +125,14 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                     changed = True
             if changed:
                 self._set_pod_state(pod, state)
+                self._drv_sg.create_sg_rules(pod)
 
     def on_deleted(self, pod):
         if driver_utils.is_host_network(pod):
             return
+
         project_id = self._drv_project.get_project(pod)
+        self._drv_sg.delete_sg_rules(pod)
         try:
             security_groups = self._drv_sg.get_security_groups(pod, project_id)
         except k_exc.ResourceNotReady:
@@ -176,6 +179,14 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             annotation = jsonutils.dumps(state_dict, sort_keys=True)
             LOG.debug("Setting VIFs annotation: %r", annotation)
 
+        labels = pod['metadata'].get('labels')
+        if not labels:
+            LOG.debug("Removing Label annotation: %r", labels)
+            labels_annotation = None
+        else:
+            labels_annotation = jsonutils.dumps(labels, sort_keys=True)
+            LOG.debug("Setting Labels annotation: %r", labels_annotation)
+
         # NOTE(dulek): We don't care about compatibility with Queens format
         #              here, as eventually all Kuryr services will be upgraded
         #              and cluster will start working normally. Meanwhile
@@ -184,5 +195,6 @@ class VIFHandler(k8s_base.ResourceEventHandler):
 
         k8s = clients.get_kubernetes_client()
         k8s.annotate(pod['metadata']['selfLink'],
-                     {constants.K8S_ANNOTATION_VIF: annotation},
+                     {constants.K8S_ANNOTATION_VIF: annotation,
+                      constants.K8S_ANNOTATION_LABEL: labels_annotation},
                      resource_version=pod['metadata']['resourceVersion'])

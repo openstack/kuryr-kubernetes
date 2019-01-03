@@ -247,6 +247,27 @@ class PodSecurityGroupsDriver(DriverBase):
         """
         raise NotImplementedError()
 
+    def create_sg_rules(self, pod):
+        """Create security group rules for a pod.
+
+        :param pod: dict containing Kubernetes Pod object
+        """
+        raise NotImplementedError()
+
+    def delete_sg_rules(self, pod):
+        """Delete security group rules for a pod
+
+        :param pod: dict containing Kubernetes Pod object
+        """
+        raise NotImplementedError()
+
+    def update_sg_rules(self, pod):
+        """Update security group rules for a pod
+
+        :param pod: dict containing Kubernetes Pod object
+        """
+        raise NotImplementedError()
+
 
 @six.add_metaclass(abc.ABCMeta)
 class ServiceSecurityGroupsDriver(DriverBase):
