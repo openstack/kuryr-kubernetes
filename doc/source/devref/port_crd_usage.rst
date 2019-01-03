@@ -167,7 +167,7 @@ KuryrPorts objects that were annotated with `deleting` label at the
 (or any other SDN) associated resources.
 
 As for the Ports Pools, right now they reside on memory on the
-Kuryr-controller and need to be recovered everytime the controller gets
+Kuryr-controller and need to be recovered every time the controller gets
 restarted. To perform this recovery we are relying on Neutron Port
 device-owner information which may not be completely waterproof in all
 situations (e.g., if there is another entity using the same device

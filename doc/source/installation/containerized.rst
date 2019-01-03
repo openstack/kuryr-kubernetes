@@ -108,7 +108,7 @@ This should generate 5 files in your ``<output_dir>``:
   kuryr-cni daemonset mounts /var/run, due to necessity of accessing to several sub directories
   like openvswitch and auxiliary directory for vhostuser configuration and socket files. Also when
   neutron-openvswitch-agent works with datapath_type = netdev configuration option, kuryr-kubernetes
-  has to move vhostuser socket to auxilary directory, that auxiliary directory should be on the same
+  has to move vhostuser socket to auxiliary directory, that auxiliary directory should be on the same
   mount point, otherwise connection of this socket will be refused.
   In case when Open vSwitch keeps vhostuser socket files not in /var/run/openvswitch, openvswitch
   mount point in cni_ds.yaml and [vhostuser] section in config_map.yml should be changed properly.
