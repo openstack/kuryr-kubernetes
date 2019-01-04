@@ -177,7 +177,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
     def _get_pods_ips(self, pod_selector, namespace=None,
                       namespace_selector=None):
         ips = []
-        matching_pods = []
+        matching_pods = {"items": []}
         if namespace_selector:
             matching_namespaces = utils.get_namespaces(namespace_selector)
             for ns in matching_namespaces.get('items'):
