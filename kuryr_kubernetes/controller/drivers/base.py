@@ -778,7 +778,7 @@ class NetworkPolicyDriver(DriverBase):
         :param policy: dict containing Kubernetes NP object
         :param selector: (optional) specifc pod selector
         :returns: list of Pods objects affected by the policy or the selector
-                  if it is pased
+                  if it is passed
         """
         raise NotImplementedError()
 

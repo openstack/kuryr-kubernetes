@@ -16,7 +16,7 @@ Bugs should be filed on Launchpad, not GitHub:
 
    https://bugs.launchpad.net/kuryr-kubernetes
 
-If you want to have your code checked for pep8 automatically before commiting
+If you want to have your code checked for pep8 automatically before committing
 changes, you can just do::
 
     pip install pre-commit

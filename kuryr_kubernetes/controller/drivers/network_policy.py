@@ -241,12 +241,12 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             elif namespace_selector:
                 selectors = True
                 if pod_selector:
-                    # allow matching pods on maching namespaces
+                    # allow matching pods on matching namespaces
                     allowed_cidrs.extend(self._get_pods_ips(
                         pod_selector,
                         namespace_selector=namespace_selector))
                 else:
-                    # allow from/to all on the maching namespaces
+                    # allow from/to all on the matching namespaces
                     allowed_cidrs.extend(self._get_namespaces_cidr(
                         namespace_selector))
             else:
