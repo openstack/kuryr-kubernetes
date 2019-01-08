@@ -192,36 +192,40 @@ def _parse_rules(direction, crd, pod):
     return matched, crd_rules
 
 
+def _get_pod_sgs(pod, project_id):
+    sg_list = []
+
+    pod_labels = pod['metadata'].get('labels')
+    pod_namespace = pod['metadata']['namespace']
+
+    knp_crds = _get_kuryrnetpolicy_crds(namespace=pod_namespace)
+    for crd in knp_crds.get('items'):
+        pod_selector = crd['spec'].get('podSelector')
+        if pod_selector:
+            if _match_selector(pod_selector, pod_labels):
+                LOG.debug("Appending %s",
+                          str(crd['spec']['securityGroupId']))
+                sg_list.append(str(crd['spec']['securityGroupId']))
+        else:
+            LOG.debug("Appending %s", str(crd['spec']['securityGroupId']))
+            sg_list.append(str(crd['spec']['securityGroupId']))
+
+    # NOTE(maysams) Pods that are not selected by any Networkpolicy
+    # are fully accessible. Thus, the default security group is associated.
+    if not sg_list:
+        sg_list = config.CONF.neutron_defaults.pod_security_groups
+        if not sg_list:
+            raise cfg.RequiredOptError('pod_security_groups',
+                                       cfg.OptGroup('neutron_defaults'))
+
+    return sg_list[:]
+
+
 class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
     """Provides security groups for pods based on network policies"""
 
     def get_security_groups(self, pod, project_id):
-        sg_list = []
-
-        pod_labels = pod['metadata'].get('labels')
-        pod_namespace = pod['metadata']['namespace']
-
-        knp_crds = _get_kuryrnetpolicy_crds(namespace=pod_namespace)
-        for crd in knp_crds.get('items'):
-            pod_selector = crd['spec'].get('podSelector')
-            if pod_selector:
-                if _match_selector(pod_selector, pod_labels):
-                    LOG.debug("Appending %s",
-                              str(crd['spec']['securityGroupId']))
-                    sg_list.append(str(crd['spec']['securityGroupId']))
-            else:
-                LOG.debug("Appending %s", str(crd['spec']['securityGroupId']))
-                sg_list.append(str(crd['spec']['securityGroupId']))
-
-        # NOTE(maysams) Pods that are not selected by any Networkpolicy
-        # are fully accessible. Thus, the default security group is associated.
-        if not sg_list:
-            sg_list = config.CONF.neutron_defaults.pod_security_groups
-            if not sg_list:
-                raise cfg.RequiredOptError('pod_security_groups',
-                                           cfg.OptGroup('neutron_defaults'))
-
-        return sg_list[:]
+        return _get_pod_sgs(pod, project_id)
 
     def create_sg_rules(self, pod):
         LOG.debug("Creating sg rule for pod: %s", pod['metadata']['name'])
@@ -297,36 +301,17 @@ class NetworkPolicyServiceSecurityGroupsDriver(
     def get_security_groups(self, service, project_id):
         sg_list = []
         svc_namespace = service['metadata']['namespace']
-        svc_labels = service['metadata'].get('labels')
-        LOG.debug("Using labels %s", svc_labels)
+        svc_selector = service['spec'].get('selector')
 
-        knp_crds = _get_kuryrnetpolicy_crds(namespace=svc_namespace)
-        for crd in knp_crds.get('items'):
-            pod_selector = crd['spec'].get('podSelector')
-            if pod_selector:
-                crd_labels = pod_selector.get('matchLabels', None)
-                crd_expressions = pod_selector.get('matchExpressions', None)
-
-                match_exp = match_lb = True
-                if crd_expressions:
-                    match_exp = _match_expressions(crd_expressions,
-                                                   svc_labels)
-                if crd_labels and svc_labels:
-                    match_lb = _match_labels(crd_labels, svc_labels)
-                if match_exp and match_lb:
-                    LOG.debug("Appending %s",
-                              str(crd['spec']['securityGroupId']))
-                    sg_list.append(str(crd['spec']['securityGroupId']))
-            else:
-                LOG.debug("Appending %s", str(crd['spec']['securityGroupId']))
-                sg_list.append(str(crd['spec']['securityGroupId']))
-
-        # NOTE(maysams) Pods that are not selected by any Networkpolicy
-        # are fully accessible. Thus, the default security group is associated.
-        if not sg_list:
-            sg_list = config.CONF.neutron_defaults.pod_security_groups
-            if not sg_list:
-                raise cfg.RequiredOptError('pod_security_groups',
-                                           cfg.OptGroup('neutron_defaults'))
-
+        # skip is no selector
+        if svc_selector:
+            # get affected pods by svc selector
+            pods = driver_utils.get_pods({'selector': svc_selector},
+                                         svc_namespace).get('items')
+            # NOTE(ltomasbo): We assume all the pods pointed by a service
+            # have the same labels, and the same policy will be applied to
+            # all of them. Hence only considering the security groups applied
+            # to the first one.
+            if pods:
+                return _get_pod_sgs(pods[0], project_id)
         return sg_list[:]

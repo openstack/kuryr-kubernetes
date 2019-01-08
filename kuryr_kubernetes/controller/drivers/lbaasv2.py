@@ -31,6 +31,7 @@ from kuryr_kubernetes import constants as const
 from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.objects import lbaas as obj_lbaas
+from kuryr_kubernetes import utils
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -199,6 +200,53 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 LOG.exception('Failed when creating security group rule '
                               'for listener %s.', listener.name)
 
+    def _apply_members_security_groups(self, loadbalancer, port, target_port,
+                                       protocol, sg_rule_name):
+        neutron = clients.get_neutron_client()
+        if CONF.octavia_defaults.sg_mode == 'create':
+            sg_id = self._find_listeners_sg(loadbalancer)
+        else:
+            sg_id = self._get_vip_port(loadbalancer).get('security_groups')[0]
+
+        # Check if Network Policy allows listener on the pods
+        for sg in loadbalancer.security_groups:
+            if sg != sg_id:
+                rules = neutron.list_security_group_rules(
+                    security_group_id=sg)
+                for rule in rules['security_group_rules']:
+                    # copying ingress rules with same protocol onto the
+                    # loadbalancer sg rules
+                    # NOTE(ltomasbo): NP security groups only have
+                    # remote_ip_prefix, not remote_group_id, therefore only
+                    # applying the ones with remote_ip_prefix
+                    if (rule['protocol'] == protocol.lower() and
+                            rule['direction'] == 'ingress' and
+                            rule['remote_ip_prefix']):
+                        # If listener port not in allowed range, skip
+                        min_port = rule.get('port_range_min')
+                        max_port = rule.get('port_range_max')
+                        if (min_port and target_port not in range(min_port,
+                                                                  max_port+1)):
+                            continue
+                        try:
+                            neutron.create_security_group_rule({
+                                'security_group_rule': {
+                                    'direction': 'ingress',
+                                    'port_range_min': port,
+                                    'port_range_max': port,
+                                    'protocol': protocol,
+                                    'remote_ip_prefix': rule[
+                                        'remote_ip_prefix'],
+                                    'security_group_id': sg_id,
+                                    'description': sg_rule_name,
+                                },
+                            })
+                        except n_exc.NeutronClientException as ex:
+                            if ex.status_code != requests.codes.conflict:
+                                LOG.exception('Failed when creating security '
+                                              'group rule for listener %s.',
+                                              sg_rule_name)
+
     def _extend_lb_security_group_rules(self, loadbalancer, listener):
         neutron = clients.get_neutron_client()
 
@@ -242,7 +290,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                       'rule for listener %s.', listener.name)
 
         # ensure routes have access to the services
-        service_subnet_cidr = self._get_subnet_cidr(loadbalancer.subnet_id)
+        service_subnet_cidr = utils.get_subnet_cidr(loadbalancer.subnet_id)
         try:
             # add access from service subnet
             neutron.create_security_group_rule({
@@ -261,7 +309,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             # support
             worker_subnet_id = CONF.pod_vif_nested.worker_nodes_subnet
             if worker_subnet_id:
-                worker_subnet_cidr = self._get_subnet_cidr(worker_subnet_id)
+                worker_subnet_cidr = utils.get_subnet_cidr(worker_subnet_id)
                 neutron.create_security_group_rule({
                     'security_group_rule': {
                         'direction': 'ingress',
@@ -321,7 +369,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
                       lbaas.delete_listener,
                       listener.id)
 
-        sg_id = self._find_listeners_sg(loadbalancer)
+        if CONF.octavia_defaults.sg_mode == 'create':
+            sg_id = self._find_listeners_sg(loadbalancer)
+        else:
+            sg_id = self._get_vip_port(loadbalancer).get('security_groups')[0]
         if sg_id:
             rules = neutron.list_security_group_rules(
                 security_group_id=sg_id, description=listener.name)
@@ -363,7 +414,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
     def ensure_member(self, loadbalancer, pool,
                       subnet_id, ip, port, target_ref_namespace,
-                      target_ref_name):
+                      target_ref_name, listener_port=None):
         name = ("%s/%s" % (target_ref_namespace, target_ref_name))
         name += ":%s" % port
         member = obj_lbaas.LBaaSMember(name=name,
@@ -372,9 +423,19 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                        subnet_id=subnet_id,
                                        ip=ip,
                                        port=port)
-        return self._ensure_provisioned(loadbalancer, member,
-                                        self._create_member,
-                                        self._find_member)
+        result = self._ensure_provisioned(loadbalancer, member,
+                                          self._create_member,
+                                          self._find_member)
+
+        network_policy = (
+            'policy' in CONF.kubernetes.enabled_handlers and
+            CONF.kubernetes.service_security_groups_driver == 'policy')
+        if network_policy and listener_port:
+            protocol = pool.protocol
+            sg_rule_name = pool.name
+            self._apply_members_security_groups(loadbalancer, listener_port,
+                                                port, protocol, sg_rule_name)
+        return result
 
     def release_member(self, loadbalancer, member):
         lbaas = clients.get_loadbalancer_client()
@@ -396,15 +457,6 @@ class LBaaSv2Driver(base.LBaaSDriver):
             return ports['ports'][0]
 
         return None
-
-    def _get_subnet_cidr(self, subnet_id):
-        neutron = clients.get_neutron_client()
-        try:
-            subnet_obj = neutron.show_subnet(subnet_id)
-        except n_exc.NeutronClientException:
-            LOG.exception("Subnet %s CIDR not found!", subnet_id)
-            raise
-        return subnet_obj.get('subnet')['cidr']
 
     def _create_loadbalancer(self, loadbalancer):
         lbaas = clients.get_loadbalancer_client()

@@ -159,6 +159,8 @@ class TestLBaaSv2Driver(test_base.TestCase):
             'security_group_rules': []}
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        m_driver._get_vip_port.return_value = {
+            'security_groups': [mock.sentinel.sg_id]}
         loadbalancer = mock.Mock()
         listener = mock.Mock()
 
