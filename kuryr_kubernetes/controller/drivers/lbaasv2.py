@@ -200,6 +200,19 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 LOG.exception('Failed when creating security group rule '
                               'for listener %s.', listener.name)
 
+    def _get_matched_sg_rule(self, rule, lbaas_sg_rules):
+        for lbaas_sg_rule in lbaas_sg_rules:
+            if lbaas_sg_rule['remote_ip_prefix'] == rule['remote_ip_prefix']:
+                return lbaas_sg_rule
+        return None
+
+    def _delete_sg_rule(self, rule, lbaas_sg_rules):
+        neutron = clients.get_neutron_client()
+        sg_rule = self._get_matched_sg_rule(rule, lbaas_sg_rules)
+        if sg_rule:
+            LOG.debug("Deleting sg rule: %r", sg_rule['id'])
+            neutron.delete_security_group_rule(sg_rule['id'])
+
     def _apply_members_security_groups(self, loadbalancer, port, target_port,
                                        protocol, sg_rule_name):
         neutron = clients.get_neutron_client()
@@ -207,6 +220,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
             sg_id = self._find_listeners_sg(loadbalancer)
         else:
             sg_id = self._get_vip_port(loadbalancer).get('security_groups')[0]
+
+        lbaas_sg_rules = neutron.list_security_group_rules(
+            security_group_id=sg_id)
 
         # Check if Network Policy allows listener on the pods
         for sg in loadbalancer.security_groups:
@@ -227,6 +243,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
                         max_port = rule.get('port_range_max')
                         if (min_port and target_port not in range(min_port,
                                                                   max_port+1)):
+                            self._delete_sg_rule(
+                                rule, lbaas_sg_rules['security_group_rules'])
                             continue
                         try:
                             neutron.create_security_group_rule({
