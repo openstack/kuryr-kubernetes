@@ -906,6 +906,9 @@ function update_tempest_conf_file {
     if [[ "$KURYR_K8S_MULTI_WORKER_TESTS" == "True" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes multi_worker_setup True
     fi
+    if [[ "$KURYR_K8S_CLOUD_PROVIDER" == "True" ]]; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes cloud_provider True
+    fi
 }
 
 source $DEST/kuryr-kubernetes/devstack/lib/kuryr_kubernetes
