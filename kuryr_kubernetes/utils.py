@@ -24,10 +24,11 @@ from oslo_log import log
 from oslo_serialization import jsonutils
 
 from kuryr_kubernetes import clients
+from kuryr_kubernetes import constants
 from kuryr_kubernetes import exceptions
+from kuryr_kubernetes.objects import lbaas as obj_lbaas
 from kuryr_kubernetes.objects import vif
 from kuryr_kubernetes import os_vif_util
-
 
 CONF = cfg.CONF
 LOG = log.getLogger(__name__)
@@ -210,3 +211,15 @@ def has_kuryr_crd(crd_url):
                       " CRD. %s" % exceptions.K8sClientException)
         return False
     return True
+
+
+def get_lbaas_spec(service):
+    try:
+        annotations = service['metadata']['annotations']
+        annotation = annotations[constants.K8S_ANNOTATION_LBAAS_SPEC]
+    except KeyError:
+        return None
+    obj_dict = jsonutils.loads(annotation)
+    obj = obj_lbaas.LBaaSServiceSpec.obj_from_primitive(obj_dict)
+    LOG.debug("Got LBaaSServiceSpec from annotation: %r", obj)
+    return obj

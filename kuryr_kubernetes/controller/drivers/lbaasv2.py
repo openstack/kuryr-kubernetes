@@ -27,6 +27,7 @@ from oslo_log import log as logging
 from oslo_utils import timeutils
 
 from kuryr_kubernetes import clients
+from kuryr_kubernetes import config
 from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.objects import lbaas as obj_lbaas
@@ -121,7 +122,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             neutron.update_port(
                 vip_port.get('id'),
                 {'port': {
-                    'security_groups': loadbalancer.security_groups}})
+                    'security_groups': [sg_id]}})
 
         try:
             neutron.create_security_group_rule({
@@ -140,19 +141,37 @@ class LBaaSv2Driver(base.LBaaSDriver):
                               'for listener %s.', listener.name)
 
     def _apply_members_security_groups(self, loadbalancer, port, target_port,
-                                       protocol, sg_rule_name):
+                                       protocol, sg_rule_name, new_sgs=None):
+        LOG.debug("Applying members security groups.")
         neutron = clients.get_neutron_client()
         if CONF.octavia_defaults.sg_mode == 'create':
-            sg_id = self._find_listeners_sg(loadbalancer)
+            if new_sgs:
+                lb_name = sg_rule_name.split(":")[0]
+                lb_sg = self._find_listeners_sg(loadbalancer, lb_name=lb_name)
+            else:
+                lb_sg = self._find_listeners_sg(loadbalancer)
         else:
-            sg_id = self._get_vip_port(loadbalancer).get('security_groups')[0]
+            lb_sg = self._get_vip_port(loadbalancer).get('security_groups')[0]
 
         lbaas_sg_rules = neutron.list_security_group_rules(
-            security_group_id=sg_id)
+            security_group_id=lb_sg)
         all_pod_rules = []
+        add_default_rules = False
+
+        if new_sgs:
+            sgs = new_sgs
+        else:
+            sgs = loadbalancer.security_groups
+
         # Check if Network Policy allows listener on the pods
-        for sg in loadbalancer.security_groups:
-            if sg != sg_id:
+        for sg in sgs:
+            if sg != lb_sg:
+                if sg in config.CONF.neutron_defaults.pod_security_groups:
+                    # If default sg is set, this means there is no NP
+                    # associated to the service, thus falling back to the
+                    # default listener rules
+                    add_default_rules = True
+                    break
                 rules = neutron.list_security_group_rules(
                     security_group_id=sg)
                 for rule in rules['security_group_rules']:
@@ -172,6 +191,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
                             continue
                         all_pod_rules.append(rule)
                         try:
+                            LOG.debug("Creating LBaaS sg rule for sg: %r",
+                                      lb_sg)
                             neutron.create_security_group_rule({
                                 'security_group_rule': {
                                     'direction': 'ingress',
@@ -180,7 +201,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                     'protocol': protocol,
                                     'remote_ip_prefix': rule[
                                         'remote_ip_prefix'],
-                                    'security_group_id': sg_id,
+                                    'security_group_id': lb_sg,
                                     'description': sg_rule_name,
                                 },
                             })
@@ -190,12 +211,37 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                               'group rule for listener %s.',
                                               sg_rule_name)
 
+        # Delete LBaaS sg rules that do not match NP
         for rule in lbaas_sg_rules['security_group_rules']:
             if (rule.get('protocol') != protocol.lower() or
                     rule.get('port_range_min') != port or
+                    rule.get('direction') != 'ingress' or
                     not rule.get('remote_ip_prefix')):
+                if all_pod_rules and self._is_default_rule(rule):
+                    LOG.debug("Removing default LBaaS sg rule for sg: %r",
+                              lb_sg)
+                    neutron.delete_security_group_rule(rule['id'])
                 continue
             self._delete_rule_if_no_match(rule, all_pod_rules)
+
+        if add_default_rules:
+            try:
+                LOG.debug("Restoring default LBaaS sg rule for sg: %r", lb_sg)
+                neutron.create_security_group_rule({
+                    'security_group_rule': {
+                        'direction': 'ingress',
+                        'port_range_min': port,
+                        'port_range_max': port,
+                        'protocol': protocol,
+                        'security_group_id': lb_sg,
+                        'description': sg_rule_name,
+                    },
+                })
+            except n_exc.NeutronClientException as ex:
+                if ex.status_code != requests.codes.conflict:
+                    LOG.exception('Failed when creating security '
+                                  'group rule for listener %s.',
+                                  sg_rule_name)
 
     def _delete_rule_if_no_match(self, rule, all_pod_rules):
         for pod_rule in all_pod_rules:
@@ -204,6 +250,12 @@ class LBaaSv2Driver(base.LBaaSDriver):
         neutron = clients.get_neutron_client()
         LOG.debug("Deleting sg rule: %r", rule['id'])
         neutron.delete_security_group_rule(rule['id'])
+
+    def _is_default_rule(self, rule):
+        if (rule.get('direction') == 'ingress' and
+                not rule.get('remote_ip_prefix')):
+            return True
+        return False
 
     def _remove_default_octavia_rules(self, sg_id, listener):
         neutron = clients.get_neutron_client()
@@ -678,8 +730,15 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 if interval:
                     time.sleep(interval)
 
-    def _find_listeners_sg(self, loadbalancer):
+    def _find_listeners_sg(self, loadbalancer, lb_name=None):
         neutron = clients.get_neutron_client()
+        if lb_name:
+            sgs = neutron.list_security_groups(
+                name=lb_name, project_id=loadbalancer.project_id)
+            # NOTE(ltomasbo): lb_name parameter is only passed when sg_mode
+            # is 'create' and in that case there is only one sg associated
+            # to the loadbalancer
+            return sgs['security_groups'][0]['id']
         try:
             sgs = neutron.list_security_groups(
                 name=loadbalancer.name, project_id=loadbalancer.project_id)
@@ -837,3 +896,25 @@ class LBaaSv2Driver(base.LBaaSDriver):
                     entry['id'] != l7policy.id):
                 return True
         return False
+
+    def update_lbaas_sg(self, service, sgs):
+        LOG.debug('Setting SG for LBaaS VIP port')
+
+        svc_namespace = service['metadata']['namespace']
+        svc_name = service['metadata']['name']
+        svc_ports = service['spec']['ports']
+
+        lbaas_name = "%s/%s" % (svc_namespace, svc_name)
+        lbaas = utils.get_lbaas_spec(service)
+        if not lbaas:
+            return
+
+        for port in svc_ports:
+            port_protocol = port['protocol']
+            lbaas_port = port['port']
+            target_port = port['targetPort']
+            sg_rule_name = "%s:%s:%s" % (lbaas_name, port_protocol, lbaas_port)
+
+            self._apply_members_security_groups(lbaas, lbaas_port,
+                                                target_port, port_protocol,
+                                                sg_rule_name, sgs)
