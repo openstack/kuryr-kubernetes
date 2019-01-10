@@ -65,17 +65,26 @@ class NPWGMultiVIFDriver(base.MultiVIFDriver):
 
             config = jsonutils.loads(nad_obj['metadata']['annotations']
                                      ['openstack.org/kuryr-config'])
-            subnet_id = config.get(
-                constants.K8S_ANNOTATION_NPWG_CRD_SUBNET_ID,
-                kuryr_config.CONF.neutron_defaults.pod_subnet
-                )
-            subnet = {subnet_id: utils.get_subnet(subnet_id)}
+
+            subnet_id = config.get(constants.K8S_ANNOTATION_NPWG_CRD_SUBNET_ID)
+            neutron_defaults = kuryr_config.CONF.neutron_defaults
             if constants.K8S_ANNOTATION_NPWG_CRD_DRIVER_TYPE not in config:
                 vif_drv = self._drv_vif_pool
+                if not subnet_id:
+                    subnet_id = neutron_defaults.pod_subnet
             else:
                 alias = config[constants.K8S_ANNOTATION_NPWG_CRD_DRIVER_TYPE]
                 vif_drv = base.PodVIFDriver.get_instance(
                     specific_driver=alias)
+                if not subnet_id:
+                    try:
+                        subnet_id = neutron_defaults.subnet_mapping[alias]
+                    except KeyError:
+                        subnet_id = neutron_defaults.pod_subnet
+                        LOG.debug("Default subnet mapping in config file "
+                                  "doesn't contain any subnet for %s driver "
+                                  "alias. Default pod_subnet was used.", alias)
+            subnet = {subnet_id: utils.get_subnet(subnet_id)}
             vif = vif_drv.request_vif(pod, project_id, subnet, security_groups)
             if vif:
                 vifs.append(vif)
