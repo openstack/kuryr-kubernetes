@@ -1,19 +1,35 @@
 Enable network policy support functionality
 ===========================================
 
-Enable the policy handler to respond to network policy events. As this is not
-done by default you'd have to explicitly add that to the list of enabled
+Enable policy, pod_label and namespace handlers to respond to network policy events.
+As this is not done by default you'd have to explicitly add that to the list of enabled
 handlers at kuryr.conf (further info on how to do this can be found  at
 :doc:`./devstack/containerized`)::
 
     [kubernetes]
-    enabled_handlers=vif,lb,lbaasspec,policy,pod_label
+    enabled_handlers=vif,lb,lbaasspec,policy,pod_label,namespace
 
 After that, enable also the security group drivers for policies::
 
     [kubernetes]
     service_security_groups_driver = policy
     pod_security_groups_driver = policy
+
+Enable the namespace subnet driver by modifying the default pod_subnet_driver
+option::
+
+    [kubernetes]
+    pod_subnets_driver = namespace
+
+Select the subnet pool from where the new subnets will get their CIDR::
+
+    [namespace_subnet]
+    pod_subnet_pool = SUBNET_POOL_ID
+
+Lastly, select the router where the new subnet will be connected::
+
+    [namespace_subnet]
+    pod_router = ROUTER_ID
 
 Note you need to restart the kuryr controller after applying the above step.
 For devstack non-containerized deployments::
@@ -26,10 +42,11 @@ Same for containerized deployments::
     $ kubectl -n kube-system delete pod KURYR_CONTROLLER_POD_NAME
 
 For directly enabling the driver when deploying with devstack, you just need
-to add the policy handler and drivers with::
+to add the policy, pod_label and namespace handler and drivers with::
 
-    KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,policy,pod_label
+    KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,policy,pod_label,namespace
     KURYR_SG_DRIVER=policy
+    KURYR_SUBNET_DRIVER=namespace
 
 Testing the network policy support functionality
 ------------------------------------------------
