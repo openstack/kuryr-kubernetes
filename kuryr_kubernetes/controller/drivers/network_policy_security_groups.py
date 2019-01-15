@@ -92,7 +92,7 @@ def _parse_rules(direction, crd, pod):
         crd_rules = crd['spec'].get('egressSgRules')
 
     matched = False
-    rule_list = policy.get(direction, None)
+    rule_list = policy.get(direction, [])
     for rule_block in rule_list:
         for rule in rule_block.get(rule_direction, []):
             namespace_selector = rule.get('namespaceSelector')
