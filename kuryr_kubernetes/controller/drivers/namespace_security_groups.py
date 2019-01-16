@@ -21,7 +21,6 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base
-from kuryr_kubernetes.controller.drivers import utils
 from kuryr_kubernetes import exceptions
 
 from neutronclient.common import exceptions as n_exc
@@ -66,73 +65,6 @@ def _get_net_crd(namespace):
         raise
 
     return net_crd
-
-
-def _create_sg_rule(sg_id, direction, cidr, port=None, namespace=None):
-    if port:
-        sg_rule = utils.create_security_group_rule_body(
-            sg_id, direction, port.get('port'),
-            protocol=port.get('protocol'), cidr=cidr, namespace=namespace)
-    else:
-        sg_rule = utils.create_security_group_rule_body(
-            sg_id, direction, port_range_min=1,
-            port_range_max=65535, cidr=cidr, namespace=namespace)
-
-    sgr_id = utils.create_security_group_rule(sg_rule)
-
-    sg_rule['security_group_rule']['id'] = sgr_id
-    return sg_rule
-
-
-def _parse_rules(direction, crd, namespace):
-    policy = crd['spec']['networkpolicy_spec']
-    sg_id = crd['spec']['securityGroupId']
-
-    ns_labels = namespace['metadata'].get('labels')
-    ns_name = namespace['metadata'].get('name')
-    ns_cidr = utils.get_namespace_subnet_cidr(namespace)
-
-    rule_direction = 'from'
-    crd_rules = crd['spec'].get('ingressSgRules')
-    if direction == 'egress':
-        rule_direction = 'to'
-        crd_rules = crd['spec'].get('egressSgRules')
-
-    matched = False
-    rule_list = policy.get(direction, [])
-    for rule_block in rule_list:
-        for rule in rule_block.get(rule_direction, []):
-            pod_selector = rule.get('podSelector')
-            ns_selector = rule.get('namespaceSelector')
-            if (ns_selector and ns_labels and
-                    utils.match_selector(ns_selector, ns_labels)):
-                if pod_selector:
-                    pods = utils.get_pods(pod_selector, ns_name)
-                    for pod in pods.get('items'):
-                        pod_ip = utils.get_pod_ip(pod)
-                        if 'ports' in rule_block:
-                            for port in rule_block['ports']:
-                                matched = True
-                                crd_rules.append(_create_sg_rule(
-                                    sg_id, direction, pod_ip, port=port,
-                                    namespace=ns_name))
-                        else:
-                            matched = True
-                            crd_rules.append(_create_sg_rule(
-                                sg_id, direction, pod_ip,
-                                namespace=ns_name))
-                else:
-                    if 'ports' in rule_block:
-                        for port in rule_block['ports']:
-                            matched = True
-                            crd_rules.append(_create_sg_rule(
-                                sg_id, direction, ns_cidr,
-                                port=port, namespace=ns_name))
-                    else:
-                        matched = True
-                        crd_rules.append(_create_sg_rule(
-                            sg_id, direction, ns_cidr, namespace=ns_name))
-    return matched, crd_rules
 
 
 class NamespacePodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
@@ -200,66 +132,16 @@ class NamespacePodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
             raise
 
     def delete_namespace_sg_rules(self, namespace):
-        ns_name = namespace['metadata']['name']
-        LOG.debug("Deleting sg rule for namespace: %s",
-                  ns_name)
-
-        knp_crds = utils.get_kuryrnetpolicy_crds()
-        for crd in knp_crds.get('items'):
-            crd_selector = crd['spec'].get('podSelector')
-            ingress_rule_list = crd['spec'].get('ingressSgRules')
-            egress_rule_list = crd['spec'].get('egressSgRules')
-            i_rules = []
-            e_rules = []
-
-            matched = False
-            for i_rule in ingress_rule_list:
-                LOG.debug("Parsing ingress rule: %r", i_rule)
-                rule_namespace = i_rule.get('namespace', None)
-
-                if rule_namespace and rule_namespace == ns_name:
-                    matched = True
-                    utils.delete_security_group_rule(
-                        i_rule['security_group_rule']['id'])
-                else:
-                    i_rules.append(i_rule)
-
-            for e_rule in egress_rule_list:
-                LOG.debug("Parsing egress rule: %r", e_rule)
-                rule_namespace = e_rule.get('namespace', None)
-
-                if rule_namespace and rule_namespace == ns_name:
-                    matched = True
-                    utils.delete_security_group_rule(
-                        e_rule['security_group_rule']['id'])
-                else:
-                    e_rules.append(e_rule)
-
-            if matched:
-                utils.patch_kuryr_crd(crd, i_rules, e_rules, crd_selector)
+        LOG.debug("Security group driver does not create SG rules for "
+                  "namespace.")
 
     def create_namespace_sg_rules(self, namespace):
-        kubernetes = clients.get_kubernetes_client()
-        ns_name = namespace['metadata']['name']
-        LOG.debug("Creating sg rule for namespace: %s", ns_name)
-        namespace = kubernetes.get(
-            '{}/namespaces/{}'.format(constants.K8S_API_BASE, ns_name))
-        knp_crds = utils.get_kuryrnetpolicy_crds()
-        for crd in knp_crds.get('items'):
-            crd_selector = crd['spec'].get('podSelector')
-
-            i_matched, i_rules = _parse_rules('ingress', crd, namespace)
-            e_matched, e_rules = _parse_rules('egress', crd, namespace)
-
-            if i_matched or e_matched:
-                utils.patch_kuryr_crd(crd, i_rules,
-                                      e_rules, crd_selector)
+        LOG.debug("Security group driver does not create SG rules for "
+                  "namespace.")
 
     def update_namespace_sg_rules(self, namespace):
-        LOG.debug("Updating sg rule for namespace: %s",
-                  namespace['metadata']['name'])
-        self.delete_namespace_sg_rules(namespace)
-        self.create_namespace_sg_rules(namespace)
+        LOG.debug("Security group driver does not create SG rules for "
+                  "namespace.")
 
     def create_sg_rules(self, pod):
         LOG.debug("Security group driver does not create SG rules for "
