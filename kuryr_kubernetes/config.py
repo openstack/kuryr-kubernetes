@@ -138,11 +138,7 @@ k8s_opts = [
     cfg.StrOpt('endpoints_lbaas_driver',
                help=_("The driver that provides LoadBalancers for "
                       "Kubernetes Endpoints"),
-               default='lbaasv2',
-               deprecated_for_removal=True,
-               deprecated_reason="Default and supported lbaas endpoint is "
-                                 "now Octavia",
-               deprecated_since="Rocky"),
+               default='lbaasv2'),
     cfg.StrOpt('endpoints_driver_octavia_provider',
                help=_("The Octavia load balancer provider that will be used "
                       "to support Kubernetes Endpoints"),

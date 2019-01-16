@@ -30,10 +30,39 @@ disable_service q-agt
 # We have to disable the neutron dhcp agent. DF does not use the dhcp agent.
 disable_service q-dhcp
 
-# LBaaSv2 service and Haproxy agent
-enable_plugin neutron-lbaas git://git.openstack.org/openstack/neutron-lbaas
-enable_service q-lbaasv2
-NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
+# Octavia LBaaSv2
+LIBS_FROM_GIT+=python-octaviaclient
+enable_plugin octavia https://git.openstack.org/openstack/octavia
+enable_service octavia
+enable_service o-api
+enable_service o-cw
+enable_service o-hm
+enable_service o-hk
+## Octavia Deps
+# Current Octavia image generation using diskimage-builder is broken ATM
+# You can fetch a precreated qcow image from here [1] and set up octavia to
+# use it by uncommenting the following lines.
+# [1] https://tarballs.openstack.org/octavia/test-images/
+#             test-only-amphora-x64-haproxy-ubuntu-xenial.qcow2
+# OCTAVIA_AMP_IMAGE_FILE=/tmp/test-only-amphora-x64-haproxy-ubuntu-xenial.qcow2
+# OCTAVIA_AMP_IMAGE_SIZE=3
+# OCTAVIA_AMP_IMAGE_NAME=test-only-amphora-x64-haproxy-ubuntu-xenial
+### Image
+### Barbican
+enable_plugin barbican https://git.openstack.org/openstack/barbican
+### Nova
+enable_service n-api
+enable_service n-api-meta
+enable_service n-cpu
+enable_service n-cond
+enable_service n-sch
+enable_service placement-api
+enable_service placement-client
+### Glance
+enable_service g-api
+enable_service g-reg
+
+IMAGE_URLS+=",http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.img"
 
 # Enable heat services if you want to deploy overcloud using Heat stack
 enable_plugin heat https://git.openstack.org/openstack/heat

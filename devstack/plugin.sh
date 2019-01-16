@@ -294,14 +294,12 @@ function configure_neutron_defaults {
     pod_subnet_id="$(openstack subnet show -c id -f value \
         "${KURYR_NEUTRON_DEFAULT_POD_SUBNET}")"
 
-    local use_octavia
-    use_octavia=$(trueorfalse True KURYR_K8S_LBAAS_USE_OCTAVIA)
     create_k8s_subnet "$project_id" \
                       "$KURYR_NEUTRON_DEFAULT_SERVICE_NET" \
                       "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
                       "$subnetpool_id" \
                       "$router" \
-                      "$use_octavia"
+                      "True"
     service_subnet_id="$(openstack subnet show -c id -f value \
         "${KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET}")"
 
@@ -343,15 +341,13 @@ function configure_neutron_defaults {
         --remote-ip "$service_cidr" --ethertype IPv4 --protocol udp \
         "$service_pod_access_sg_id"
 
-    if [[ "$use_octavia" == "True" && \
-          "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L3" ]]; then
+    if [[ "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L3" ]]; then
         if [ -n "$sg_ids" ]; then
             sg_ids+=",${service_pod_access_sg_id}"
         else
             sg_ids="${service_pod_access_sg_id}"
         fi
-    elif [[ "$use_octavia" == "True" && \
-            "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L2" ]]; then
+    elif [[ "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L2" ]]; then
         # In case the member connectivity is L2, Octavia by default uses the
         # admin 'default' sg to create a port for the amphora load balancer
         # at the member ports subnet. Thus we need to allow L2 communication
@@ -447,15 +443,13 @@ function configure_neutron_defaults {
     iniset "$KURYR_CONFIG" neutron_defaults external_svc_net "$ext_svc_net_id"
     iniset "$KURYR_CONFIG" octavia_defaults member_mode "$KURYR_K8S_OCTAVIA_MEMBER_MODE"
     iniset "$KURYR_CONFIG" octavia_defaults sg_mode "$KURYR_K8S_OCTAVIA_SG_MODE"
-    if [[ "$use_octavia" == "True" ]]; then
-        # Octavia takes a very long time to start the LB in the gate. We need
-        # to tweak the timeout for the LB creation. Let's be generous and give
-        # it up to 20 minutes.
-        # FIXME(dulek): This might be removed when bug 1753653 is fixed and
-        #               Kuryr restarts waiting for LB on timeouts.
-        iniset "$KURYR_CONFIG" neutron_defaults lbaas_activation_timeout 1200
-        iniset "$KURYR_CONFIG" kubernetes endpoints_driver_octavia_provider "$KURYR_EP_DRIVER_OCTAVIA_PROVIDER"
-    fi
+    # Octavia takes a very long time to start the LB in the gate. We need
+    # to tweak the timeout for the LB creation. Let's be generous and give
+    # it up to 20 minutes.
+    # FIXME(dulek): This might be removed when bug 1753653 is fixed and
+    #               Kuryr restarts waiting for LB on timeouts.
+    iniset "$KURYR_CONFIG" neutron_defaults lbaas_activation_timeout 1200
+    iniset "$KURYR_CONFIG" kubernetes endpoints_driver_octavia_provider "$KURYR_EP_DRIVER_OCTAVIA_PROVIDER"
 }
 
 function configure_k8s_pod_sg_rules {
@@ -872,8 +866,6 @@ function configure_overcloud_vm_k8s_svc_sg {
 
 function update_tempest_conf_file {
 
-    local use_octavia="$1"
-
     if [[ "$KURYR_USE_PORT_POOLS" == "True" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes port_pool_enabled True
     fi
@@ -896,10 +888,8 @@ function update_tempest_conf_file {
         iniset $TEMPEST_CONFIG kuryr_kubernetes kuryr_daemon_enabled False
     fi
     # NOTE(yboaron): Services with protocol UDP are supported in Kuryr
-    # starting from Stein release and only for Octavia
-    if [[ "$use_octavia" == "True" ]]; then
-        iniset $TEMPEST_CONFIG kuryr_kubernetes test_udp_services True
-    fi
+    # starting from Stein release
+    iniset $TEMPEST_CONFIG kuryr_kubernetes test_udp_services True
     if [[ "$KURYR_CONTROLLER_HA" == "True" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes ap_ha True
     fi
@@ -1062,12 +1052,6 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
 
 elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
     if is_service_enabled kuryr-kubernetes; then
-        # NOTE(dulek): This is so late, because Devstack's Octavia is unable
-        #              to create loadbalancers until test-config phase.
-        use_octavia=$(trueorfalse True KURYR_K8S_LBAAS_USE_OCTAVIA)
-        if [[ "$use_octavia" == "False" ]]; then
-            create_k8s_router_fake_service
-        fi
         create_k8s_api_service
         #create Ingress L7 router if required
         enable_ingress=$(trueorfalse False KURYR_ENABLE_INGRESS)
@@ -1095,7 +1079,7 @@ elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
         fi
     fi
     if is_service_enabled tempest; then
-        update_tempest_conf_file "$use_octavia"
+        update_tempest_conf_file
     fi
 fi
 
