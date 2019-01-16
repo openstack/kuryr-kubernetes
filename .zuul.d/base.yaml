@@ -76,6 +76,7 @@
         kubernetes-scheduler: true
         kubelet: true
         kuryr-kubernetes: true
+        kuryr-daemon: true
       zuul_copy_output:
         '{{ devstack_log_dir }}/kubernetes': 'logs'
     irrelevant-files:

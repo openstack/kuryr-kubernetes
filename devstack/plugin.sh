@@ -99,8 +99,6 @@ function configure_kuryr {
             iniset "$KURYR_CONFIG" cni_health_server cg_path \
                 "/system.slice/system-devstack.slice/devstack@kuryr-daemon.service"
         fi
-    else
-        iniset "$KURYR_CONFIG" cni_daemon daemon_enabled False
     fi
 
     create_kuryr_cache_dir
@@ -131,8 +129,6 @@ function configure_kuryr {
 }
 
 function generate_containerized_kuryr_resources {
-    local cni_daemon
-    cni_daemon=$1
     if [[ $KURYR_CONTROLLER_REPLICAS -eq 1 ]]; then
         KURYR_CONTROLLER_HA="False"
     else
@@ -892,9 +888,6 @@ function update_tempest_conf_file {
     if [[ "$KURYR_ENABLED_HANDLERS" =~ .*policy.* ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes network_policy_enabled True
     fi
-    if ! is_service_enabled kuryr-daemon; then
-        iniset $TEMPEST_CONFIG kuryr_kubernetes kuryr_daemon_enabled False
-    fi
     # NOTE(yboaron): Services with protocol UDP are supported in Kuryr
     # starting from Stein release
     iniset $TEMPEST_CONFIG kuryr_kubernetes test_udp_services True
@@ -1038,11 +1031,7 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
     KURYR_FORCE_IMAGE_BUILD=$(trueorfalse False KURYR_FORCE_IMAGE_BUILD)
     if is_service_enabled kuryr-kubernetes || [[ ${KURYR_FORCE_IMAGE_BUILD} == "True" ]]; then
         if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
-            if is_service_enabled kuryr-daemon; then
-                build_kuryr_containers True
-            else
-                build_kuryr_containers False
-            fi
+            build_kuryr_containers
         fi
     fi
 
@@ -1050,11 +1039,7 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
         /usr/local/bin/kubectl apply -f ${KURYR_HOME}/kubernetes_crds/kuryrnet.yaml
         /usr/local/bin/kubectl apply -f ${KURYR_HOME}/kubernetes_crds/kuryrnetpolicy.yaml
         if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
-            if is_service_enabled kuryr-daemon; then
-                generate_containerized_kuryr_resources True
-            else
-                generate_containerized_kuryr_resources False
-            fi
+            generate_containerized_kuryr_resources
         fi
         if [ "$KURYR_MULTI_VIF_DRIVER" == "npwg_multiple_interfaces" ]; then
             /usr/local/bin/kubectl apply -f ${KURYR_HOME}/kubernetes_crds/network_attachment_definition_crd.yaml

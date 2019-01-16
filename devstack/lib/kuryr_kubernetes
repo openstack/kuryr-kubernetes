@@ -583,9 +583,8 @@ EOF
 function generate_cni_daemon_set() {
     output_dir=$1
     cni_health_server_port=$2
-    cni_daemon=${3:-False}
-    cni_bin_dir=${4:-/opt/cni/bin}
-    cni_conf_dir=${5:-/etc/cni/net.d}
+    cni_bin_dir=${3:-/opt/cni/bin}
+    cni_conf_dir=${4:-/etc/cni/net.d}
     mkdir -p "$output_dir"
     rm -f ${output_dir}/cni_ds.yml
     cat >> "${output_dir}/cni_ds.yml" << EOF
@@ -624,8 +623,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        - name: CNI_DAEMON
-          value: "${cni_daemon}"
         securityContext:
           privileged: true
         volumeMounts:
@@ -645,8 +642,7 @@ EOF
           mountPath: /var/run
 EOF
     fi
-    if [ "$cni_daemon" == "True" ]; then
-        cat >> "${output_dir}/cni_ds.yml" << EOF
+    cat >> "${output_dir}/cni_ds.yml" << EOF
         readinessProbe:
           httpGet:
             path: /ready
@@ -659,9 +655,6 @@ EOF
             path: /alive
             port: ${cni_health_server_port}
           initialDelaySeconds: 60
-EOF
-    fi
-    cat >> "${output_dir}/cni_ds.yml" << EOF
       volumes:
         - name: bin
           hostPath:
