@@ -245,7 +245,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
                       lbaas.delete_listener,
                       listener.id)
 
-        sg_id = self._find_listeners_sg(loadbalancer)
+        if loadbalancer.provider == const.NEUTRON_LBAAS_HAPROXY_PROVIDER:
+            sg_id = self._find_listeners_sg(loadbalancer)
+        else:
+            sg_id = self._get_vip_port(loadbalancer).get('security_groups')[0]
         if sg_id:
             rules = neutron.list_security_group_rules(
                 security_group_id=sg_id, description=listener.name)
