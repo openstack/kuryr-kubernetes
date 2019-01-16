@@ -352,7 +352,8 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                                                              p.port]
             except KeyError:
                 continue
-        current_targets = {(str(m.ip), m.port) for m in lbaas_state.members}
+        current_targets = {(str(m.ip), m.port, m.pool_id)
+                           for m in lbaas_state.members}
 
         for subset in endpoints.get('subsets', []):
             subset_ports = subset.get('ports', [])
@@ -368,13 +369,13 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                     continue
                 for subset_port in subset_ports:
                     target_port = subset_port['port']
-                    if (target_ip, target_port) in current_targets:
-                        continue
                     port_name = subset_port.get('name')
                     try:
                         pool = pool_by_tgt_name[port_name]
                     except KeyError:
                         LOG.debug("No pool found for port: %r", port_name)
+                        continue
+                    if (target_ip, target_port, pool.id) in current_targets:
                         continue
                     # TODO(apuimedo): Do not pass subnet_id at all when in
                     # L3 mode once old neutron-lbaasv2 is not supported, as
