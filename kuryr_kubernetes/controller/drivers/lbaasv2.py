@@ -147,6 +147,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
         else:
             sg_id = self._get_vip_port(loadbalancer).get('security_groups')[0]
 
+        lbaas_sg_rules = neutron.list_security_group_rules(
+            security_group_id=sg_id)
+        all_pod_rules = []
         # Check if Network Policy allows listener on the pods
         for sg in loadbalancer.security_groups:
             if sg != sg_id:
@@ -167,6 +170,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
                         if (min_port and target_port not in range(min_port,
                                                                   max_port+1)):
                             continue
+                        all_pod_rules.append(rule)
                         try:
                             neutron.create_security_group_rule({
                                 'security_group_rule': {
@@ -185,6 +189,21 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                 LOG.exception('Failed when creating security '
                                               'group rule for listener %s.',
                                               sg_rule_name)
+
+        for rule in lbaas_sg_rules['security_group_rules']:
+            if (rule.get('protocol') != protocol.lower() or
+                    rule.get('port_range_min') != port or
+                    not rule.get('remote_ip_prefix')):
+                continue
+            self._delete_rule_if_no_match(rule, all_pod_rules)
+
+    def _delete_rule_if_no_match(self, rule, all_pod_rules):
+        for pod_rule in all_pod_rules:
+            if pod_rule['remote_ip_prefix'] == rule['remote_ip_prefix']:
+                return
+        neutron = clients.get_neutron_client()
+        LOG.debug("Deleting sg rule: %r", rule['id'])
+        neutron.delete_security_group_rule(rule['id'])
 
     def _remove_default_octavia_rules(self, sg_id, listener):
         neutron = clients.get_neutron_client()
