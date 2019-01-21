@@ -212,6 +212,10 @@ neutron_defaults = [
                help=_("Time (in seconds) that kuryr controller waits for "
                       "neutron LBaaS to be activated"),
                default=300),
+    cfg.DictOpt('subnet_mapping',
+                help=_("A mapping of default subnets for certain driverType "
+                       "in a form of <driverType>:<SUBNET-ID>"),
+                default={}),
 ]
 
 octavia_defaults = [
