@@ -149,9 +149,29 @@ class LBaaSv2Driver(base.LBaaSDriver):
                     LOG.exception('Failed when creating security group rule '
                                   'for listener %s.', listener.name)
 
+    def _remove_default_octavia_rules(self, sg_id, listener):
+        neutron = clients.get_neutron_client()
+        for remaining in self._provisioning_timer(_ACTIVATION_TIMEOUT):
+            listener_rules = neutron.list_security_group_rules(
+                security_group_id=sg_id,
+                protocol=listener.protocol,
+                port_range_min=listener.port,
+                port_range_max=listener.port,
+                direction='ingress')
+            for rule in listener_rules['security_group_rules']:
+                if not (rule.get('remote_group_id') or
+                        rule.get('remote_ip_prefix')):
+                    # remove default sg rules
+                    neutron.delete_security_group_rule(rule['id'])
+                    return
+
     def _extend_lb_security_group_rules(self, loadbalancer, listener):
         neutron = clients.get_neutron_client()
         sg_id = self._get_vip_port(loadbalancer).get('security_groups')[0]
+
+        # wait until octavia adds default sg rules
+        self._remove_default_octavia_rules(sg_id, listener)
+
         for sg in loadbalancer.security_groups:
             try:
                 neutron.create_security_group_rule({
