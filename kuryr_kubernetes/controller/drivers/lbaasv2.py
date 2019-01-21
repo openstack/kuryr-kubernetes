@@ -265,6 +265,23 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                               'group rule for listener %s.',
                                               sg_rule_name)
 
+    def _remove_default_octavia_rules(self, sg_id, listener):
+        neutron = clients.get_neutron_client()
+        for remaining in self._provisioning_timer(
+                _ACTIVATION_TIMEOUT, _LB_STS_POLL_SLOW_INTERVAL):
+            listener_rules = neutron.list_security_group_rules(
+                security_group_id=sg_id,
+                protocol=listener.protocol,
+                port_range_min=listener.port,
+                port_range_max=listener.port,
+                direction='ingress')
+            for rule in listener_rules['security_group_rules']:
+                if not (rule.get('remote_group_id') or
+                        rule.get('remote_ip_prefix')):
+                    # remove default sg rules
+                    neutron.delete_security_group_rule(rule['id'])
+                    return
+
     def _extend_lb_security_group_rules(self, loadbalancer, listener):
         neutron = clients.get_neutron_client()
 
@@ -287,6 +304,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
                         'security_groups': loadbalancer.security_groups}})
         else:
             sg_id = self._get_vip_port(loadbalancer).get('security_groups')[0]
+            # wait until octavia adds default sg rules
+            self._remove_default_octavia_rules(sg_id, listener)
 
         for sg in loadbalancer.security_groups:
             if sg != sg_id:
