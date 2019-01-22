@@ -181,6 +181,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         m_namespaced.assert_called_once_with(self._policy)
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_add_default_np_rules')
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
                        'get_kuryrnetpolicy_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_add_kuryrnetpolicy_crd')
@@ -190,7 +192,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
     def test_create_security_group_rules_from_network_policy(self, m_utils,
                                                              m_parse,
                                                              m_add_crd,
-                                                             m_get_crd):
+                                                             m_get_crd,
+                                                             m_add_default):
         self._driver.neutron.create_security_group.return_value = {
             'security_group': {'id': mock.sentinel.id}}
         m_utils.get_subnet_cidr.return_value = {
@@ -202,7 +205,10 @@ class TestNetworkPolicyDriver(test_base.TestCase):
             self._policy, self._project_id)
         m_get_crd.assert_called_once()
         m_add_crd.assert_called_once()
+        m_add_default.assert_called_once()
 
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_add_default_np_rules')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        'get_kuryrnetpolicy_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
@@ -211,7 +217,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                        'parse_network_policy_rules')
     @mock.patch.object(utils, 'get_subnet_cidr')
     def test_create_security_group_rules_with_k8s_exc(self, m_utils, m_parse,
-                                                      m_add_crd, m_get_crd):
+                                                      m_add_crd, m_get_crd,
+                                                      m_add_default):
         self._driver.neutron.create_security_group.return_value = {
             'security_group': {'id': mock.sentinel.id}}
         m_utils.get_subnet_cidr.return_value = {
@@ -225,7 +232,10 @@ class TestNetworkPolicyDriver(test_base.TestCase):
             self._driver.create_security_group_rules_from_network_policy,
             self._policy, self._project_id)
         m_add_crd.assert_called_once()
+        m_add_default.assert_called_once()
 
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_add_default_np_rules')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        'get_kuryrnetpolicy_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
@@ -234,7 +244,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                        'parse_network_policy_rules')
     @mock.patch.object(utils, 'get_subnet_cidr')
     def test_create_security_group_rules_error_add_crd(self, m_utils, m_parse,
-                                                       m_add_crd, m_get_crd):
+                                                       m_add_crd, m_get_crd,
+                                                       m_add_default):
         self._driver.neutron.create_security_group.return_value = {
             'security_group': {'id': mock.sentinel.id}}
         m_utils.get_subnet_cidr.return_value = {
@@ -248,6 +259,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
             self._driver.create_security_group_rules_from_network_policy,
             self._policy, self._project_id)
         m_get_crd.assert_not_called()
+        m_add_default.assert_called_once()
 
     def test_create_security_group_rules_with_n_exc(self):
         self._driver.neutron.create_security_group.side_effect = (
