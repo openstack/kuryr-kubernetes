@@ -262,7 +262,7 @@ function create_k8s_api_service {
     # Regardless of the octavia mode, the k8s API will be behind an L3 mode
     # amphora driver loadbalancer
     create_load_balancer_member "$(hostname)" "$address" "$api_port" \
-        default/kubernetes:${KURYR_K8S_API_LB_PORT} public-subnet "$lb_name" "$project_id"
+        default/kubernetes:${KURYR_K8S_API_LB_PORT} ${KURYR_NEUTRON_DEFAULT_EXT_SVC_SUBNET} "$lb_name" "$project_id"
 }
 
 function configure_neutron_defaults {
