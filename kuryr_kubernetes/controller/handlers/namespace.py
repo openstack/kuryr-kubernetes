@@ -65,8 +65,7 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         LOG.debug("Got previous namespace labels from annotation: %r",
                   previous_namespace_labels)
 
-        if (previous_namespace_labels and
-                current_namespace_labels != previous_namespace_labels):
+        if current_namespace_labels != previous_namespace_labels:
             self._drv_sg.update_namespace_sg_rules(namespace)
             self._set_namespace_labels(namespace, current_namespace_labels)
 
