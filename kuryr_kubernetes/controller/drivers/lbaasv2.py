@@ -27,7 +27,6 @@ from oslo_log import log as logging
 from oslo_utils import timeutils
 
 from kuryr_kubernetes import clients
-from kuryr_kubernetes import constants as const
 from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.objects import lbaas as obj_lbaas
@@ -76,13 +75,6 @@ class LBaaSv2Driver(base.LBaaSDriver):
             # deleted externally between 'create' and 'find'
             raise k_exc.ResourceNotReady(request)
 
-        try:
-            if security_groups_ids is not None:
-                self._ensure_security_groups(response, service_type)
-        except n_exc.NeutronClientException:
-            self.release_loadbalancer(response)
-            raise
-
         return response
 
     def release_loadbalancer(self, loadbalancer):
@@ -111,59 +103,6 @@ class LBaaSv2Driver(base.LBaaSDriver):
                               'group. Leaving it orphaned.')
             except n_exc.NotFound:
                 LOG.debug('Security group %s already deleted', sg_id)
-
-    def _ensure_security_groups(self, loadbalancer, service_type):
-        # We only handle SGs for legacy LBaaSv2, Octavia handles it dynamically
-        # according to listener ports.
-        if loadbalancer.provider == const.NEUTRON_LBAAS_HAPROXY_PROVIDER:
-            neutron = clients.get_neutron_client()
-            sg_id = None
-            try:
-                # NOTE(dulek): We're creating another security group to
-                #              overcome LBaaS v2 limitations and handle SGs
-                #              ourselves.
-                if service_type == 'LoadBalancer':
-                    sg_id = self._find_listeners_sg(loadbalancer)
-                    if not sg_id:
-                        sg = neutron.create_security_group({
-                            'security_group': {
-                                'name': loadbalancer.name,
-                                'project_id': loadbalancer.project_id,
-                            },
-                        })
-                        sg_id = sg['security_group']['id']
-                    loadbalancer.security_groups.append(sg_id)
-
-                neutron.update_port(
-                    loadbalancer.port_id,
-                    {'port': {
-                        'security_groups': loadbalancer.security_groups}})
-            except n_exc.NeutronClientException:
-                LOG.exception('Failed to set SG for LBaaS v2 VIP port %s.',
-                              loadbalancer.port_id)
-                if sg_id:
-                    neutron.delete_security_group(sg_id)
-                raise
-
-    def _ensure_lb_security_group_rule(self, loadbalancer, listener):
-        sg_id = self._find_listeners_sg(loadbalancer)
-        if sg_id:
-            try:
-                neutron = clients.get_neutron_client()
-                neutron.create_security_group_rule({
-                    'security_group_rule': {
-                        'direction': 'ingress',
-                        'port_range_min': listener.port,
-                        'port_range_max': listener.port,
-                        'protocol': listener.protocol,
-                        'security_group_id': sg_id,
-                        'description': listener.name,
-                    },
-                })
-            except n_exc.NeutronClientException as ex:
-                if ex.status_code != requests.codes.conflict:
-                    LOG.exception('Failed when creating security group rule '
-                                  'for listener %s.', listener.name)
 
     def _create_lb_security_group_rule(self, loadbalancer, listener):
         neutron = clients.get_neutron_client()
@@ -371,9 +310,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             CONF.kubernetes.service_security_groups_driver == 'namespace')
         create_sg = CONF.octavia_defaults.sg_mode == 'create'
 
-        if loadbalancer.provider == const.NEUTRON_LBAAS_HAPROXY_PROVIDER:
-            self._ensure_lb_security_group_rule(loadbalancer, listener)
-        elif namespace_isolation and service_type == 'ClusterIP':
+        if namespace_isolation and service_type == 'ClusterIP':
             self._extend_lb_security_group_rules(loadbalancer, listener)
         elif create_sg:
             self._create_lb_security_group_rule(loadbalancer, listener)
