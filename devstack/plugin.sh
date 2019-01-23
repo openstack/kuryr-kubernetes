@@ -773,11 +773,12 @@ function run_k8s_kubelet {
 
 function run_kuryr_kubernetes {
     local python_bin=$(which python)
+
     if is_service_enabled openshift-master; then
-        wait_for "OpenShift API Server" "$KURYR_K8S_API_LB_URL" \
+        wait_for "OpenShift API Server" "${KURYR_K8S_API_ROOT}" \
             "${OPENSHIFT_DATA_DIR}/master/ca.crt" 1200
     else
-        wait_for_ok_health "Kubernetes API Server" "${KURYR_K8S_API_LB_URL}/healthz" \
+        wait_for_ok_health "Kubernetes API Server" "${KURYR_K8S_API_ROOT}/healthz" \
             "${KURYR_HYPERKUBE_DATA_DIR}/kuryr-ca.crt" \
             "${KURYR_HYPERKUBE_DATA_DIR}/kuryr.key" \
             "${KURYR_HYPERKUBE_DATA_DIR}/kuryr.crt" \
@@ -850,8 +851,15 @@ function create_ingress_l7_router {
 }
 
 function configure_overcloud_vm_k8s_svc_sg {
+    local dst_port
     local project_id
     local security_group
+
+    if is_service_enabled octavia; then
+        dst_port=${KURYR_K8S_API_LB_PORT}
+    else
+        dst_port=${KURYR_K8S_API_PORT}
+    fi
 
     project_id=$(get_or_create_project \
         "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
@@ -860,7 +868,7 @@ function configure_overcloud_vm_k8s_svc_sg {
         awk '{if ($2=="default") print $1}')
     openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
         security group rule create --project "$project_id" \
-        --dst-port "$KURYR_K8S_API_LB_PORT" "$security_group"
+        --dst-port "$dst_port" "$security_group"
     openstack port set "$KURYR_OVERCLOUD_VM_PORT" --security-group service_pod_access
 }
 
@@ -932,10 +940,13 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
                                      subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
                                      -c cidr -f value)
             k8s_api_clusterip=$(_cidr_range "$service_cidr" | cut -f1)
-            # NOTE(dulek): KURYR_K8S_API_LB_URL will be a global to be used by next
-            #              deployment phases.
-            KURYR_K8S_API_LB_URL="https://${k8s_api_clusterip}:${KURYR_K8S_API_LB_PORT}"
-            iniset "$KURYR_CONFIG" kubernetes api_root ${KURYR_K8S_API_LB_URL}
+            # NOTE(mrostecki): KURYR_K8S_API_ROOT will be a global to be used by next
+            #                  deployment phases.
+            KURYR_K8S_API_ROOT=${KURYR_K8S_API_URL}
+            if is_service_enabled octavia; then
+                KURYR_K8S_API_ROOT="https://${k8s_api_clusterip}:${KURYR_K8S_API_LB_PORT}"
+            fi
+            iniset "$KURYR_CONFIG" kubernetes api_root ${KURYR_K8S_API_ROOT}
         else
             iniset "$KURYR_CONFIG" kubernetes api_root '""'
         fi
@@ -1052,12 +1063,14 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
 
 elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
     if is_service_enabled kuryr-kubernetes; then
-        create_k8s_api_service
-        #create Ingress L7 router if required
-        enable_ingress=$(trueorfalse False KURYR_ENABLE_INGRESS)
+        if is_service_enabled octavia; then
+            create_k8s_api_service
+            #create Ingress L7 router if required
+            enable_ingress=$(trueorfalse False KURYR_ENABLE_INGRESS)
 
-        if [ "$enable_ingress" == "True" ]; then
-            create_ingress_l7_router
+            if [ "$enable_ingress" == "True" ]; then
+                create_ingress_l7_router
+            fi
         fi
 
         # FIXME(dulek): This is a very late phase to start Kuryr services.
