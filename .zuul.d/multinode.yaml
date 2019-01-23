@@ -13,10 +13,10 @@
 # limitations under the License.
 
 - job:
-    name: kuryr-kubernetes-tempest-multinode-octavia-containerized
-    parent: kuryr-kubernetes-tempest-octavia
+    name: kuryr-kubernetes-tempest-multinode-containerized
+    parent: kuryr-kubernetes-tempest
     description: |
-        Kuryr-Kubernetes tempest multinode job using octavia
+        Kuryr-Kubernetes tempest multinode job
     nodeset: openstack-two-node
     host-vars:
       controller:
@@ -55,11 +55,10 @@
     voting: false
 
 - job:
-    name: kuryr-kubernetes-tempest-multinode-octavia-ha
-    parent: kuryr-kubernetes-tempest-multinode-octavia-containerized
+    name: kuryr-kubernetes-tempest-multinode-ha
+    parent: kuryr-kubernetes-tempest-multinode-containerized
     description: |
-        Kuryr-Kubernetes tempest multinode job using octavia and running
-        containerized in HA
+        Kuryr-Kubernetes tempest multinode job running containerized in HA
     timeout: 7800
     vars:
       devstack_localrc:
