@@ -40,10 +40,10 @@ class NestedPodVIFDriver(neutron_vif.NeutronPodVIFDriver):
             fixed_ips = ['subnet_id=%s' % str(node_subnet_id),
                          'ip_address=%s' % str(node_fixed_ip)]
             ports = neutron.list_ports(fixed_ips=fixed_ips)
-        except n_exc.NeutronClientException as ex:
+        except n_exc.NeutronClientException:
             LOG.error("Parent vm port with fixed ips %s not found!",
                       fixed_ips)
-            raise ex
+            raise
 
         if ports['ports']:
             return ports['ports'][0]

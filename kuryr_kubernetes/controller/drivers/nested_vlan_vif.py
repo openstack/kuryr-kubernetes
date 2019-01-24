@@ -81,9 +81,9 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         bulk_port_rq = {'ports': [port_rq for _ in range(len(subports_info))]}
         try:
             ports = neutron.create_port(bulk_port_rq).get('ports')
-        except n_exc.NeutronClientException as ex:
-            LOG.error("Error creating bulk ports: %s", bulk_port_rq)
-            raise ex
+        except n_exc.NeutronClientException:
+            LOG.exception("Error creating bulk ports: %s", bulk_port_rq)
+            raise
         for index, port in enumerate(ports):
             subports_info[index]['port_id'] = port['id']
 
@@ -91,14 +91,14 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
             try:
                 neutron.trunk_add_subports(trunk_id,
                                            {'sub_ports': subports_info})
-            except n_exc.Conflict as ex:
+            except n_exc.Conflict:
                 LOG.error("vlan ids already in use on trunk")
                 for port in ports:
                     neutron.delete_port(port['id'])
-                raise ex
-        except n_exc.NeutronClientException as ex:
-            LOG.error("Error happened during subport addition to trunk")
-            raise ex
+                raise
+        except n_exc.NeutronClientException:
+            LOG.exception("Error happened during subport addition to trunk")
+            raise
 
         vifs = []
         for index, port in enumerate(ports):
@@ -185,17 +185,17 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         while True:
             try:
                 vlan_id = self._get_vlan_id(trunk_id)
-            except n_exc.NeutronClientException as ex:
+            except n_exc.NeutronClientException:
                 LOG.error("Getting VlanID for subport on "
                           "trunk %s failed!!", trunk_id)
-                raise ex
+                raise
             subport = [{'segmentation_id': vlan_id,
                         'port_id': subport,
                        'segmentation_type': 'vlan'}]
             try:
                 neutron.trunk_add_subports(trunk_id,
                                            {'sub_ports': subport})
-            except n_exc.Conflict as ex:
+            except n_exc.Conflict:
                 if retry_count < DEFAULT_MAX_RETRY_COUNT:
                     LOG.error("vlanid already in use on trunk, "
                               "%s. Retrying...", trunk_id)
@@ -205,12 +205,12 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                 else:
                     LOG.error(
                         "MAX retry count reached. Failed to add subport")
-                    raise ex
+                    raise
 
-            except n_exc.NeutronClientException as ex:
-                LOG.error("Error happened during subport "
-                          "addition to trunk, %s", trunk_id)
-                raise ex
+            except n_exc.NeutronClientException:
+                LOG.exception("Error happened during subport "
+                              "addition to trunk %s", trunk_id)
+                raise
             return vlan_id
 
     def _remove_subports(self, neutron, trunk_id, subports_id):
@@ -220,11 +220,10 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         try:
             neutron.trunk_remove_subports(trunk_id,
                                           {'sub_ports': subports_body})
-        except n_exc.NeutronClientException as ex:
-            LOG.error(
-                "Error happened during subport removal from "
-                "trunk, %s", trunk_id)
-            raise ex
+        except n_exc.NeutronClientException:
+            LOG.exception("Error happened during subport removal from "
+                          "trunk %s", trunk_id)
+            raise
 
     def _remove_subport(self, neutron, trunk_id, subport_id):
         self._remove_subports(neutron, trunk_id, [subport_id])

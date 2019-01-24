@@ -157,22 +157,22 @@ class RequestHandler(BaseHTTPRequestHandler):
             project_id = drv_project.get_project({})
             security_groups = drv_sg.get_security_groups({}, project_id)
             subnets = drv_subnets.get_subnets([], project_id)
-        except TypeError as ex:
+        except TypeError:
             LOG.error("Invalid driver type")
-            raise ex
+            raise
 
         for trunk_ip in trunk_ips:
             try:
                 drv_vif_pool.force_populate_pool(
                     trunk_ip, project_id, subnets, security_groups, num_ports)
-            except n_exc.Conflict as ex:
+            except n_exc.Conflict:
                 LOG.error("VLAN Id conflict (already in use) at trunk %s",
                           trunk_ip)
-                raise ex
-            except n_exc.NeutronClientException as ex:
-                LOG.error("Error happened during subports addition at trunk: "
-                          " %s", trunk_ip)
-                raise ex
+                raise
+            except n_exc.NeutronClientException:
+                LOG.exception("Error happened during subports addition at "
+                              "trunk: %s", trunk_ip)
+                raise
 
     def _delete_subports(self, trunk_ips):
         try:
@@ -181,9 +181,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             drv_vif_pool.set_vif_driver(drv_vif)
 
             drv_vif_pool.free_pool(trunk_ips)
-        except TypeError as ex:
+        except TypeError:
             LOG.error("Invalid driver type")
-            raise ex
+            raise
 
     def _list_pools(self):
         try:
@@ -192,9 +192,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             drv_vif_pool.set_vif_driver(drv_vif)
 
             available_pools = drv_vif_pool.list_pools()
-        except TypeError as ex:
+        except TypeError:
             LOG.error("Invalid driver type")
-            raise ex
+            raise
 
         pools_info = ""
         for pool_key, pool_items in available_pools.items():
@@ -211,9 +211,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             drv_vif_pool.set_vif_driver(drv_vif)
 
             pool = drv_vif_pool.show_pool(pool_key)
-        except TypeError as ex:
+        except TypeError:
             LOG.error("Invalid driver type")
-            raise ex
+            raise
 
         if pool:
             pool_info = ""

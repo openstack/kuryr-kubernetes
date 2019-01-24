@@ -74,10 +74,10 @@ class SriovVIFDriver(neutron_vif.NeutronPodVIFDriver):
         """Returns an appropriate physnet for exact subnet_id from mapping"""
         try:
             physnet = self._physnet_mapping[subnet_id]
-        except KeyError as ex:
+        except KeyError:
             LOG.error("No mapping for subnet {} in {}".format(
                 subnet_id, self._physnet_mapping))
-            raise ex
+            raise
         return physnet
 
     def _get_remaining_sriov_vfs(self, pod):

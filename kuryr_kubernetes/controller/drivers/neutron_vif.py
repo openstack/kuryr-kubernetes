@@ -51,9 +51,9 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
         bulk_port_rq = {'ports': [rq for _ in range(num_ports)]}
         try:
             ports = neutron.create_port(bulk_port_rq).get('ports')
-        except n_exc.NeutronClientException as ex:
-            LOG.error("Error creating bulk ports: %s", bulk_port_rq)
-            raise ex
+        except n_exc.NeutronClientException:
+            LOG.exception("Error creating bulk ports: %s", bulk_port_rq)
+            raise
 
         vif_plugin = self._get_vif_plugin(ports[0])
 

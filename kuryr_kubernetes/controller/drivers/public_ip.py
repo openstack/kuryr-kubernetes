@@ -133,9 +133,10 @@ class FipPubIpDriver(BasePubIpDriver):
 
         try:
             response = neutron.create_floatingip(request)
-        except n_exc.NeutronClientException as ex:
-            LOG.error("Failed to create floating IP - netid=%s ", pub_net_id)
-            raise ex
+        except n_exc.NeutronClientException:
+            LOG.exception("Failed to create floating IP - netid=%s ",
+                          pub_net_id)
+            raise
         return response['floatingip']['id'], response[
             'floatingip']['floating_ip_address']
 

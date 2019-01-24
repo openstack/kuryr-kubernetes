@@ -405,9 +405,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
             fixed_ips = ['subnet_id=%s' % str(loadbalancer.subnet_id),
                          'ip_address=%s' % str(loadbalancer.ip)]
             ports = neutron.list_ports(fixed_ips=fixed_ips)
-        except n_exc.NeutronClientException as ex:
+        except n_exc.NeutronClientException:
             LOG.error("Port with fixed ips %s not found!", fixed_ips)
-            raise ex
+            raise
 
         if ports['ports']:
             return ports['ports'][0]
@@ -802,10 +802,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 l7_rule.id, l7_rule.l7policy_id,
                 {'rule': {'value': new_value}})
 
-        except n_exc.NeutronClientException as ex:
-            LOG.error("Failed to update l7_rule- id=%s ",
-                      l7_rule.id)
-            raise ex
+        except n_exc.NeutronClientException:
+            LOG.exception("Failed to update l7_rule- id=%s ", l7_rule.id)
+            raise
 
     def is_pool_used_by_other_l7policies(self, l7policy, pool):
         lbaas = clients.get_loadbalancer_client()
