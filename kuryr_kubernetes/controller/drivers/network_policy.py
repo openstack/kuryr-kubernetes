@@ -120,6 +120,31 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             return existing_pod_selector
         return False
 
+    def _add_default_np_rules(self, sg_id):
+        """Add extra SG rule to allow traffic from svcs and host.
+
+        This method adds the base security group rules for the NP security
+        group:
+        - Ensure traffic is allowed from the services subnet
+        - Ensure traffic is allowed from the host
+        """
+        default_cidrs = []
+        default_cidrs.append(utils.get_subnet_cidr(
+            config.CONF.neutron_defaults.service_subnet))
+        worker_subnet_id = config.CONF.pod_vif_nested.worker_nodes_subnet
+        if worker_subnet_id:
+            default_cidrs.append(utils.get_subnet_cidr(worker_subnet_id))
+        for cidr in default_cidrs:
+            default_rule = {
+                u'security_group_rule': {
+                    u'ethertype': 'IPv4',
+                    u'security_group_id': sg_id,
+                    u'direction': 'ingress',
+                    u'description': 'Kuryr-Kubernetes NetPolicy SG rule',
+                    u'remote_ip_prefix': cidr
+                }}
+            driver_utils.create_security_group_rule(default_rule)
+
     def create_security_group_rules_from_network_policy(self, policy,
                                                         project_id):
         """Create initial security group and rules
@@ -151,19 +176,8 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 sgr_id = driver_utils.create_security_group_rule(e_rule)
                 e_rule['security_group_rule']['id'] = sgr_id
 
-            # NOTE(ltomasbo): Add extra SG rule to allow traffic from services
-            # subnet
-            svc_cidr = utils.get_subnet_cidr(
-                config.CONF.neutron_defaults.service_subnet)
-            svc_rule = {
-                u'security_group_rule': {
-                    u'ethertype': 'IPv4',
-                    u'security_group_id': sg_id,
-                    u'direction': 'ingress',
-                    u'description': 'Kuryr-Kubernetes NetPolicy SG rule',
-                    u'remote_ip_prefix': svc_cidr
-                }}
-            driver_utils.create_security_group_rule(svc_rule)
+            # Add default rules to allow traffic from host and svc subnet
+            self._add_default_np_rules(sg_id)
         except (n_exc.NeutronClientException, exceptions.ResourceNotReady):
             LOG.exception("Error creating security group for network policy "
                           " %s", policy['metadata']['name'])
