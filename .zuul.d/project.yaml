@@ -29,7 +29,6 @@
       jobs:
         - kuryr-kubernetes-tempest-octavia
         - kuryr-kubernetes-tempest-daemon-octavia
-        - kuryr-kubernetes-tempest-daemon-containerized-octavia
         - kuryr-kubernetes-tempest-daemon-octavia-py36
         - kuryr-kubernetes-tempest-daemon-containerized-octavia-py36
     experimental:
