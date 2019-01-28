@@ -690,12 +690,21 @@ class LBaaSDriver(DriverBase):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def is_pool_used_by_other_l7policies(l7policy, pool):
+    def is_pool_used_by_other_l7policies(self, l7policy, pool):
         """Checks if pool used by other L7policy.
 
         :param l7policy: `LBaaSL7Policy` object
         :param pool: `LBaaSPool` object
 
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def update_lbaas_sg(self, service, sgs):
+        """Update security group rules associated to the loadbalancer
+
+        :param service: k8s service object
+        :param sgs: list of security group ids to use for updating the rules
         """
         raise NotImplementedError()
 
