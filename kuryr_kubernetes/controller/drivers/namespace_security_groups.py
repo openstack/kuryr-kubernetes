@@ -115,10 +115,10 @@ class NamespacePodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
                         "security_group_id": sg['id']
                     }
                 })
-        except n_exc.NeutronClientException as ex:
-            LOG.error("Error creating security group for the namespace "
-                      "%s: %s", namespace, ex)
-            raise ex
+        except n_exc.NeutronClientException:
+            LOG.exception("Error creating security group for the namespace "
+                          "%s", namespace)
+            raise
         return {'sgId': sg['id']}
 
     def delete_sg(self, sg_id):

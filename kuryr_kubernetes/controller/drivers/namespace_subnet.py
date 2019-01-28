@@ -138,10 +138,10 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
             # connect the subnet to the router
             neutron.add_interface_router(router_id,
                                          {"subnet_id": neutron_subnet['id']})
-        except n_exc.NeutronClientException as ex:
-            LOG.error("Error creating neutron resources for the namespace "
-                      "%s: %s", namespace, ex)
-            raise ex
+        except n_exc.NeutronClientException:
+            LOG.exception("Error creating neutron resources for the namespace "
+                          "%s", namespace)
+            raise
         return {'netId': neutron_net['id'],
                 'routerId': router_id,
                 'subnetId': neutron_subnet['id'],

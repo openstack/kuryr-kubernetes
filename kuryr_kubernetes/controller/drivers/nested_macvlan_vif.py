@@ -142,7 +142,7 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                 port_id,
                 {'port': {'allowed_address_pairs': address_pairs}}
             )
-        except n_exc.NeutronClientException as ex:
-            LOG.error("Error happened during updating Neutron "
-                      "port %s: %s", port_id, ex)
-            raise ex
+        except n_exc.NeutronClientException:
+            LOG.exception("Error happened during updating Neutron port %s",
+                          port_id)
+            raise
