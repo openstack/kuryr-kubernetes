@@ -400,21 +400,39 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                 for subnet in network.subnets.objects
                 if ip in subnet.cidr][0]
 
+    def _get_port_in_pool(self, pool, lbaas_state, lbaas_spec):
+        for l in lbaas_state.listeners:
+            if l.id != pool.listener_id:
+                continue
+            for port in lbaas_spec.ports:
+                if l.port == port.port and l.protocol == port.protocol:
+                    return port
+        return None
+
     def _remove_unused_members(self, endpoints, lbaas_state, lbaas_spec):
-        spec_port_names = {p.name for p in lbaas_spec.ports}
-        current_targets = {(a['ip'], p['port'])
+        spec_ports = {}
+        for pool in lbaas_state.pools:
+            port = self._get_port_in_pool(pool, lbaas_state, lbaas_spec)
+            if port:
+                spec_ports[port.name] = pool.id
+
+        current_targets = {(a['ip'], p['port'],
+                            spec_ports.get(p.get('name')))
                            for s in endpoints['subsets']
                            for a in s['addresses']
                            for p in s['ports']
-                           if p.get('name') in spec_port_names}
+                           if p.get('name') in spec_ports}
+
         removed_ids = set()
         for member in lbaas_state.members:
-            if (str(member.ip), member.port) in current_targets:
+            if ((str(member.ip), member.port, member.pool_id) in
+                    current_targets):
                 continue
             self._drv_lbaas.release_member(endpoints,
                                            lbaas_state.loadbalancer,
                                            member)
             removed_ids.add(member.id)
+
         if removed_ids:
             lbaas_state.members = [m for m in lbaas_state.members
                                    if m.id not in removed_ids]
