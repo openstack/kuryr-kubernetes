@@ -72,7 +72,7 @@ VIF_POOL_SHOW = '/showPool'
 DEFAULT_IFNAME = 'eth0'
 
 ADDITIONAL_IFNAME_PREFIX = 'eth'
-K8S_NPWG_SRIOV_PREFIX = "intel.com/sriov"
+K8S_SRIOV_PREFIX = 'intel.com'
 
 K8S_OPERATOR_IN = 'in'
 K8S_OPERATOR_NOT_IN = 'notin'

@@ -17,6 +17,7 @@ from kuryr.lib import config as lib_config
 from oslo_config import cfg
 from oslo_log import log as logging
 
+from kuryr_kubernetes import constants
 from kuryr_kubernetes import version
 
 LOG = logging.getLogger(__name__)
@@ -260,6 +261,18 @@ sriov_opts = [
                        "physical network names to the agent's node-specific "
                        "physical network device interfaces of SR-IOV physical "
                        "function to be used for VLAN networks.")),
+    cfg.DictOpt('physnet_resource_mappings',
+                help=_("A mapping of physnets for certain sriov dp "
+                       "resource name in a form of "
+                       "physnet-name:resource name. "
+                       "Resource name is listed in sriov device plugin "
+                       "configuation file."),
+                default=DEFAULT_PHYSNET_SUBNET_MAPPINGS),
+    cfg.StrOpt('device_plugin_resource_prefix',
+               help=_("This prefix is used by sriov-network-device-plugin "
+                      "It concatenates with resource suffix defined in "
+                      "sriov device plugin configuration file."),
+               default=constants.K8S_SRIOV_PREFIX),
 ]
 
 

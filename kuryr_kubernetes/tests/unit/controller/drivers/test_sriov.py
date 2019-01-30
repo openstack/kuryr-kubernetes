@@ -15,7 +15,7 @@
 import mock
 import uuid
 
-from kuryr_kubernetes.controller.drivers import sriov as sriov_drivers
+from kuryr_kubernetes.controller.drivers import sriov as drvs
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
 
@@ -26,10 +26,30 @@ from kuryr_kubernetes import utils
 from oslo_config import cfg as oslo_cfg
 
 
+SRIOV_RESOURCE_NAME_A = "sriov_a"
+SRIOV_RESOURCE_NAME_B = "sriov_b"
+
+AMOUNT_FOR_SUBNET_A = 2
+AMOUNT_FOR_SUBNET_B = 3
+
+SRIOV_PHYSNET_A = "physnet_a"
+SRIOV_PHYSNET_B = "physnet_b"
+
+
 class TestSriovVIFDriver(test_base.TestCase):
 
     def setUp(self):
         super(TestSriovVIFDriver, self).setUp()
+
+        self._res_map = {SRIOV_PHYSNET_A: SRIOV_RESOURCE_NAME_A,
+                         SRIOV_PHYSNET_B: SRIOV_RESOURCE_NAME_B}
+        sriov_request = {drvs.sriov_make_resource(k_const.K8S_SRIOV_PREFIX,
+                                                  SRIOV_RESOURCE_NAME_A): (
+                         str(AMOUNT_FOR_SUBNET_A)),
+                         drvs.sriov_make_resource(k_const.K8S_SRIOV_PREFIX,
+                                                  SRIOV_RESOURCE_NAME_B): (
+                         str(AMOUNT_FOR_SUBNET_B))}
+
         self._pod = {
             'metadata': {
                 'resourceVersion': mock.sentinel.pod_version,
@@ -41,16 +61,14 @@ class TestSriovVIFDriver(test_base.TestCase):
                 'nodeName': 'hostname',
                 'containers': [{
                     'resources': {
-                        'requests': {
-                            k_const.K8S_NPWG_SRIOV_PREFIX: "2"
-                            }
+                        'requests': sriov_request
                         }
                     }]
                 }
             }
 
     def test_activate_vif(self):
-        cls = sriov_drivers.SriovVIFDriver
+        cls = drvs.SriovVIFDriver
         m_driver = mock.Mock(spec=cls)
 
         pod = mock.sentinel.pod
@@ -63,7 +81,7 @@ class TestSriovVIFDriver(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.os_vif_util.osvif_to_neutron_fixed_ips')
     @mock.patch.object(ovu, 'neutron_to_osvif_vif')
     def test_request_vif(self, m_to_vif, m_to_fips):
-        cls = sriov_drivers.SriovVIFDriver
+        cls = drvs.SriovVIFDriver
         m_driver = mock.Mock(spec=cls)
 
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -95,7 +113,7 @@ class TestSriovVIFDriver(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.os_vif_util.osvif_to_neutron_fixed_ips')
     @mock.patch.object(ovu, 'neutron_to_osvif_vif')
     def test_request_vif_not_enough_vfs(self, m_to_vif, m_to_fips):
-        cls = sriov_drivers.SriovVIFDriver
+        cls = drvs.SriovVIFDriver
         m_driver = mock.Mock(spec=cls)
 
         m_driver._get_remaining_sriov_vfs.return_value = 0
@@ -112,22 +130,38 @@ class TestSriovVIFDriver(test_base.TestCase):
         neutron.create_port.assert_not_called()
 
     def test_get_sriov_num_vf(self):
-        cls = sriov_drivers.SriovVIFDriver
+        cls = drvs.SriovVIFDriver
         m_driver = mock.Mock(spec=cls)
 
-        amount = cls._get_remaining_sriov_vfs(m_driver, self._pod)
-        self.assertEqual(amount, 2)
+        m_driver._physnet_resname_mapping = self._res_map
+        m_driver._res_prefix = k_const.K8S_SRIOV_PREFIX
+        amount = cls._get_remaining_sriov_vfs(m_driver, self._pod,
+                                              SRIOV_PHYSNET_A)
+        self.assertEqual(amount, AMOUNT_FOR_SUBNET_A)
+
+        amount = cls._get_remaining_sriov_vfs(m_driver, self._pod,
+                                              SRIOV_PHYSNET_B)
+        self.assertEqual(amount, AMOUNT_FOR_SUBNET_B)
 
     def test_reduce_remaining_sriov_vfs(self):
-        cls = sriov_drivers.SriovVIFDriver
+        cls = drvs.SriovVIFDriver
         m_driver = mock.Mock(spec=cls)
 
-        cls._reduce_remaining_sriov_vfs(m_driver, self._pod)
-        amount = cls._get_remaining_sriov_vfs(m_driver, self._pod)
-        self.assertEqual(amount, 1)
+        m_driver._physnet_resname_mapping = self._res_map
+        m_driver._res_prefix = k_const.K8S_SRIOV_PREFIX
 
-    def test_get_physnet_mapping(self):
-        cls = sriov_drivers.SriovVIFDriver
+        cls._reduce_remaining_sriov_vfs(m_driver, self._pod, SRIOV_PHYSNET_A)
+        amount = cls._get_remaining_sriov_vfs(m_driver, self._pod,
+                                              SRIOV_PHYSNET_A)
+        self.assertEqual(amount, AMOUNT_FOR_SUBNET_A - 1)
+
+        cls._reduce_remaining_sriov_vfs(m_driver, self._pod, SRIOV_PHYSNET_B)
+        amount = cls._get_remaining_sriov_vfs(m_driver, self._pod,
+                                              SRIOV_PHYSNET_B)
+        self.assertEqual(amount, AMOUNT_FOR_SUBNET_B - 1)
+
+    def test_get_physnet_subnet_mapping(self):
+        cls = drvs.SriovVIFDriver
         m_driver = mock.Mock(spec=cls)
 
         subnet_id = str(uuid.uuid4())
@@ -135,25 +169,52 @@ class TestSriovVIFDriver(test_base.TestCase):
                                    'physnet10_4:'+str(subnet_id),
                                    group='sriov')
 
-        mapping = cls._get_physnet_mapping(m_driver)
+        mapping = cls._get_physnet_subnet_mapping(m_driver)
         self.assertEqual(mapping, {subnet_id: 'physnet10_4'})
 
+    def test_get_physnet_resname_mapping(self):
+        cls = drvs.SriovVIFDriver
+        m_driver = mock.Mock(spec=cls)
+
+        oslo_cfg.CONF.set_override('physnet_resource_mappings',
+                                   SRIOV_PHYSNET_A + ':' +
+                                   SRIOV_RESOURCE_NAME_A + ',' +
+                                   SRIOV_PHYSNET_B + ':' +
+                                   SRIOV_RESOURCE_NAME_B,
+                                   group='sriov')
+
+        mapping = cls._get_physnet_resname_mapping(m_driver)
+        self.assertEqual(mapping, self._res_map)
+
+    def test_empty_physnet_resname_mapping(self):
+        cls = drvs.SriovVIFDriver
+        m_driver = mock.Mock(spec=cls)
+
+        empty_res_map = {SRIOV_PHYSNET_A: SRIOV_PHYSNET_A,
+                         SRIOV_PHYSNET_B: SRIOV_PHYSNET_B}
+        subnet_id = str(uuid.uuid4())
+        subnet_id_2 = str(uuid.uuid4())
+        m_driver._physnet_subnet_mapping = {subnet_id: SRIOV_PHYSNET_A,
+                                            subnet_id_2: SRIOV_PHYSNET_B}
+        mapping = cls._get_physnet_resname_mapping(m_driver)
+        self.assertEqual(mapping, empty_res_map)
+
     def test_get_physnet_for_subnet_id(self):
-        cls = sriov_drivers.SriovVIFDriver
+        cls = drvs.SriovVIFDriver
         m_driver = mock.Mock(spec=cls)
 
         subnet_id = str(uuid.uuid4())
-        m_driver._physnet_mapping = {subnet_id: 'physnet10_4'}
+        m_driver._physnet_subnet_mapping = {subnet_id: 'physnet10_4'}
 
         physnet = cls._get_physnet_for_subnet_id(m_driver, subnet_id)
         self.assertEqual(physnet, 'physnet10_4')
 
     def test_get_physnet_for_subnet_id_error(self):
-        cls = sriov_drivers.SriovVIFDriver
+        cls = drvs.SriovVIFDriver
         m_driver = mock.Mock(spec=cls)
 
         subnet_id = str(uuid.uuid4())
-        m_driver._physnet_mapping = {}
+        m_driver._physnet_subnet_mapping = {}
 
         self.assertRaises(KeyError, cls._get_physnet_for_subnet_id,
                           m_driver, subnet_id)
