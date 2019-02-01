@@ -69,12 +69,15 @@ class FloatingIpServicePubIPDriver(base.ServicePubIpDriver):
         if not public_network_id:
             raise cfg.RequiredOptError('external_svc_net',
                                        cfg.OptGroup('neutron_defaults'))
-
-        res_id, alloc_ip_addr = (
-            self._drv_pub_ip.allocate_ip(
+        try:
+            res_id, alloc_ip_addr = (self._drv_pub_ip.allocate_ip(
                 public_network_id, project_id, pub_subnet_id=public_subnet_id,
                 description='kuryr_lb',
                 port_id_to_be_associated=port_id_to_be_associated))
+        except Exception:
+            LOG.exception("Failed to allocate public IP - net_id:%s",
+                          public_network_id)
+            return None
         service_pub_ip_info = obj_lbaas.LBaaSPubIp(ip_id=res_id,
                                                    ip_addr=alloc_ip_addr,
                                                    alloc_method='pool')
