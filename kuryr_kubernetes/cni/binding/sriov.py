@@ -56,7 +56,7 @@ class VIFSriovDriver(object):
         vf_name, vf_index, pf = self._get_available_vf_info(pf_names)
 
         if not vf_name:
-            error_msg = "No free interfaces for pfysnet {} available".format(
+            error_msg = "No free interfaces for physnet {} available".format(
                 physnet)
             LOG.error(error_msg)
             raise exceptions.CNIError(error_msg)
