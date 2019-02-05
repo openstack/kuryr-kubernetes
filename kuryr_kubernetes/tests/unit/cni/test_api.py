@@ -22,7 +22,6 @@ from oslo_config import cfg
 from oslo_serialization import jsonutils
 
 from kuryr_kubernetes.cni import api
-from kuryr_kubernetes.cni.plugins import k8s_cni
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests import fake
 
@@ -49,62 +48,6 @@ class TestCNIRunnerMixin(object):
         self.assertEqual(api.CNIRunner.SUPPORTED_VERSIONS,
                          result['supportedVersions'])
         self.assertEqual(api.CNIRunner.VERSION, result['cniVersion'])
-
-
-class TestCNIStandaloneRunner(test_base.TestCase, TestCNIRunnerMixin):
-    def setUp(self):
-        super(TestCNIStandaloneRunner, self).setUp()
-        self.runner = api.CNIStandaloneRunner(k8s_cni.K8sCNIPlugin())
-
-    @mock.patch('kuryr_kubernetes.cni.plugins.k8s_cni.K8sCNIPlugin.add')
-    def test_run_add(self, m_k8s_add):
-        vif = fake._fake_vif()
-        m_k8s_add.return_value = vif
-        m_fin = StringIO()
-        m_fout = StringIO()
-        container_id = 'a4181c680a39'
-        env = {
-            'CNI_COMMAND': 'ADD',
-            'CNI_CONTAINERID': container_id,
-            'CNI_ARGS': 'foo=bar',
-        }
-        self.runner.run(env, m_fin, m_fout)
-        self.assertTrue(m_k8s_add.called)
-        self.assertEqual('foo=bar', m_k8s_add.call_args[0][0].CNI_ARGS)
-        result = jsonutils.loads(m_fout.getvalue())
-        self.assertDictEqual(
-            {"cniVersion": '0.3.1',
-             "dns": {"nameservers": ["192.168.0.1"]},
-             "ips": [
-                 {
-                     "version": "4",
-                     "gateway": "192.168.0.1",
-                     "address": "192.168.0.2/24",
-                     "interface": 0,
-                 }],
-             "interfaces": [
-                 {
-                     "name": vif.vif_name,
-                     "mac": vif.address,
-                     "sandbox": container_id,
-                 }],
-             "routes": []},
-            result)
-
-    @mock.patch('kuryr_kubernetes.cni.plugins.k8s_cni.K8sCNIPlugin.delete')
-    def test_run_del(self, m_k8s_delete):
-        vif = fake._fake_vif()
-        m_k8s_delete.return_value = vif
-        m_fin = StringIO()
-        m_fout = StringIO()
-        env = {
-            'CNI_COMMAND': 'DEL',
-            'CNI_CONTAINERID': 'a4181c680a39',
-            'CNI_ARGS': 'foo=bar',
-        }
-        self.runner.run(env, m_fin, m_fout)
-        self.assertTrue(m_k8s_delete.called)
-        self.assertEqual('foo=bar', m_k8s_delete.call_args[0][0].CNI_ARGS)
 
 
 @mock.patch('requests.post')

@@ -26,7 +26,6 @@ from os_vif.objects import base
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
-from kuryr_kubernetes.cni import utils
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes import exceptions as k_exc
@@ -127,25 +126,6 @@ class CNIRunner(object):
         if nameservers:
             result['dns'] = {'nameservers': nameservers}
         return result
-
-
-class CNIStandaloneRunner(CNIRunner):
-
-    def __init__(self, plugin):
-        self._plugin = plugin
-
-    def _add(self, params):
-        vif = self._plugin.add(params)
-        return self._vif_data(vif, params)
-
-    def _delete(self, params):
-        self._plugin.delete(params)
-
-    def prepare_env(self, env, stdin):
-        return utils.CNIParameters(env, stdin)
-
-    def get_container_id(self, params):
-        return params.CNI_CONTAINERID
 
 
 class CNIDaemonizedRunner(CNIRunner):

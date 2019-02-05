@@ -13,10 +13,10 @@
 # limitations under the License.
 
 - job:
-    name: kuryr-kubernetes-tempest-daemon-openshift-octavia-multi-vif
-    parent: kuryr-kubernetes-tempest-daemon-openshift-octavia
+    name: kuryr-kubernetes-tempest-openshift-octavia-multi-vif
+    parent: kuryr-kubernetes-tempest-openshift-octavia
     description: |
-      Kuryr-Kubernetes tempest job using octavia, CNI daemon, Openshift and NPWG multi-vif driver
+      Kuryr-Kubernetes tempest job using octavia, Openshift and NPWG multi-vif driver
     vars:
       devstack_localrc:
         KURYR_MULTI_VIF_DRIVER: npwg_multiple_interfaces

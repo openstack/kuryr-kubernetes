@@ -21,11 +21,9 @@ import sys
 import os_vif
 from oslo_config import cfg
 from oslo_log import log as logging
-from oslo_log import versionutils
 from oslo_serialization import jsonutils
 
 from kuryr_kubernetes.cni import api as cni_api
-from kuryr_kubernetes.cni.plugins import k8s_cni
 from kuryr_kubernetes.cni import utils
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as k_const
@@ -56,13 +54,7 @@ def run():
     k_objects.register_locally_defined_vifs()
     os_vif.initialize()
 
-    if CONF.cni_daemon.daemon_enabled:
-        runner = cni_api.CNIDaemonizedRunner()
-    else:
-        versionutils.deprecation_warning(
-            'Deploying kuryr-kubernetes without kuryr-daemon service', 'R')
-        runner = cni_api.CNIStandaloneRunner(k8s_cni.K8sCNIPlugin())
-    LOG.info("Using '%s' ", runner.__class__.__name__)
+    runner = cni_api.CNIDaemonizedRunner()
 
     def _timeout(signum, frame):
         runner._write_dict(sys.stdout, {

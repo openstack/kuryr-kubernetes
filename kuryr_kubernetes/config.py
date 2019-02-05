@@ -31,13 +31,6 @@ kuryr_k8s_opts = [
 ]
 
 daemon_opts = [
-    cfg.BoolOpt('daemon_enabled',
-                help=_('Enable CNI Daemon configuration.'),
-                default=True,
-                deprecated_for_removal=True,
-                deprecated_reason="Deployment without kuryr-daemon is now "
-                                  "deprecated.",
-                deprecated_since="Rocky"),
     cfg.StrOpt('bind_address',
                help=_('Bind address for CNI daemon HTTP server. It is '
                       'recommened to allow only local connections.'),

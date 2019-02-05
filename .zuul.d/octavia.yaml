@@ -44,7 +44,6 @@
         o-cw: true
         o-hk: true
         o-hm: true
-        kuryr-daemon: false
 
 - job:
     name: kuryr-kubernetes-tempest-octavia-centos-7
@@ -53,38 +52,29 @@
     voting: false
 
 - job:
-    name: kuryr-kubernetes-tempest-daemon-octavia
+    name: kuryr-kubernetes-tempest-octavia-py36
     parent: kuryr-kubernetes-tempest-octavia
     description: |
-        Kuryr-Kubernetes tempest job using octavia and CNI daemon
-    vars:
-      devstack_services:
-        kuryr-daemon: true
-
-- job:
-    name: kuryr-kubernetes-tempest-daemon-octavia-py36
-    parent: kuryr-kubernetes-tempest-daemon-octavia
-    description: |
-      Tempest with Octavia, CNI daemon with DevStack running on Python 3.6
+      Tempest with Octavia with DevStack running on Python 3.6
     vars:
       devstack_localrc:
         USE_PYTHON3: true
 
 - job:
-    name: kuryr-kubernetes-tempest-daemon-containerized-octavia
-    parent: kuryr-kubernetes-tempest-daemon-octavia
+    name: kuryr-kubernetes-tempest-containerized-octavia
+    parent: kuryr-kubernetes-tempest-octavia
     description: |
-        Kuryr-Kubernetes tempest job using octavia, kuryr containerized and CNI daemon
+        Kuryr-Kubernetes tempest job using octavia, kuryr containerized
     vars:
       devstack_localrc:
         KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
     voting: false
 
 - job:
-    name: kuryr-kubernetes-tempest-daemon-containerized-octavia-l2
-    parent: kuryr-kubernetes-tempest-daemon-containerized-octavia
+    name: kuryr-kubernetes-tempest-containerized-octavia-l2
+    parent: kuryr-kubernetes-tempest-containerized-octavia
     description: |
-        Kuryr-Kubernetes tempest job using octavia in l2 mode, kuryr containerized and CNI daemon
+        Kuryr-Kubernetes tempest job using octavia in l2 mode, kuryr containerized
     vars:
       devstack_localrc:
         KURYR_K8S_OCTAVIA_MEMBER_MODE: L2
@@ -97,6 +87,9 @@
     vars:
       devstack_localrc:
         DOCKER_CGROUP_DRIVER: "systemd"
+        KURYR_SUBNET_DRIVER: namespace
+        KURYR_SG_DRIVER: namespace
+        KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace
       devstack_services:
         kubernetes-api: false
         kubernetes-controller-manager: false
@@ -106,26 +99,13 @@
         openshift-node: true
         openshift-dnsmasq: true
         openshift-dns: true
-
-- job:
-    name: kuryr-kubernetes-tempest-daemon-openshift-octavia
-    parent: kuryr-kubernetes-tempest-openshift-octavia
-    description: |
-      Kuryr-Kubernetes tempest job using octavia, CNI daemon and OpenShift
-    vars:
-      devstack_services:
-        kuryr-daemon: true
-      devstack_localrc:
-        KURYR_SUBNET_DRIVER: namespace
-        KURYR_SG_DRIVER: namespace
-        KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace
     voting: false
 
 - job:
-    name: kuryr-kubernetes-tempest-daemon-containerized-octavia-pools-namespace
+    name: kuryr-kubernetes-tempest-containerized-octavia-pools-namespace
     description: |
       Tempest with Octavia, CNI daemon, containers, port pools and namespace subnet driver
-    parent: kuryr-kubernetes-tempest-daemon-containerized-octavia
+    parent: kuryr-kubernetes-tempest-containerized-octavia
     vars:
       devstack_localrc:
         KURYR_SUBNET_DRIVER: namespace
@@ -136,10 +116,10 @@
         KURYR_VIF_POOL_DRIVER: neutron
 
 - job:
-    name: kuryr-kubernetes-tempest-daemon-containerized-octavia-network-policy
+    name: kuryr-kubernetes-tempest-containerized-octavia-network-policy
     description: |
       Tempest with Octavia, CNI daemon, containers and network policy driver
-    parent: kuryr-kubernetes-tempest-daemon-containerized-octavia
+    parent: kuryr-kubernetes-tempest-containerized-octavia
     vars:
       tempest_test_regex: '^(kuryr_tempest_plugin.tests.scenario.test_network_policy.TestNetworkPolicyScenario)'
       devstack_localrc:
@@ -149,11 +129,10 @@
     voting: false
 
 - job:
-    name: kuryr-kubernetes-tempest-daemon-containerized-octavia-py36
+    name: kuryr-kubernetes-tempest-containerized-octavia-py36
     description: |
-      Tempest with Octavia, CNI daemon, containers with Kuryr running on
-      Python3.6 containers
-    parent: kuryr-kubernetes-tempest-daemon-containerized-octavia
+      Tempest with Octavia and Kuryr running on Python3.6 containers
+    parent: kuryr-kubernetes-tempest-containerized-octavia
     vars:
       devstack_localrc:
         KURYR_CONTAINERS_USE_PY3: True
@@ -161,17 +140,17 @@
     voting: true
 
 - job:
-    name: kuryr-kubernetes-tempest-daemon-containerized-openshift-octavia
-    description: Tempest with Octavia, CNI daemon enabled, containers and OpenShift
-    parent: kuryr-kubernetes-tempest-daemon-openshift-octavia
+    name: kuryr-kubernetes-tempest-containerized-openshift-octavia
+    description: Tempest with Octavia, containers and OpenShift
+    parent: kuryr-kubernetes-tempest-openshift-octavia
     vars:
       devstack_localrc:
         KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
 
 - job:
-    name: kuryr-kubernetes-tempest-daemon-containerized-openshift-octavia-serial
-    description: Tempest with Octavia running in serial, CNI daemon enabled, containers and OpenShift
-    parent: kuryr-kubernetes-tempest-daemon-containerized-openshift-octavia
+    name: kuryr-kubernetes-tempest-containerized-openshift-octavia-serial
+    description: Tempest with Octavia running in serial, containers and OpenShift
+    parent: kuryr-kubernetes-tempest-containerized-openshift-octavia
     vars:
       devstack_localrc:
         KURYR_K8S_SERIAL_TESTS: True
@@ -179,8 +158,8 @@
 
 
 - job:
-   name: kuryr-kubernetes-tempest-daemon-openshift-octavia-ingress
-   parent: kuryr-kubernetes-tempest-daemon-openshift-octavia
+   name: kuryr-kubernetes-tempest-openshift-octavia-ingress
+   parent: kuryr-kubernetes-tempest-openshift-octavia
    description: |
      Kuryr-Kubernetes tempest job using octavia, ingress controller and OpenShift
    vars:
@@ -190,8 +169,8 @@
    voting: false
 
 - job:
-    name: kuryr-kubernetes-tempest-daemon-containerized-octavia-crio
-    parent: kuryr-kubernetes-tempest-daemon-containerized-octavia
+    name: kuryr-kubernetes-tempest-containerized-octavia-crio
+    parent: kuryr-kubernetes-tempest-containerized-octavia
     nodeset: openstack-single-node-bionic
     vars:
       devstack_localrc:

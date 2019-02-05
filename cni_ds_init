@@ -61,9 +61,4 @@ EOF
 cleanup
 deploy
 
-# Start CNI daemon if required
-if [ "$CNI_DAEMON" == "True" ]; then
-    exec kuryr-daemon --config-file /etc/kuryr/kuryr.conf
-else
-    exec sleep infinity
-fi
+exec kuryr-daemon --config-file /etc/kuryr/kuryr.conf

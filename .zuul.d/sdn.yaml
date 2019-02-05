@@ -41,23 +41,13 @@
         q-dhcp: false
         q-meta: false
         q-trunk: true
-        kuryr-daemon: true
     voting: false
 
 - job:
-    name: kuryr-kubernetes-tempest-daemon-ovn
+    name: kuryr-kubernetes-tempest-containerized-ovn
     parent: kuryr-kubernetes-tempest-ovn
     description: |
-        Kuryr-Kubernetes tempest job using OVN, CNI daemon
-    vars:
-      devstack_services:
-        kuryr-daemon: true
-
-- job:
-    name: kuryr-kubernetes-tempest-daemon-containerized-ovn
-    parent: kuryr-kubernetes-tempest-daemon-ovn
-    description: |
-        Kuryr-Kubernetes tempest job using OVN, CNI daemon and Containerized
+        Kuryr-Kubernetes tempest job using OVN and Containerized
     vars:
       devstack_localrc:
         KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true

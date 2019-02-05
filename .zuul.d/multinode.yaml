@@ -13,7 +13,7 @@
 # limitations under the License.
 
 - job:
-    name: kuryr-kubernetes-tempest-multinode-daemon-octavia-containerized
+    name: kuryr-kubernetes-tempest-multinode-octavia-containerized
     parent: kuryr-kubernetes-tempest-octavia
     description: |
         Kuryr-Kubernetes tempest multinode job using octavia
@@ -55,8 +55,8 @@
     voting: false
 
 - job:
-    name: kuryr-kubernetes-tempest-multinode-daemon-octavia-ha
-    parent: kuryr-kubernetes-tempest-multinode-daemon-octavia-containerized
+    name: kuryr-kubernetes-tempest-multinode-octavia-ha
+    parent: kuryr-kubernetes-tempest-multinode-octavia-containerized
     description: |
         Kuryr-Kubernetes tempest multinode job using octavia and running
         containerized in HA

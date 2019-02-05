@@ -1,0 +1,5 @@
+---
+upgrade:
+  - |
+    As announced, possiblity of running Kuryr-Kubernetes without kuryr-daemon
+    service is now removed from the project and considered not supported.
