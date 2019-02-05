@@ -120,12 +120,15 @@ class LBaaSState(k_obj.KuryrK8sObjectBase):
 
 @obj_base.VersionedObjectRegistry.register
 class LBaaSPortSpec(k_obj.KuryrK8sObjectBase):
-    VERSION = '1.0'
+    VERSION = '1.1'
+    # Version 1.0: Initial version
+    # Version 1.1: Added targetPort field.
 
     fields = {
         'name': obj_fields.StringField(nullable=True),
         'protocol': obj_fields.StringField(),
         'port': obj_fields.IntegerField(),
+        'targetPort': obj_fields.IntegerField(),
     }
 
 
