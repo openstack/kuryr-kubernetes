@@ -21,7 +21,6 @@
       - openstack/devstack-plugin-container
       - openstack/kuryr-kubernetes
       - openstack/kuryr-tempest-plugin
-      - openstack/neutron-lbaas
       - openstack/tempest
     post-run: playbooks/copy-k8s-logs.yaml
     host-vars:

@@ -14,7 +14,7 @@
 
 - job:
     name: kuryr-kubernetes-tempest-ovn
-    parent: kuryr-kubernetes-tempest-octavia
+    parent: kuryr-kubernetes-tempest
     description: |
         Kuryr-Kubernetes tempest job using OVN
     required-projects:
@@ -54,7 +54,7 @@
 
 - job:
     name: kuryr-kubernetes-tempest-dragonflow
-    parent: kuryr-kubernetes-tempest-octavia
+    parent: kuryr-kubernetes-tempest
     description: |
       Kuryr-Kubernetes tempest job using Dragonflow
     required-projects:

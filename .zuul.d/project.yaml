@@ -16,32 +16,32 @@
     name: kuryr-kubernetes-tempest-jobs
     check:
       jobs:
-        - kuryr-kubernetes-tempest-octavia
-        - kuryr-kubernetes-tempest-openshift-octavia
-        - kuryr-kubernetes-tempest-containerized-octavia
+        - kuryr-kubernetes-tempest
+        - kuryr-kubernetes-tempest-openshift
+        - kuryr-kubernetes-tempest-containerized
         - kuryr-kubernetes-tempest-containerized-ovn
-        - kuryr-kubernetes-tempest-octavia-py36
-        - kuryr-kubernetes-tempest-containerized-octavia-py36
-        - kuryr-kubernetes-tempest-multinode-octavia-containerized
-        - kuryr-kubernetes-tempest-octavia-centos-7
+        - kuryr-kubernetes-tempest-py36
+        - kuryr-kubernetes-tempest-containerized-py36
+        - kuryr-kubernetes-tempest-multinode-containerized
+        - kuryr-kubernetes-tempest-centos-7
     gate:
       jobs:
-        - kuryr-kubernetes-tempest-octavia
-        - kuryr-kubernetes-tempest-octavia-py36
-        - kuryr-kubernetes-tempest-containerized-octavia-py36
+        - kuryr-kubernetes-tempest
+        - kuryr-kubernetes-tempest-py36
+        - kuryr-kubernetes-tempest-containerized-py36
     experimental:
       jobs:
         - kuryr-kubernetes-tempest-dragonflow
-        - kuryr-kubernetes-tempest-containerized-openshift-octavia
-        - kuryr-kubernetes-tempest-containerized-octavia-l2
-        - kuryr-kubernetes-tempest-containerized-octavia-pools-namespace
-        - kuryr-kubernetes-tempest-containerized-octavia-network-policy
-        - kuryr-kubernetes-tempest-containerized-openshift-octavia-serial
+        - kuryr-kubernetes-tempest-containerized-openshift
+        - kuryr-kubernetes-tempest-containerized-l2
+        - kuryr-kubernetes-tempest-containerized-pools-namespace
+        - kuryr-kubernetes-tempest-containerized-network-policy
+        - kuryr-kubernetes-tempest-containerized-openshift-serial
         - kuryr-kubernetes-tempest-ovn
-        - kuryr-kubernetes-tempest-openshift-octavia-ingress
-        - kuryr-kubernetes-tempest-openshift-octavia-multi-vif
-        - kuryr-kubernetes-tempest-multinode-octavia-ha
-        - kuryr-kubernetes-tempest-containerized-octavia-crio
+        - kuryr-kubernetes-tempest-openshift-ingress
+        - kuryr-kubernetes-tempest-openshift-multi-vif
+        - kuryr-kubernetes-tempest-multinode-ha
+        - kuryr-kubernetes-tempest-containerized-crio
 
 - project:
     templates:
