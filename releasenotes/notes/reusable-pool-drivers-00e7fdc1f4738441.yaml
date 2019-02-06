@@ -1,0 +1,31 @@
+---
+features:
+  - |
+    It is now possible to use same pool_driver for different pod_vif_drivers
+    when using MultiVIFPool driver.
+
+    A new config option `vif_pool.vif_pool_mapping` is introduced which is a
+    dict/mapping from pod_vif_driver => pool_driver. So different
+    pod_vif_drivers can be configured to use the same pool_driver.
+
+    .. code-block:: ini
+
+      [vif_pool]
+      vif_pool_mapping=nested-vlan:nested,neutron-vif:neutron
+
+    Earlier each instance of a pool_driver was mapped to a single
+    pod_driver, thus requiring a unique pool_driver for each pod_vif_driver.
+upgrade:
+  - |
+    If ``vif_pool.pools_vif_drivers`` config option is used, new config option
+    `vif_pool.vif_pool_mapping` should be populated with inverted mapping
+    from the present value of ``vif_pool.pools_vif_drivers``.
+deprecations:
+  - |
+    Configuration option ``vif_pool.pools_vif_drivers`` has been deprecated in
+    favour of ``vif_pool.vif_pool_mapping`` to allow reuse of pool_drivers for
+    different pod_vif_drivers.
+
+    If ``vif_pool_mapping`` is not configured, ``pools_vif_drivers`` will still
+    continue to work for now, but ``pools_vif_drivers`` will be completely
+    removed in a future release.
