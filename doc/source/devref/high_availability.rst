@@ -72,13 +72,13 @@ Kuryr Controller Implementation
 The main issue with having multiple controllers is task division. All of the
 controllers are watching the same endpoints and getting the same notifications,
 but those notifications cannot be processed by multiple controllers at once,
-because we end up with a huge race conditon, where each controller creates
-Neutron resources but only on succeeds to put the annotation on the Kubernetes
+because we end up with a huge race condition, where each controller creates
+Neutron resources but only one succeeds to put the annotation on the Kubernetes
 resource it is processing.
 
 This is obviously unacceptable so as a first step we're implementing A/P HA,
-where only the leader is working on the resources and the rest waits in
-standby. This will be implemented by periodically calling the leader-elector
+where only the leader is working on the resources and the other instances wait
+as standby. This will be implemented by periodically calling the leader-elector
 API to check the current leader. On leader change:
 
 * Pod losing the leadership will stop its Watcher. Please note that it will be
@@ -105,7 +105,7 @@ hit. Those can happen in two cases:
   Kubernetes resource by creating resources again.
 * During leader transition (short period after a leader died, but before its
   lease expired and periodic task on other controllers noticed that; this
-  shouldn't exceed 10 s) some K8s resources are deleted. New leader will not
+  shouldn't exceed 10s) some K8s resources are deleted. New leader will not
   get the notification about the deletion and those will go unnoticed.
 
 Both of this issues can be tackled by garbage-collector mechanism that will
