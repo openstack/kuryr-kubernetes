@@ -31,7 +31,6 @@
         - kuryr-kubernetes-tempest-containerized-py36
     experimental:
       jobs:
-        - kuryr-kubernetes-tempest-dragonflow
         - kuryr-kubernetes-tempest-containerized-openshift
         - kuryr-kubernetes-tempest-containerized-l2
         - kuryr-kubernetes-tempest-containerized-pools-namespace
