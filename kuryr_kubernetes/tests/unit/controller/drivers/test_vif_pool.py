@@ -187,15 +187,14 @@ class BaseVIFPool(test_base.TestCase):
         pod = mock.sentinel.pod
         project_id = str(uuid.uuid4())
         subnets = mock.sentinel.subnets
-        security_groups = [mock.sentinel.security_groups]
-        pool_key = (mock.sentinel.host_addr, project_id,
-                    tuple(security_groups))
+        security_groups = 'test-sg'
+        pool_key = (mock.sentinel.host_addr, project_id)
         vif = osv_vif.VIFOpenVSwitch(id='0fa0e837-d34e-4580-a6c4-04f5f607d93e')
         vifs = [vif]
 
         m_driver._existing_vifs = {}
         m_driver._available_ports_pools = {}
-        m_driver._last_update = {pool_key: 1}
+        m_driver._last_update = {pool_key: {tuple(security_groups): 1}}
 
         oslo_cfg.CONF.set_override('ports_pool_min',
                                    5,
@@ -206,7 +205,8 @@ class BaseVIFPool(test_base.TestCase):
         m_driver._get_pool_size.return_value = 2
         vif_driver.request_vifs.return_value = vifs
 
-        cls._populate_pool(m_driver, pool_key, pod, subnets)
+        cls._populate_pool(m_driver, pool_key, pod, subnets,
+                           tuple(security_groups))
         m_driver._get_pool_size.assert_called_once()
         m_driver._drv_vif.request_vifs.assert_called_once()
 
@@ -218,16 +218,16 @@ class BaseVIFPool(test_base.TestCase):
         pod = mock.sentinel.pod
         project_id = str(uuid.uuid4())
         subnets = mock.sentinel.subnets
-        security_groups = [mock.sentinel.security_groups]
-        pool_key = (mock.sentinel.host_addr, project_id,
-                    tuple(security_groups))
+        security_groups = 'test-sg'
+        pool_key = (mock.sentinel.host_addr, project_id)
 
         oslo_cfg.CONF.set_override('ports_pool_update_frequency',
                                    15,
                                    group='vif_pool')
-        m_driver._last_update = {pool_key: 1}
+        m_driver._last_update = {pool_key: {tuple(security_groups): 1}}
 
-        cls._populate_pool(m_driver, pool_key, pod, subnets)
+        cls._populate_pool(m_driver, pool_key, pod, subnets,
+                           tuple(security_groups))
         m_driver._get_pool_size.assert_not_called()
 
     @mock.patch('time.time', return_value=50)
@@ -244,9 +244,8 @@ class BaseVIFPool(test_base.TestCase):
         pod = mock.sentinel.pod
         project_id = str(uuid.uuid4())
         subnets = mock.sentinel.subnets
-        security_groups = [mock.sentinel.security_groups]
-        pool_key = (mock.sentinel.host_addr, project_id,
-                    tuple(security_groups))
+        security_groups = 'test-sg'
+        pool_key = (mock.sentinel.host_addr, project_id)
 
         oslo_cfg.CONF.set_override('ports_pool_update_frequency',
                                    15,
@@ -254,10 +253,11 @@ class BaseVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_min',
                                    5,
                                    group='vif_pool')
-        m_driver._last_update = {pool_key: 1}
+        m_driver._last_update = {pool_key: {tuple(security_groups): 1}}
         m_driver._get_pool_size.return_value = 10
 
-        cls._populate_pool(m_driver, pool_key, pod, subnets)
+        cls._populate_pool(m_driver, pool_key, pod, subnets,
+                           tuple(security_groups))
         m_driver._get_pool_size.assert_called_once()
         m_driver._drv_vif.request_vifs.assert_not_called()
 
@@ -341,11 +341,12 @@ class NeutronVIFPool(test_base.TestCase):
         port_id = str(uuid.uuid4())
         port = mock.sentinel.port
         subnets = mock.sentinel.subnets
+        security_groups = 'test-sg'
 
         pod = get_pod_obj()
 
         m_driver._available_ports_pools = {
-            pool_key: collections.deque([port_id])}
+            pool_key: {tuple(security_groups): collections.deque([port_id])}}
         m_driver._existing_vifs = {port_id: port}
         m_get_port_name.return_value = get_pod_name(pod)
 
@@ -362,7 +363,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver._get_pool_size.return_value = pool_length
 
         self.assertEqual(port, cls._get_port_from_pool(
-            m_driver, pool_key, pod, subnets))
+            m_driver, pool_key, pod, subnets, tuple(security_groups)))
 
         neutron.update_port.assert_called_once_with(
             port_id,
@@ -386,11 +387,12 @@ class NeutronVIFPool(test_base.TestCase):
         port_id = str(uuid.uuid4())
         port = mock.sentinel.port
         subnets = mock.sentinel.subnets
+        security_groups = 'test-sg'
 
         pod = get_pod_obj()
 
         m_driver._available_ports_pools = {
-            pool_key: collections.deque([port_id])}
+            pool_key: {tuple(security_groups): collections.deque([port_id])}}
         m_driver._existing_vifs = {port_id: port}
         m_get_port_name.return_value = get_pod_name(pod)
 
@@ -404,7 +406,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver._get_pool_size.return_value = pool_length
 
         self.assertEqual(port, cls._get_port_from_pool(
-            m_driver, pool_key, pod, subnets))
+            m_driver, pool_key, pod, subnets, tuple(security_groups)))
 
         neutron.update_port.assert_called_once_with(
             port_id,
@@ -424,11 +426,124 @@ class NeutronVIFPool(test_base.TestCase):
         pod = get_pod_obj()
         pool_key = mock.sentinel.pool_key
         subnets = mock.sentinel.subnets
+        security_groups = 'test-sg'
 
-        m_driver._available_ports_pools = {pool_key: collections.deque([])}
+        m_driver._available_ports_pools = {
+            pool_key: {tuple(security_groups): collections.deque([])}}
+        m_driver._last_update = {pool_key: {tuple(security_groups): 1}}
 
         self.assertRaises(exceptions.ResourceNotReady, cls._get_port_from_pool,
-                          m_driver, pool_key, pod, subnets)
+                          m_driver, pool_key, pod, subnets,
+                          tuple(security_groups))
+
+        neutron.update_port.assert_not_called()
+
+    @mock.patch('eventlet.spawn')
+    def test__get_port_from_pool_empty_pool_reuse(self, m_eventlet):
+        cls = vif_pool.NeutronVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        pod = get_pod_obj()
+        port_id = str(uuid.uuid4())
+        port = mock.sentinel.port
+        pool_key = mock.sentinel.pool_key
+        subnets = mock.sentinel.subnets
+        security_groups = 'test-sg'
+        security_groups_2 = 'test-sg2'
+
+        oslo_cfg.CONF.set_override('port_debug',
+                                   False,
+                                   group='kubernetes')
+        pool_length = 5
+        m_driver._get_pool_size.return_value = pool_length
+
+        m_driver._available_ports_pools = {
+            pool_key: {tuple(security_groups): collections.deque([]),
+                       tuple(security_groups_2): collections.deque([port_id])}}
+        m_driver._last_update = {pool_key: {tuple(security_groups): 1,
+                                            tuple(security_groups_2): 0}}
+        m_driver._existing_vifs = {port_id: port}
+
+        self.assertEqual(port, cls._get_port_from_pool(
+            m_driver, pool_key, pod, subnets, tuple(security_groups)))
+
+        neutron.update_port.assert_called_once_with(
+            port_id,
+            {
+                "port": {
+                    'security_groups': list(security_groups),
+                }
+            })
+        m_eventlet.assert_not_called()
+
+    @mock.patch('eventlet.spawn')
+    def test__get_port_from_pool_empty_pool_reuse_no_update_info(self,
+                                                                 m_eventlet):
+        cls = vif_pool.NeutronVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        pod = get_pod_obj()
+        port_id = str(uuid.uuid4())
+        port = mock.sentinel.port
+        pool_key = mock.sentinel.pool_key
+        subnets = mock.sentinel.subnets
+        security_groups = 'test-sg'
+        security_groups_2 = 'test-sg2'
+
+        oslo_cfg.CONF.set_override('port_debug',
+                                   False,
+                                   group='kubernetes')
+        pool_length = 5
+        m_driver._get_pool_size.return_value = pool_length
+
+        m_driver._available_ports_pools = {
+            pool_key: {tuple(security_groups): collections.deque([]),
+                       tuple(security_groups_2): collections.deque([port_id])}}
+        m_driver._last_update = {}
+        m_driver._existing_vifs = {port_id: port}
+
+        self.assertEqual(port, cls._get_port_from_pool(
+            m_driver, pool_key, pod, subnets, tuple(security_groups)))
+
+        neutron.update_port.assert_called_once_with(
+            port_id,
+            {
+                "port": {
+                    'security_groups': list(security_groups),
+                }
+            })
+        m_eventlet.assert_not_called()
+
+    def test__get_port_from_pool_empty_pool_reuse_no_ports(self):
+        cls = vif_pool.NeutronVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        pod = get_pod_obj()
+        port_id = str(uuid.uuid4())
+        port = mock.sentinel.port
+        pool_key = mock.sentinel.pool_key
+        subnets = mock.sentinel.subnets
+        security_groups = 'test-sg'
+        security_groups_2 = 'test-sg2'
+
+        oslo_cfg.CONF.set_override('port_debug',
+                                   False,
+                                   group='kubernetes')
+        pool_length = 5
+        m_driver._get_pool_size.return_value = pool_length
+
+        m_driver._available_ports_pools = {
+            pool_key: {tuple(security_groups): collections.deque([]),
+                       tuple(security_groups_2): collections.deque([])}}
+        m_driver._last_update = {}
+        m_driver._existing_vifs = {port_id: port}
+
+        self.assertRaises(exceptions.ResourceNotReady, cls._get_port_from_pool,
+                          m_driver, pool_key, pod, subnets, tuple(
+                              security_groups))
 
         neutron.update_port.assert_not_called()
 
@@ -438,7 +553,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
-        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
         pool_length = 5
 
@@ -462,7 +577,6 @@ class NeutronVIFPool(test_base.TestCase):
                 "port": {
                     'name': constants.KURYR_PORT_NAME,
                     'device_id': '',
-                    'security_groups': ['security_group']
                 }
             })
         neutron.delete_port.assert_not_called()
@@ -473,7 +587,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
-        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
         pool_length = 5
 
@@ -499,7 +613,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
-        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
         pool_length = 10
         vif = mock.sentinel.vif
@@ -524,7 +638,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
-        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
         pool_length = 5
 
@@ -552,7 +666,6 @@ class NeutronVIFPool(test_base.TestCase):
                 "port": {
                     'name': constants.KURYR_PORT_NAME,
                     'device_id': '',
-                    'security_groups': ['security_group']
                 }
             })
         neutron.delete_port.assert_not_called()
@@ -562,7 +675,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
-        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
         pool_length = 10
         vif = mock.sentinel.vif
@@ -588,7 +701,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
-        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
         pool_length = 10
 
@@ -639,8 +752,7 @@ class NeutronVIFPool(test_base.TestCase):
         vif = mock.sentinel.vif
         m_to_osvif.return_value = vif
 
-        pool_key = (port['binding:host_id'], port['project_id'],
-                    tuple(port['security_groups']), net_id)
+        pool_key = (port['binding:host_id'], port['project_id'], net_id)
         m_driver._get_pool_key.return_value = pool_key
         m_driver._get_trunks_info.return_value = ({}, {}, {})
 
@@ -652,7 +764,8 @@ class NeutronVIFPool(test_base.TestCase):
         m_to_osvif.assert_called_once_with(vif_plugin, port, subnet)
 
         self.assertEqual(m_driver._existing_vifs[port_id], vif)
-        self.assertEqual(m_driver._available_ports_pools[pool_key], [port_id])
+        self.assertEqual(m_driver._available_ports_pools[pool_key],
+                         {tuple(port['security_groups']): [port_id]})
 
     @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif')
     @mock.patch('kuryr_kubernetes.utils.get_subnet')
@@ -681,9 +794,10 @@ class NeutronVIFPool(test_base.TestCase):
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
         net_id = mock.sentinel.net_id
-        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
-        m_driver._available_ports_pools = {pool_key: [port_id]}
+        m_driver._available_ports_pools = {pool_key: {
+            tuple(['security_group']): [port_id]}}
         m_driver._existing_vifs = {port_id: mock.sentinel.vif}
 
         m_driver._get_pool_key_net.return_value = net_id
@@ -701,9 +815,10 @@ class NeutronVIFPool(test_base.TestCase):
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
         net_id = mock.sentinel.net_id
-        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
-        m_driver._available_ports_pools = {pool_key: [port_id]}
+        m_driver._available_ports_pools = {pool_key: {
+            tuple(['security_group']): [port_id]}}
         m_driver._existing_vifs = {}
         neutron.delete_port.side_effect = n_exc.PortNotFoundClient
 
@@ -765,11 +880,12 @@ class NestedVIFPool(test_base.TestCase):
         port_id = str(uuid.uuid4())
         port = mock.sentinel.port
         subnets = mock.sentinel.subnets
+        security_groups = 'test-sg'
 
         pod = get_pod_obj()
 
         m_driver._available_ports_pools = {
-            pool_key: collections.deque([port_id])}
+            pool_key: {tuple(security_groups): collections.deque([port_id])}}
         m_driver._existing_vifs = {port_id: port}
         m_get_port_name.return_value = get_pod_name(pod)
 
@@ -783,7 +899,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._get_pool_size.return_value = pool_length
 
         self.assertEqual(port, cls._get_port_from_pool(
-            m_driver, pool_key, pod, subnets))
+            m_driver, pool_key, pod, subnets, tuple(security_groups)))
 
         neutron.update_port.assert_called_once_with(
             port_id,
@@ -806,11 +922,12 @@ class NestedVIFPool(test_base.TestCase):
         port_id = str(uuid.uuid4())
         port = mock.sentinel.port
         subnets = mock.sentinel.subnets
+        security_groups = 'test-sg'
 
         pod = get_pod_obj()
 
         m_driver._available_ports_pools = {
-            pool_key: collections.deque([port_id])}
+            pool_key: {tuple(security_groups): collections.deque([port_id])}}
         m_driver._existing_vifs = {port_id: port}
         m_get_port_name.return_value = get_pod_name(pod)
 
@@ -824,7 +941,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._get_pool_size.return_value = pool_length
 
         self.assertEqual(port, cls._get_port_from_pool(
-            m_driver, pool_key, pod, subnets))
+            m_driver, pool_key, pod, subnets, tuple(security_groups)))
 
         neutron.update_port.assert_called_once_with(
             port_id,
@@ -843,11 +960,124 @@ class NestedVIFPool(test_base.TestCase):
         pod = mock.sentinel.pod
         pool_key = mock.sentinel.pool_key
         subnets = mock.sentinel.subnets
+        security_groups = 'test-sg'
 
-        m_driver._available_ports_pools = {pool_key: collections.deque([])}
+        m_driver._available_ports_pools = {
+            pool_key: {tuple(security_groups): collections.deque([])}}
+        m_driver._last_update = {pool_key: {tuple(security_groups): 1}}
 
         self.assertRaises(exceptions.ResourceNotReady, cls._get_port_from_pool,
-                          m_driver, pool_key, pod, subnets)
+                          m_driver, pool_key, pod, subnets, tuple(
+                              security_groups))
+
+        neutron.update_port.assert_not_called()
+
+    @mock.patch('eventlet.spawn')
+    def test__get_port_from_pool_empty_pool_reuse(self, m_eventlet):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        pod = mock.sentinel.pod
+        port_id = str(uuid.uuid4())
+        port = mock.sentinel.port
+        pool_key = mock.sentinel.pool_key
+        subnets = mock.sentinel.subnets
+        security_groups = 'test-sg'
+        security_groups_2 = 'test-sg2'
+
+        oslo_cfg.CONF.set_override('port_debug',
+                                   False,
+                                   group='kubernetes')
+        pool_length = 5
+        m_driver._get_pool_size.return_value = pool_length
+
+        m_driver._available_ports_pools = {
+            pool_key: {tuple(security_groups): collections.deque([]),
+                       tuple(security_groups_2): collections.deque([port_id])}}
+        m_driver._last_update = {pool_key: {tuple(security_groups): 1,
+                                            tuple(security_groups_2): 0}}
+        m_driver._existing_vifs = {port_id: port}
+
+        self.assertEqual(port, cls._get_port_from_pool(
+            m_driver, pool_key, pod, subnets, tuple(security_groups)))
+
+        neutron.update_port.assert_called_once_with(
+            port_id,
+            {
+                "port": {
+                    'security_groups': list(security_groups),
+                }
+            })
+        m_eventlet.assert_not_called()
+
+    @mock.patch('eventlet.spawn')
+    def test__get_port_from_pool_empty_pool_reuse_no_update_info(self,
+                                                                 m_eventlet):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        pod = mock.sentinel.pod
+        port_id = str(uuid.uuid4())
+        port = mock.sentinel.port
+        pool_key = mock.sentinel.pool_key
+        subnets = mock.sentinel.subnets
+        security_groups = 'test-sg'
+        security_groups_2 = 'test-sg2'
+
+        oslo_cfg.CONF.set_override('port_debug',
+                                   False,
+                                   group='kubernetes')
+        pool_length = 5
+        m_driver._get_pool_size.return_value = pool_length
+
+        m_driver._available_ports_pools = {
+            pool_key: {tuple(security_groups): collections.deque([]),
+                       tuple(security_groups_2): collections.deque([port_id])}}
+        m_driver._last_update = {}
+        m_driver._existing_vifs = {port_id: port}
+
+        self.assertEqual(port, cls._get_port_from_pool(
+            m_driver, pool_key, pod, subnets, tuple(security_groups)))
+
+        neutron.update_port.assert_called_once_with(
+            port_id,
+            {
+                "port": {
+                    'security_groups': list(security_groups),
+                }
+            })
+        m_eventlet.assert_not_called()
+
+    def test__get_port_from_pool_empty_pool_reuse_no_ports(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        pod = mock.sentinel.pod
+        port_id = str(uuid.uuid4())
+        port = mock.sentinel.port
+        pool_key = mock.sentinel.pool_key
+        subnets = mock.sentinel.subnets
+        security_groups = 'test-sg'
+        security_groups_2 = 'test-sg2'
+
+        oslo_cfg.CONF.set_override('port_debug',
+                                   False,
+                                   group='kubernetes')
+        pool_length = 5
+        m_driver._get_pool_size.return_value = pool_length
+
+        m_driver._available_ports_pools = {
+            pool_key: {tuple(security_groups): collections.deque([]),
+                       tuple(security_groups_2): collections.deque([])}}
+        m_driver._last_update = {}
+        m_driver._existing_vifs = {port_id: port}
+
+        self.assertRaises(exceptions.ResourceNotReady, cls._get_port_from_pool,
+                          m_driver, pool_key, pod, subnets, tuple(
+                              security_groups))
 
         neutron.update_port.assert_not_called()
 
@@ -857,7 +1087,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
-        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
         pool_length = 5
 
@@ -880,7 +1110,6 @@ class NestedVIFPool(test_base.TestCase):
             {
                 "port": {
                     'name': constants.KURYR_PORT_NAME,
-                    'security_groups': ['security_group']
                 }
             })
         neutron.delete_port.assert_not_called()
@@ -891,7 +1120,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
-        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
         pool_length = 5
 
@@ -920,7 +1149,7 @@ class NestedVIFPool(test_base.TestCase):
         vif_driver = mock.MagicMock(spec=cls_vif_driver)
         m_driver._drv_vif = vif_driver
 
-        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
         pool_length = 10
         vif = mock.MagicMock()
@@ -953,7 +1182,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
-        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
         pool_length = 5
 
@@ -977,7 +1206,6 @@ class NestedVIFPool(test_base.TestCase):
             {
                 "port": {
                     'name': constants.KURYR_PORT_NAME,
-                    'security_groups': ['security_group']
                 }
             })
         neutron.delete_port.assert_not_called()
@@ -990,7 +1218,7 @@ class NestedVIFPool(test_base.TestCase):
         vif_driver = mock.MagicMock(spec=cls_vif_driver)
         m_driver._drv_vif = vif_driver
 
-        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
         pool_length = 10
         vif = mock.MagicMock()
@@ -1027,7 +1255,7 @@ class NestedVIFPool(test_base.TestCase):
         vif_driver = mock.MagicMock(spec=cls_vif_driver)
         m_driver._drv_vif = vif_driver
 
-        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
         pool_length = 10
         trunk_id = str(uuid.uuid4())
@@ -1163,15 +1391,15 @@ class NestedVIFPool(test_base.TestCase):
         vif = mock.sentinel.vif
         m_to_osvif.return_value = vif
 
-        pool_key = (port['binding:host_id'], port['project_id'],
-                    tuple(port['security_groups']), net_id)
+        pool_key = (port['binding:host_id'], port['project_id'], net_id)
         m_driver._get_pool_key.return_value = pool_key
 
         cls._precreated_ports(m_driver, 'recover')
 
         m_driver._get_trunks_info.assert_called_once()
         self.assertEqual(m_driver._existing_vifs[port_id], vif)
-        self.assertEqual(m_driver._available_ports_pools[pool_key], [port_id])
+        self.assertEqual(m_driver._available_ports_pools[pool_key],
+                         {tuple(port['security_groups']): [port_id]})
         neutron.delete_port.assert_not_called()
 
     def test__precreated_ports_free(self):
@@ -1200,10 +1428,10 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._get_trunks_info.return_value = (p_ports, a_subports,
                                                   subnets)
 
-        pool_key = (port['binding:host_id'], port['project_id'],
-                    tuple(port['security_groups']), net_id)
+        pool_key = (port['binding:host_id'], port['project_id'], net_id)
         m_driver._get_pool_key.return_value = pool_key
-        m_driver._available_ports_pools = {pool_key: [port_id]}
+        m_driver._available_ports_pools = {
+            pool_key: {tuple(port['security_groups']): [port_id]}}
         m_driver._existing_vifs = {port_id: mock.sentinel.vif}
 
         cls._precreated_ports(m_driver, 'free')
@@ -1214,7 +1442,8 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._drv_vif._release_vlan_id.assert_called_once()
 
         self.assertEqual(m_driver._existing_vifs, {})
-        self.assertEqual(m_driver._available_ports_pools[pool_key], [])
+        self.assertEqual(m_driver._available_ports_pools[pool_key][tuple(
+            port['security_groups'])], [])
 
     @mock.patch('kuryr_kubernetes.os_vif_util.'
                 'neutron_to_osvif_vif_nested_vlan')
@@ -1302,8 +1531,7 @@ class NestedVIFPool(test_base.TestCase):
         vif = mock.sentinel.vif
         m_to_osvif.return_value = vif
 
-        pool_key = (port1['binding:host_id'], port1['project_id'],
-                    tuple(port1['security_groups']), net_id)
+        pool_key = (port1['binding:host_id'], port1['project_id'], net_id)
         m_driver._get_pool_key.return_value = pool_key
         cls._precreated_ports(m_driver, 'recover')
 
@@ -1311,7 +1539,8 @@ class NestedVIFPool(test_base.TestCase):
         self.assertEqual(m_driver._existing_vifs, {port_id1: vif,
                                                    port_id2: vif})
         self.assertEqual(m_driver._available_ports_pools[pool_key],
-                         [port_id1, port_id2])
+                         {tuple(port1['security_groups']): [port_id1,
+                                                            port_id2]})
         neutron.delete_port.assert_not_called()
 
     @ddt.data(('recover'), ('free'))
@@ -1382,13 +1611,14 @@ class NestedVIFPool(test_base.TestCase):
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
         net_id = mock.sentinel.net_id
-        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
         trunk_id = str(uuid.uuid4())
         vif = mock.MagicMock()
         vlan_id = mock.sentinel.vlan_id
         vif.vlan_id = vlan_id
-        m_driver._available_ports_pools = {pool_key: [port_id]}
+        m_driver._available_ports_pools = {pool_key: {
+            tuple(['security_group']): [port_id]}}
         m_driver._existing_vifs = {port_id: vif}
 
         m_driver._get_trunk_id.return_value = trunk_id
@@ -1415,13 +1645,14 @@ class NestedVIFPool(test_base.TestCase):
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
         net_id = mock.sentinel.net_id
-        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
         trunk_id = str(uuid.uuid4())
         vif = mock.MagicMock()
         vlan_id = mock.sentinel.vlan_id
         vif.vlan_id = vlan_id
-        m_driver._available_ports_pools = {pool_key: [port_id]}
+        m_driver._available_ports_pools = {pool_key: {
+            tuple(['security_group']): [port_id]}}
         m_driver._existing_vifs = {port_id: vif}
 
         m_driver._get_trunk_id.return_value = trunk_id
@@ -1450,13 +1681,14 @@ class NestedVIFPool(test_base.TestCase):
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
         net_id = mock.sentinel.net_id
-        pool_key = ('node_ip', 'project_id', tuple(['security_group']))
+        pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
         trunk_id = str(uuid.uuid4())
         vif = mock.MagicMock()
         vlan_id = mock.sentinel.vlan_id
         vif.vlan_id = vlan_id
-        m_driver._available_ports_pools = {pool_key: [port_id]}
+        m_driver._available_ports_pools = {pool_key: {
+            tuple(['security_group']): [port_id]}}
         m_driver._existing_vifs = {}
 
         m_driver._get_trunk_id.return_value = trunk_id
