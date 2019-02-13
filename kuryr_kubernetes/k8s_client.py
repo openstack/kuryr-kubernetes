@@ -83,9 +83,9 @@ class K8sClient(object):
         result = response.json() if json else response.text
         return result
 
-    def _get_url_and_header(self, path):
+    def _get_url_and_header(self, path, content_type):
         url = self._base_url + path
-        header = {'Content-Type': 'application/merge-patch+json',
+        header = {'Content-Type': content_type,
                   'Accept': 'application/json'}
         if self.token:
             header.update({'Authorization': 'Bearer %s' % self.token})
@@ -97,8 +97,28 @@ class K8sClient(object):
             'path': path, 'data': data})
         if field == 'status':
             path = path + '/' + str(field)
-        url, header = self._get_url_and_header(path)
+        content_type = 'application/merge-patch+json'
+        url, header = self._get_url_and_header(path, content_type)
         response = requests.patch(url, json={field: data},
+                                  headers=header, cert=self.cert,
+                                  verify=self.verify_server)
+        if response.ok:
+            return response.json().get('status')
+        raise exc.K8sClientException(response.text)
+
+    def patch_crd(self, field, path, data):
+        content_type = 'application/json-patch+json'
+        url, header = self._get_url_and_header(path, content_type)
+
+        data = [{'op': 'replace',
+                 'path': '/{}/{}'.format(field, np_field),
+                 'value': value}
+                for np_field, value in data.items()]
+
+        LOG.debug("Patch %(path)s: %(data)s", {
+            'path': path, 'data': data})
+
+        response = requests.patch(url, data=jsonutils.dumps(data),
                                   headers=header, cert=self.cert,
                                   verify=self.verify_server)
         if response.ok:
@@ -142,7 +162,8 @@ class K8sClient(object):
         LOG.debug("Annotate %(path)s: %(names)s", {
             'path': path, 'names': list(annotations)})
 
-        url, header = self._get_url_and_header(path)
+        content_type = 'application/merge-patch+json'
+        url, header = self._get_url_and_header(path, content_type)
 
         while itertools.count(1):
             metadata = {"annotations": annotations}
