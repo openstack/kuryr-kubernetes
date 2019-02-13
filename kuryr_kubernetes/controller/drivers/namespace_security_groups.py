@@ -21,6 +21,7 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base
+from kuryr_kubernetes.controller.drivers import utils
 from kuryr_kubernetes import exceptions
 
 from neutronclient.common import exceptions as n_exc
@@ -107,6 +108,7 @@ class NamespacePodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
                         "project_id": project_id
                     }
                 }).get('security_group')
+            utils.tag_neutron_resources('security-groups', [sg['id']])
             neutron.create_security_group_rule(
                 {
                     "security_group_rule": {

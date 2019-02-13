@@ -379,3 +379,16 @@ def get_namespace_subnet_cidr(namespace):
         LOG.exception("Kubernetes Client Exception.")
         raise
     return net_crd['spec']['subnetCIDR']
+
+
+def tag_neutron_resources(resource, res_ids):
+    tags = CONF.neutron_defaults.resource_tags
+    if tags:
+        neutron = clients.get_neutron_client()
+        for res_id in res_ids:
+            try:
+                neutron.replace_tag(resource, res_id, body={"tags": tags})
+            except n_exc.NeutronClientException:
+                LOG.warning("Failed to tag %s %s with %s. Ignoring, but this "
+                            "is still unexpected.", resource, res_id, tags,
+                            exc_info=True)

@@ -19,6 +19,7 @@ from oslo_log import log as logging
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import default_subnet
+from kuryr_kubernetes.controller.drivers import utils as c_utils
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes import utils
 
@@ -121,6 +122,7 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
                         "project_id": project_id
                     }
                 }).get('network')
+            c_utils.tag_neutron_resources('networks', [neutron_net['id']])
 
             # create a subnet within that network
             neutron_subnet = neutron.create_subnet(
@@ -134,6 +136,7 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
                         "project_id": project_id
                     }
                 }).get('subnet')
+            c_utils.tag_neutron_resources('subnets', [neutron_subnet['id']])
 
             # connect the subnet to the router
             neutron.add_interface_router(router_id,

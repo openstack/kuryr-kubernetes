@@ -29,6 +29,7 @@ from oslo_utils import timeutils
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes.controller.drivers import base
+from kuryr_kubernetes.controller.drivers import utils as c_utils
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.objects import lbaas as obj_lbaas
 from kuryr_kubernetes import utils
@@ -119,6 +120,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
                     },
                 })
             sg_id = sg['security_group']['id']
+            c_utils.tag_neutron_resources('security-groups', [sg_id])
             loadbalancer.security_groups.append(sg_id)
             vip_port = self._get_vip_port(loadbalancer)
             neutron.update_port(
@@ -290,6 +292,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
                         },
                     })
                 sg_id = sg['security_group']['id']
+                c_utils.tag_neutron_resources('security-groups', [sg_id])
                 loadbalancer.security_groups.append(sg_id)
                 vip_port = self._get_vip_port(loadbalancer)
                 neutron.update_port(
