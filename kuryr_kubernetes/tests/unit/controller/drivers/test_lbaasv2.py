@@ -343,7 +343,8 @@ class TestLBaaSv2Driver(test_base.TestCase):
             provider='haproxy', security_groups=[])
         loadbalancer_id = '00EE9E11-91C2-41CF-8FD4-7970579E5C4C'
         resp = {'loadbalancers': [{'id': loadbalancer_id,
-                                   'provider': 'haproxy'}]}
+                                   'provider': 'haproxy',
+                                   'provisioning_status': 'ACTIVE'}]}
         lbaas.list_loadbalancers.return_value = resp
         m_driver._get_vip_port.return_value = {'id': mock.sentinel.port_id}
 
@@ -357,6 +358,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
             self.assertEqual(getattr(loadbalancer, attr),
                              getattr(ret, attr))
         self.assertEqual(loadbalancer_id, ret.id)
+        m_driver.release_loadbalancer.assert_not_called()
 
     def test_find_loadbalancer_not_found(self):
         lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
@@ -375,6 +377,30 @@ class TestLBaaSv2Driver(test_base.TestCase):
             vip_address=str(loadbalancer.ip),
             vip_subnet_id=loadbalancer.subnet_id)
         self.assertIsNone(ret)
+        m_driver.release_loadbalancer.assert_not_called()
+
+    def test_find_loadbalancer_error(self):
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        loadbalancer = obj_lbaas.LBaaSLoadBalancer(
+            name='TEST_NAME', project_id='TEST_PROJECT', ip='1.2.3.4',
+            subnet_id='D3FA400A-F543-4B91-9CD3-047AF0CE42D1')
+        loadbalancer_id = '00EE9E11-91C2-41CF-8FD4-7970579E5C4C'
+        resp = {'loadbalancers': [{'id': loadbalancer_id,
+                                   'provider': 'haproxy',
+                                   'provisioning_status': 'ERROR'}]}
+        lbaas.list_loadbalancers.return_value = resp
+        m_driver._get_vip_port.return_value = {'id': mock.sentinel.port_id}
+
+        ret = cls._find_loadbalancer(m_driver, loadbalancer)
+        lbaas.list_loadbalancers.assert_called_once_with(
+            name=loadbalancer.name,
+            project_id=loadbalancer.project_id,
+            vip_address=str(loadbalancer.ip),
+            vip_subnet_id=loadbalancer.subnet_id)
+        self.assertIsNone(ret)
+        m_driver.release_loadbalancer.assert_called_once()
 
     def test_create_listener(self):
         lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
