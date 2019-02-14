@@ -56,6 +56,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
         if not response:
             # NOTE(ivc): load balancer was present before 'create', but got
             # deleted externally between 'create' and 'find'
+            # NOTE(ltomasbo): or it is in ERROR status, so we deleted and
+            # trigger the retry
             raise k_exc.ResourceNotReady(request)
 
         try:
@@ -259,6 +261,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
             loadbalancer.id = response['loadbalancers'][0]['id']
             loadbalancer.port_id = self._get_vip_port_id(loadbalancer)
             loadbalancer.provider = response['loadbalancers'][0]['provider']
+            if (response['loadbalancers'][0]['provisioning_status'] ==
+                    'ERROR'):
+                self.release_loadbalancer(loadbalancer)
+                return None
         except (KeyError, IndexError):
             return None
 
