@@ -96,6 +96,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
 
         self._crd = {
             'metadata': {'name': mock.sentinel.name,
+                         'namespace': u'default',
                          'selfLink': mock.sentinel.selfLink},
             'spec': {
                 'egressSgRules': [
@@ -440,3 +441,18 @@ class TestNetworkPolicyDriver(test_base.TestCase):
 
         resp = self._driver.namespaced_pods(self._policy)
         self.assertEqual([], resp)
+
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_del_kuryrnetpolicy_crd', return_value=False)
+    def test_release_network_policy(self, m_del_crd):
+        self._driver.release_network_policy(self._crd)
+        self.neutron.delete_security_group.assert_called_once_with(
+            self._crd['spec']['securityGroupId'])
+        m_del_crd.assert_called_once_with(self._crd['metadata']['name'],
+                                          self._crd['metadata']['namespace'])
+
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_del_kuryrnetpolicy_crd', return_value=False)
+    def test_release_network_policy_removed_crd(self, m_del_crd):
+        self._driver.release_network_policy(None)
+        m_del_crd.assert_not_called()

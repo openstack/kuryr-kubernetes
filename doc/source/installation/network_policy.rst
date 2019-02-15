@@ -7,7 +7,7 @@ handlers at kuryr.conf (further info on how to do this can be found  at
 :doc:`./devstack/containerized`)::
 
     [kubernetes]
-    enabled_handlers=vif,lb,lbaasspec,policy,pod_label,namespace
+    enabled_handlers=vif,lb,lbaasspec,policy,pod_label,namespace,kuryrnetpolicy
 
 After that, enable also the security group drivers for policies::
 
