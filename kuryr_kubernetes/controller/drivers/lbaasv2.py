@@ -148,6 +148,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                        protocol, sg_rule_name, new_sgs=None):
         LOG.debug("Applying members security groups.")
         neutron = clients.get_neutron_client()
+        lb_sg = None
         if CONF.octavia_defaults.sg_mode == 'create':
             if new_sgs:
                 lb_name = sg_rule_name.split(":")[0]
@@ -155,7 +156,15 @@ class LBaaSv2Driver(base.LBaaSDriver):
             else:
                 lb_sg = self._find_listeners_sg(loadbalancer)
         else:
-            lb_sg = self._get_vip_port(loadbalancer).get('security_groups')[0]
+            vip_port = self._get_vip_port(loadbalancer)
+            if vip_port:
+                lb_sg = vip_port.get('security_groups')[0]
+
+        # NOTE (maysams) It might happen that the update of LBaaS SG
+        # has been triggered and the LBaaS SG was not created yet.
+        # This update is skiped, until the LBaaS members are created.
+        if not lb_sg:
+            return
 
         lbaas_sg_rules = neutron.list_security_group_rules(
             security_group_id=lb_sg)
@@ -747,7 +756,12 @@ class LBaaSv2Driver(base.LBaaSDriver):
             # NOTE(ltomasbo): lb_name parameter is only passed when sg_mode
             # is 'create' and in that case there is only one sg associated
             # to the loadbalancer
-            return sgs['security_groups'][0]['id']
+            try:
+                sg_id = sgs['security_groups'][0]['id']
+            except IndexError:
+                sg_id = None
+                LOG.debug("Security Group not created yet for LBaaS.")
+            return sg_id
         try:
             sgs = neutron.list_security_groups(
                 name=loadbalancer.name, project_id=loadbalancer.project_id)
@@ -916,6 +930,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
         lbaas = utils.get_lbaas_spec(service)
         if not lbaas:
             return
+
+        lbaas.security_groups_ids = sgs
+        utils.set_lbaas_spec(service, lbaas)
 
         for port in svc_ports:
             port_protocol = port['protocol']

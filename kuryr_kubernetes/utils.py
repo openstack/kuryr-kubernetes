@@ -223,3 +223,43 @@ def get_lbaas_spec(service):
     obj = obj_lbaas.LBaaSServiceSpec.obj_from_primitive(obj_dict)
     LOG.debug("Got LBaaSServiceSpec from annotation: %r", obj)
     return obj
+
+
+def set_lbaas_spec(service, lbaas_spec):
+    # TODO(ivc): extract annotation interactions
+    if lbaas_spec is None:
+        LOG.debug("Removing LBaaSServiceSpec annotation: %r", lbaas_spec)
+        annotation = None
+    else:
+        lbaas_spec.obj_reset_changes(recursive=True)
+        LOG.debug("Setting LBaaSServiceSpec annotation: %r", lbaas_spec)
+        annotation = jsonutils.dumps(lbaas_spec.obj_to_primitive(),
+                                     sort_keys=True)
+    svc_link = service['metadata']['selfLink']
+    ep_link = get_endpoints_link(service)
+    k8s = clients.get_kubernetes_client()
+
+    try:
+        k8s.annotate(ep_link,
+                     {constants.K8S_ANNOTATION_LBAAS_SPEC: annotation})
+    except exceptions.K8sResourceNotFound:
+        raise exceptions.ResourceNotReady(ep_link)
+    except exceptions.K8sClientException:
+        LOG.debug("Failed to annotate endpoint %r", ep_link)
+        raise
+    k8s.annotate(svc_link,
+                 {constants.K8S_ANNOTATION_LBAAS_SPEC: annotation},
+                 resource_version=service['metadata']['resourceVersion'])
+
+
+def get_endpoints_link(service):
+    svc_link = service['metadata']['selfLink']
+    link_parts = svc_link.split('/')
+
+    if link_parts[-2] != 'services':
+        raise exceptions.IntegrityError(_(
+            "Unsupported service link: %(link)s") % {
+            'link': svc_link})
+    link_parts[-2] = 'endpoints'
+
+    return "/".join(link_parts)

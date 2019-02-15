@@ -73,6 +73,8 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             specific_driver='multi_pool')
         self._drv_vif_pool.set_vif_driver()
         self._drv_multi_vif = drivers.MultiVIFDriver.get_enabled_drivers()
+        self._drv_lbaas = drivers.LBaaSDriver.get_instance()
+        self._drv_svc_sg = drivers.ServiceSecurityGroupsDriver.get_instance()
 
     def on_present(self, pod):
         if driver_utils.is_host_network(pod) or not self._is_pending_node(pod):
@@ -83,9 +85,8 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             return
         state = driver_utils.get_pod_state(pod)
         LOG.debug("Got VIFs from annotation: %r", state)
-
+        project_id = self._drv_project.get_project(pod)
         if not state:
-            project_id = self._drv_project.get_project(pod)
             security_groups = self._drv_sg.get_security_groups(pod, project_id)
             subnets = self._drv_subnets.get_subnets(pod, project_id)
 
@@ -127,10 +128,16 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                 self._set_pod_state(pod, state)
                 self._drv_sg.create_sg_rules(pod)
 
+                if self._is_network_policy_enabled():
+                    services = driver_utils.get_services(
+                        pod['metadata']['namespace'])
+                    self._update_services(services, project_id)
+
     def on_deleted(self, pod):
         if driver_utils.is_host_network(pod):
             return
 
+        services = driver_utils.get_services(pod['metadata']['namespace'])
         project_id = self._drv_project.get_project(pod)
         self._drv_sg.delete_sg_rules(pod)
         try:
@@ -150,6 +157,8 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             for ifname, vif in state.vifs.items():
                 self._drv_vif_pool.release_vif(pod, vif, project_id,
                                                security_groups)
+        if self._is_network_policy_enabled():
+            self._update_services(services, project_id)
 
     @MEMOIZE
     def is_ready(self, quota):
@@ -198,3 +207,16 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                      {constants.K8S_ANNOTATION_VIF: annotation,
                       constants.K8S_ANNOTATION_LABEL: labels_annotation},
                      resource_version=pod['metadata']['resourceVersion'])
+
+    def _update_services(self, services, project_id):
+        for service in services.get('items'):
+            if service['metadata']['name'] == 'kubernetes':
+                continue
+            sgs = self._drv_svc_sg.get_security_groups(service,
+                                                       project_id)
+            self._drv_lbaas.update_lbaas_sg(service, sgs)
+
+    def _is_network_policy_enabled(self):
+        enabled_handlers = oslo_cfg.CONF.kubernetes.enabled_handlers
+        svc_sg_driver = oslo_cfg.CONF.kubernetes.service_security_groups_driver
+        return ('policy' in enabled_handlers and svc_sg_driver == 'policy')

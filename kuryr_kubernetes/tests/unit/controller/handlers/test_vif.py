@@ -42,9 +42,11 @@ class TestVIFHandler(test_base.TestCase):
 
         self._pod_version = mock.sentinel.pod_version
         self._pod_link = mock.sentinel.pod_link
+        self._pod_namespace = mock.sentinel.namespace
         self._pod = {
             'metadata': {'resourceVersion': self._pod_version,
-                         'selfLink': self._pod_link},
+                         'selfLink': self._pod_link,
+                         'namespace': self._pod_namespace},
             'status': {'phase': k_const.K8S_POD_STATUS_PENDING},
             'spec': {'hostNetwork': False,
                      'nodeName': 'hostname'}
@@ -168,11 +170,14 @@ class TestVIFHandler(test_base.TestCase):
         self._activate_vif.assert_not_called()
         self._set_pod_state.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_present_activate(self, m_get_pod_state, m_host_network):
+    def test_on_present_activate(self, m_get_pod_state, m_host_network,
+                                 m_get_services):
         m_get_pod_state.return_value = self._state
         m_host_network.return_value = False
+        m_get_services.return_value = {"items": []}
         self._vif.active = False
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
@@ -239,11 +244,13 @@ class TestVIFHandler(test_base.TestCase):
                                                   self._security_groups)
         self._activate_vif.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_deleted(self, m_get_pod_state, m_host_network):
+    def test_on_deleted(self, m_get_pod_state, m_host_network, m_get_services):
         m_get_pod_state.return_value = self._state
         m_host_network.return_value = False
+        m_get_services.return_value = {"items": []}
         h_vif.VIFHandler.on_deleted(self._handler, self._pod)
 
         m_get_pod_state.assert_called_once_with(self._pod)
@@ -251,14 +258,16 @@ class TestVIFHandler(test_base.TestCase):
                                                   self._project_id,
                                                   self._security_groups)
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
     def test_on_deleted_with_additional_vifs(self, m_get_pod_state,
-                                             m_host_network):
+                                             m_host_network, m_get_services):
         additional_vif = os_obj.vif.VIFBase()
         self._state.additional_vifs = {'eth1': additional_vif}
         m_get_pod_state.return_value = self._state
         m_host_network.return_value = False
+        m_get_services.return_value = {"items": []}
 
         h_vif.VIFHandler.on_deleted(self._handler, self._pod)
 
@@ -280,11 +289,14 @@ class TestVIFHandler(test_base.TestCase):
         m_get_pod_state.assert_not_called()
         self._release_vif.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_deleted_no_annotation(self, m_get_pod_state, m_host_network):
+    def test_on_deleted_no_annotation(self, m_get_pod_state, m_host_network,
+                                      m_get_services):
         m_get_pod_state.return_value = None
         m_host_network.return_value = False
+        m_get_services.return_value = {"items": []}
 
         h_vif.VIFHandler.on_deleted(self._handler, self._pod)
 

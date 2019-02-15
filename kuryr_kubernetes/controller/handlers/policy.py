@@ -20,7 +20,6 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes.controller.drivers import utils as driver_utils
-from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes import utils
 
@@ -81,7 +80,8 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
         if pods_to_update:
             # NOTE(ltomasbo): only need to change services if the pods that
             # they point to are updated
-            services = self._get_services(policy['metadata']['namespace'])
+            services = driver_utils.get_services(
+                policy['metadata']['namespace'])
             for service in services.get('items'):
                 # TODO(ltomasbo): Skip other services that are not affected
                 # by the policy
@@ -116,7 +116,8 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
 
             self._drv_policy.release_network_policy(netpolicy_crd)
 
-            services = self._get_services(policy['metadata']['namespace'])
+            services = driver_utils.get_services(
+                policy['metadata']['namespace'])
             for service in services.get('items'):
                 if service['metadata']['name'] == 'kubernetes':
                     continue
@@ -137,15 +138,3 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
         if utils.has_limit(sg_quota):
             return utils.is_available('security_groups', sg_quota, sg_func)
         return True
-
-    def _get_services(self, namespace):
-        kubernetes = clients.get_kubernetes_client()
-        services = {"items": []}
-        try:
-            services = kubernetes.get(
-                '{}/namespaces/{}/services'.format(k_const.K8S_API_BASE,
-                                                   namespace))
-        except exceptions.K8sClientException:
-            LOG.exception("Kubernetes Client Exception.")
-            raise
-        return services

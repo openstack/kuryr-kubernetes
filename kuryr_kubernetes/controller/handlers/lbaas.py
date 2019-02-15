@@ -24,6 +24,7 @@ from kuryr_kubernetes.controller.drivers import base as drv_base
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes.objects import lbaas as obj_lbaas
+from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
         self._drv_sg = drv_base.ServiceSecurityGroupsDriver.get_instance()
 
     def on_present(self, service):
-        lbaas_spec = self._get_lbaas_spec(service)
+        lbaas_spec = utils.get_lbaas_spec(service)
 
         if self._should_ignore(service):
             LOG.debug("Skipping Kubernetes service %s of an unsupported kind "
@@ -58,7 +59,7 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
 
         if self._has_lbaas_spec_changes(service, lbaas_spec):
             lbaas_spec = self._generate_lbaas_spec(service)
-            self._set_lbaas_spec(service, lbaas_spec)
+            utils.set_lbaas_spec(service, lbaas_spec)
 
     def _is_supported_type(self, service):
         spec = service['spec']
@@ -166,55 +167,6 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
     def _generate_lbaas_port_specs(self, service):
         return [obj_lbaas.LBaaSPortSpec(**port)
                 for port in self._get_service_ports(service)]
-
-    def _get_endpoints_link(self, service):
-        svc_link = service['metadata']['selfLink']
-        link_parts = svc_link.split('/')
-
-        if link_parts[-2] != 'services':
-            raise k_exc.IntegrityError(_(
-                "Unsupported service link: %(link)s") % {
-                'link': svc_link})
-        link_parts[-2] = 'endpoints'
-
-        return "/".join(link_parts)
-
-    def _set_lbaas_spec(self, service, lbaas_spec):
-        # TODO(ivc): extract annotation interactions
-        if lbaas_spec is None:
-            LOG.debug("Removing LBaaSServiceSpec annotation: %r", lbaas_spec)
-            annotation = None
-        else:
-            lbaas_spec.obj_reset_changes(recursive=True)
-            LOG.debug("Setting LBaaSServiceSpec annotation: %r", lbaas_spec)
-            annotation = jsonutils.dumps(lbaas_spec.obj_to_primitive(),
-                                         sort_keys=True)
-        svc_link = service['metadata']['selfLink']
-        ep_link = self._get_endpoints_link(service)
-        k8s = clients.get_kubernetes_client()
-
-        try:
-            k8s.annotate(ep_link,
-                         {k_const.K8S_ANNOTATION_LBAAS_SPEC: annotation})
-        except k_exc.K8sClientException:
-            # REVISIT(ivc): only raise ResourceNotReady for NotFound
-            raise k_exc.ResourceNotReady(ep_link)
-
-        k8s.annotate(svc_link,
-                     {k_const.K8S_ANNOTATION_LBAAS_SPEC: annotation},
-                     resource_version=service['metadata']['resourceVersion'])
-
-    def _get_lbaas_spec(self, service):
-        # TODO(ivc): same as '_set_lbaas_spec'
-        try:
-            annotations = service['metadata']['annotations']
-            annotation = annotations[k_const.K8S_ANNOTATION_LBAAS_SPEC]
-        except KeyError:
-            return None
-        obj_dict = jsonutils.loads(annotation)
-        obj = obj_lbaas.LBaaSServiceSpec.obj_from_primitive(obj_dict)
-        LOG.debug("Got LBaaSServiceSpec from annotation: %r", obj)
-        return obj
 
 
 class LoadBalancerHandler(k8s_base.ResourceEventHandler):
@@ -355,8 +307,29 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
 
         return changed
 
+    def _sync_lbaas_sgs(self, endpoints, lbaas_state, lbaas_spec):
+        # NOTE (maysams) Need to retrieve the LBaaS Spec again due to
+        # the possibility of it being updated after the LBaaS creation
+        # process has started.
+        svc_link = self._get_service_link(endpoints)
+        k8s = clients.get_kubernetes_client()
+        service = k8s.get(svc_link)
+        lbaas_spec = utils.get_lbaas_spec(service)
+
+        lb = lbaas_state.loadbalancer
+        default_sgs = config.CONF.neutron_defaults.pod_security_groups
+        lbaas_spec_sgs = lbaas_spec.security_groups_ids
+        if lb.security_groups and lb.security_groups != lbaas_spec_sgs:
+            sgs = [lb_sg for lb_sg in lb.security_groups
+                   if lb_sg not in default_sgs]
+            if lbaas_spec_sgs != default_sgs:
+                sgs.extend(lbaas_spec_sgs)
+            lb.security_groups = sgs
+
     def _add_new_members(self, endpoints, lbaas_state, lbaas_spec):
         changed = False
+
+        self._sync_lbaas_sgs(endpoints, lbaas_state, lbaas_spec)
 
         lsnr_by_id = {l.id: l for l in lbaas_state.listeners}
         pool_by_lsnr_port = {(lsnr_by_id[p.listener_id].protocol,
@@ -648,15 +621,6 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                     lbaas_state.service_pub_ip_info)
                 lbaas_state.service_pub_ip_info = None
                 changed = True
-
-        default_sgs = config.CONF.neutron_defaults.pod_security_groups
-        lbaas_spec_sgs = lbaas_spec.security_groups_ids
-        if lb.security_groups and lb.security_groups != lbaas_spec_sgs:
-            sgs = [lb_sg for lb_sg in lb.security_groups
-                   if lb_sg not in default_sgs]
-            if lbaas_spec_sgs != default_sgs:
-                sgs.extend(lbaas_spec_sgs)
-            lb.security_groups = sgs
 
         lbaas_state.loadbalancer = lb
         return changed

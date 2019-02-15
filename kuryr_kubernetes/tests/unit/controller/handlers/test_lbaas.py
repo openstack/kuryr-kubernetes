@@ -48,7 +48,9 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         self.assertEqual(mock.sentinel.drv_subnets, handler._drv_subnets)
         self.assertEqual(mock.sentinel.drv_sg, handler._drv_sg)
 
-    def test_on_present(self):
+    @mock.patch('kuryr_kubernetes.utils.set_lbaas_spec')
+    @mock.patch('kuryr_kubernetes.utils.get_lbaas_spec')
+    def test_on_present(self, m_get_lbaas_spec, m_set_lbaas_spec):
         svc_event = mock.sentinel.svc_event
         old_spec = mock.sentinel.old_spec
         new_spec = mock.sentinel.new_spec
@@ -58,7 +60,7 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         m_drv_project.get_project.return_value = project_id
 
         m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
-        m_handler._get_lbaas_spec.return_value = old_spec
+        m_get_lbaas_spec.return_value = old_spec
         m_handler._has_lbaas_spec_changes.return_value = True
         m_handler._generate_lbaas_spec.return_value = new_spec
         m_handler._should_ignore.return_value = False
@@ -66,43 +68,49 @@ class TestLBaaSSpecHandler(test_base.TestCase):
 
         h_lbaas.LBaaSSpecHandler.on_present(m_handler, svc_event)
 
-        m_handler._get_lbaas_spec.assert_called_once_with(svc_event)
+        m_get_lbaas_spec.assert_called_once_with(svc_event)
         m_handler._has_lbaas_spec_changes.assert_called_once_with(svc_event,
                                                                   old_spec)
         m_handler._generate_lbaas_spec.assert_called_once_with(svc_event)
-        m_handler._set_lbaas_spec.assert_called_once_with(svc_event, new_spec)
+        m_set_lbaas_spec.assert_called_once_with(svc_event, new_spec)
 
-    def test_on_present_no_changes(self):
+    @mock.patch('kuryr_kubernetes.utils.set_lbaas_spec')
+    @mock.patch('kuryr_kubernetes.utils.get_lbaas_spec')
+    def test_on_present_no_changes(self, m_get_lbaas_spec,
+                                   m_set_lbaas_spec):
         svc_event = mock.sentinel.svc_event
         old_spec = mock.sentinel.old_spec
 
         m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
-        m_handler._get_lbaas_spec.return_value = old_spec
+        m_get_lbaas_spec.return_value = old_spec
         m_handler._has_lbaas_spec_changes.return_value = False
         m_handler._should_ignore.return_value = False
 
         h_lbaas.LBaaSSpecHandler.on_present(m_handler, svc_event)
 
-        m_handler._get_lbaas_spec.assert_called_once_with(svc_event)
+        m_get_lbaas_spec.assert_called_once_with(svc_event)
         m_handler._has_lbaas_spec_changes.assert_called_once_with(svc_event,
                                                                   old_spec)
         m_handler._generate_lbaas_spec.assert_not_called()
-        m_handler._set_lbaas_spec.assert_not_called()
+        m_set_lbaas_spec.assert_not_called()
 
-    def test_on_present_no_selector(self):
+    @mock.patch('kuryr_kubernetes.utils.set_lbaas_spec')
+    @mock.patch('kuryr_kubernetes.utils.get_lbaas_spec')
+    def test_on_present_no_selector(self, m_get_lbaas_spec,
+                                    m_set_lbaas_spec):
         svc_event = {'metadata': {'name': 'dummy_name'}}
         old_spec = mock.sentinel.old_spec
 
         m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
-        m_handler._get_lbaas_spec.return_value = old_spec
+        m_get_lbaas_spec.return_value = old_spec
         m_handler._should_ignore.return_value = True
 
         h_lbaas.LBaaSSpecHandler.on_present(m_handler, svc_event)
 
-        m_handler._get_lbaas_spec.assert_called_once_with(svc_event)
+        m_get_lbaas_spec.assert_called_once_with(svc_event)
         m_handler._has_lbaas_spec_changes.assert_not_called()
         m_handler._generate_lbaas_spec.assert_not_called()
-        m_handler._set_lbaas_spec.assert_not_called()
+        m_set_lbaas_spec.assert_not_called()
 
     def test_get_service_ip(self):
         svc_body = {'spec': {'type': 'ClusterIP',
@@ -327,22 +335,6 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         self.assertEqual(expected_ports, ret)
         m_handler._get_service_ports.assert_called_once_with(
             mock.sentinel.service)
-
-    def test_get_endpoints_link(self):
-        m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
-        service = {'metadata': {
-            'selfLink': "/api/v1/namespaces/default/services/test"}}
-        ret = h_lbaas.LBaaSSpecHandler._get_endpoints_link(m_handler, service)
-        expected_link = "/api/v1/namespaces/default/endpoints/test"
-        self.assertEqual(expected_link, ret)
-
-    def test_get_endpoints_link__integrity_error(self):
-        m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
-        service = {'metadata': {
-            'selfLink': "/api/v1/namespaces/default/not-services/test"}}
-        self.assertRaises(k_exc.IntegrityError,
-                          h_lbaas.LBaaSSpecHandler._get_endpoints_link,
-                          m_handler, service)
 
     def test_set_lbaas_spec(self):
         self.skipTest("skipping until generalised annotation handling is "
@@ -821,6 +813,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
             for member in state.members)
         return observed_targets
 
+    @mock.patch('kuryr_kubernetes.controller.handlers.lbaas.'
+                'LoadBalancerHandler._sync_lbaas_sgs')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.PodSubnetsDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
@@ -828,7 +822,7 @@ class TestLoadBalancerHandler(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
     def test_sync_lbaas_members(self, m_get_drv_lbaas, m_get_drv_project,
-                                m_get_drv_subnets):
+                                m_get_drv_subnets, m_sync_lbaas_sgs):
         # REVISIT(ivc): test methods separately and verify ensure/release
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
@@ -855,6 +849,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
         self.assertEqual(sorted(expected_targets.items()), observed_targets)
         self.assertEqual(expected_ip, str(state.loadbalancer.ip))
 
+    @mock.patch('kuryr_kubernetes.controller.handlers.lbaas.'
+                'LoadBalancerHandler._sync_lbaas_sgs')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.PodSubnetsDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
@@ -862,7 +858,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
     def test_sync_lbaas_members_udp(self, m_get_drv_lbaas,
-                                    m_get_drv_project, m_get_drv_subnets):
+                                    m_get_drv_project, m_get_drv_subnets,
+                                    m_sync_lbaas_sgs):
         # REVISIT(ivc): test methods separately and verify ensure/release
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
@@ -889,6 +886,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
         self.assertEqual([], observed_targets)
         self.assertEqual(expected_ip, str(state.loadbalancer.ip))
 
+    @mock.patch('kuryr_kubernetes.controller.handlers.lbaas.'
+                'LoadBalancerHandler._sync_lbaas_sgs')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.PodSubnetsDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
@@ -896,7 +895,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
     def test_sync_lbaas_members_svc_listener_port_edit(
-            self, m_get_drv_lbaas, m_get_drv_project, m_get_drv_subnets):
+            self, m_get_drv_lbaas, m_get_drv_project, m_get_drv_subnets,
+            m_sync_lbaas_sgs):
         # REVISIT(ivc): test methods separately and verify ensure/release
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
@@ -943,6 +943,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
         self.skipTest("skipping until generalised annotation handling is "
                       "implemented")
 
+    @mock.patch('kuryr_kubernetes.controller.handlers.lbaas.'
+                'LoadBalancerHandler._sync_lbaas_sgs')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.PodSubnetsDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
@@ -950,7 +952,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
     def test_add_new_members_udp(self, m_get_drv_lbaas,
-                                 m_get_drv_project, m_get_drv_subnets):
+                                 m_get_drv_project, m_get_drv_subnets,
+                                 m_sync_lbaas_sgs):
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
         current_ip = '1.1.1.1'

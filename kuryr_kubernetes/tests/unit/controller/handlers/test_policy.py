@@ -115,8 +115,9 @@ class TestPolicyHandler(test_base.TestCase):
                          handler._drv_project)
         self.assertEqual(m_get_policy_driver.return_value, handler._drv_policy)
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
-    def test_on_present(self, m_host_network):
+    def test_on_present(self, m_host_network, m_get_services):
         modified_pod = mock.sentinel.modified_pod
         match_pod = mock.sentinel.match_pod
         m_host_network.return_value = False
@@ -131,7 +132,7 @@ class TestPolicyHandler(test_base.TestCase):
         sg1 = [mock.sentinel.sg1]
         sg2 = [mock.sentinel.sg2]
         self._get_security_groups.side_effect = [sg1, sg2]
-        self._handler._get_services.return_value = {'items': []}
+        m_get_services.return_value = {'items': []}
 
         policy.NetworkPolicyHandler.on_present(self._handler, self._policy)
         namespaced_pods.assert_not_called()
@@ -147,8 +148,10 @@ class TestPolicyHandler(test_base.TestCase):
         self._update_vif_sgs.assert_has_calls(calls)
         self._update_lbaas_sg.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
-    def test_on_present_without_knps_on_namespace(self, m_host_network):
+    def test_on_present_without_knps_on_namespace(self, m_host_network,
+                                                  m_get_services):
         modified_pod = mock.sentinel.modified_pod
         match_pod = mock.sentinel.match_pod
         m_host_network.return_value = False
@@ -160,7 +163,7 @@ class TestPolicyHandler(test_base.TestCase):
         sg2 = [mock.sentinel.sg2]
         sg3 = [mock.sentinel.sg3]
         self._get_security_groups.side_effect = [sg2, sg3]
-        self._handler._get_services.return_value = {'items': []}
+        m_get_services.return_value = {'items': []}
 
         policy.NetworkPolicyHandler.on_present(self._handler, self._policy)
         ensure_nw_policy.assert_called_once_with(self._policy,
@@ -176,8 +179,9 @@ class TestPolicyHandler(test_base.TestCase):
         self._update_vif_sgs.assert_has_calls(calls)
         self._update_lbaas_sg.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
-    def test_on_present_with_services(self, m_host_network):
+    def test_on_present_with_services(self, m_host_network, m_get_services):
         modified_pod = mock.sentinel.modified_pod
         match_pod = mock.sentinel.match_pod
         m_host_network.return_value = False
@@ -193,7 +197,7 @@ class TestPolicyHandler(test_base.TestCase):
         sg2 = [mock.sentinel.sg2]
         self._get_security_groups.side_effect = [sg1, sg2]
         service = {'metadata': {'name': 'service-test'}}
-        self._handler._get_services.return_value = {'items': [service]}
+        m_get_services.return_value = {'items': [service]}
 
         policy.NetworkPolicyHandler.on_present(self._handler, self._policy)
         namespaced_pods.assert_not_called()
@@ -209,8 +213,9 @@ class TestPolicyHandler(test_base.TestCase):
         self._update_vif_sgs.assert_has_calls(calls)
         self._update_lbaas_sg.assert_called_once()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
-    def test_on_deleted(self, m_host_network):
+    def test_on_deleted(self, m_host_network, m_get_services):
         namespace_pod = mock.sentinel.namespace_pod
         match_pod = mock.sentinel.match_pod
         m_host_network.return_value = False
@@ -222,7 +227,7 @@ class TestPolicyHandler(test_base.TestCase):
         sg1 = [mock.sentinel.sg1]
         sg2 = [mock.sentinel.sg2]
         self._get_security_groups.side_effect = [sg1, sg2]
-        self._handler._get_services.return_value = {'items': []}
+        m_get_services.return_value = {'items': []}
         release_nw_policy = self._handler._drv_policy.release_network_policy
         knp_on_ns = self._handler._drv_policy.knps_on_namespace
         knp_on_ns.return_value = False

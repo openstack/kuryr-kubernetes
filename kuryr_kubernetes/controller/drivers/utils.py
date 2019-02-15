@@ -392,3 +392,16 @@ def tag_neutron_resources(resource, res_ids):
                 LOG.warning("Failed to tag %s %s with %s. Ignoring, but this "
                             "is still unexpected.", resource, res_id, tags,
                             exc_info=True)
+
+
+def get_services(namespace):
+    kubernetes = clients.get_kubernetes_client()
+    try:
+        services = kubernetes.get(
+            '{}/namespaces/{}/services'.format(constants.K8S_API_BASE,
+                                               namespace))
+    except k_exc.K8sClientException:
+        LOG.exception('Exception when getting K8s services in '
+                      'namespace %s', namespace)
+        raise
+    return services

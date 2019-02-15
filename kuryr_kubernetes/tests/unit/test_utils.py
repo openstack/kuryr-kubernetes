@@ -157,3 +157,10 @@ class TestUtils(test_base.TestCase):
             self.assertEqual(resp, False)
 
             kubernetes.get.assert_called_once()
+
+    def test_get_endpoints_link(self):
+        service = {'metadata': {
+            'selfLink': "/api/v1/namespaces/default/services/test"}}
+        ret = utils.get_endpoints_link(service)
+        expected_link = "/api/v1/namespaces/default/endpoints/test"
+        self.assertEqual(expected_link, ret)
