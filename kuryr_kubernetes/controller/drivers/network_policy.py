@@ -216,7 +216,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         else:
             matching_pods = driver_utils.get_pods(pod_selector, namespace)
         for pod in matching_pods.get('items'):
-            if pod['status']['podIP']:
+            if pod['status'].get('podIP'):
                 pod_ip = pod['status']['podIP']
                 ns = pod['metadata']['namespace']
                 ips.append({'cidr': pod_ip, 'namespace': ns})
