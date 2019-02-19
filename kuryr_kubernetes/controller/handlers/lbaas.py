@@ -122,7 +122,8 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
     def _get_service_ports(self, service):
         return [{'name': port.get('name'),
                  'protocol': port.get('protocol', 'TCP'),
-                 'port': port['port']}
+                 'port': port['port'],
+                 'targetPort': port['targetPort']}
                 for port in service['spec']['ports']]
 
     def _has_port_changes(self, service, lbaas_spec):
@@ -131,7 +132,10 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
         fields = obj_lbaas.LBaaSPortSpec.fields
         svc_port_set = {tuple(port[attr] for attr in fields)
                         for port in self._get_service_ports(service)}
-        spec_port_set = {tuple(getattr(port, attr) for attr in fields)
+
+        spec_port_set = {tuple(getattr(port, attr)
+                         for attr in fields
+                         if port.obj_attr_is_set(attr))
                          for port in lbaas_spec.ports}
 
         if svc_port_set != spec_port_set:
@@ -311,11 +315,17 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                    self._is_lbaas_spec_in_sync(endpoints, lbaas_spec))
 
     def _is_lbaas_spec_in_sync(self, endpoints, lbaas_spec):
-        # REVISIT(ivc): consider other options instead of using 'name'
-        ep_ports = list(set(port.get('name')
+        ports = lbaas_spec.ports
+        ep_ports = list(set((port.get('name'), port.get('port'))
+                            if ports[0].obj_attr_is_set('targetPort')
+                            else port.get('name')
                             for subset in endpoints.get('subsets', [])
                             for port in subset.get('ports', [])))
-        spec_ports = [port.name for port in lbaas_spec.ports]
+
+        spec_ports = [(port.name, port.targetPort)
+                      if port.obj_attr_is_set('targetPort')
+                      else port.name
+                      for port in ports]
 
         return sorted(ep_ports) == sorted(spec_ports)
 
@@ -352,6 +362,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         pool_by_lsnr_port = {(lsnr_by_id[p.listener_id].protocol,
                               lsnr_by_id[p.listener_id].port): p
                              for p in lbaas_state.pools}
+
         # NOTE(yboaron): Since LBaaSv2 doesn't support UDP load balancing,
         #              the LBaaS driver will return 'None' in case of UDP port
         #              listener creation.
@@ -387,6 +398,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                     except KeyError:
                         LOG.debug("No pool found for port: %r", port_name)
                         continue
+
                     if (target_ip, target_port, pool.id) in current_targets:
                         continue
                     # TODO(apuimedo): Do not pass subnet_id at all when in
@@ -410,6 +422,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                         listener_port = lsnr_by_id[pool.listener_id].port
                     else:
                         listener_port = None
+
                     member = self._drv_lbaas.ensure_member(
                         loadbalancer=lbaas_state.loadbalancer,
                         pool=pool,
@@ -635,6 +648,15 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                     lbaas_state.service_pub_ip_info)
                 lbaas_state.service_pub_ip_info = None
                 changed = True
+
+        default_sgs = config.CONF.neutron_defaults.pod_security_groups
+        lbaas_spec_sgs = lbaas_spec.security_groups_ids
+        if lb.security_groups and lb.security_groups != lbaas_spec_sgs:
+            sgs = [lb_sg for lb_sg in lb.security_groups
+                   if lb_sg not in default_sgs]
+            if lbaas_spec_sgs != default_sgs:
+                sgs.extend(lbaas_spec_sgs)
+            lb.security_groups = sgs
 
         lbaas_state.loadbalancer = lb
         return changed

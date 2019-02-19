@@ -201,12 +201,12 @@ class TestLBaaSSpecHandler(test_base.TestCase):
     def test_get_service_ports(self):
         m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
         service = {'spec': {'ports': [
-            {'port': 1},
-            {'port': 2, 'name': 'X', 'protocol': 'UDP'}
+            {'port': 1, 'targetPort': 1},
+            {'port': 2, 'name': 'X', 'protocol': 'UDP', 'targetPort': 2}
         ]}}
         expected_ret = [
-            {'port': 1, 'name': None, 'protocol': 'TCP'},
-            {'port': 2, 'name': 'X', 'protocol': 'UDP'}]
+            {'port': 1, 'name': None, 'protocol': 'TCP', 'targetPort': 1},
+            {'port': 2, 'name': 'X', 'protocol': 'UDP', 'targetPort': 2}]
 
         ret = h_lbaas.LBaaSSpecHandler._get_service_ports(m_handler, service)
         self.assertEqual(expected_ret, ret)
@@ -215,13 +215,15 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
         m_service = mock.MagicMock()
         m_handler._get_service_ports.return_value = [
-            {'port': 1, 'name': 'X', 'protocol': 'TCP'},
+            {'port': 1, 'name': 'X', 'protocol': 'TCP', 'targetPort': 1},
         ]
 
         m_lbaas_spec = mock.MagicMock()
         m_lbaas_spec.ports = [
-            obj_lbaas.LBaaSPortSpec(name='X', protocol='TCP', port=1),
-            obj_lbaas.LBaaSPortSpec(name='Y', protocol='TCP', port=2),
+            obj_lbaas.LBaaSPortSpec(name='X', protocol='TCP', port=1,
+                                    targetPort=1),
+            obj_lbaas.LBaaSPortSpec(name='Y', protocol='TCP', port=2,
+                                    targetPort=2),
         ]
 
         ret = h_lbaas.LBaaSSpecHandler._has_port_changes(
@@ -233,14 +235,16 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
         m_service = mock.MagicMock()
         m_handler._get_service_ports.return_value = [
-            {'port': 1, 'name': 'X', 'protocol': 'TCP'},
-            {'port': 2, 'name': 'Y', 'protocol': 'TCP'}
+            {'port': 1, 'name': 'X', 'protocol': 'TCP', 'targetPort': 1},
+            {'port': 2, 'name': 'Y', 'protocol': 'TCP', 'targetPort': 2}
         ]
 
         m_lbaas_spec = mock.MagicMock()
         m_lbaas_spec.ports = [
-            obj_lbaas.LBaaSPortSpec(name='X', protocol='TCP', port=1),
-            obj_lbaas.LBaaSPortSpec(name='Y', protocol='TCP', port=2),
+            obj_lbaas.LBaaSPortSpec(name='X', protocol='TCP', port=1,
+                                    targetPort=1),
+            obj_lbaas.LBaaSPortSpec(name='Y', protocol='TCP', port=2,
+                                    targetPort=2),
         ]
 
         ret = h_lbaas.LBaaSSpecHandler._has_port_changes(
@@ -673,9 +677,11 @@ class TestLoadBalancerHandler(test_base.TestCase):
 
     def test_is_lbaas_spec_in_sync(self):
         names = ['a', 'b', 'c']
-        endpoints = {'subsets': [{'ports': [{'name': n} for n in names]}]}
+        endpoints = {'subsets': [{'ports': [{'name': n, 'port': 1}
+                     for n in names]}]}
         lbaas_spec = obj_lbaas.LBaaSServiceSpec(ports=[
-            obj_lbaas.LBaaSPortSpec(name=n) for n in reversed(names)])
+            obj_lbaas.LBaaSPortSpec(name=n, targetPort=1)
+            for n in reversed(names)])
 
         m_handler = mock.Mock(spec=h_lbaas.LoadBalancerHandler)
         ret = h_lbaas.LoadBalancerHandler._is_lbaas_spec_in_sync(
@@ -748,10 +754,11 @@ class TestLoadBalancerHandler(test_base.TestCase):
             ip=vip,
             project_id=project_id,
             subnet_id=subnet_id,
-            ports=[obj_lbaas.LBaaSPortSpec(name=str(port),
+            ports=[obj_lbaas.LBaaSPortSpec(name=str(t[0]),
                                            protocol=prot,
-                                           port=port)
-                   for port in set(t[0] for t in targets.values())],
+                                           port=t[0],
+                                           targetPort=t[1])
+                   for t in targets.values()],
             type=lbaas_type)
 
     def _generate_endpoints(self, targets):
