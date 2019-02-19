@@ -96,29 +96,33 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
         project_id = self._drv_project.get_project(policy)
         pods_to_update = self._drv_policy.affected_pods(policy)
         netpolicy_crd = self._drv_policy.get_kuryrnetpolicy_crd(policy)
-        crd_sg = netpolicy_crd['spec'].get('securityGroupId')
-        for pod in pods_to_update:
-            if driver_utils.is_host_network(pod):
-                continue
-            pod_sgs = self._drv_pod_sg.get_security_groups(pod, project_id)
-            if crd_sg in pod_sgs:
-                pod_sgs.remove(crd_sg)
-            if not pod_sgs:
-                pod_sgs = oslo_cfg.CONF.neutron_defaults.pod_security_groups
+        if netpolicy_crd:
+            crd_sg = netpolicy_crd['spec'].get('securityGroupId')
+            for pod in pods_to_update:
+                if driver_utils.is_host_network(pod):
+                    continue
+                pod_sgs = self._drv_pod_sg.get_security_groups(pod,
+                                                               project_id)
+                if crd_sg in pod_sgs:
+                    pod_sgs.remove(crd_sg)
                 if not pod_sgs:
-                    raise oslo_cfg.RequiredOptError('pod_security_groups',
-                                                    oslo_cfg.OptGroup(
-                                                        'neutron_defaults'))
-            self._drv_vif_pool.update_vif_sgs(pod, pod_sgs)
+                    pod_sgs = (
+                        oslo_cfg.CONF.neutron_defaults.pod_security_groups)
+                    if not pod_sgs:
+                        raise oslo_cfg.RequiredOptError(
+                            'pod_security_groups',
+                            oslo_cfg.OptGroup('neutron_defaults'))
+                self._drv_vif_pool.update_vif_sgs(pod, pod_sgs)
 
-        self._drv_policy.release_network_policy(netpolicy_crd)
+            self._drv_policy.release_network_policy(netpolicy_crd)
 
-        services = self._get_services(policy['metadata']['namespace'])
-        for service in services.get('items'):
-            if service['metadata']['name'] == 'kubernetes':
-                continue
-            sgs = self._drv_svc_sg.get_security_groups(service, project_id)
-            self._drv_lbaas.update_lbaas_sg(service, sgs)
+            services = self._get_services(policy['metadata']['namespace'])
+            for service in services.get('items'):
+                if service['metadata']['name'] == 'kubernetes':
+                    continue
+                sgs = self._drv_svc_sg.get_security_groups(service,
+                                                           project_id)
+                self._drv_lbaas.update_lbaas_sg(service, sgs)
 
     def is_ready(self, quota):
         if not utils.has_kuryr_crd(k_const.K8S_API_CRD_KURYRNETPOLICIES):

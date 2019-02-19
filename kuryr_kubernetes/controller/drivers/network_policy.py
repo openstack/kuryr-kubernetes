@@ -370,22 +370,24 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
 
         return ingress_sg_rule_body_list, egress_sg_rule_body_list
 
+    def delete_np_sg(self, sg_id):
+        try:
+            self.neutron.delete_security_group(sg_id)
+        except n_exc.NotFound:
+            LOG.debug("Security Group not found: %s", sg_id)
+        except n_exc.Conflict:
+            LOG.debug("Security Group already in use: %s", sg_id)
+            # raising ResourceNotReady to retry this action in case ports
+            # associated to affected pods are not updated on time, i.e.,
+            # they are still using the security group to be removed
+            raise exceptions.ResourceNotReady(sg_id)
+        except n_exc.NeutronClientException:
+            LOG.exception("Error deleting security group %s.", sg_id)
+            raise
+
     def release_network_policy(self, netpolicy_crd):
         if netpolicy_crd is not None:
-            try:
-                sg_id = netpolicy_crd['spec']['securityGroupId']
-                self.neutron.delete_security_group(sg_id)
-            except n_exc.NotFound:
-                LOG.debug("Security Group not found: %s", sg_id)
-            except n_exc.Conflict:
-                LOG.debug("Security Group already in use: %s", sg_id)
-                # raising ResourceNotReady to retry this action in case ports
-                # associated to affected pods are not updated on time, i.e.,
-                # they are still using the security group to be removed
-                raise exceptions.ResourceNotReady(sg_id)
-            except n_exc.NeutronClientException:
-                LOG.exception("Error deleting security group %s.", sg_id)
-                raise
+            self.delete_np_sg(netpolicy_crd['spec']['securityGroupId'])
             self._del_kuryrnetpolicy_crd(
                 netpolicy_crd['metadata']['name'],
                 netpolicy_crd['metadata']['namespace'])
@@ -470,6 +472,9 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             LOG.exception("Kubernetes Client Exception deleting kuryrnetpolicy"
                           " CRD.")
             raise
+        except n_exc.NotFound:
+            LOG.debug("KuryrNetPolicy CRD Object not found: %s",
+                      netpolicy_crd_name)
 
     def affected_pods(self, policy, selector=None):
         if selector:
