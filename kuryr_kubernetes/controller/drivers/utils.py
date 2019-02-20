@@ -225,11 +225,11 @@ def patch_kuryr_crd(crd, i_rules, e_rules, pod_selector, np_spec=None):
         np_spec = crd['spec']['networkpolicy_spec']
     LOG.debug('Patching KuryrNetPolicy CRD %s' % crd_name)
     try:
-        kubernetes.patch('spec', crd['metadata']['selfLink'],
-                         {'ingressSgRules': i_rules,
-                          'egressSgRules': e_rules,
-                          'podSelector': pod_selector,
-                          'networkpolicy_spec': np_spec})
+        kubernetes.patch_crd('spec', crd['metadata']['selfLink'],
+                             {'ingressSgRules': i_rules,
+                              'egressSgRules': e_rules,
+                              'podSelector': pod_selector,
+                              'networkpolicy_spec': np_spec})
     except k_exc.K8sClientException:
         LOG.exception('Error updating kuryrnetpolicy CRD %s', crd_name)
         raise

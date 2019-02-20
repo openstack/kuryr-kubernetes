@@ -294,7 +294,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                        'parse_network_policy_rules')
     def test_update_security_group_rules_with_k8s_exc(self, m_parse, m_get_crd,
                                                       m_create_sgr):
-        self._driver.kubernetes.patch.side_effect = (
+        self._driver.kubernetes.patch_crd.side_effect = (
             exceptions.K8sClientException())
         m_get_crd.return_value = self._crd
         m_parse.return_value = (self._i_rules, self._e_rules)
