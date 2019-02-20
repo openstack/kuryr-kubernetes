@@ -89,21 +89,25 @@ class TestVIFHandler(test_base.TestCase):
     @mock.patch.object(drivers.PodSecurityGroupsDriver, 'get_instance')
     @mock.patch.object(drivers.PodSubnetsDriver, 'get_instance')
     @mock.patch.object(drivers.PodProjectDriver, 'get_instance')
-    def test_init(self, m_get_project_driver, m_get_subnets_driver,
-                  m_get_sg_driver, m_get_vif_driver, m_get_vif_pool_driver,
-                  m_set_vifs_driver, m_get_multi_vif_drivers):
+    @mock.patch.object(drivers.LBaaSDriver, 'get_instance')
+    def test_init(self, m_get_lbaas_driver, m_get_project_driver,
+                  m_get_subnets_driver, m_get_sg_driver, m_get_vif_driver,
+                  m_get_vif_pool_driver, m_set_vifs_driver,
+                  m_get_multi_vif_drivers):
         project_driver = mock.sentinel.project_driver
         subnets_driver = mock.sentinel.subnets_driver
         sg_driver = mock.sentinel.sg_driver
         vif_driver = mock.sentinel.vif_driver
         vif_pool_driver = mock.Mock(spec=drivers.VIFPoolDriver)
         multi_vif_drivers = [mock.MagicMock(spec=drivers.MultiVIFDriver)]
+        lbaas_driver = mock.sentinel.lbaas_driver
         m_get_project_driver.return_value = project_driver
         m_get_subnets_driver.return_value = subnets_driver
         m_get_sg_driver.return_value = sg_driver
         m_get_vif_driver.return_value = vif_driver
         m_get_vif_pool_driver.return_value = vif_pool_driver
         m_get_multi_vif_drivers.return_value = multi_vif_drivers
+        m_get_lbaas_driver.return_value = lbaas_driver
 
         handler = h_vif.VIFHandler()
 
@@ -112,6 +116,7 @@ class TestVIFHandler(test_base.TestCase):
         self.assertEqual(sg_driver, handler._drv_sg)
         self.assertEqual(vif_pool_driver, handler._drv_vif_pool)
         self.assertEqual(multi_vif_drivers, handler._drv_multi_vif)
+        self.assertEqual(lbaas_driver, handler._drv_lbaas)
 
     def test_is_pending_node(self):
         self.assertTrue(h_vif.VIFHandler._is_pending_node(self._pod))
