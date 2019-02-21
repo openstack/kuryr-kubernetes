@@ -1,0 +1,11 @@
+---
+features:
+  - |
+    Added possibility to ensure all OpenStack resources created by Kuryr are
+    tagged. In case of Neutron regular ``tags`` field is used. If Octavia
+    supports tagging (from Octavia API 2.5, i.e. Stein), ``tags`` field is used
+    as well, otherwise tags are put on ``description`` field. All this is
+    controlled by ``[neutron_defaults]resource_tags`` config option that can
+    hold a list of tags to be put on resources. This feature is useful to
+    correctly identify any leftovers in OpenStack after K8s cluster Kuryr was
+    serving gets deleted.
