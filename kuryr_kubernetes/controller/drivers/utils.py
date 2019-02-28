@@ -405,3 +405,21 @@ def get_services(namespace):
                       'namespace %s', namespace)
         raise
     return services
+
+
+def service_matches_affected_pods(service, pod_selectors):
+    """Returns if the service is affected by the pod selectors
+
+    Checks if the service selector matches the labelSelectors of
+    NetworkPolicies.
+
+    param service: k8s service
+    param pod_selectors: a list of kubernetes labelSelectors
+    return: True if the service is selected by any of the labelSelectors
+            and False otherwise.
+    """
+    svc_selector = service['spec'].get('selector')
+    for selector in pod_selectors:
+        if match_selector(selector, svc_selector):
+            return True
+    return False

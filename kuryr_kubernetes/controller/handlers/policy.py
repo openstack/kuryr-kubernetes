@@ -85,7 +85,8 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
             for service in services.get('items'):
                 # TODO(ltomasbo): Skip other services that are not affected
                 # by the policy
-                if service['metadata']['name'] == 'kubernetes':
+                if (service['metadata']['name'] == 'kubernetes' or not
+                        self._is_service_affected(service, pods_to_update)):
                     continue
                 sgs = self._drv_svc_sg.get_security_groups(service,
                                                            project_id)
@@ -119,7 +120,8 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
             services = driver_utils.get_services(
                 policy['metadata']['namespace'])
             for service in services.get('items'):
-                if service['metadata']['name'] == 'kubernetes':
+                if (service['metadata']['name'] == 'kubernetes' or not
+                        self._is_service_affected(service, pods_to_update)):
                     continue
                 sgs = self._drv_svc_sg.get_security_groups(service,
                                                            project_id)
@@ -138,3 +140,10 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
         if utils.has_limit(sg_quota):
             return utils.is_available('security_groups', sg_quota, sg_func)
         return True
+
+    def _is_service_affected(self, service, affected_pods):
+        svc_namespace = service['metadata']['namespace']
+        svc_selector = service['spec'].get('selector')
+        svc_pods = driver_utils.get_pods({'selector': svc_selector},
+                                         svc_namespace).get('items')
+        return any(pod in svc_pods for pod in affected_pods)

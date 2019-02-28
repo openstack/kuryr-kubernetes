@@ -39,9 +39,11 @@ class PodLabelHandler(k8s_base.ResourceEventHandler):
         super(PodLabelHandler, self).__init__()
         self._drv_project = drivers.PodProjectDriver.get_instance()
         self._drv_sg = drivers.PodSecurityGroupsDriver.get_instance()
+        self._drv_svc_sg = drivers.ServiceSecurityGroupsDriver.get_instance()
         self._drv_vif_pool = drivers.VIFPoolDriver.get_instance(
             specific_driver='multi_pool')
         self._drv_vif_pool.set_vif_driver()
+        self._drv_lbaas = drivers.LBaaSDriver.get_instance()
 
     def on_present(self, pod):
         if driver_utils.is_host_network(pod) or not self._has_pod_state(pod):
@@ -57,12 +59,15 @@ class PodLabelHandler(k8s_base.ResourceEventHandler):
         if current_pod_labels == previous_pod_labels:
             return
 
-        self._drv_sg.update_sg_rules(pod)
+        crd_pod_selectors = self._drv_sg.update_sg_rules(pod)
 
         project_id = self._drv_project.get_project(pod)
         security_groups = self._drv_sg.get_security_groups(pod, project_id)
         self._drv_vif_pool.update_vif_sgs(pod, security_groups)
         self._set_pod_labels(pod, current_pod_labels)
+
+        services = driver_utils.get_services(pod['metadata']['namespace'])
+        self._update_services(services, crd_pod_selectors, project_id)
 
     def _get_pod_labels(self, pod):
         try:
@@ -94,3 +99,13 @@ class PodLabelHandler(k8s_base.ResourceEventHandler):
         except KeyError:
             return False
         return True
+
+    def _update_services(self, services, crd_pod_selectors, project_id):
+        for service in services.get('items'):
+            if (service['metadata']['name'] == 'kubernetes' or not
+                    driver_utils.service_matches_affected_pods(
+                        service, crd_pod_selectors)):
+                continue
+            sgs = self._drv_svc_sg.get_security_groups(service,
+                                                       project_id)
+            self._drv_lbaas.update_lbaas_sg(service, sgs)
