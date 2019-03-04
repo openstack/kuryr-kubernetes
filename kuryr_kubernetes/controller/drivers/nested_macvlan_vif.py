@@ -19,6 +19,7 @@ from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes.controller.drivers import nested_vif
+from kuryr_kubernetes.controller.drivers import utils
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes import os_vif_util as ovu
 
@@ -37,6 +38,7 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                                      security_groups)
         vm_port = self._get_parent_port(neutron, pod)
         container_port = neutron.create_port(req).get('port')
+        utils.tag_neutron_resources('ports', [container_port['id']])
 
         container_mac = container_port['mac_address']
         container_ips = frozenset(entry['ip_address'] for entry in

@@ -37,6 +37,7 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
 
         rq = self._get_port_request(pod, project_id, subnets, security_groups)
         port = neutron.create_port(rq).get('port')
+        utils.tag_neutron_resources('ports', [port['id']])
         vif_plugin = self._get_vif_plugin(port)
 
         return ovu.neutron_to_osvif_vif(vif_plugin, port, subnets)
@@ -48,12 +49,13 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
         rq = self._get_port_request(pod, project_id, subnets, security_groups,
                                     unbound=True)
 
-        bulk_port_rq = {'ports': [rq for _ in range(num_ports)]}
+        bulk_port_rq = {'ports': [rq] * num_ports}
         try:
             ports = neutron.create_port(bulk_port_rq).get('ports')
         except n_exc.NeutronClientException:
             LOG.exception("Error creating bulk ports: %s", bulk_port_rq)
             raise
+        utils.tag_neutron_resources('ports', [port['id'] for port in ports])
 
         vif_plugin = self._get_vif_plugin(ports[0])
 

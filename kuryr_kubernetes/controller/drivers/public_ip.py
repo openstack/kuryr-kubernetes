@@ -13,10 +13,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import abc
-from kuryr_kubernetes import clients
+import six
+
 from neutronclient.common import exceptions as n_exc
 from oslo_log import log as logging
-import six
+
+from kuryr_kubernetes import clients
+from kuryr_kubernetes.controller.drivers import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -132,13 +135,13 @@ class FipPubIpDriver(BasePubIpDriver):
             request['floatingip']['description'] = description
 
         try:
-            response = neutron.create_floatingip(request)
+            fip = neutron.create_floatingip(request).get('floatingip')
         except n_exc.NeutronClientException:
             LOG.exception("Failed to create floating IP - netid=%s ",
                           pub_net_id)
             raise
-        return response['floatingip']['id'], response[
-            'floatingip']['floating_ip_address']
+        utils.tag_neutron_resources('networks', [fip['id']])
+        return fip['id'], fip['floating_ip_address']
 
     def free_ip(self, res_id):
         neutron = clients.get_neutron_client()

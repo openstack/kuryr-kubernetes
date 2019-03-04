@@ -39,7 +39,7 @@ class NeutronPodVIFDriver(test_base.TestCase):
         project_id = mock.sentinel.project_id
         subnets = mock.sentinel.subnets
         security_groups = mock.sentinel.security_groups
-        port = mock.sentinel.port
+        port = {'id': '910b1183-1f4a-450a-a298-0e80ad06ec8b'}
         port_request = mock.sentinel.port_request
         vif = mock.sentinel.vif
         vif_plugin = mock.sentinel.vif_plugin
@@ -72,7 +72,7 @@ class NeutronPodVIFDriver(test_base.TestCase):
 
         port_request = mock.sentinel.port_request
         m_driver._get_port_request.return_value = port_request
-        port = mock.sentinel.port
+        port = {'id': '910b1183-1f4a-450a-a298-0e80ad06ec8b'}
         vif_plugin = mock.sentinel.vif_plugin
         vif = mock.sentinel.vif
         bulk_rq = {'ports': [port_request for _ in range(num_ports)]}

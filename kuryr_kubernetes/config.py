@@ -205,6 +205,13 @@ neutron_defaults = [
                 help=_("A mapping of default subnets for certain driverType "
                        "in a form of <driverType>:<SUBNET-ID>"),
                 default={}),
+    cfg.ListOpt('resource_tags',
+                help=_("List of tags that will be applied to all OpenStack "
+                       "(Neutron and Octavia) resources created by Kuryr. "
+                       "This can be used to identify and garbage-collect "
+                       "them when Kubernetes cluster Kuryr was serving is no "
+                       "longer needed."),
+                default=[])
 ]
 
 octavia_defaults = [

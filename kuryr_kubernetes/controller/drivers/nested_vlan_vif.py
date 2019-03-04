@@ -44,6 +44,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
 
         rq = self._get_port_request(pod, project_id, subnets, security_groups)
         port = neutron.create_port(rq).get('port')
+        utils.tag_neutron_resources('ports', [port['id']])
         vlan_id = self._add_subport(neutron, trunk_id, port['id'])
 
         return ovu.neutron_to_osvif_vif_nested_vlan(port, subnets, vlan_id)
@@ -78,12 +79,14 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
             LOG.error("There are no vlan ids available to create subports")
             return []
 
-        bulk_port_rq = {'ports': [port_rq for _ in range(len(subports_info))]}
+        bulk_port_rq = {'ports': [port_rq] * len(subports_info)}
         try:
             ports = neutron.create_port(bulk_port_rq).get('ports')
         except n_exc.NeutronClientException:
             LOG.exception("Error creating bulk ports: %s", bulk_port_rq)
             raise
+        utils.tag_neutron_resources('ports', [port['id'] for port in ports])
+
         for index, port in enumerate(ports):
             subports_info[index]['port_id'] = port['id']
 

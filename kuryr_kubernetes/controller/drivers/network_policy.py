@@ -167,6 +167,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             # Create initial security group
             sg = self.neutron.create_security_group(body=security_group_body)
             sg_id = sg['security_group']['id']
+            driver_utils.tag_neutron_resources('security-groups', [sg_id])
             i_rules, e_rules = self.parse_network_policy_rules(policy, sg_id)
             for i_rule in i_rules:
                 sgr_id = driver_utils.create_security_group_rule(i_rule)
