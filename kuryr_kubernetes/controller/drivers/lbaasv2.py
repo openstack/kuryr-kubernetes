@@ -102,11 +102,11 @@ class LBaaSv2Driver(base.LBaaSDriver):
             self._wait_for_deletion(loadbalancer, _ACTIVATION_TIMEOUT)
             try:
                 neutron.delete_security_group(sg_id)
+            except n_exc.NotFound:
+                LOG.debug('Security group %s already deleted', sg_id)
             except n_exc.NeutronClientException:
                 LOG.exception('Error when deleting loadbalancer security '
                               'group. Leaving it orphaned.')
-            except n_exc.NotFound:
-                LOG.debug('Security group %s already deleted', sg_id)
 
     def _create_lb_security_group_rule(self, loadbalancer, listener):
         neutron = clients.get_neutron_client()
