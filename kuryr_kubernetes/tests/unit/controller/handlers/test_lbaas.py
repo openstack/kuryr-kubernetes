@@ -193,7 +193,8 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         m_drv_sg.get_security_groups.assert_called_once_with(
             service, project_id)
 
-    def test_has_lbaas_spec_changes(self):
+    @mock.patch('kuryr_kubernetes.utils.has_port_changes')
+    def test_has_lbaas_spec_changes(self, m_port_changes):
         m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
         service = mock.sentinel.service
         lbaas_spec = mock.sentinel.lbaas_spec
@@ -201,64 +202,10 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         for has_ip_changes in (True, False):
             for has_port_changes in (True, False):
                 m_handler._has_ip_changes.return_value = has_ip_changes
-                m_handler._has_port_changes.return_value = has_port_changes
+                m_port_changes.return_value = has_port_changes
                 ret = h_lbaas.LBaaSSpecHandler._has_lbaas_spec_changes(
                     m_handler, service, lbaas_spec)
                 self.assertEqual(has_ip_changes or has_port_changes, ret)
-
-    def test_get_service_ports(self):
-        m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
-        service = {'spec': {'ports': [
-            {'port': 1, 'targetPort': 1},
-            {'port': 2, 'name': 'X', 'protocol': 'UDP', 'targetPort': 2}
-        ]}}
-        expected_ret = [
-            {'port': 1, 'name': None, 'protocol': 'TCP', 'targetPort': 1},
-            {'port': 2, 'name': 'X', 'protocol': 'UDP', 'targetPort': 2}]
-
-        ret = h_lbaas.LBaaSSpecHandler._get_service_ports(m_handler, service)
-        self.assertEqual(expected_ret, ret)
-
-    def test_has_port_changes(self):
-        m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
-        m_service = mock.MagicMock()
-        m_handler._get_service_ports.return_value = [
-            {'port': 1, 'name': 'X', 'protocol': 'TCP', 'targetPort': 1},
-        ]
-
-        m_lbaas_spec = mock.MagicMock()
-        m_lbaas_spec.ports = [
-            obj_lbaas.LBaaSPortSpec(name='X', protocol='TCP', port=1,
-                                    targetPort=1),
-            obj_lbaas.LBaaSPortSpec(name='Y', protocol='TCP', port=2,
-                                    targetPort=2),
-        ]
-
-        ret = h_lbaas.LBaaSSpecHandler._has_port_changes(
-            m_handler, m_service, m_lbaas_spec)
-
-        self.assertTrue(ret)
-
-    def test_has_port_changes__no_changes(self):
-        m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
-        m_service = mock.MagicMock()
-        m_handler._get_service_ports.return_value = [
-            {'port': 1, 'name': 'X', 'protocol': 'TCP', 'targetPort': 1},
-            {'port': 2, 'name': 'Y', 'protocol': 'TCP', 'targetPort': 2}
-        ]
-
-        m_lbaas_spec = mock.MagicMock()
-        m_lbaas_spec.ports = [
-            obj_lbaas.LBaaSPortSpec(name='X', protocol='TCP', port=1,
-                                    targetPort=1),
-            obj_lbaas.LBaaSPortSpec(name='Y', protocol='TCP', port=2,
-                                    targetPort=2),
-        ]
-
-        ret = h_lbaas.LBaaSSpecHandler._has_port_changes(
-            m_handler, m_service, m_lbaas_spec)
-
-        self.assertFalse(ret)
 
     def test_has_ip_changes(self):
         m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
@@ -302,9 +249,10 @@ class TestLBaaSSpecHandler(test_base.TestCase):
             m_handler, m_service, m_lbaas_spec)
         self.assertFalse(ret)
 
-    def test_generate_lbaas_port_specs(self):
+    @mock.patch('kuryr_kubernetes.utils.get_service_ports')
+    def test_generate_lbaas_port_specs(self, m_get_service_ports):
         m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
-        m_handler._get_service_ports.return_value = [
+        m_get_service_ports.return_value = [
             {'port': 1, 'name': 'X', 'protocol': 'TCP'},
             {'port': 2, 'name': 'Y', 'protocol': 'TCP'}
         ]
@@ -316,12 +264,13 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         ret = h_lbaas.LBaaSSpecHandler._generate_lbaas_port_specs(
             m_handler, mock.sentinel.service)
         self.assertEqual(expected_ports, ret)
-        m_handler._get_service_ports.assert_called_once_with(
+        m_get_service_ports.assert_called_once_with(
             mock.sentinel.service)
 
-    def test_generate_lbaas_port_specs_udp(self):
+    @mock.patch('kuryr_kubernetes.utils.get_service_ports')
+    def test_generate_lbaas_port_specs_udp(self, m_get_service_ports):
         m_handler = mock.Mock(spec=h_lbaas.LBaaSSpecHandler)
-        m_handler._get_service_ports.return_value = [
+        m_get_service_ports.return_value = [
             {'port': 1, 'name': 'X', 'protocol': 'TCP'},
             {'port': 2, 'name': 'Y', 'protocol': 'UDP'}
         ]
@@ -333,7 +282,7 @@ class TestLBaaSSpecHandler(test_base.TestCase):
         ret = h_lbaas.LBaaSSpecHandler._generate_lbaas_port_specs(
             m_handler, mock.sentinel.service)
         self.assertEqual(expected_ports, ret)
-        m_handler._get_service_ports.assert_called_once_with(
+        m_get_service_ports.assert_called_once_with(
             mock.sentinel.service)
 
     def test_set_lbaas_spec(self):
@@ -657,29 +606,15 @@ class TestLoadBalancerHandler(test_base.TestCase):
         # REVISIT(ivc): ddt?
         m_handler = mock.Mock(spec=h_lbaas.LoadBalancerHandler)
         m_handler._has_pods.return_value = True
-        m_handler._is_lbaas_spec_in_sync.return_value = True
+        m_handler._svc_handler_annotations_updated.return_value = True
 
         ret = h_lbaas.LoadBalancerHandler._should_ignore(
             m_handler, endpoints, lbaas_spec)
         self.assertEqual(False, ret)
 
         m_handler._has_pods.assert_called_once_with(endpoints)
-        m_handler._is_lbaas_spec_in_sync.assert_called_once_with(
+        m_handler._svc_handler_annotations_updated.assert_called_once_with(
             endpoints, lbaas_spec)
-
-    def test_is_lbaas_spec_in_sync(self):
-        names = ['a', 'b', 'c']
-        endpoints = {'subsets': [{'ports': [{'name': n, 'port': 1}
-                     for n in names]}]}
-        lbaas_spec = obj_lbaas.LBaaSServiceSpec(ports=[
-            obj_lbaas.LBaaSPortSpec(name=n, targetPort=1)
-            for n in reversed(names)])
-
-        m_handler = mock.Mock(spec=h_lbaas.LoadBalancerHandler)
-        ret = h_lbaas.LoadBalancerHandler._is_lbaas_spec_in_sync(
-            m_handler, endpoints, lbaas_spec)
-
-        self.assertEqual(True, ret)
 
     def test_has_pods(self):
         # REVISIT(ivc): ddt?

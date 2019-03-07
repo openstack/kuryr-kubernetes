@@ -118,33 +118,7 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
 
     def _has_lbaas_spec_changes(self, service, lbaas_spec):
         return (self._has_ip_changes(service, lbaas_spec) or
-                self._has_port_changes(service, lbaas_spec))
-
-    def _get_service_ports(self, service):
-        return [{'name': port.get('name'),
-                 'protocol': port.get('protocol', 'TCP'),
-                 'port': port['port'],
-                 'targetPort': port['targetPort']}
-                for port in service['spec']['ports']]
-
-    def _has_port_changes(self, service, lbaas_spec):
-        link = service['metadata']['selfLink']
-
-        fields = obj_lbaas.LBaaSPortSpec.fields
-        svc_port_set = {tuple(port[attr] for attr in fields)
-                        for port in self._get_service_ports(service)}
-
-        spec_port_set = {tuple(getattr(port, attr)
-                         for attr in fields
-                         if port.obj_attr_is_set(attr))
-                         for port in lbaas_spec.ports}
-
-        if svc_port_set != spec_port_set:
-            LOG.debug("LBaaS spec ports %(spec_ports)s != %(svc_ports)s "
-                      "for %(link)s" % {'spec_ports': spec_port_set,
-                                        'svc_ports': svc_port_set,
-                                        'link': link})
-        return svc_port_set != spec_port_set
+                utils.has_port_changes(service, lbaas_spec))
 
     def _has_ip_changes(self, service, lbaas_spec):
         link = service['metadata']['selfLink']
@@ -166,7 +140,7 @@ class LBaaSSpecHandler(k8s_base.ResourceEventHandler):
 
     def _generate_lbaas_port_specs(self, service):
         return [obj_lbaas.LBaaSPortSpec(**port)
-                for port in self._get_service_ports(service)]
+                for port in utils.get_service_ports(service)]
 
 
 class LoadBalancerHandler(k8s_base.ResourceEventHandler):
@@ -262,24 +236,25 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                                      obj_lbaas.LBaaSServiceSpec())
 
     def _should_ignore(self, endpoints, lbaas_spec):
+        # NOTE(ltomasbo): we must wait until service handler has annotated the
+        # endpoints to process them. Thus, if annotations are not updated to
+        # match the endpoints information, we should skip the event
         return not(lbaas_spec and
                    self._has_pods(endpoints) and
-                   self._is_lbaas_spec_in_sync(endpoints, lbaas_spec))
+                   self._svc_handler_annotations_updated(endpoints,
+                                                         lbaas_spec))
 
-    def _is_lbaas_spec_in_sync(self, endpoints, lbaas_spec):
-        ports = lbaas_spec.ports
-        ep_ports = list(set((port.get('name'), port.get('port'))
-                            if ports[0].obj_attr_is_set('targetPort')
-                            else port.get('name')
-                            for subset in endpoints.get('subsets', [])
-                            for port in subset.get('ports', [])))
-
-        spec_ports = [(port.name, port.targetPort)
-                      if port.obj_attr_is_set('targetPort')
-                      else port.name
-                      for port in ports]
-
-        return sorted(ep_ports) == sorted(spec_ports)
+    def _svc_handler_annotations_updated(self, endpoints, lbaas_spec):
+        svc_link = self._get_service_link(endpoints)
+        k8s = clients.get_kubernetes_client()
+        service = k8s.get(svc_link)
+        if utils.has_port_changes(service, lbaas_spec):
+            # NOTE(ltomasbo): Ensuring lbaas_spec annotated on the endpoints
+            # is in sync with the service status, i.e., upon a service
+            # modification it will ensure endpoint modifications are not
+            # handled until the service handler has performed its annotations
+            return False
+        return True
 
     def _has_pods(self, endpoints):
         ep_subsets = endpoints.get('subsets', [])
