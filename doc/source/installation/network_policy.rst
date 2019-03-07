@@ -44,7 +44,7 @@ Same for containerized deployments::
 For directly enabling the driver when deploying with devstack, you just need
 to add the policy, pod_label and namespace handler and drivers with::
 
-    KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,policy,pod_label,namespace
+    KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,policy,pod_label,namespace,kuryrnetpolicy
     KURYR_SG_DRIVER=policy
     KURYR_SUBNET_DRIVER=namespace
 
