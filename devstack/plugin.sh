@@ -754,6 +754,11 @@ function run_k8s_kubelet {
         command="$command --fail-swap-on=false"
     fi
 
+    if is_service_enabled coredns; then
+        local k8s_resolv_conf
+        command+=" --cluster-dns=${HOST_IP} --cluster-domain=cluster.local"
+    fi
+
     wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
     if [[ "$USE_SYSTEMD" = "True" ]]; then
         # If systemd is being used, proceed as normal
@@ -766,6 +771,86 @@ function run_k8s_kubelet {
         run_process kubelet "sudo $command"
     fi
 }
+
+function run_coredns {
+    local output_dir=$1
+    mkdir -p "$output_dir"
+    rm -f ${output_dir}/coredns.yml
+    cat >> "${output_dir}/coredns.yml" << EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: kube-system
+data:
+  Corefile: |
+    .:53 {
+        bind ${HOST_IP}
+        errors
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+           pods insecure
+           upstream
+           fallthrough in-addr.arpa ip6.arpa
+        }
+        proxy . /etc/resolv.conf
+        cache 30
+        loop
+        reload
+        loadbalance
+EOF
+    if [[ "$ENABLE_DEBUG_LOG_LEVEL" == "True" ]]; then
+        cat >> "${output_dir}/coredns.yml" << EOF
+        debug
+        log
+EOF
+    fi
+    cat >> "${output_dir}/coredns.yml" << EOF
+    }
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: coredns
+  namespace: kube-system
+  labels:
+    k8s-app: coredns
+    kubernetes.io/cluster-service: "true"
+    kubernetes.io/name: "CoreDNS"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: coredns
+  template:
+    metadata:
+      labels:
+        k8s-app: coredns
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ''
+        scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly", "operator":"Exists"}]'
+    spec:
+      hostNetwork: true
+      containers:
+      - name: coredns
+        image: coredns/coredns
+        imagePullPolicy: Always
+        args: [ "-conf", "/etc/coredns/Corefile" ]
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/coredns
+      dnsPolicy: Default
+      volumes:
+        - name: config-volume
+          configMap:
+            name: coredns
+            items:
+            - key: Corefile
+              path: Corefile
+EOF
+
+    /usr/local/bin/kubectl apply -f ${output_dir}/coredns.yml
+}
+
 
 function run_kuryr_kubernetes {
     local python_bin=$(which python)
@@ -1069,6 +1154,13 @@ elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
         else
             run_kuryr_kubernetes
             run_kuryr_daemon
+        fi
+
+        if is_service_enabled coredns; then
+            #Open port 53 so pods can reach the DNS server
+            sudo iptables -I INPUT 1 -p udp -m udp --dport 53 -j ACCEPT
+
+            run_coredns "${DATA_DIR}/kuryr-kubernetes"
         fi
 
         # Needs kuryr to be running
