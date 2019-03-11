@@ -22,6 +22,7 @@ import requests
 
 from kuryr.lib._i18n import _
 from kuryr_kubernetes import config
+from kuryr_kubernetes import constants
 from kuryr_kubernetes import exceptions as exc
 
 LOG = logging.getLogger(__name__)
@@ -117,6 +118,38 @@ class K8sClient(object):
 
         LOG.debug("Patch %(path)s: %(data)s", {
             'path': path, 'data': data})
+
+        response = requests.patch(url, data=jsonutils.dumps(data),
+                                  headers=header, cert=self.cert,
+                                  verify=self.verify_server)
+        if response.ok:
+            return response.json().get('status')
+        raise exc.K8sClientException(response.text)
+
+    def patch_node_annotations(self, node, annotation_name, value):
+        content_type = 'application/json-patch+json'
+        path = '{}/nodes/{}/'.format(constants.K8S_API_BASE, node)
+        value = jsonutils.dumps(value)
+        url, header = self._get_url_and_header(path, content_type)
+
+        data = [{'op': 'add',
+                 'path': '/metadata/annotations/{}'.format(annotation_name),
+                 'value': value}]
+
+        response = requests.patch(url, data=jsonutils.dumps(data),
+                                  headers=header, cert=self.cert,
+                                  verify=self.verify_server)
+        if response.ok:
+            return response.json().get('status')
+        raise exc.K8sClientException(response.text)
+
+    def remove_node_annotations(self, node, annotation_name):
+        content_type = 'application/json-patch+json'
+        path = '{}/nodes/{}/'.format(constants.K8S_API_BASE, node)
+        url, header = self._get_url_and_header(path, content_type)
+
+        data = [{'op': 'remove',
+                 'path': '/metadata/annotations/{}'.format(annotation_name)}]
 
         response = requests.patch(url, data=jsonutils.dumps(data),
                                   headers=header, cert=self.cert,
