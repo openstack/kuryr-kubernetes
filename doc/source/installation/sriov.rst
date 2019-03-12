@@ -132,6 +132,12 @@ We have to add to the sriov section following mapping:
   physnet_resource_mappings = physnet1:numa0
 
 
+6. Use privileged user
+
+To make neutron ports active kuryr-k8s makes requests to neutron API to update
+ports with binding:profile information. Due to this it is necessary to make
+actions with privileged user with admin rights.
+
 Reference
 ---------
 

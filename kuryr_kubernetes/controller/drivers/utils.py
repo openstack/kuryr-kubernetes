@@ -485,3 +485,36 @@ def get_namespace(namespace_name):
     return kubernetes.get(
         '{}/namespaces/{}'.format(
             constants.K8S_API_BASE, namespace_name))
+
+
+def update_port_pci_info(pod, vif):
+    node = get_host_id(pod)
+    annot_port_pci_info = get_port_annot_pci_info(node, vif.id)
+    neutron = clients.get_neutron_client()
+    LOG.debug("Neutron port %s is updated with binding:profile info %s",
+              vif.id, annot_port_pci_info)
+    neutron.update_port(
+        vif.id,
+        {
+            "port": {
+                'binding:profile': annot_port_pci_info
+            }
+        })
+
+
+def get_port_annot_pci_info(nodename, neutron_port):
+    k8s = clients.get_kubernetes_client()
+    annot_name = constants.K8S_ANNOTATION_NODE_PCI_DEVICE_INFO
+    annot_name = annot_name + '-' + neutron_port
+
+    node_info = k8s.get('/api/v1/nodes/{}'.format(nodename))
+    annotations = node_info['metadata']['annotations']
+    try:
+        json_pci_info = annotations[annot_name]
+        pci_info = jsonutils.loads(json_pci_info)
+    except KeyError:
+        pci_info = {}
+    except Exception:
+        LOG.exception('Exception when reading annotations '
+                      '%s and converting from json', annot_name)
+    return pci_info

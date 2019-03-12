@@ -133,14 +133,18 @@ class TestVIFHandler(test_base.TestCase):
         self.assertFalse(h_vif.VIFHandler._is_pending_node({'spec': {},
                                                             'status': {}}))
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'update_port_pci_info')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_present(self, m_get_pod_state, m_host_network):
+    def test_on_present(self, m_get_pod_state, m_host_network, m_update_pci):
         m_get_pod_state.return_value = self._state
         m_host_network.return_value = False
+        self._vif.plugin = 'sriov'
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
         m_get_pod_state.assert_called_once_with(self._pod)
+        m_update_pci.assert_called_once_with(self._pod, self._vif)
         self._request_vif.assert_not_called()
         self._request_additional_vifs.assert_not_called()
         self._activate_vif.assert_not_called()
@@ -175,19 +179,23 @@ class TestVIFHandler(test_base.TestCase):
         self._activate_vif.assert_not_called()
         self._set_pod_state.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'update_port_pci_info')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
     def test_on_present_activate(self, m_get_pod_state, m_host_network,
-                                 m_get_services):
+                                 m_get_services, m_update_pci):
         m_get_pod_state.return_value = self._state
         m_host_network.return_value = False
         m_get_services.return_value = {"items": []}
         self._vif.active = False
+        self._vif.plugin = 'sriov'
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
         m_get_pod_state.assert_called_once_with(self._pod)
+        m_update_pci.assert_called_once_with(self._pod, self._vif)
         self._activate_vif.assert_called_once_with(self._pod, self._vif)
         self._set_pod_state.assert_called_once_with(self._pod, self._state)
         self._request_vif.assert_not_called()
