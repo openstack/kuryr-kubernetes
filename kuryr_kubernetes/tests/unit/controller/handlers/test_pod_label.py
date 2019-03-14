@@ -32,7 +32,8 @@ class TestPodLabelHandler(test_base.TestCase):
         self._pod_link = mock.sentinel.pod_link
         self._pod = {
             'metadata': {'resourceVersion': self._pod_version,
-                         'selfLink': self._pod_link},
+                         'selfLink': self._pod_link,
+                         'namespace': 'default'},
             'status': {'phase': k_const.K8S_POD_STATUS_PENDING},
             'spec': {'hostNetwork': False,
                      'nodeName': 'hostname'}
@@ -72,7 +73,9 @@ class TestPodLabelHandler(test_base.TestCase):
         self.assertEqual(sg_driver, handler._drv_sg)
         self.assertEqual(vif_pool_driver, handler._drv_vif_pool)
 
-    def test_on_present(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
+    def test_on_present(self,  m_get_services):
+        m_get_services.return_value = {"items": []}
         self._has_pod_state.return_value = True
         self._get_pod_labels.return_value = {'test1': 'test'}
 

@@ -126,12 +126,13 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                     changed = True
             if changed:
                 self._set_pod_state(pod, state)
-                self._drv_sg.create_sg_rules(pod)
+                crd_pod_selectors = self._drv_sg.create_sg_rules(pod)
 
                 if self._is_network_policy_enabled():
                     services = driver_utils.get_services(
                         pod['metadata']['namespace'])
-                    self._update_services(services, project_id)
+                    self._update_services(
+                        services, crd_pod_selectors, project_id)
 
     def on_deleted(self, pod):
         if driver_utils.is_host_network(pod):
@@ -139,7 +140,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
 
         services = driver_utils.get_services(pod['metadata']['namespace'])
         project_id = self._drv_project.get_project(pod)
-        self._drv_sg.delete_sg_rules(pod)
+        crd_pod_selectors = self._drv_sg.delete_sg_rules(pod)
         try:
             security_groups = self._drv_sg.get_security_groups(pod, project_id)
         except k_exc.ResourceNotReady:
@@ -158,7 +159,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                 self._drv_vif_pool.release_vif(pod, vif, project_id,
                                                security_groups)
         if self._is_network_policy_enabled():
-            self._update_services(services, project_id)
+            self._update_services(services, crd_pod_selectors, project_id)
 
     @MEMOIZE
     def is_ready(self, quota):
@@ -208,9 +209,11 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                       constants.K8S_ANNOTATION_LABEL: labels_annotation},
                      resource_version=pod['metadata']['resourceVersion'])
 
-    def _update_services(self, services, project_id):
+    def _update_services(self, services, crd_pod_selectors, project_id):
         for service in services.get('items'):
-            if service['metadata']['name'] == 'kubernetes':
+            if (service['metadata']['name'] == 'kubernetes' or not
+                    driver_utils.service_matches_affected_pods(
+                        service, crd_pod_selectors)):
                 continue
             sgs = self._drv_svc_sg.get_security_groups(service,
                                                        project_id)

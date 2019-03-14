@@ -251,6 +251,8 @@ class PodSecurityGroupsDriver(DriverBase):
         """Create security group rules for a pod.
 
         :param pod: dict containing Kubernetes Pod object
+        :return: a list containing podSelectors of CRDs
+        that had security group rules created
         """
         raise NotImplementedError()
 
@@ -258,6 +260,8 @@ class PodSecurityGroupsDriver(DriverBase):
         """Delete security group rules for a pod
 
         :param pod: dict containing Kubernetes Pod object
+        :return: a list containing podSelectors of CRDs
+        that had security group rules deleted
         """
         raise NotImplementedError()
 
@@ -265,6 +269,8 @@ class PodSecurityGroupsDriver(DriverBase):
         """Update security group rules for a pod
 
         :param pod: dict containing Kubernetes Pod object
+        :return: a list containing podSelectors of CRDs
+        that had security group rules updated
         """
         raise NotImplementedError()
 

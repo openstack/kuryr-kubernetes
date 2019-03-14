@@ -215,6 +215,7 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
 
     def create_sg_rules(self, pod):
         LOG.debug("Creating sg rule for pod: %s", pod['metadata']['name'])
+        crd_pod_selectors = []
         knp_crds = driver_utils.get_kuryrnetpolicy_crds()
         for crd in knp_crds.get('items'):
             crd_selector = crd['spec'].get('podSelector')
@@ -225,11 +226,13 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
             if i_matched or e_matched:
                 driver_utils.patch_kuryr_crd(crd, i_rules,
                                              e_rules, crd_selector)
+                crd_pod_selectors.append(crd_selector)
+        return crd_pod_selectors
 
     def delete_sg_rules(self, pod):
         LOG.debug("Deleting sg rule for pod: %s", pod['metadata']['name'])
         pod_ip = driver_utils.get_pod_ip(pod)
-
+        crd_pod_selectors = []
         knp_crds = driver_utils.get_kuryrnetpolicy_crds()
         for crd in knp_crds.get('items'):
             crd_selector = crd['spec'].get('podSelector')
@@ -264,11 +267,15 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
             if matched:
                 driver_utils.patch_kuryr_crd(crd, i_rules, e_rules,
                                              crd_selector)
+                crd_pod_selectors.append(crd_selector)
+        return crd_pod_selectors
 
     def update_sg_rules(self, pod):
         LOG.debug("Updating sg rule for pod: %s", pod['metadata']['name'])
-        self.delete_sg_rules(pod)
-        self.create_sg_rules(pod)
+        crd_pod_selectors = []
+        crd_pod_selectors.extend(self.delete_sg_rules(pod))
+        crd_pod_selectors.extend(self.create_sg_rules(pod))
+        return crd_pod_selectors
 
     def delete_namespace_sg_rules(self, namespace):
         ns_name = namespace['metadata']['name']
