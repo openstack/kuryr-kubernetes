@@ -1,0 +1,93 @@
+- hosts: all
+  tasks:
+    # NOTE(maysams): Revisit this package removal step
+    # once other operating systems are supported on the gates
+    - name: Remove old installation of Go
+      shell: |
+        apt remove -y --purge golang
+        apt autoremove -y
+      become: yes
+      ignore_errors: yes
+
+    - name: Download GO {{ gopkg }}
+      get_url:
+        url: https://dl.google.com/go/{{ gopkg }}
+        dest: /tmp/{{ gopkg }}
+        force: yes
+
+    - name: Unarchive GO
+      unarchive:
+        src: /tmp/{{ gopkg }}
+        dest: /usr/local
+        remote_src: yes
+      become: true
+
+    - name: Clone K8s test-infra repository
+      git:
+        repo: https://github.com/kubernetes/test-infra
+        dest: ~/test-infra
+        force: yes
+
+    - name: Install kubetest
+      shell: go install ./kubetest
+      args:
+        chdir: ~/test-infra
+      environment:
+        GO111MODULE: "on"
+        PATH: "{{ ansible_env.PATH }}:/usr/local/go/bin:{{ ansible_env.HOME }}/go/bin"
+
+    - name: Clone kubernetes repository
+      git:
+        repo: https://github.com/kubernetes/kubernetes.git
+        version: "{{ kubetest_version }}"
+        dest: ~/kubernetes
+        force: yes
+
+    - name: Patch e2e tests
+      shell: |
+        sed -i 's/podStartTimeout = .*/podStartTimeout = 2 * time.Minute/' test/e2e/framework/pod/wait.go
+        sed -i 's/for i in $(seq 1 5)/sleep {{ np_sleep }};for i in $(seq 1 200)/' test/e2e/network/network_policy.go
+      args:
+        chdir: ~/kubernetes
+
+    - name: Build e2e tests
+      block:
+        - name: Install make package
+          become: true
+          package:
+            name: "make"
+            state: present
+        - name: Build e2e tests
+          shell: |
+            make WHAT=cmd/kubectl
+            make WHAT=vendor/github.com/onsi/ginkgo/ginkgo
+            make WHAT=test/e2e/e2e.test
+          args:
+            chdir: ~/kubernetes
+          environment:
+            PATH: "{{ ansible_env.PATH }}:/usr/local/go/bin:{{ ansible_env.HOME }}/go/bin"
+
+    - name: Create .kube folder within BASE
+      file:
+        path: "{{ ansible_env.HOME }}/.kube"
+        state: directory
+      become: yes
+
+    - name: Copy kubeconfig file
+      shell: "cp /opt/stack/.kube/config  {{ ansible_env.HOME }}/.kube/"
+      become: yes
+
+    - name: Change kubeconfig file permission
+      file:
+        path: "{{ ansible_env.HOME }}/.kube/config"
+        owner: zuul
+        group: zuul
+      become: yes
+
+    - name: Run Network Policy tests
+      shell: kubetest --provider=local --check-version-skew=false --test --ginkgo-parallel={{ np_parallel_number }} --test_args="--ginkgo.focus=\[Feature:NetworkPolicy --ginkgo.skip=should.enforce.policies.to.check.ingress.and.egress.policies.can.be.controlled.independently.based.on.PodSelector --host=http://127.0.0.1:8080" --dump=/tmp > ~/np_kubetest.log
+      args:
+        chdir: ~/kubernetes
+      environment:
+        KUBECONFIG: "{{ ansible_env.HOME }}/.kube/config"
+        PATH: "{{ ansible_env.PATH }}:/usr/local/go/bin:{{ ansible_env.HOME }}/go/bin"

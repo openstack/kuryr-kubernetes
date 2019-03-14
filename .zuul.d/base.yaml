@@ -86,3 +86,68 @@
       - ^doc/.*$
       - ^releasenotes/.*$
       - ^contrib/.*$
+
+- job:
+    name: kuryr-kubernetes-k8s-base
+    parent: devstack
+    description: Base kuryr-kubernetes-job without tempest
+    required-projects:
+      - openstack/devstack-plugin-container
+      - openstack/kuryr-kubernetes
+    post-run: playbooks/copy-k8s-logs.yaml
+    host-vars:
+      controller:
+        devstack_plugins:
+          kuryr-kubernetes: https://opendev.org/openstack/kuryr-kubernetes
+          devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
+    vars:
+      devstack_localrc:
+        KURYR_K8S_API_PORT: 8080
+        Q_BUILD_OVS_FROM_GIT: true
+        KURYR_K8S_CLOUD_PROVIDER: false
+        ETCD_USE_RAMDISK: true
+      devstack_services:
+        # TODO(dmellado):Temporary workaround until proper fix
+        base: false
+        s-account: false
+        s-container: false
+        s-object: false
+        s-proxy: false
+        c-api: false
+        c-bak: false
+        c-sch: false
+        c-vol: false
+        cinder: false
+        neutron: true
+        q-agt: true
+        q-dhcp: true
+        q-l3: true
+        q-svc: true
+        q-meta: true
+        key: true
+        mysql: true
+        rabbit: true
+        n-api: true
+        n-api-meta: true
+        n-cpu: true
+        n-cond: true
+        n-sch: true
+        placement-api: true
+        placement-client: true
+        g-api: true
+        g-reg: true
+        etcd3: true
+        kubernetes-api: true
+        kubernetes-controller-manager: true
+        kubernetes-scheduler: true
+        kubelet: true
+        kuryr-kubernetes: true
+        kuryr-daemon: true
+        coredns: true
+      zuul_copy_output:
+        '{{ devstack_log_dir }}/kubernetes': 'logs'
+    irrelevant-files:
+      - ^.*\.rst$
+      - ^doc/.*$
+      - ^releasenotes/.*$
+      - ^contrib/.*$
