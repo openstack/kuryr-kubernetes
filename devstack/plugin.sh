@@ -424,15 +424,17 @@ function configure_neutron_defaults {
             --description "allow imcp traffic from everywhere to default namespace" \
             --ethertype IPv4 --protocol icmp "$allow_namespace_sg_id"
 
+        iniset "$KURYR_CONFIG" namespace_sg sg_allow_from_namespaces "$allow_namespace_sg_id"
+        iniset "$KURYR_CONFIG" namespace_sg sg_allow_from_default "$allow_default_sg_id"
+    fi
+
+    if [[ "$KURYR_SG_DRIVER" == "namespace" || "$KURYR_SG_DRIVER" == "policy" ]]; then
         # NOTE(ltomasbo): As more security groups and rules are created, there
         # is a need to increase the quota for it
          openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
              quota set --secgroups 100 --secgroup-rules 100 "$project_id"
-
-
-        iniset "$KURYR_CONFIG" namespace_sg sg_allow_from_namespaces "$allow_namespace_sg_id"
-        iniset "$KURYR_CONFIG" namespace_sg sg_allow_from_default "$allow_default_sg_id"
     fi
+
     if [ -n "$OVS_BRIDGE" ]; then
         iniset "$KURYR_CONFIG" neutron_defaults ovs_bridge "$OVS_BRIDGE"
     fi
