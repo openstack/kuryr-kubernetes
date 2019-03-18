@@ -95,6 +95,7 @@
         kubernetes-controller-manager: false
         kubernetes-scheduler: false
         kubelet: false
+        coredns: false
         openshift-master: true
         openshift-node: true
         openshift-dnsmasq: true
