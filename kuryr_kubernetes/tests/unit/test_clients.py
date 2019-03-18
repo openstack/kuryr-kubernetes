@@ -21,60 +21,28 @@ from kuryr_kubernetes.tests import base as test_base
 
 class TestK8sClient(test_base.TestCase):
 
+    @mock.patch('openstack.connection.Connection')
     @mock.patch('kuryr_kubernetes.config.CONF')
     @mock.patch('kuryr_kubernetes.k8s_client.K8sClient')
     @mock.patch('kuryr.lib.utils.get_neutron_client')
-    def test_setup_clients_lbaasv2(self, m_neutron, m_k8s, m_cfg):
+    def test_setup_clients(self, m_neutron, m_k8s, m_cfg, m_openstack):
         k8s_api_root = 'http://127.0.0.1:1234'
 
         neutron_mock = mock.Mock()
+        openstacksdk_mock = mock.Mock()
+        openstacksdk_mock.load_balancer = mock.Mock()
         k8s_dummy = object()
-
-        neutron_mock.list_extensions.return_value = {
-            'extensions': [
-                {'alias': 'lbaasv2',
-                 'description': 'Provides Load Balancing',
-                 'links': [],
-                 'name': 'Load Balancing v2',
-                 'updated': '2017-11-28T09:00:00-00:00'}]}
 
         m_cfg.kubernetes.api_root = k8s_api_root
         m_neutron.return_value = neutron_mock
         m_k8s.return_value = k8s_dummy
+        m_openstack.return_value = openstacksdk_mock
 
         clients.setup_clients()
 
         m_k8s.assert_called_with(k8s_api_root)
         self.assertIs(k8s_dummy, clients.get_kubernetes_client())
         self.assertIs(neutron_mock, clients.get_neutron_client())
-        self.assertIs(neutron_mock, clients.get_loadbalancer_client())
-
-    @mock.patch('neutronclient.client.construct_http_client')
-    @mock.patch('kuryr.lib.utils.get_auth_plugin')
-    @mock.patch('kuryr_kubernetes.config.CONF')
-    @mock.patch('kuryr_kubernetes.k8s_client.K8sClient')
-    @mock.patch('kuryr.lib.utils.get_neutron_client')
-    def test_setup_clients_octavia(self, m_neutron, m_k8s, m_cfg,
-                                   m_auth_plugin, m_construct_http_client):
-        k8s_api_root = 'http://127.0.0.1:1234'
-
-        neutron_mock = mock.Mock()
-        k8s_dummy = object()
-
-        neutron_mock.list_extensions.return_value = {
-            'extensions': []}
-
-        octavia_httpclient = mock.sentinel.octavia_httpclient
-        m_construct_http_client.return_value = octavia_httpclient
-        m_auth_plugin.return_value = mock.sentinel.auth_plugin
-        m_cfg.kubernetes.api_root = k8s_api_root
-        m_neutron.return_value = neutron_mock
-        m_k8s.return_value = k8s_dummy
-
-        clients.setup_clients()
-
-        m_k8s.assert_called_with(k8s_api_root)
-        self.assertIs(k8s_dummy, clients.get_kubernetes_client())
-        self.assertIs(neutron_mock, clients.get_neutron_client())
-        self.assertIs(octavia_httpclient,
-                      clients.get_loadbalancer_client().httpclient)
+        self.assertIs(openstacksdk_mock, clients.get_openstacksdk())
+        self.assertIs(openstacksdk_mock.load_balancer,
+                      clients.get_loadbalancer_client())
