@@ -128,7 +128,7 @@ class LBaaSPortSpec(k_obj.KuryrK8sObjectBase):
         'name': obj_fields.StringField(nullable=True),
         'protocol': obj_fields.StringField(),
         'port': obj_fields.IntegerField(),
-        'targetPort': obj_fields.IntegerField(),
+        'targetPort': obj_fields.StringField(),
     }
 
 

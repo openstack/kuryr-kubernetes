@@ -18,6 +18,7 @@ from oslo_config import cfg
 
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes import exceptions as k_exc
+from kuryr_kubernetes.objects import lbaas as obj_lbaas
 from kuryr_kubernetes.objects import vif
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
@@ -164,3 +165,53 @@ class TestUtils(test_base.TestCase):
         ret = utils.get_endpoints_link(service)
         expected_link = "/api/v1/namespaces/default/endpoints/test"
         self.assertEqual(expected_link, ret)
+
+    def test_get_service_ports(self):
+        service = {'spec': {'ports': [
+            {'port': 1, 'targetPort': 1},
+            {'port': 2, 'name': 'X', 'protocol': 'UDP', 'targetPort': 2}
+        ]}}
+        expected_ret = [
+            {'port': 1, 'name': None, 'protocol': 'TCP', 'targetPort': '1'},
+            {'port': 2, 'name': 'X', 'protocol': 'UDP', 'targetPort': '2'}]
+
+        ret = utils.get_service_ports(service)
+        self.assertEqual(expected_ret, ret)
+
+    @mock.patch('kuryr_kubernetes.utils.get_service_ports')
+    def test_has_port_changes(self, m_get_service_ports):
+        service = mock.MagicMock()
+        m_get_service_ports.return_value = [
+            {'port': 1, 'name': 'X', 'protocol': 'TCP', 'targetPort': 1},
+        ]
+
+        lbaas_spec = mock.MagicMock()
+        lbaas_spec.ports = [
+            obj_lbaas.LBaaSPortSpec(name='X', protocol='TCP', port=1,
+                                    targetPort=1),
+            obj_lbaas.LBaaSPortSpec(name='Y', protocol='TCP', port=2,
+                                    targetPort=2),
+        ]
+
+        ret = utils.has_port_changes(service, lbaas_spec)
+        self.assertTrue(ret)
+
+    @mock.patch('kuryr_kubernetes.utils.get_service_ports')
+    def test_has_port_changes__no_changes(self, m_get_service_ports):
+        service = mock.MagicMock()
+        m_get_service_ports.return_value = [
+            {'port': 1, 'name': 'X', 'protocol': 'TCP', 'targetPort': '1'},
+            {'port': 2, 'name': 'Y', 'protocol': 'TCP', 'targetPort': '2'}
+        ]
+
+        lbaas_spec = mock.MagicMock()
+        lbaas_spec.ports = [
+            obj_lbaas.LBaaSPortSpec(name='X', protocol='TCP', port=1,
+                                    targetPort=1),
+            obj_lbaas.LBaaSPortSpec(name='Y', protocol='TCP', port=2,
+                                    targetPort=2),
+        ]
+
+        ret = utils.has_port_changes(service, lbaas_spec)
+
+        self.assertFalse(ret)
