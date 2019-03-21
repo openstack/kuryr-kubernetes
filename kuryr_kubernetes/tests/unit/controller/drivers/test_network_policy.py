@@ -385,6 +385,27 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                        '_get_namespaces_cidr')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'create_security_group_rule_body')
+    def test_parse_network_policy_rules_with_ipblock(self, m_create,
+                                                     m_get_ns_cidr):
+        policy = self._policy.copy()
+        policy['spec']['ingress'] = [{'from':
+                                      [{'ipBlock':
+                                        {'cidr': '172.17.0.0/16',
+                                         'except': ['172.17.1.0/24']}}],
+                                      'ports': [{'port': 6379,
+                                                 'protocol': 'TCP'}]}]
+        policy['spec']['egress'] = [{'ports': [{'port': 5978, 'protocol':
+                                                'TCP'}],
+                                     'to': [{'ipBlock':
+                                             {'cidr': '10.0.0.0/24'}}]}]
+        self._driver.parse_network_policy_rules(policy, self._sg_id)
+        m_create.assert_called()
+        m_get_ns_cidr.assert_not_called()
+
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_get_namespaces_cidr')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'create_security_group_rule_body')
     def test_parse_network_policy_rules_with_no_ports(self, m_create,
                                                       m_get_ns_cidr):
         subnet_cidr = '10.10.0.0/24'
