@@ -33,7 +33,7 @@ enable_service q-svc
 
 # LBaaSv2 service and Haproxy agent
 enable_plugin neutron-lbaas \
-    git://git.openstack.org/openstack/neutron-lbaas
+    https://git.openstack.org/openstack/neutron-lbaas
 enable_service q-lbaasv2
 
 # Currently there is problem with the ODL LBaaS driver integration, so we
