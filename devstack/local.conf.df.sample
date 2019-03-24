@@ -56,7 +56,7 @@ DF_SELECTIVE_TOPO_DIST=False
 
 # LBaaSv2 service and Haproxy agent
 enable_plugin neutron-lbaas \
-    git://git.openstack.org/openstack/neutron-lbaas
+    https://git.openstack.org/openstack/neutron-lbaas
 enable_service q-lbaasv2
 NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
 

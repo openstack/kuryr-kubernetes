@@ -35,7 +35,7 @@ enable_service q-svc
 
 # LBaaSv2 service and Haproxy agent
 enable_plugin neutron-lbaas \
-    git://git.openstack.org/openstack/neutron-lbaas
+    https://git.openstack.org/openstack/neutron-lbaas
 enable_service q-lbaasv2
 NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:opendaylight:networking_odl.lbaas.driver_v2.OpenDaylightLbaasDriverV2:default"
 
