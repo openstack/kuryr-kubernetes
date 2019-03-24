@@ -17,7 +17,7 @@
               dest: devstack-gate
           EOF
           /usr/zuul-env/bin/zuul-cloner -m clonemap.yaml --cache-dir /opt/git \
-              git://git.openstack.org \
+              https://git.openstack.org \
               openstack-infra/devstack-gate
         executable: /bin/bash
         chdir: '{{ ansible_user_dir }}/workspace'
@@ -40,7 +40,7 @@
           enable_service q-svc
           # LBaaSv2 service and Haproxy agent
           enable_plugin neutron-lbaas \
-              git://git.openstack.org/openstack/neutron-lbaas
+              https://git.openstack.org/openstack/neutron-lbaas
           enable_service q-lbaasv2
           NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
           # Keystone
@@ -50,7 +50,7 @@
           enable_service rabbit
           # Docker
           enable_plugin devstack-plugin-container \
-              git://git.openstack.org/openstack/devstack-plugin-container
+              https://git.openstack.org/openstack/devstack-plugin-container
           # Etcd
           enable_service etcd3
           # Kubernetes

@@ -65,7 +65,7 @@ if [[ "$KURYR_K8S_LBAAS_USE_OCTAVIA" == "True" ]]; then
 else
     # LBaaSv2 service and Haproxy agent
     enable_plugin neutron-lbaas \
-        git://git.openstack.org/openstack/neutron-lbaas
+        https://git.openstack.org/openstack/neutron-lbaas
     enable_service q-lbaasv2
 fi
 

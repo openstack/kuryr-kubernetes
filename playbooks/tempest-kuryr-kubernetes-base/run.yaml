@@ -17,7 +17,7 @@
               dest: devstack-gate
           EOF
           /usr/zuul-env/bin/zuul-cloner -m clonemap.yaml --cache-dir /opt/git \
-              git://git.openstack.org \
+              https://git.openstack.org \
               openstack-infra/devstack-gate
         executable: /bin/bash
         chdir: '{{ ansible_user_dir }}/workspace'
@@ -57,7 +57,7 @@
           enable_service g-reg
           # Docker
           enable_plugin devstack-plugin-container \
-              git://git.openstack.org/openstack/devstack-plugin-container
+              https://git.openstack.org/openstack/devstack-plugin-container
           # Etcd
           enable_service etcd3
           # Kubernetes
@@ -80,7 +80,7 @@
               # LBaaS service
               ENABLED_SERVICES+=,q-lbaasv2
 
-              enable_plugin neutron-lbaas git://git.openstack.org/openstack/neutron-lbaas
+              enable_plugin neutron-lbaas https://git.openstack.org/openstack/neutron-lbaas
               # Haproxy agent
               NEUTRON_LBAAS_SERVICE_PROVIDERV2=LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default
           elif [ "{{ loadbalancer }}" == "octavia" ]; then
