@@ -46,16 +46,43 @@ _L7_POLICY_ACT_REDIRECT_TO_POOL = 'REDIRECT_TO_POOL'
 # 'slow' (will be used for LB creation)  polling.
 _LB_STS_POLL_FAST_INTERVAL = 1
 _LB_STS_POLL_SLOW_INTERVAL = 3
+_OCTAVIA_TAGGING_VERSION = 2, 5
 
 
 class LBaaSv2Driver(base.LBaaSDriver):
     """LBaaSv2Driver implements LBaaSDriver for Neutron LBaaSv2 API."""
+
+    def __init__(self):
+        super(LBaaSv2Driver, self).__init__()
+
+        self._octavia_tags = False
+        # Check if Octavia API supports tagging.
+        lbaas = clients.get_loadbalancer_client()
+        v = lbaas.get_api_major_version()
+        if v >= _OCTAVIA_TAGGING_VERSION:
+            LOG.info('Octavia supports resource tags.')
+            self._octavia_tags = True
+        else:
+            LOG.warning('[neutron_defaults]resource_tags is set, but Octavia '
+                        'API %d.%d does not support resource tagging. Kuryr'
+                        'will put requested tags in the description field of '
+                        'Octavia resources.', *v)
 
     def get_service_loadbalancer_name(self, namespace, svc_name):
         return "%s/%s" % (namespace, svc_name)
 
     def get_loadbalancer_pool_name(self, loadbalancer, namespace, svc_name):
         return "%s/%s/%s" % (loadbalancer.name, namespace, svc_name)
+
+    def _add_tags(self, resource, req):
+        if CONF.neutron_defaults.resource_tags:
+            if self._octavia_tags:
+                req['tags'] = CONF.neutron_defaults.resource_tags
+            else:
+                if resource in ('loadbalancer', 'listener', 'pool',
+                                'l7policy'):
+                    req['description'] = ','.join(
+                        CONF.neutron_defaults.resource_tags)
 
     def ensure_loadbalancer(self, name, project_id, subnet_id, ip,
                             security_groups_ids=None, service_type=None,
@@ -484,9 +511,25 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         return None
 
-    def _create_loadbalancer(self, loadbalancer):
+    def _post_lb_resource(self, path, resource, request):
+        # FIXME(dulek): openstacksdk doesn't support Octavia tags until version
+        #               0.24.0 (Stein+). At the moment our dependency is
+        #               >=0.13.0, because we want Kuryr to support multiple
+        #               OpenStack versions also in terms of dependencies (think
+        #               building container images from various distros or
+        #               running Kuryr on older OS-es). Once 0.24.0 is fairly
+        #               stable and available, we can raise the requirement and
+        #               use lbaas.create_*() directly. Until then we manually
+        #               send POST request.
         lbaas = clients.get_loadbalancer_client()
+        response = lbaas.post(path, json={resource: request})
+        if not response.ok:
+            LOG.error('Error when creating %s: %s', resource, response.text)
+            response.raise_for_status()
+        response = response.json()[resource]
+        return response
 
+    def _create_loadbalancer(self, loadbalancer):
         request = {
             'name': loadbalancer.name,
             'project_id': loadbalancer.project_id,
@@ -497,7 +540,11 @@ class LBaaSv2Driver(base.LBaaSDriver):
         if loadbalancer.provider is not None:
             request['provider'] = loadbalancer.provider
 
-        response = lbaas.create_load_balancer(**request)
+        self._add_tags('loadbalancer', request)
+
+        response = self._post_lb_resource('loadbalancers', 'loadbalancer',
+                                          request)
+
         loadbalancer.id = response['id']
         loadbalancer.port_id = self._get_vip_port(loadbalancer).get("id")
         if (loadbalancer.provider is not None and
@@ -531,13 +578,15 @@ class LBaaSv2Driver(base.LBaaSDriver):
         return loadbalancer
 
     def _create_listener(self, listener):
-        lbaas = clients.get_loadbalancer_client()
-        response = lbaas.create_listener(
-            name=listener.name,
-            project_id=listener.project_id,
-            load_balancer_id=listener.loadbalancer_id,
-            protocol=listener.protocol,
-            protocol_port=listener.port)
+        request = {
+            'name': listener.name,
+            'project_id': listener.project_id,
+            'loadbalancer_id': listener.loadbalancer_id,
+            'protocol': listener.protocol,
+            'protocol_port': listener.port,
+        }
+        self._add_tags('listener', request)
+        response = self._post_lb_resource('listeners', 'listener', request)
         listener.id = response['id']
         return listener
 
@@ -561,14 +610,16 @@ class LBaaSv2Driver(base.LBaaSDriver):
     def _create_pool(self, pool):
         # TODO(ivc): make lb_algorithm configurable
         lb_algorithm = 'ROUND_ROBIN'
-        lbaas = clients.get_loadbalancer_client()
-        response = lbaas.create_pool(
-            name=pool.name,
-            project_id=pool.project_id,
-            listener_id=pool.listener_id,
-            loadbalancer_id=pool.loadbalancer_id,
-            protocol=pool.protocol,
-            lb_algorithm=lb_algorithm)
+        request = {
+            'name': pool.name,
+            'project_id': pool.project_id,
+            'listener_id': pool.listener_id,
+            'loadbalancer_id': pool.loadbalancer_id,
+            'protocol': pool.protocol,
+            'lb_algorithm': lb_algorithm,
+        }
+        self._add_tags('pool', request)
+        response = self._post_lb_resource('pools', 'pool', request)
         pool.id = response['id']
         return pool
 
@@ -596,14 +647,16 @@ class LBaaSv2Driver(base.LBaaSDriver):
         return self._find_pool(pool, by_listener=False)
 
     def _create_member(self, member):
-        lbaas = clients.get_loadbalancer_client()
-        response = lbaas.create_member(
-            member.pool_id,
-            name=member.name,
-            project_id=member.project_id,
-            subnet_id=member.subnet_id,
-            address=str(member.ip),
-            protocol_port=member.port)
+        request = {
+            'name': member.name,
+            'project_id': member.project_id,
+            'subnet_id': member.subnet_id,
+            'address': str(member.ip),
+            'protocol_port': member.port,
+        }
+        self._add_tags('member', request)
+        response = self._post_lb_resource('pools/%s/members' % member.pool_id,
+                                          'member', request)
         member.id = response['id']
         return member
 
@@ -792,13 +845,15 @@ class LBaaSv2Driver(base.LBaaSDriver):
             l7_policy.id)
 
     def _create_l7_policy(self, l7_policy):
-        lbaas = clients.get_loadbalancer_client()
-        response = lbaas.create_l7_policy(
-            action=_L7_POLICY_ACT_REDIRECT_TO_POOL,
-            listener_id=l7_policy.listener_id,
-            name=l7_policy.name,
-            project_id=l7_policy.project_id,
-            redirect_pool_id=l7_policy.redirect_pool_id)
+        request = {
+            'action': _L7_POLICY_ACT_REDIRECT_TO_POOL,
+            'listener_id': l7_policy.listener_id,
+            'name': l7_policy.name,
+            'project_id': l7_policy.project_id,
+            'redirect_pool_id': l7_policy.redirect_pool_id,
+        }
+        self._add_tags('l7policy', request)
+        response = self._post_lb_resource('l7policies', 'l7policy', request)
         l7_policy.id = response['id']
         return l7_policy
 
@@ -826,12 +881,14 @@ class LBaaSv2Driver(base.LBaaSDriver):
             self._find_l7_rule)
 
     def _create_l7_rule(self, l7_rule):
-        lbaas = clients.get_loadbalancer_client()
-        response = lbaas.create_l7_rule(
-            l7_rule.l7policy_id,
-            compare_type=l7_rule.compare_type,
-            type=l7_rule.type,
-            value=l7_rule.value)
+        request = {
+            'compare_type': l7_rule.compare_type,
+            'type': l7_rule.type,
+            'value': l7_rule.value
+        }
+        self._add_tags('rule', request)
+        response = self._post_lb_resource(
+            'l7policies/%s/rules' % l7_rule.l7policy_id, 'rule', request)
         l7_rule.id = response['id']
         return l7_rule
 
