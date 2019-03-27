@@ -5,7 +5,7 @@ ARG UPPER_CONSTRAINTS_FILE="https://git.openstack.org/cgit/openstack/requirement
 ARG OSLO_LOCK_PATH=/var/kuryr-lock
 
 RUN dnf update -y \
-    && dnf install -y --setopt=tsflags=nodocs python36 iproute bridge-utils openvswitch sudo \
+    && dnf install -y --setopt=tsflags=nodocs python36 iproute bridge-utils openvswitch sudo libstdc++ \
     && dnf install -y --setopt=tsflags=nodocs gcc git
 
 COPY . /opt/kuryr-kubernetes

@@ -4,7 +4,7 @@ LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redh
 ARG UPPER_CONSTRAINTS_FILE="https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt"
 
 RUN yum install -y epel-release \
-    && yum install -y --setopt=tsflags=nodocs python-pip \
+    && yum install -y --setopt=tsflags=nodocs python-pip libstdc++ \
     && yum install -y --setopt=tsflags=nodocs gcc python-devel git
 
 COPY . /opt/kuryr-kubernetes
