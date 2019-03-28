@@ -59,7 +59,12 @@ class Dispatcher(h_base.EventHandler):
             key = key_fn(event)
             handlers.update(key_group.get(key, ()))
 
-        LOG.debug("%s handler(s) available", len(handlers))
+        obj = event.get('object', {})
+        obj_meta = obj.get('metadata', {})
+
+        LOG.debug("%d handler(s) available for event %s %s:%s", len(handlers),
+                  event.get('type'), obj.get('kind'), obj_meta.get('name'))
+
         for handler in handlers:
             handler(event)
 

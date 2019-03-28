@@ -19,9 +19,13 @@ from kuryr_kubernetes.handlers import dispatch as h_dis
 from kuryr_kubernetes.tests import base as test_base
 
 
+def make_event(name):
+    return {'object': {'metadata': {'name': str(name)}}}
+
+
 class TestDispatch(test_base.TestCase):
     def test_dispatch(self):
-        events = list(range(3))
+        events = [make_event(i) for i in range(3)]
         handler = mock.Mock()
         dispatcher = h_dis.Dispatcher()
         dispatcher.register(lambda e: True, True, handler)
@@ -34,20 +38,24 @@ class TestDispatch(test_base.TestCase):
     def test_dispatch_broadcast(self):
         handlers = [mock.Mock() for _ in range(3)]
         dispatcher = h_dis.Dispatcher()
+        event = make_event(mock.sentinel.event_name)
 
         for handler in handlers:
             dispatcher.register(lambda e: True, True, handler)
 
-        dispatcher(mock.sentinel.event)
+        dispatcher(event)
 
         for handler in handlers:
-            handler.assert_called_once_with(mock.sentinel.event)
+            handler.assert_called_once_with(event)
 
     def test_dispatch_by_key(self):
         def key_fn(event):
-            return str(event)
+            return event['object']['metadata']['name']
 
-        events = {key_fn(i): i for i in range(3)}
+        events = {}
+        for i in range(3):
+            e = make_event(i)
+            events[key_fn(e)] = e
         handlers = {key: mock.Mock() for key in events}
         dispatcher = h_dis.Dispatcher()
         for key, handler in handlers.items():
