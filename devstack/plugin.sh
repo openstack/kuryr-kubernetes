@@ -299,7 +299,7 @@ function configure_neutron_defaults {
     service_subnet_id="$(openstack subnet show -c id -f value \
         "${KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET}")"
 
-    if [ "$KURYR_SG_DRIVER" != "namespace" ]; then
+    if [[ "$KURYR_SG_DRIVER" == "default" ]]; then
         sg_ids=$(echo $(openstack security group list \
             --project "$project_id" -c ID -f value) | tr ' ' ',')
     fi
@@ -380,7 +380,6 @@ function configure_neutron_defaults {
 
     iniset "$KURYR_CONFIG" neutron_defaults project "$project_id"
     iniset "$KURYR_CONFIG" neutron_defaults pod_subnet "$pod_subnet_id"
-    iniset "$KURYR_CONFIG" neutron_defaults pod_security_groups "$sg_ids"
     iniset "$KURYR_CONFIG" neutron_defaults service_subnet "$service_subnet_id"
     if [ "$KURYR_SUBNET_DRIVER" == "namespace" ]; then
         iniset "$KURYR_CONFIG" namespace_subnet pod_subnet_pool "$subnetpool_id"
@@ -426,7 +425,26 @@ function configure_neutron_defaults {
 
         iniset "$KURYR_CONFIG" namespace_sg sg_allow_from_namespaces "$allow_namespace_sg_id"
         iniset "$KURYR_CONFIG" namespace_sg sg_allow_from_default "$allow_default_sg_id"
+    elif [[ "$KURYR_SG_DRIVER" == "policy" ]]; then
+        # NOTE(dulek): Using the default DevStack's SG is not enough to match
+        # the NP specification. We need to open ingress to everywhere, so we
+        # create allow-all group.
+        allow_all_sg_id=$(openstack --os-cloud devstack-admin \
+            --os-region "$REGION_NAME" \
+            security group create --project "$project_id" \
+            allow-all -f value -c id)
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+          security group rule create --project "$project_id" \
+          --description "allow all ingress traffic" \
+          --ethertype IPv4 --ingress --protocol any \
+          "$allow_all_sg_id"
+        if [ -n "$sg_ids" ]; then
+            sg_ids+=",${allow_all_sg_id}"
+        else
+            sg_ids="${allow_all_sg_id}"
+        fi
     fi
+    iniset "$KURYR_CONFIG" neutron_defaults pod_security_groups "$sg_ids"
 
     if [[ "$KURYR_SG_DRIVER" == "namespace" || "$KURYR_SG_DRIVER" == "policy" ]]; then
         # NOTE(ltomasbo): As more security groups and rules are created, there

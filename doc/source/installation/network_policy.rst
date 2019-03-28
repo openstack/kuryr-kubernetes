@@ -15,6 +15,15 @@ After that, enable also the security group drivers for policies::
     service_security_groups_driver = policy
     pod_security_groups_driver = policy
 
+.. warning::
+  The correct behavior for pods that have no network policy applied is to allow
+  all ingress and egress traffic. If you want that to be enforced, please make
+  sure to create an SG allowing all traffic and add it to
+  ``[neutron_defaults]pod_security_groups`` setting in ``kuryr.conf``::
+
+    [neutron_defaults]
+    pod_security_groups = ALLOW_ALL_SG_ID
+
 Enable the namespace subnet driver by modifying the default pod_subnet_driver
 option::
 
