@@ -196,7 +196,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                                              m_get_crd,
                                                              m_add_default):
         self._driver.neutron.create_security_group.return_value = {
-            'security_group': {'id': mock.sentinel.id}}
+            'security_group': {'id': mock.sentinel.id,
+                               'security_group_rules': []}}
         m_utils.get_subnet_cidr.return_value = {
             'subnet': {'cidr': mock.sentinel.cidr}}
         m_parse.return_value = (self._i_rules, self._e_rules)
@@ -221,7 +222,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                                       m_add_crd, m_get_crd,
                                                       m_add_default):
         self._driver.neutron.create_security_group.return_value = {
-            'security_group': {'id': mock.sentinel.id}}
+            'security_group': {'id': mock.sentinel.id,
+                               'security_group_rules': []}}
         m_utils.get_subnet_cidr.return_value = {
             'subnet': {'cidr': mock.sentinel.cidr}}
         m_parse.return_value = (self._i_rules, self._e_rules)
@@ -248,7 +250,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                                        m_add_crd, m_get_crd,
                                                        m_add_default):
         self._driver.neutron.create_security_group.return_value = {
-            'security_group': {'id': mock.sentinel.id}}
+            'security_group': {'id': mock.sentinel.id,
+                               'security_group_rules': []}}
         m_utils.get_subnet_cidr.return_value = {
             'subnet': {'cidr': mock.sentinel.cidr}}
         m_parse.return_value = (self._i_rules, self._e_rules)
