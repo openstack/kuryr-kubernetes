@@ -287,8 +287,42 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         return allow_all, selectors, allowed_cidrs
 
     def _parse_sg_rules(self, sg_rule_body_list, direction, policy, sg_id):
+        """Parse policy into security group rules.
+
+        This method inspects the policy object and create the equivalent
+        security group rules associating them to the referenced sg_id.
+        It returns the rules by adding them to the sg_rule_body_list list,
+        for the stated direction.
+
+        It accounts for special cases, such as:
+        - PolicyTypes stating only Egress: ensuring ingress is not restricted
+        - PolicyTypes not including Egress: ensuring egress is not restricted
+        - {} ingress/egress rules: applying default open for all
+        """
         rule_list = policy['spec'].get(direction)
         if not rule_list:
+            policy_types = policy['spec'].get('policyTypes')
+            if direction == 'ingress':
+                if len(policy_types) == 1 and policy_types[0] == 'Egress':
+                    # NOTE(ltomasbo): add default rule to enable all ingress
+                    # traffic as NP policy is not affecting ingress
+                    LOG.debug('Applying default all open for ingress for '
+                              'policy %s', policy['metadata']['selfLink'])
+                    rule = driver_utils.create_security_group_rule_body(
+                        sg_id, direction)
+                    sg_rule_body_list.append(rule)
+            elif direction == 'egress':
+                if policy_types and 'Egress' not in policy_types:
+                    # NOTE(ltomasbo): add default rule to enable all egress
+                    # traffic as NP policy is not affecting egress
+                    LOG.debug('Applying default all open for egress for '
+                              'policy %s', policy['metadata']['selfLink'])
+                    rule = driver_utils.create_security_group_rule_body(
+                        sg_id, direction)
+                    sg_rule_body_list.append(rule)
+            else:
+                LOG.warning('Not supported policyType at network policy %s',
+                            policy['metadata']['selfLink'])
             return
 
         policy_namespace = policy['metadata']['namespace']
@@ -299,8 +333,8 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         if rule_list[0] == {}:
             LOG.debug('Applying default all open policy from %s',
                       policy['metadata']['selfLink'])
-            rule = driver_utils.create_security_group_rule_body(
-                sg_id, direction, port_range_min=1, port_range_max=65535)
+            rule = driver_utils.create_security_group_rule_body(sg_id,
+                                                                direction)
             sg_rule_body_list.append(rule)
 
         for rule_block in rule_list:

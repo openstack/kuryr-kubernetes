@@ -359,10 +359,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         policy['spec']['egress'] = [{}]
         self._driver.parse_network_policy_rules(policy, self._sg_id)
         m_get_ns_cidr.assert_not_called()
-        calls = [mock.call(self._sg_id, 'ingress', port_range_min=1,
-                           port_range_max=65535),
-                 mock.call(self._sg_id, 'egress', port_range_min=1,
-                           port_range_max=65535)]
+        calls = [mock.call(self._sg_id, 'ingress'),
+                 mock.call(self._sg_id, 'egress')]
         m_create.assert_has_calls(calls)
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
