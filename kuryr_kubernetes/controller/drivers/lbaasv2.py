@@ -64,7 +64,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             self._octavia_tags = True
         else:
             LOG.warning('[neutron_defaults]resource_tags is set, but Octavia '
-                        'API %d.%d does not support resource tagging. Kuryr'
+                        'API %d.%d does not support resource tagging. Kuryr '
                         'will put requested tags in the description field of '
                         'Octavia resources.', *v)
 
