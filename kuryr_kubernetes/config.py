@@ -284,6 +284,11 @@ sriov_opts = [
                       "It concatenates with resource suffix defined in "
                       "sriov device plugin configuration file."),
                default=constants.K8S_SRIOV_PREFIX),
+    cfg.DictOpt('resource_driver_mappings',
+                help=_("A mappping driver names for certain resource "
+                       "names. Expected that device of VIF related to "
+                       "exact physnet should be binded on specified driver."),
+                default=DEFAULT_PHYSNET_SUBNET_MAPPINGS),
 ]
 
 
