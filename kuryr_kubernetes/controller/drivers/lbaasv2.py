@@ -678,16 +678,21 @@ class LBaaSv2Driver(base.LBaaSDriver):
         return member
 
     def _ensure(self, obj, create, find):
-        # TODO(yboaron): change the create/find order.
+        okay_codes = (409, 500)
         try:
             result = create(obj)
             LOG.debug("Created %(obj)s", {'obj': result})
+            return result
         except o_exc.HttpException as e:
-            if e.status_code not in (409, 500):
+            if e.status_code not in okay_codes:
                 raise
-            result = find(obj)
-            if result:
-                LOG.debug("Found %(obj)s", {'obj': result})
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code not in okay_codes:
+                raise
+
+        result = find(obj)
+        if result:
+            LOG.debug("Found %(obj)s", {'obj': result})
         return result
 
     def _ensure_provisioned(self, loadbalancer, obj, create, find,
