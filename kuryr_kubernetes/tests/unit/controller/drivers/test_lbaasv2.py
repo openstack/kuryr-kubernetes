@@ -14,6 +14,7 @@
 #    under the License.
 
 import mock
+import requests
 
 from neutronclient.common import exceptions as n_exc
 from openstack import exceptions as o_exc
@@ -698,6 +699,15 @@ class TestLBaaSv2Driver(test_base.TestCase):
     def test_ensure_with_internalservererror(self):
         self._verify_ensure_with_exception(
             o_exc.HttpException(http_status=500))
+
+    def test_ensure_with_httperrors(self):
+        resp = requests.Response()
+        resp.status_code = 409
+        self._verify_ensure_with_exception(
+            requests.exceptions.HTTPError(response=resp))
+        resp.status_code = 500
+        self._verify_ensure_with_exception(
+            requests.exceptions.HTTPError(response=resp))
 
     def test_request(self):
         cls = d_lbaasv2.LBaaSv2Driver
