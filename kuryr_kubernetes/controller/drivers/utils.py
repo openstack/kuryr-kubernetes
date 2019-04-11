@@ -236,7 +236,7 @@ def patch_kuryr_crd(crd, i_rules, e_rules, pod_selector, np_spec=None):
 
 
 def create_security_group_rule_body(
-        security_group_id, direction, port_range_min,
+        security_group_id, direction, port_range_min=None,
         port_range_max=None, protocol=None, ethertype='IPv4', cidr=None,
         description="Kuryr-Kubernetes NetPolicy SG rule", namespace=None):
     if not port_range_min:
