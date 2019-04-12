@@ -940,12 +940,19 @@ class LBaaSv2Driver(base.LBaaSDriver):
         svc_ports = service['spec']['ports']
 
         lbaas_name = "%s/%s" % (svc_namespace, svc_name)
-        lbaas = utils.get_lbaas_spec(service)
+
+        endpoints_link = utils.get_endpoints_link(service)
+        k8s = clients.get_kubernetes_client()
+        endpoint = k8s.get(endpoints_link)
+
+        lbaas = utils.get_lbaas_state(endpoint)
         if not lbaas:
             return
 
-        lbaas.security_groups_ids = sgs
-        utils.set_lbaas_spec(service, lbaas)
+        lbaas_obj = lbaas.loadbalancer
+        lbaas_obj.security_groups = sgs
+
+        utils.set_lbaas_state(endpoint, lbaas)
 
         for port in svc_ports:
             port_protocol = port['protocol']
@@ -953,6 +960,6 @@ class LBaaSv2Driver(base.LBaaSDriver):
             target_port = port['targetPort']
             sg_rule_name = "%s:%s:%s" % (lbaas_name, port_protocol, lbaas_port)
 
-            self._apply_members_security_groups(lbaas, lbaas_port,
+            self._apply_members_security_groups(lbaas_obj, lbaas_port,
                                                 target_port, port_protocol,
                                                 sg_rule_name, sgs)
