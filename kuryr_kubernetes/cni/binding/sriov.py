@@ -40,28 +40,24 @@ class VIFSriovDriver(object):
     def release_lock_object(func):
         def wrapped(self, *args, **kwargs):
             try:
-                func(self, *args, **kwargs)
+                return func(self, *args, **kwargs)
             finally:
                 if self._lock and self._lock.acquired:
                     self._lock.release()
-                return
         return wrapped
 
     @release_lock_object
     def connect(self, vif, ifname, netns, container_id):
         physnet = vif.physnet
-
-        h_ipdb = b_base.get_ipdb()
-        c_ipdb = b_base.get_ipdb(netns)
-
         pf_names = self._get_host_pf_names(physnet)
         vf_name, vf_index, pf, pci_info = self._get_available_vf_info(pf_names)
 
         if not vf_name:
-            error_msg = "No free interfaces for physnet {} available".format(
-                physnet)
-            LOG.error(error_msg)
-            raise exceptions.CNIError(error_msg)
+            raise exceptions.CNIError(
+                "No free interfaces for physnet {} available".format(physnet))
+
+        LOG.debug("Connect {} as {} (port_id={}) in container_id={}".format(
+            vf_name, ifname, vif.id, container_id))
 
         if vif.network.should_provide_vlan:
             vlan_id = vif.network.vlan
@@ -69,13 +65,14 @@ class VIFSriovDriver(object):
 
         self._set_vf_mac(pf, vf_index, vif.address)
 
-        with h_ipdb.interfaces[vf_name] as host_iface:
-            host_iface.net_ns_fd = utils.convert_netns(netns)
+        with b_base.get_ipdb() as h_ipdb, b_base.get_ipdb(netns) as c_ipdb:
+            with h_ipdb.interfaces[vf_name] as host_iface:
+                host_iface.net_ns_fd = utils.convert_netns(netns)
 
-        with c_ipdb.interfaces[vf_name] as iface:
-            iface.ifname = ifname
-            iface.mtu = vif.network.mtu
-            iface.up()
+            with c_ipdb.interfaces[vf_name] as iface:
+                iface.ifname = ifname
+                iface.mtu = vif.network.mtu
+                iface.up()
 
         self._save_pci_info(vif.id, pci_info)
 

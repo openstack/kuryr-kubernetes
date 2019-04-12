@@ -222,7 +222,10 @@ class TestSriovDriver(TestDriverMixin, test_base.TestCase):
                 '_get_available_vf_info')
     @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
                 '_set_vf_mac')
-    def test_connect(self, m_set_vf_mac, m_avail_vf_info, m_host_pf_names):
+    @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
+                '_save_pci_info')
+    def test_connect(self, m_save_pci_info, m_set_vf_mac, m_avail_vf_info,
+                     m_host_pf_names):
         m_avail_vf_info.return_value = [self.ifname, 1,
                                         'h_interface', self.pci_info]
         m_host_pf_names.return_value = 'h_interface'
@@ -233,6 +236,7 @@ class TestSriovDriver(TestDriverMixin, test_base.TestCase):
         self.m_c_iface.up.assert_called_once_with()
         m_set_vf_mac.assert_called_once_with('h_interface', 1,
                                              str(self.vif.address))
+        m_save_pci_info.assert_called_once_with(self.vif.id, self.pci_info)
 
     @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
                 '_remove_pci_info')
