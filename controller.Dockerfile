@@ -1,7 +1,7 @@
 FROM centos:7
 LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redhat.com>"
 
-ARG UPPER_CONSTRAINTS_FILE="https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt"
+ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/stein"
 
 RUN yum install -y epel-release \
     && yum install -y --setopt=tsflags=nodocs python-pip \
