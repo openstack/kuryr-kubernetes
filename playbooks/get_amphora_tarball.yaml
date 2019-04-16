@@ -2,5 +2,5 @@
   tasks:
     - name: Download amphora tarball
       get_url:
-        url: "https://tarballs.openstack.org/octavia/test-images/test-only-amphora-x64-haproxy-ubuntu-xenial.qcow2"
-        dest: /tmp/test-only-amphora-x64-haproxy-ubuntu-xenial.qcow2
+        url: "https://tarballs.openstack.org/octavia/test-images/test-only-amphora-x64-haproxy-centos-7.qcow2"
+        dest: /tmp/test-only-amphora-x64-haproxy-centos-7.qcow2

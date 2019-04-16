@@ -1,0 +1,13 @@
+---
+features:
+  - |
+    Added a new driver for handling `network policy <https://kubernetes.io/docs/concepts/services-networking/network-policies/>`_ support as introduced in this `blueprint <https://blueprints.launchpad.net/openstack/?searchtext=k8s-network-policies>`_ .
+
+    In order to enable it the following configuration must be followed:
+
+    .. code-block:: ini
+
+      [kubernetes]
+      enabled_handlers=vif,lb,lbaasspec,namespace,pod_label,policy,kuryrnetpolicy
+      pod_subnets_driver=namespace
+      pod_security_groups_driver=policy

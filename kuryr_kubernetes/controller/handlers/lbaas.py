@@ -177,7 +177,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                       endpoints['metadata']['name'])
             return
 
-        lbaas_state = self._get_lbaas_state(endpoints)
+        lbaas_state = utils.get_lbaas_state(endpoints)
         if not lbaas_state:
             lbaas_state = obj_lbaas.LBaaSState()
 
@@ -209,7 +209,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
             # failing items, or validate configuration) to prevent annotation
             # being out of sync with the actual Neutron state.
             try:
-                self._set_lbaas_state(endpoints, lbaas_state)
+                utils.set_lbaas_state(endpoints, lbaas_state)
             except k_exc.K8sResourceNotFound:
                 # Note(yboaron) It's impossible to store neutron resources
                 # in K8S object since object was deleted. In that case
@@ -220,7 +220,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
 
     def on_deleted(self, endpoints, lbaas_state=None):
         if lbaas_state is None:
-            lbaas_state = self._get_lbaas_state(endpoints)
+            lbaas_state = utils.get_lbaas_state(endpoints)
         if not lbaas_state:
             return
         # NOTE(ivc): deleting pool deletes its members
@@ -605,31 +605,4 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         obj_dict = jsonutils.loads(annotation)
         obj = obj_lbaas.LBaaSServiceSpec.obj_from_primitive(obj_dict)
         LOG.debug("Got LBaaSServiceSpec from annotation: %r", obj)
-        return obj
-
-    def _set_lbaas_state(self, endpoints, lbaas_state):
-        # TODO(ivc): extract annotation interactions
-        if lbaas_state is None:
-            LOG.debug("Removing LBaaSState annotation: %r", lbaas_state)
-            annotation = None
-        else:
-            lbaas_state.obj_reset_changes(recursive=True)
-            LOG.debug("Setting LBaaSState annotation: %r", lbaas_state)
-            annotation = jsonutils.dumps(lbaas_state.obj_to_primitive(),
-                                         sort_keys=True)
-        k8s = clients.get_kubernetes_client()
-        k8s.annotate(endpoints['metadata']['selfLink'],
-                     {k_const.K8S_ANNOTATION_LBAAS_STATE: annotation},
-                     resource_version=endpoints['metadata']['resourceVersion'])
-
-    def _get_lbaas_state(self, endpoints):
-        # TODO(ivc): same as '_set_lbaas_state'
-        try:
-            annotations = endpoints['metadata']['annotations']
-            annotation = annotations[k_const.K8S_ANNOTATION_LBAAS_STATE]
-        except KeyError:
-            return None
-        obj_dict = jsonutils.loads(annotation)
-        obj = obj_lbaas.LBaaSState.obj_from_primitive(obj_dict)
-        LOG.debug("Got LBaaSState from annotation: %r", obj)
         return obj

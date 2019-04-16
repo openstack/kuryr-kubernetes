@@ -22,6 +22,7 @@
       - openstack/kuryr-kubernetes
       - openstack/kuryr-tempest-plugin
       - openstack/tempest
+    timeout: 10800
     post-run: playbooks/copy-k8s-logs.yaml
     host-vars:
       controller:

@@ -64,7 +64,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             self._octavia_tags = True
         else:
             LOG.warning('[neutron_defaults]resource_tags is set, but Octavia '
-                        'API %d.%d does not support resource tagging. Kuryr'
+                        'API %d.%d does not support resource tagging. Kuryr '
                         'will put requested tags in the description field of '
                         'Octavia resources.', *v)
 
@@ -678,16 +678,21 @@ class LBaaSv2Driver(base.LBaaSDriver):
         return member
 
     def _ensure(self, obj, create, find):
-        # TODO(yboaron): change the create/find order.
+        okay_codes = (409, 500)
         try:
             result = create(obj)
             LOG.debug("Created %(obj)s", {'obj': result})
+            return result
         except o_exc.HttpException as e:
-            if e.status_code not in (409, 500):
+            if e.status_code not in okay_codes:
                 raise
-            result = find(obj)
-            if result:
-                LOG.debug("Found %(obj)s", {'obj': result})
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code not in okay_codes:
+                raise
+
+        result = find(obj)
+        if result:
+            LOG.debug("Found %(obj)s", {'obj': result})
         return result
 
     def _ensure_provisioned(self, loadbalancer, obj, create, find,
@@ -940,12 +945,19 @@ class LBaaSv2Driver(base.LBaaSDriver):
         svc_ports = service['spec']['ports']
 
         lbaas_name = "%s/%s" % (svc_namespace, svc_name)
-        lbaas = utils.get_lbaas_spec(service)
+
+        endpoints_link = utils.get_endpoints_link(service)
+        k8s = clients.get_kubernetes_client()
+        endpoint = k8s.get(endpoints_link)
+
+        lbaas = utils.get_lbaas_state(endpoint)
         if not lbaas:
             return
 
-        lbaas.security_groups_ids = sgs
-        utils.set_lbaas_spec(service, lbaas)
+        lbaas_obj = lbaas.loadbalancer
+        lbaas_obj.security_groups = sgs
+
+        utils.set_lbaas_state(endpoint, lbaas)
 
         for port in svc_ports:
             port_protocol = port['protocol']
@@ -953,6 +965,6 @@ class LBaaSv2Driver(base.LBaaSDriver):
             target_port = port['targetPort']
             sg_rule_name = "%s:%s:%s" % (lbaas_name, port_protocol, lbaas_port)
 
-            self._apply_members_security_groups(lbaas, lbaas_port,
+            self._apply_members_security_groups(lbaas_obj, lbaas_port,
                                                 target_port, port_protocol,
                                                 sg_rule_name, sgs)

@@ -252,6 +252,34 @@ def set_lbaas_spec(service, lbaas_spec):
                  resource_version=service['metadata']['resourceVersion'])
 
 
+def get_lbaas_state(endpoint):
+    try:
+        annotations = endpoint['metadata']['annotations']
+        annotation = annotations[constants.K8S_ANNOTATION_LBAAS_STATE]
+    except KeyError:
+        return None
+    obj_dict = jsonutils.loads(annotation)
+    obj = obj_lbaas.LBaaSState.obj_from_primitive(obj_dict)
+    LOG.debug("Got LBaaSState from annotation: %r", obj)
+    return obj
+
+
+def set_lbaas_state(endpoints, lbaas_state):
+    # TODO(ivc): extract annotation interactions
+    if lbaas_state is None:
+        LOG.debug("Removing LBaaSState annotation: %r", lbaas_state)
+        annotation = None
+    else:
+        lbaas_state.obj_reset_changes(recursive=True)
+        LOG.debug("Setting LBaaSState annotation: %r", lbaas_state)
+        annotation = jsonutils.dumps(lbaas_state.obj_to_primitive(),
+                                     sort_keys=True)
+    k8s = clients.get_kubernetes_client()
+    k8s.annotate(endpoints['metadata']['selfLink'],
+                 {constants.K8S_ANNOTATION_LBAAS_STATE: annotation},
+                 resource_version=endpoints['metadata']['resourceVersion'])
+
+
 def get_endpoints_link(service):
     svc_link = service['metadata']['selfLink']
     link_parts = svc_link.split('/')
