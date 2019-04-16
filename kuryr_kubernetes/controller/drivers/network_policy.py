@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import netaddr
 from oslo_log import log as logging
 
 from neutronclient.common import exceptions as n_exc
@@ -351,6 +352,23 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                                                         'rule': rule_block})
             allow_all, selectors, allowed_cidrs = self._parse_selectors(
                 rule_block, rule_direction, policy_namespace)
+
+            ipblock_list = []
+
+            if rule_direction in rule_block:
+                ipblock_list = [ipblock.get('ipBlock') for ipblock in
+                                rule_block[rule_direction] if 'ipBlock'
+                                in ipblock]
+
+            for ipblock in ipblock_list:
+                if ipblock.get('except'):
+                    for cidr_except in ipblock.get('except'):
+                        cidr_list = netaddr.cidr_exclude(
+                            ipblock.get('cidr'), cidr_except)
+                        cidr_list = [{'cidr': str(cidr)} for cidr in cidr_list]
+                        allowed_cidrs.extend(cidr_list)
+                else:
+                    allowed_cidrs.append(ipblock)
 
             if 'ports' in rule_block:
                 for port in rule_block['ports']:
