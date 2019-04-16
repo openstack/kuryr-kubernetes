@@ -205,12 +205,12 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 for rule in rules['security_group_rules']:
                     # copying ingress rules with same protocol onto the
                     # loadbalancer sg rules
-                    # NOTE(ltomasbo): NP security groups only have
-                    # remote_ip_prefix, not remote_group_id, therefore only
-                    # applying the ones with remote_ip_prefix
+                    # NOTE(ltomasbo): NP sg can only have rules with
+                    # or without remote_ip_prefix. Rules with remote_group_id
+                    # are not possible, therefore only applying the ones
+                    # with or without remote_ip_prefix.
                     if (rule['protocol'] == protocol.lower() and
-                            rule['direction'] == 'ingress' and
-                            rule['remote_ip_prefix']):
+                            rule['direction'] == 'ingress'):
                         # If listener port not in allowed range, skip
                         min_port = rule.get('port_range_min')
                         max_port = rule.get('port_range_max')
@@ -243,8 +243,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         for rule in lbaas_sg_rules['security_group_rules']:
             if (rule.get('protocol') != protocol.lower() or
                     rule.get('port_range_min') != port or
-                    rule.get('direction') != 'ingress' or
-                    not rule.get('remote_ip_prefix')):
+                    rule.get('direction') != 'ingress'):
                 if all_pod_rules and self._is_default_rule(rule):
                     LOG.debug("Removing default LBaaS sg rule for sg: %r",
                               lb_sg)
