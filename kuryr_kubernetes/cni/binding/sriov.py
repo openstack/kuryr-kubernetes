@@ -65,12 +65,13 @@ class VIFSriovDriver(object):
             vlan_id = vif.network.vlan
             self._set_vf_vlan(pf, vf_index, vlan_id)
 
+        self._set_vf_mac(pf, vf_index, vif.address)
+
         with h_ipdb.interfaces[vf_name] as host_iface:
             host_iface.net_ns_fd = utils.convert_netns(netns)
 
         with c_ipdb.interfaces[vf_name] as iface:
             iface.ifname = ifname
-            iface.address = vif.address
             iface.mtu = vif.network.mtu
             iface.up()
 
@@ -155,6 +156,21 @@ class VIFSriovDriver(object):
             return 0
         LOG.debug("PF %s has %s VFs", pf, nvfs)
         return nvfs
+
+    def _set_vf_mac(self, pf, vf_index, mac):
+        """Call `ip link set enp2s0f1 vf 3 mac fa:16:3e:87:b2:ac`"""
+
+        LOG.debug("Seting VF MAC: pf = %s, vf_index = %s, mac = %s",
+                  pf, vf_index, mac)
+        cmd = [
+            'ip', 'link',
+            'set', pf, 'vf', vf_index, 'mac', mac
+        ]
+        try:
+            return processutils.execute(*cmd, run_as_root=True)
+        except Exception:
+            LOG.exception("Unable to execute %s", cmd)
+            raise
 
     def _set_vf_vlan(self, pf, vf_index, vlan_id):
         """Call `ip link set enp1s0f0 vf 5 vlan 10`"""

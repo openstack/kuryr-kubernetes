@@ -219,15 +219,18 @@ class TestSriovDriver(TestDriverMixin, test_base.TestCase):
                 '_get_host_pf_names')
     @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
                 '_get_available_vf_info')
-    def test_connect(self, m_avail_vf_info, m_host_pf_names):
+    @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
+                '_set_vf_mac')
+    def test_connect(self, m_set_vf_mac, m_avail_vf_info, m_host_pf_names):
         m_avail_vf_info.return_value = [self.ifname, 1, 'h_interface']
         m_host_pf_names.return_value = 'h_interface'
         self._test_connect()
 
         self.assertEqual(self.ifname, self.m_c_iface.ifname)
         self.assertEqual(1, self.m_c_iface.mtu)
-        self.assertEqual(str(self.vif.address), self.m_c_iface.address)
         self.m_c_iface.up.assert_called_once_with()
+        m_set_vf_mac.assert_called_once_with('h_interface', 1,
+                                             str(self.vif.address))
 
     def test_disconnect(self):
         self._test_disconnect()
