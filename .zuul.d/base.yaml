@@ -17,7 +17,7 @@
     parent: devstack-tempest
     description: Base kuryr-kubernetes-job
     required-projects:
-      - openstack-infra/devstack-gate
+      - openstack/devstack-gate
       - openstack/devstack-plugin-container
       - openstack/kuryr-kubernetes
       - openstack/kuryr-tempest-plugin
@@ -27,9 +27,9 @@
     host-vars:
       controller:
         devstack_plugins:
-          kuryr-kubernetes: https://git.openstack.org/openstack/kuryr-kubernetes
-          devstack-plugin-container: https://git.openstack.org/openstack/devstack-plugin-container
-          kuryr-tempest-plugin: https://git.openstack.org/openstack/kuryr-tempest-plugin
+          kuryr-kubernetes: https://opendev.org/openstack/kuryr-kubernetes
+          devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
+          kuryr-tempest-plugin: https://opendev.org/openstack/kuryr-tempest-plugin
     vars:
       tempest_test_regex: '^(kuryr_tempest_plugin.tests.)'
       tox_envlist: 'all'
