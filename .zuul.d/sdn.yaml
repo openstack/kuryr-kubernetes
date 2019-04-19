@@ -22,8 +22,8 @@
     host-vars:
       controller:
         devstack_plugins:
-          networking-ovn: https://git.openstack.org/openstack/networking-ovn
-          neutron: https://git.openstack.org/openstack/neutron
+          networking-ovn: https://opendev.org/openstack/networking-ovn
+          neutron: https://opendev.org/openstack/neutron
     vars:
       devstack_localrc:
         VAR_RUN_PATH: /usr/local/var/run

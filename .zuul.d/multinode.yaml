@@ -21,15 +21,15 @@
     host-vars:
       controller:
         devstack_plugins:
-          barbican: https://git.openstack.org/openstack/barbican
-          devstack-plugin-container: https://git.openstack.org/openstack/devstack-plugin-container
-          kuryr-kubernetes: https://git.openstack.org/openstack/kuryr-kubernetes
-          octavia: https://git.openstack.org/openstack/octavia
+          barbican: https://opendev.org/openstack/barbican
+          devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
+          kuryr-kubernetes: https://opendev.org/openstack/kuryr-kubernetes
+          octavia: https://opendev.org/openstack/octavia
     group-vars:
       subnode:
         devstack_plugins:
-          devstack-plugin-container: https://git.openstack.org/openstack/devstack-plugin-container
-          kuryr-kubernetes: https://git.openstack.org/openstack/kuryr
+          devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
+          kuryr-kubernetes: https://opendev.org/openstack/kuryr
         devstack_services:
           kuryr-kubernetes: false
           kubernetes-api: false
@@ -68,7 +68,7 @@
     group-vars:
       subnode:
         devstack_plugins:
-          devstack-plugin-container: https://git.openstack.org/openstack/devstack-plugin-container
-          kuryr-kubernetes: https://git.openstack.org/openstack/kuryr-kubernetes
+          devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
+          kuryr-kubernetes: https://opendev.org/openstack/kuryr-kubernetes
         devstack_services:
           kubelet: true

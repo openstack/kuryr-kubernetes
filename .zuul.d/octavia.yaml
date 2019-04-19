@@ -26,8 +26,8 @@
     host-vars:
       controller:
         devstack_plugins:
-          octavia: https://git.openstack.org/openstack/octavia
-          barbican: https://git.openstack.org/openstack/barbican
+          octavia: https://opendev.org/openstack/octavia
+          barbican: https://opendev.org/openstack/barbican
     vars:
       devstack_localrc:
         OCTAVIA_AMP_IMAGE_FILE: "/tmp/test-only-amphora-x64-haproxy-centos-7.qcow2"
