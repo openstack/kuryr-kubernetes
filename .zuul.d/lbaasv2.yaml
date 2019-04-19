@@ -20,7 +20,7 @@
     host-vars:
       controller:
         devstack_plugins:
-          neutron-lbaas: https://git.openstack.org/openstack/neutron-lbaas
+          neutron-lbaas: https://opendev.org/openstack/neutron-lbaas
     vars:
       devstack_localrc:
           NEUTRON_LBAAS_SERVICE_PROVIDERV2: 'LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default'
