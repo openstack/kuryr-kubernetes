@@ -7,7 +7,7 @@
     vars:
       variant: default
     required-projects:
-      - openstack-infra/devstack-gate
+      - openstack/devstack-gate
       - openstack/devstack-plugin-container
       - openstack/dragonflow
       - openstack/kuryr
@@ -28,7 +28,7 @@
       kuryr_daemon: false
       container_engine: kubernetes
     required-projects:
-      - openstack-infra/devstack-gate
+      - openstack/devstack-gate
       - openstack/devstack-plugin-container
       - openstack/kuryr
       - openstack/kuryr-kubernetes
@@ -58,7 +58,7 @@
     post-run: playbooks/tempest-kuryr-kubernetes-multinode/post.yaml
     timeout: 4200
     required-projects:
-      - openstack-infra/devstack-gate
+      - openstack/devstack-gate
       - openstack/devstack-plugin-container
       - openstack/kuryr
       - openstack/kuryr-kubernetes

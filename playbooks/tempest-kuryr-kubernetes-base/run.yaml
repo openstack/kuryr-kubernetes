@@ -13,12 +13,12 @@
           set -x
           cat > clonemap.yaml << EOF
           clonemap:
-            - name: openstack-infra/devstack-gate
+            - name: openstack/devstack-gate
               dest: devstack-gate
           EOF
           /usr/zuul-env/bin/zuul-cloner -m clonemap.yaml --cache-dir /opt/git \
-              https://git.openstack.org \
-              openstack-infra/devstack-gate
+              https://opendev.org \
+              openstack/devstack-gate
         executable: /bin/bash
         chdir: '{{ ansible_user_dir }}/workspace'
       environment: '{{ zuul | zuul_legacy_vars }}'
@@ -30,7 +30,7 @@
           cat << 'EOF' >>"/tmp/dg-local.conf"
           [[local|localrc]]
           enable_plugin kuryr-kubernetes \
-              https://git.openstack.org/openstack/kuryr-kubernetes
+              https://opendev.org/openstack/kuryr-kubernetes
           ENABLED_SERVICES=""
           # Neutron services
           enable_service neutron
@@ -57,7 +57,7 @@
           enable_service g-reg
           # Docker
           enable_plugin devstack-plugin-container \
-              https://git.openstack.org/openstack/devstack-plugin-container
+              https://opendev.org/openstack/devstack-plugin-container
           # Etcd
           enable_service etcd3
           # Kubernetes
@@ -80,13 +80,13 @@
               # LBaaS service
               ENABLED_SERVICES+=,q-lbaasv2
 
-              enable_plugin neutron-lbaas https://git.openstack.org/openstack/neutron-lbaas
+              enable_plugin neutron-lbaas https://opendev.org/openstack/neutron-lbaas
               # Haproxy agent
               NEUTRON_LBAAS_SERVICE_PROVIDERV2=LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default
           elif [ "{{ loadbalancer }}" == "octavia" ]; then
               # Octavia
-              enable_plugin octavia https://git.openstack.org/openstack/octavia
-              enable_plugin barbican https://git.openstack.org/openstack/barbican
+              enable_plugin octavia https://opendev.org/openstack/octavia
+              enable_plugin barbican https://opendev.org/openstack/barbican
               ENABLED_SERVICES+=,octavia,o-api,o-cw,o-hk,o-hm
               LIBS_FROM_GIT+=,python-octaviaclient
           fi
