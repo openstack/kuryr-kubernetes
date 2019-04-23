@@ -237,7 +237,7 @@ expected to be JSON).
 
 For reference see updated pod creation flow diagram:
 
-.. image:: ../../images/pod_creation_flow.png
+.. image:: ../../images/pod_creation_flow_daemon.png
     :alt: Controller-CNI-daemon interaction
     :align: center
     :width: 100%
