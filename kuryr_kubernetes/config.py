@@ -224,7 +224,7 @@ neutron_defaults = [
                        "This can be used to identify and garbage-collect "
                        "them when Kubernetes cluster Kuryr was serving is no "
                        "longer needed."),
-                default=[])
+                default=[]),
 ]
 
 octavia_defaults = [
@@ -262,6 +262,10 @@ nested_vif_driver_opts = [
     cfg.StrOpt('worker_nodes_subnet',
                help=_("Neutron subnet ID for k8s worker node vms."),
                default=''),
+    cfg.IntOpt('rev_update_attempts',
+               help=_("How many time to try to re-update the neutron resource "
+                      "when revision has been changed by other thread"),
+               default=3),
 ]
 
 DEFAULT_PHYSNET_SUBNET_MAPPINGS = {}
