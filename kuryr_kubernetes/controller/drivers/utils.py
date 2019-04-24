@@ -238,7 +238,8 @@ def patch_kuryr_crd(crd, i_rules, e_rules, pod_selector, np_spec=None):
 def create_security_group_rule_body(
         security_group_id, direction, port_range_min=None,
         port_range_max=None, protocol=None, ethertype='IPv4', cidr=None,
-        description="Kuryr-Kubernetes NetPolicy SG rule", namespace=None):
+        description="Kuryr-Kubernetes NetPolicy SG rule", namespace=None,
+        pods=None):
     if not port_range_min:
         port_range_min = 1
         port_range_max = 65535
@@ -262,6 +263,8 @@ def create_security_group_rule_body(
             u'remote_ip_prefix'] = cidr
     if namespace:
         security_group_rule_body['namespace'] = namespace
+    if pods:
+        security_group_rule_body['remote_ip_prefixes'] = pods
     LOG.debug("Creating sg rule body %s", security_group_rule_body)
     return security_group_rule_body
 
@@ -423,3 +426,62 @@ def service_matches_affected_pods(service, pod_selectors):
         if match_selector(selector, svc_selector):
             return True
     return False
+
+
+def get_namespaced_pods(namespace=None):
+    kubernetes = clients.get_kubernetes_client()
+    if namespace:
+        namespace = namespace['metadata']['name']
+        pods = kubernetes.get(
+            '{}/namespaces/{}/pods'.format(
+                constants.K8S_API_BASE, namespace))
+    else:
+        pods = kubernetes.get(
+            '{}/pods'.format(
+                constants.K8S_API_BASE))
+    return pods
+
+
+def get_container_ports(containers, np_port_name, pod):
+    matched_ports = []
+    if is_host_network(pod):
+        return matched_ports
+    for container in containers:
+        for container_port in container.get('ports', []):
+            if container_port.get('name') == np_port_name:
+                container_port = container_port.get('containerPort')
+                if container_port not in matched_ports:
+                    matched_ports.append((pod, container_port))
+    return matched_ports
+
+
+def get_ports(resource, port):
+    """Returns values of ports that have a given port name
+
+    Retrieves the values of ports, defined in the containers
+    associated to the resource, that has its name matching a
+    given port.
+
+    param resource: k8s Pod or Namespace
+    param port: a dict containing a port and protocol
+    return: A list of tuples of port values and associated pods
+    """
+    containers = resource['spec'].get('containers')
+    ports = []
+    np_port = port.get('port')
+    if containers:
+        ports.extend(get_container_ports(containers, np_port, resource))
+    else:
+        pods = get_namespaced_pods(resource).get('items')
+        for pod in pods:
+            containers = pod['spec']['containers']
+            ports.extend(get_container_ports(
+                containers, np_port, pod))
+    return ports
+
+
+def get_namespace(namespace_name):
+    kubernetes = clients.get_kubernetes_client()
+    return kubernetes.get(
+        '{}/namespaces/{}'.format(
+            constants.K8S_API_BASE, namespace_name))
