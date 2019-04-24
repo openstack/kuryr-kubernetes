@@ -18,6 +18,7 @@ from neutronclient.common import exceptions as n_exc
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
+from kuryr_kubernetes import config as kuryr_config
 from kuryr_kubernetes.controller.drivers import nested_vif
 from kuryr_kubernetes.controller.drivers import utils
 from kuryr_kubernetes import exceptions as k_exc
@@ -36,17 +37,22 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         neutron = clients.get_neutron_client()
         req = self._get_port_request(pod, project_id, subnets,
                                      security_groups)
-        vm_port = self._get_parent_port(neutron, pod)
-        container_port = neutron.create_port(req).get('port')
-        utils.tag_neutron_resources('ports', [container_port['id']])
+        attempts = kuryr_config.CONF.pod_vif_nested.rev_update_attempts
+        container_port = None
+        while attempts > 0:
+            vm_port = self._get_parent_port(neutron, pod)
 
-        container_mac = container_port['mac_address']
-        container_ips = frozenset(entry['ip_address'] for entry in
-                                  container_port['fixed_ips'])
+            if not container_port:
+                container_port = neutron.create_port(req).get('port')
+            utils.tag_neutron_resources('ports', [container_port['id']])
 
-        with self.lock:
-            self._add_to_allowed_address_pairs(neutron, vm_port,
-                                               container_ips, container_mac)
+            container_mac = container_port['mac_address']
+            container_ips = frozenset(entry['ip_address'] for entry in
+                                      container_port['fixed_ips'])
+
+            attempts = self._try_update_port(
+                attempts, self._add_to_allowed_address_pairs, neutron, vm_port,
+                container_ips, container_mac)
 
         return ovu.neutron_to_osvif_vif_nested_macvlan(container_port, subnets)
 
@@ -57,17 +63,18 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
 
     def release_vif(self, pod, vif, project_id=None, security_groups=None):
         neutron = clients.get_neutron_client()
-        container_port = neutron.show_port(vif.id).get('port')
 
-        container_mac = container_port['mac_address']
-        container_ips = frozenset(entry['ip_address'] for entry in
-                                  container_port['fixed_ips'])
+        attempts = kuryr_config.CONF.pod_vif_nested.rev_update_attempts
+        while attempts > 0:
+            container_port = neutron.show_port(vif.id).get('port')
 
-        with self.lock:
+            container_mac = container_port['mac_address']
+            container_ips = frozenset(entry['ip_address'] for entry in
+                                      container_port['fixed_ips'])
             vm_port = self._get_parent_port(neutron, pod)
-            self._remove_from_allowed_address_pairs(neutron, vm_port,
-                                                    container_ips,
-                                                    container_mac)
+            attempts = self._try_update_port(
+                attempts, self._remove_from_allowed_address_pairs, neutron,
+                vm_port, container_ips, container_mac)
 
         try:
             neutron.delete_port(vif.id)
@@ -112,7 +119,12 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         for ip in ip_addresses:
             address_pairs.append({'ip_address': ip, 'mac_address': mac})
 
-        self._update_port_address_pairs(neutron, port['id'], address_pairs)
+        self._update_port_address_pairs(
+            neutron, port['id'], address_pairs,
+            revision_number=port['revision_number'])
+
+        LOG.debug("Added allowed_address_pair %s %s" %
+                  (str(ip_addresses,), mac_address))
 
     def _remove_from_allowed_address_pairs(self, neutron, port, ip_addresses,
                                            mac_address=None):
@@ -136,15 +148,30 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                           "trying to remove it.", ip, mac)
 
         if updated:
-            self._update_port_address_pairs(neutron, port['id'], address_pairs)
+            self._update_port_address_pairs(
+                neutron, port['id'],
+                address_pairs,
+                revision_number=port['revision_number'])
 
-    def _update_port_address_pairs(self, neutron, port_id, address_pairs):
+    def _update_port_address_pairs(self, neutron, port_id, address_pairs,
+                                   revision_number=None):
+        neutron.update_port(
+            port_id,
+            {'port': {'allowed_address_pairs': address_pairs}},
+            revision_number=revision_number
+        )
+
+    def _try_update_port(self, attempts, f,
+                         neutron, vm_port, container_ips, container_mac):
         try:
-            neutron.update_port(
-                port_id,
-                {'port': {'allowed_address_pairs': address_pairs}}
-            )
+            with self.lock:
+                f(neutron, vm_port, container_ips, container_mac)
+                attempts = 0
         except n_exc.NeutronClientException:
-            LOG.exception("Error happened during updating Neutron port %s",
-                          port_id)
-            raise
+            attempts -= 1
+            if attempts == 0:
+                LOG.exception("Error happened during updating port %s",
+                              vm_port['id'] if vm_port else None)
+                raise
+
+        return attempts
