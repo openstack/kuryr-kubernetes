@@ -53,7 +53,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         if self.get_kuryrnetpolicy_crd(policy):
             previous_selector = (
                 self.update_security_group_rules_from_network_policy(policy))
-            if previous_selector:
+            if previous_selector or previous_selector == {}:
                 return self.affected_pods(policy, previous_selector)
             if previous_selector is None:
                 return self.namespaced_pods(policy)
@@ -642,7 +642,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                       netpolicy_crd_name)
 
     def affected_pods(self, policy, selector=None):
-        if selector:
+        if selector or selector == {}:
             pod_selector = selector
         else:
             pod_selector = policy['spec'].get('podSelector')
