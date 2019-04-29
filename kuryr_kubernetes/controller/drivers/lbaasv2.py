@@ -20,6 +20,12 @@ import requests
 
 from neutronclient.common import exceptions as n_exc
 from openstack import exceptions as o_exc
+from openstack.load_balancer.v2 import l7_policy as o_l7p
+from openstack.load_balancer.v2 import l7_rule as o_l7r
+from openstack.load_balancer.v2 import listener as o_lis
+from openstack.load_balancer.v2 import load_balancer as o_lb
+from openstack.load_balancer.v2 import member as o_mem
+from openstack.load_balancer.v2 import pool as o_pool
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import timeutils
@@ -510,7 +516,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         return None
 
-    def _post_lb_resource(self, path, resource, request):
+    def _post_lb_resource(self, resource, request, **kwargs):
         # FIXME(dulek): openstacksdk doesn't support Octavia tags until version
         #               0.24.0 (Stein+). At the moment our dependency is
         #               >=0.13.0, because we want Kuryr to support multiple
@@ -521,12 +527,13 @@ class LBaaSv2Driver(base.LBaaSDriver):
         #               use lbaas.create_*() directly. Until then we manually
         #               send POST request.
         lbaas = clients.get_loadbalancer_client()
-        response = lbaas.post(path, json={resource: request})
+        response = lbaas.post(resource.base_path % kwargs,
+                              json={resource.resource_key: request})
         if not response.ok:
-            LOG.error('Error when creating %s: %s', resource, response.text)
+            LOG.error('Error when creating %s: %s', resource.resource_key,
+                      response.text)
             response.raise_for_status()
-        response = response.json()[resource]
-        return response
+        return response.json()[resource.resource_key]
 
     def _create_loadbalancer(self, loadbalancer):
         request = {
@@ -541,8 +548,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         self._add_tags('loadbalancer', request)
 
-        response = self._post_lb_resource('loadbalancers', 'loadbalancer',
-                                          request)
+        response = self._post_lb_resource(o_lb.LoadBalancer, request)
 
         loadbalancer.id = response['id']
         loadbalancer.port_id = self._get_vip_port(loadbalancer).get("id")
@@ -585,7 +591,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             'protocol_port': listener.port,
         }
         self._add_tags('listener', request)
-        response = self._post_lb_resource('listeners', 'listener', request)
+        response = self._post_lb_resource(o_lis.Listener, request)
         listener.id = response['id']
         return listener
 
@@ -618,7 +624,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             'lb_algorithm': lb_algorithm,
         }
         self._add_tags('pool', request)
-        response = self._post_lb_resource('pools', 'pool', request)
+        response = self._post_lb_resource(o_pool.Pool, request)
         pool.id = response['id']
         return pool
 
@@ -654,8 +660,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
             'protocol_port': member.port,
         }
         self._add_tags('member', request)
-        response = self._post_lb_resource('pools/%s/members' % member.pool_id,
-                                          'member', request)
+        response = self._post_lb_resource(o_mem.Member, request,
+                                          pool_id=member.pool_id)
         member.id = response['id']
         return member
 
@@ -857,7 +863,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             'redirect_pool_id': l7_policy.redirect_pool_id,
         }
         self._add_tags('l7policy', request)
-        response = self._post_lb_resource('l7policies', 'l7policy', request)
+        response = self._post_lb_resource(o_l7p.L7Policy, request)
         l7_policy.id = response['id']
         return l7_policy
 
@@ -891,8 +897,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
             'value': l7_rule.value
         }
         self._add_tags('rule', request)
-        response = self._post_lb_resource(
-            'l7policies/%s/rules' % l7_rule.l7policy_id, 'rule', request)
+        response = self._post_lb_resource(o_l7r.L7Rule, request,
+                                          l7policy_id=l7_rule.l7policy_id)
         l7_rule.id = response['id']
         return l7_rule
 
