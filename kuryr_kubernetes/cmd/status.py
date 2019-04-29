@@ -18,6 +18,7 @@ CLI interface for kuryr status commands.
 
 from __future__ import print_function
 
+import copy
 import sys
 import textwrap
 import traceback
@@ -108,6 +109,8 @@ class UpgradeCommands(object):
 
             if obj.obj_name() != objects.vif.PodState.obj_name():
                 old_count += 1
+            elif not self._has_valid_sriov_annot(obj):
+                old_count += 1
 
         if malformed_count == 0 and old_count == 0:
             return UpgradeCheckResult(0, 'All annotations are updated.')
@@ -193,16 +196,43 @@ class UpgradeCommands(object):
             t.add_row(cell)
         print(t)
 
+    def _has_valid_sriov_annot(self, state):
+        for obj in state.vifs.values():
+            if obj.obj_name() != objects.vif.VIFSriov.obj_name():
+                continue
+            if hasattr(obj, 'pod_name') and hasattr(obj, 'pod_link'):
+                continue
+            return False
+        return True
+
+    def _convert_sriov(self, state):
+        new_state = copy.deepcopy(state)
+        for iface, obj in new_state.additional_vifs.items():
+            if obj.obj_name() != objects.vif.VIFSriov.obj_name():
+                continue
+            if hasattr(obj, 'pod_name') and hasattr(obj, 'pod_link'):
+                continue
+            new_obj = objects.vif.VIFSriov()
+            new_obj.__dict__ = obj.__dict__.copy()
+            new_state.additional_vifs[iface] = new_obj
+        return new_state
+
     def update_annotations(self):
         def test_fn(obj):
-            return obj.obj_name() != objects.vif.PodState.obj_name()
+            return (obj.obj_name() != objects.vif.PodState.obj_name() or
+                    not self._has_valid_sriov_annot(obj))
 
         def update_fn(obj):
-            return vif.PodState(default_vif=obj)
+            if obj.obj_name() != objects.vif.PodState.obj_name():
+                return vif.PodState(default_vif=obj)
+            return self._convert_sriov(obj)
 
         self._convert_annotations(test_fn, update_fn)
 
     def downgrade_annotations(self):
+        # NOTE(danil): There is no need to downgrade sriov vifs
+        # when annotations has old format. After downgrade annotations
+        # will have only one default vif and it could not be sriov vif
         def test_fn(obj):
             return obj.obj_name() == objects.vif.PodState.obj_name()
 
