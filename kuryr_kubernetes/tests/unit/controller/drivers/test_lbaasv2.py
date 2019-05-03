@@ -18,6 +18,12 @@ import requests
 
 from neutronclient.common import exceptions as n_exc
 from openstack import exceptions as o_exc
+from openstack.load_balancer.v2 import l7_policy as o_l7p
+from openstack.load_balancer.v2 import l7_rule as o_l7r
+from openstack.load_balancer.v2 import listener as o_lis
+from openstack.load_balancer.v2 import load_balancer as o_lb
+from openstack.load_balancer.v2 import member as o_mem
+from openstack.load_balancer.v2 import pool as o_pool
 from oslo_config import cfg
 
 from kuryr_kubernetes.controller.drivers import lbaasv2 as d_lbaasv2
@@ -307,8 +313,8 @@ class TestLBaaSv2Driver(test_base.TestCase):
         m_driver._get_vip_port.return_value = {'id': mock.sentinel.port_id}
 
         ret = cls._create_loadbalancer(m_driver, loadbalancer)
-        m_driver._post_lb_resource.assert_called_once_with('loadbalancers',
-                                                           'loadbalancer', req)
+        m_driver._post_lb_resource.assert_called_once_with(o_lb.LoadBalancer,
+                                                           req)
         for attr in loadbalancer.obj_fields:
             self.assertEqual(getattr(loadbalancer, attr),
                              getattr(ret, attr))
@@ -335,8 +341,8 @@ class TestLBaaSv2Driver(test_base.TestCase):
         m_driver._get_vip_port.return_value = {'id': mock.sentinel.port_id}
 
         ret = cls._create_loadbalancer(m_driver, loadbalancer)
-        m_driver._post_lb_resource.assert_called_once_with('loadbalancers',
-                                                           'loadbalancer', req)
+        m_driver._post_lb_resource.assert_called_once_with(o_lb.LoadBalancer,
+                                                           req)
         for attr in loadbalancer.obj_fields:
             self.assertEqual(getattr(loadbalancer, attr),
                              getattr(ret, attr))
@@ -363,8 +369,8 @@ class TestLBaaSv2Driver(test_base.TestCase):
         m_driver._get_vip_port.return_value = {'id': mock.sentinel.port_id}
 
         ret = cls._create_loadbalancer(m_driver, loadbalancer)
-        m_driver._post_lb_resource.assert_called_once_with('loadbalancers',
-                                                           'loadbalancer', req)
+        m_driver._post_lb_resource.assert_called_once_with(o_lb.LoadBalancer,
+                                                           req)
         self.assertIsNone(ret)
 
     def test_find_loadbalancer(self):
@@ -453,8 +459,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         m_driver._post_lb_resource.return_value = resp
 
         ret = cls._create_listener(m_driver, listener)
-        m_driver._post_lb_resource.assert_called_once_with('listeners',
-                                                           'listener', req)
+        m_driver._post_lb_resource.assert_called_once_with(o_lis.Listener, req)
         for attr in listener.obj_fields:
             self.assertEqual(getattr(listener, attr),
                              getattr(ret, attr))
@@ -521,8 +526,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         m_driver._post_lb_resource.return_value = resp
 
         ret = cls._create_pool(m_driver, pool)
-        m_driver._post_lb_resource.assert_called_once_with('pools', 'pool',
-                                                           req)
+        m_driver._post_lb_resource.assert_called_once_with(o_pool.Pool, req)
         for attr in pool.obj_fields:
             self.assertEqual(getattr(pool, attr),
                              getattr(ret, attr))
@@ -547,8 +551,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
 
         self.assertRaises(n_exc.StateInvalidClient, cls._create_pool, m_driver,
                           pool)
-        m_driver._post_lb_resource.assert_called_once_with('pools', 'pool',
-                                                           req)
+        m_driver._post_lb_resource.assert_called_once_with(o_pool.Pool, req)
 
     def test_find_pool_by_listener(self):
         lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
@@ -612,7 +615,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
 
         ret = cls._create_member(m_driver, member)
         m_driver._post_lb_resource.assert_called_once_with(
-            'pools/%s/members' % member.pool_id, 'member', req)
+            o_mem.Member, req, pool_id=member.pool_id)
         for attr in member.obj_fields:
             self.assertEqual(getattr(member, attr),
                              getattr(ret, attr))
@@ -1046,8 +1049,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         m_driver._post_lb_resource.return_value = resp
 
         ret = cls._create_l7_policy(m_driver, l7_policy)
-        m_driver._post_lb_resource.assert_called_once_with('l7policies',
-                                                           'l7policy', req)
+        m_driver._post_lb_resource.assert_called_once_with(o_l7p.L7Policy, req)
         for attr in l7_policy.obj_fields:
             self.assertEqual(getattr(l7_policy, attr),
                              getattr(ret, attr))
@@ -1163,7 +1165,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
 
         ret = cls._create_l7_rule(m_driver, l7_rule)
         m_driver._post_lb_resource.assert_called_once_with(
-            'l7policies/%s/rules' % l7_rule.l7policy_id, 'rule', req)
+            o_l7r.L7Rule, req, l7policy_id=l7_rule.l7policy_id)
         for attr in l7_rule.obj_fields:
             self.assertEqual(getattr(l7_rule, attr),
                              getattr(ret, attr))
