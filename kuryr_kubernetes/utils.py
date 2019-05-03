@@ -48,14 +48,24 @@ subnet_caching_opts = [
     cfg.IntOpt('cache_time', default=3600),
 ]
 
+nodes_caching_opts = [
+    cfg.BoolOpt('caching', default=True),
+    cfg.IntOpt('cache_time', default=3600),
+]
+
 CONF.register_opts(subnet_caching_opts, "subnet_caching")
+CONF.register_opts(nodes_caching_opts, "nodes_caching")
 
 cache.configure(CONF)
 subnet_cache_region = cache.create_region()
 MEMOIZE = cache.get_memoization_decorator(
     CONF, subnet_cache_region, "subnet_caching")
-
 cache.configure_cache_region(CONF, subnet_cache_region)
+
+nodes_cache_region = cache.create_region()
+MEMOIZE_NODE = cache.get_memoization_decorator(
+    CONF, nodes_cache_region, "nodes_caching")
+cache.configure_cache_region(CONF, nodes_cache_region)
 
 
 def utf8_json_decoder(byte_data):
@@ -146,6 +156,25 @@ def get_leader_name():
         # NOTE(dulek): Assuming there's no leader when we can't contact leader
         #              elector container.
         return None
+
+
+@MEMOIZE_NODE
+def get_nodes_ips():
+    """Get the IPs of the trunk ports associated to the deployment."""
+    trunk_ips = []
+    neutron = clients.get_neutron_client()
+    tags = CONF.neutron_defaults.resource_tags
+    if tags:
+        ports = neutron.list_ports(status='ACTIVE',
+                                   tags=CONF.neutron_defaults.resource_tags)
+    else:
+        # NOTE(ltomasbo: if tags are not used, assume all the trunk ports are
+        # part of the kuryr deployment
+        ports = neutron.list_ports(status='ACTIVE')
+    for port in ports.get('ports'):
+        if port.get('trunk_details'):
+            trunk_ips.append(port['fixed_ips'][0]['ip_address'])
+    return trunk_ips
 
 
 @MEMOIZE

@@ -44,11 +44,14 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
 
     def get_subnets(self, pod, project_id):
         pod_namespace = pod['metadata']['namespace']
-        subnet_id = self._get_namespace_subnet(pod_namespace)
+        return self.get_namespace_subnet(pod_namespace)
 
+    def get_namespace_subnet(self, namespace, subnet_id=None):
+        if not subnet_id:
+            subnet_id = self._get_namespace_subnet_id(namespace)
         return {subnet_id: utils.get_subnet(subnet_id)}
 
-    def _get_namespace_subnet(self, namespace):
+    def _get_namespace_subnet_id(self, namespace):
         kubernetes = clients.get_kubernetes_client()
         try:
             ns = kubernetes.get('%s/namespaces/%s' % (constants.K8S_API_BASE,

@@ -137,3 +137,21 @@ the right pod-vif driver set.
 
 Note that if no annotation is set on a node, the default pod_vif_driver is
 used.
+
+Populate pools on subnets creation for namespace subnet driver
+--------------------------------------------------------------
+
+When the namespace subnet driver is used (either for namespace isolation or
+for network policies) a new subnet is created for each namespace. The ports
+associated to each namespace will therefore be on different pools. In order
+to prepopulate the pools associated to a newly created namespace (i.e.,
+subnet), the next handler needs to be enabled::
+
+  [kubernetes]
+  enabled_handlers=vif,lb,lbaasspec,namespace,*kuryrnet*
+
+
+This can be enabled at devstack deployment time to by adding the next to the
+local.conf::
+
+  KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,namespace,*kuryrnet*

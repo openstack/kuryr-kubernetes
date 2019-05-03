@@ -13,6 +13,14 @@ the next steps are needed:
     enabled_handlers=vif,lb,lbaasspec,namespace
 
 
+   Note that if you also want to enable prepopulation of ports pools upon new
+   namespace creation, you need to add the kuryrnet handler (more details on
+   :doc:`./ports-pool`)::
+
+    [kubernetes]
+    enabled_handlers=vif,lb,lbaasspec,namespace,kuryrnet
+
+
 2. Enable the namespace subnet driver by modifying the default
    pod_subnet_driver option at kuryr.conf::
 
@@ -45,7 +53,7 @@ the next steps are needed:
     pod_router = ROUTER_ID
 
 
-   Note if a new router is created, it must ensure the connectivity
+   Note that if a new router is created, it must ensure the connectivity
    requirements between pod, service and public subnets, as in the case for
    the default subnet driver.
 

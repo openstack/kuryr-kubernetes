@@ -9,6 +9,15 @@ handlers at kuryr.conf (further info on how to do this can be found  at
     [kubernetes]
     enabled_handlers=vif,lb,lbaasspec,policy,pod_label,namespace,kuryrnetpolicy
 
+
+Note that if you also want to enable prepopulation of ports pools upon new
+namespace creation, you need to add the kuryrnet handler (more details on
+:doc:`./ports-pool`)::
+
+    [kubernetes]
+    enabled_handlers=vif,lb,lbaasspec,policy,pod_label,namespace,kuryrnetpolicy,kuryrnet
+
+
 After that, enable also the security group drivers for policies::
 
     [kubernetes]
