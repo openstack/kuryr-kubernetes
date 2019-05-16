@@ -21,8 +21,10 @@ from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_log import log as logging
 
+from kuryr_kubernetes import clients
 from kuryr_kubernetes.cni.binding import base as b_base
 from kuryr_kubernetes import config
+from kuryr_kubernetes import constants
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes import utils
 
@@ -53,7 +55,7 @@ class VIFSriovDriver(object):
         c_ipdb = b_base.get_ipdb(netns)
 
         pf_names = self._get_host_pf_names(physnet)
-        vf_name, vf_index, pf = self._get_available_vf_info(pf_names)
+        vf_name, vf_index, pf, pci_info = self._get_available_vf_info(pf_names)
 
         if not vf_name:
             error_msg = "No free interfaces for physnet {} available".format(
@@ -75,11 +77,13 @@ class VIFSriovDriver(object):
             iface.mtu = vif.network.mtu
             iface.up()
 
+        self._save_pci_info(vif.id, pci_info)
+
     def disconnect(self, vif, ifname, netns, container_id):
         # NOTE(k.zaitsev): when netns is deleted the interface is
         # returned automatically to host netns. We may reset
         # it to all-zero state
-        pass
+        self._remove_pci_info(vif.id)
 
     def _get_host_pf_names(self, physnet):
         """Return a list of PFs, that belong to a physnet"""
@@ -120,9 +124,70 @@ class VIFSriovDriver(object):
                     self._release()
                     continue
                 vf_name = vf_names[0]
+                pci_info = self._get_pci_info(pf, vf_index)
                 LOG.debug("Aquiring vf %s of pf %s", vf_index, pf)
-                return vf_name, vf_index, pf
-        return None, None, None
+                return vf_name, vf_index, pf, pci_info
+        return None, None, None, None
+
+    def _get_pci_info(self, pf, vf_index):
+        pci_slot = ''
+        physnet = ''
+        pci_vendor_info = ''
+
+        vendor_path = '/sys/class/net/{}/device/virtfn{}/vendor'.format(
+            pf, vf_index)
+        with open(vendor_path) as vendor_file:
+            vendor_full = vendor_file.read()
+            vendor = vendor_full.split('x')[1].strip()
+        device_path = '/sys/class/net/{}/device/virtfn{}/device'.format(
+            pf, vf_index)
+        with open(device_path) as device_file:
+            device_full = device_file.read()
+            device = device_full.split('x')[1].strip()
+        pci_vendor_info = '{}:{}'.format(vendor, device)
+
+        vf_path = '/sys/class/net/{}/device/virtfn{}'.format(
+            pf, vf_index)
+        pci_slot_path = os.readlink(vf_path)
+        pci_slot = pci_slot_path.split('/')[1]
+
+        physnet = self._get_physnet_by_pf(pf)
+
+        return {'pci_slot': pci_slot,
+                'physical_network': physnet,
+                'pci_vendor_info': pci_vendor_info}
+
+    def _get_physnet_by_pf(self, desired_pf):
+        for physnet, pf_list in self._device_pf_mapping.items():
+            for pf in pf_list:
+                if pf == desired_pf:
+                    return physnet
+        LOG.exception("Unable to find physnet for pf %s", desired_pf)
+        raise
+
+    def _save_pci_info(self, neutron_port, port_pci_info):
+        k8s = clients.get_kubernetes_client()
+        annot_name = constants.K8S_ANNOTATION_NODE_PCI_DEVICE_INFO
+        annot_name = annot_name.replace('/', '~1')
+        annot_name = annot_name + '-' + neutron_port
+        LOG.info('annot_name = %s', annot_name)
+        nodename = utils.get_node_name()
+
+        LOG.info("Trying to annotate node %s with pci info %s",
+                 nodename, port_pci_info)
+        k8s.patch_node_annotations(nodename, annot_name, port_pci_info)
+
+    def _remove_pci_info(self, neutron_port):
+        k8s = clients.get_kubernetes_client()
+        annot_name = constants.K8S_ANNOTATION_NODE_PCI_DEVICE_INFO
+        annot_name = annot_name.replace('/', '~1')
+        annot_name = annot_name + '-' + neutron_port
+        LOG.info('annot_name = %s', annot_name)
+        nodename = utils.get_node_name()
+
+        LOG.info("Trying to delete pci info for port %s on node %s",
+                 neutron_port, nodename)
+        k8s.remove_node_annotations(nodename, annot_name)
 
     def _acquire(self, path):
         if self._lock and self._lock.acquired:
