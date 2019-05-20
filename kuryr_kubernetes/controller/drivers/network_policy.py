@@ -497,6 +497,11 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             elif allowed_resources or allow_all or selectors:
                 for resource in allowed_resources:
                     cidr, namespace = self._get_resource_details(resource)
+                    # NOTE(maysams): Skipping resource that do not have
+                    # an IP assigned. The security group rule creation
+                    # will be triggered again after the resource is running.
+                    if not cidr:
+                        continue
                     rule = driver_utils.create_security_group_rule_body(
                         sg_id, direction,
                         port_range_min=1,
