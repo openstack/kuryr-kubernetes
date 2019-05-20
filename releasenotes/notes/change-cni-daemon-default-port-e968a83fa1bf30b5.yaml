@@ -1,0 +1,8 @@
+---
+upgrade:
+  - |
+    kuryr-daemon used to listen on port 50036, but that's a port from local
+    range (on Ubuntu and RHEL default range is 32768-60999). This means that
+    there might have been a port conflict ("address already in use"). To avoid
+    that the default value of ``[cni_daemon]bind_address`` option was changed
+    to ``127.0.0.1:5036``.

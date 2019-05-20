@@ -231,7 +231,7 @@ Communication
 ~~~~~~~~~~~~~
 
 CNI Daemon Server is starting an HTTP server on a local network socket
-(``127.0.0.1:50036`` by default). Currently server is listening for 2 API
+(``127.0.0.1:5036`` by default). Currently server is listening for 2 API
 calls. Both calls load the ``CNIParameters`` from the body of the call (it is
 expected to be JSON).
 
