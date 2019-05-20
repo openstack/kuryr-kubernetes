@@ -118,16 +118,16 @@ def exponential_sleep(deadline, attempt, interval=DEFAULT_INTERVAL):
     if seconds_left <= 0:
         return 0
 
-    interval = random.randint(1, 2 ** attempt - 1) * DEFAULT_INTERVAL
+    to_sleep = random.randint(1, 2 ** attempt - 1) * interval
 
-    if interval > seconds_left:
-        interval = seconds_left
+    if to_sleep > seconds_left:
+        to_sleep = seconds_left
 
-    if interval < DEFAULT_INTERVAL:
-        interval = DEFAULT_INTERVAL
+    if to_sleep < interval:
+        to_sleep = interval
 
-    time.sleep(interval)
-    return interval
+    time.sleep(to_sleep)
+    return to_sleep
 
 
 def get_node_name():
