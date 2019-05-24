@@ -305,7 +305,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 matched_pods[container_port].update(pod_info)
             else:
                 matched_pods[container_port] = pod_info
-        if not allow_all and matched_pods:
+        if not allow_all and matched_pods and cidr:
             for container_port, pods in matched_pods.items():
                 sg_rule = driver_utils.create_security_group_rule_body(
                     sg_id, direction, container_port,
@@ -373,6 +373,11 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                                        direction, port, sg_rule_body_list):
         for resource in allowed_resources:
             cidr, ns = self._get_resource_details(resource)
+            # NOTE(maysams): Skipping resource that do not have
+            # an IP assigned. The security group rule creation
+            # will be triggered again after the resource is running.
+            if not cidr:
+                continue
             sg_rule = (
                 driver_utils.create_security_group_rule_body(
                     sg_id, direction, port.get('port'),
