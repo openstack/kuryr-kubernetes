@@ -121,6 +121,8 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         else:
             changed = False
             for ifname, vif in state.vifs.items():
+                if vif.plugin == constants.KURYR_VIF_TYPE_SRIOV:
+                    driver_utils.update_port_pci_info(pod, vif)
                 if not vif.active:
                     self._drv_vif_pool.activate_vif(pod, vif)
                     changed = True
