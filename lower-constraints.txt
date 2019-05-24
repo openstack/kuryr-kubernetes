@@ -87,7 +87,7 @@ pep8==1.5.7
 pika==0.10.0
 pika-pool==0.1.3
 prettytable==0.7.2
-protobuf==3.5.2
+protobuf==3.6.0
 psutil==5.4.3
 pycparser==2.18
 pyflakes==0.8.1
@@ -95,7 +95,7 @@ Pygments==2.2.0
 pyinotify==0.9.6
 pyparsing==2.2.0
 pyperclip==1.6.0
-pyroute2==0.5.1
+pyroute2==0.5.3
 python-dateutil==2.7.0
 python-editor==1.0.3
 python-keystoneclient==3.15.0

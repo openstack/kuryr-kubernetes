@@ -533,7 +533,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
             LOG.error('Error when creating %s: %s', resource.resource_key,
                       response.text)
             response.raise_for_status()
-        return response.json()[resource.resource_key]
+        response_dict = response.json()[resource.resource_key]
+        return resource(**response_dict)
 
     def _create_loadbalancer(self, loadbalancer):
         request = {
@@ -550,15 +551,14 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         response = self._post_lb_resource(o_lb.LoadBalancer, request)
 
-        loadbalancer.id = response['id']
+        loadbalancer.id = response.id
         loadbalancer.port_id = self._get_vip_port(loadbalancer).get("id")
         if (loadbalancer.provider is not None and
-                loadbalancer.provider != response['provider']):
+                loadbalancer.provider != response.provider):
             LOG.error("Request provider(%s) != Response provider(%s)",
-                      loadbalancer.provider,
-                      response['provider'])
+                      loadbalancer.provider, response.provider)
             return None
-        loadbalancer.provider = response['provider']
+        loadbalancer.provider = response.provider
         return loadbalancer
 
     def _find_loadbalancer(self, loadbalancer):
@@ -571,10 +571,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         try:
             os_lb = next(response)  # openstacksdk returns a generator
-            loadbalancer.id = os_lb['id']
+            loadbalancer.id = os_lb.id
             loadbalancer.port_id = self._get_vip_port(loadbalancer).get("id")
-            loadbalancer.provider = os_lb['provider']
-            if os_lb['provisioning_status'] == 'ERROR':
+            loadbalancer.provider = os_lb.provider
+            if os_lb.provisioning_status == 'ERROR':
                 self.release_loadbalancer(loadbalancer)
                 return None
         except (KeyError, StopIteration):
@@ -592,7 +592,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         }
         self._add_tags('listener', request)
         response = self._post_lb_resource(o_lis.Listener, request)
-        listener.id = response['id']
+        listener.id = response.id
         return listener
 
     def _find_listener(self, listener):
@@ -606,7 +606,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         try:
             os_listener = next(response)
-            listener.id = os_listener['id']
+            listener.id = os_listener.id
         except (KeyError, StopIteration):
             return None
 
@@ -625,7 +625,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         }
         self._add_tags('pool', request)
         response = self._post_lb_resource(o_pool.Pool, request)
-        pool.id = response['id']
+        pool.id = response.id
         return pool
 
     def _find_pool(self, pool, by_listener=True):
@@ -639,11 +639,11 @@ class LBaaSv2Driver(base.LBaaSDriver):
         try:
             if by_listener:
                 pools = [p for p in response if pool.listener_id
-                         in {l['id'] for l in p['listeners']}]
+                         in {l.id for l in p.listeners}]
             else:
-                pools = [p for p in response if pool.name == p['name']]
+                pools = [p for p in response if pool.name == p.name]
 
-            pool.id = pools[0]['id']
+            pool.id = pools[0].id
         except (KeyError, IndexError):
             return None
         return pool
@@ -662,7 +662,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         self._add_tags('member', request)
         response = self._post_lb_resource(o_mem.Member, request,
                                           pool_id=member.pool_id)
-        member.id = response['id']
+        member.id = response.id
         return member
 
     def _find_member(self, member):
@@ -676,7 +676,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             protocol_port=member.port)
 
         try:
-            member.id = next(response)['id']
+            member.id = next(response).id
         except (KeyError, StopIteration):
             return None
 
@@ -722,7 +722,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
                     return
                 except (o_exc.ConflictException, o_exc.BadRequestException):
                     self._wait_for_provisioning(loadbalancer, remaining)
-            except o_exc.ResourceNotFound:
+            except o_exc.NotFoundException:
                 return
 
         raise k_exc.ResourceNotReady(obj)
@@ -733,7 +733,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         for remaining in self._provisioning_timer(timeout, interval):
             response = lbaas.get_load_balancer(loadbalancer.id)
-            status = response['provisioning_status']
+            status = response.provisioning_status
             if status == 'ACTIVE':
                 LOG.debug("Provisioning complete for %(lb)s", {
                     'lb': loadbalancer})
@@ -805,14 +805,14 @@ class LBaaSv2Driver(base.LBaaSDriver):
             return None
 
         return obj_lbaas.LBaaSLoadBalancer(
-            id=response['id'],
-            port_id=response['vip_port_id'],
-            name=response['name'],
-            project_id=response['project_id'],
-            subnet_id=response['vip_subnet_id'],
-            ip=response['vip_address'],
+            id=response.id,
+            port_id=response.vip_port_id,
+            name=response.name,
+            project_id=response.project_id,
+            subnet_id=response.vip_subnet_id,
+            ip=response.vip_address,
             security_groups=None,
-            provider=response['provider'])
+            provider=response.provider)
 
     def get_pool_by_name(self, pool_name, project_id):
         lbaas = clients.get_loadbalancer_client()
@@ -825,14 +825,14 @@ class LBaaSv2Driver(base.LBaaSDriver):
         for entry in pools:
             if not entry:
                 continue
-            if entry['name'] == pool_name:
-                listener_id = (entry['listeners'][0]['id'] if
-                               entry['listeners'] else None)
+            if entry.name == pool_name:
+                listener_id = (entry.listeners[0].id if
+                               entry.listeners else None)
                 return obj_lbaas.LBaaSPool(
-                    name=entry['name'], project_id=entry['project_id'],
-                    loadbalancer_id=entry['loadbalancers'][0]['id'],
+                    name=entry.name, project_id=entry.project_id,
+                    loadbalancer_id=entry.loadbalancers[0].id,
                     listener_id=listener_id,
-                    protocol=entry['protocol'], id=entry['id'])
+                    protocol=entry.protocol, id=entry.id)
         return None
 
     def ensure_l7_policy(self, namespace, route_name,
@@ -875,7 +875,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             redirect_pool_id=l7_policy.redirect_pool_id,
             listener_id=l7_policy.listener_id)
         try:
-            l7_policy.id = next(response)['id']
+            l7_policy.id = next(response).id
         except (KeyError, StopIteration):
             return None
         return l7_policy
@@ -910,7 +910,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             value=l7_rule.value,
             compare_type=l7_rule.compare_type)
         try:
-            l7_rule.id = next(response)['id']
+            l7_rule.id = next(response).id
         except (KeyError, StopIteration):
             return None
         return l7_rule
@@ -937,8 +937,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
         for entry in l7policy_list:
             if not entry:
                 continue
-            if (entry['redirect_pool_id'] == pool.id and
-                    entry['id'] != l7policy.id):
+            if (entry.redirect_pool_id == pool.id and
+                    entry.id != l7policy.id):
                 return True
         return False
 
