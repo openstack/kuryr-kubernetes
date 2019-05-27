@@ -397,15 +397,18 @@ def tag_neutron_resources(resource, res_ids):
                             exc_info=True)
 
 
-def get_services(namespace):
+def get_services(namespace=None):
     kubernetes = clients.get_kubernetes_client()
     try:
-        services = kubernetes.get(
-            '{}/namespaces/{}/services'.format(constants.K8S_API_BASE,
-                                               namespace))
+        if namespace:
+            services = kubernetes.get(
+                '{}/namespaces/{}/services'.format(constants.K8S_API_BASE,
+                                                   namespace))
+        else:
+            services = kubernetes.get(
+                '{}/services'.format(constants.K8S_API_BASE))
     except k_exc.K8sClientException:
-        LOG.exception('Exception when getting K8s services in '
-                      'namespace %s', namespace)
+        LOG.exception('Exception when getting K8s services.')
         raise
     return services
 
