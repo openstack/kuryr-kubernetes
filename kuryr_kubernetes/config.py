@@ -250,6 +250,9 @@ nested_vif_driver_opts = [
 DEFAULT_PHYSNET_SUBNET_MAPPINGS = {}
 DEFAULT_DEVICE_MAPPINGS = []
 sriov_opts = [
+    cfg.StrOpt('kubelet_root_dir',
+               help=_("The root directory of the Kubelet daemon"),
+               default='/var/lib/kubelet'),
     cfg.DictOpt('default_physnet_subnets',
                 help=_("A mapping of default subnets for certain physnets "
                        "in a form of physnet-name:<SUBNET-ID>"),
