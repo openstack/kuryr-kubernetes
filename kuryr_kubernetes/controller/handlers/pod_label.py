@@ -66,7 +66,7 @@ class PodLabelHandler(k8s_base.ResourceEventHandler):
         self._drv_vif_pool.update_vif_sgs(pod, security_groups)
         self._set_pod_labels(pod, current_pod_labels)
 
-        services = driver_utils.get_services(pod['metadata']['namespace'])
+        services = driver_utils.get_services()
         self._update_services(services, crd_pod_selectors, project_id)
 
     def _get_pod_labels(self, pod):
