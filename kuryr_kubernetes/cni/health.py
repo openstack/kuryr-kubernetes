@@ -131,7 +131,7 @@ class CNIHealthServer(object):
                 a.release()
         except Exception:
             error_message = 'IPDB not in working order.'
-            LOG.debug(error_message)
+            LOG.error(error_message)
             return error_message, httplib.INTERNAL_SERVER_ERROR, self.headers
 
         if CONF.cni_health_server.max_memory_usage != no_limit:
@@ -139,13 +139,13 @@ class CNIHealthServer(object):
 
             if mem_usage > CONF.cni_health_server.max_memory_usage:
                 err_message = 'CNI daemon exceeded maximum memory usage.'
-                LOG.debug(err_message)
+                LOG.error(err_message)
                 return err_message, httplib.INTERNAL_SERVER_ERROR, self.headers
 
         with self._components_healthy.get_lock():
             if not self._components_healthy.value:
                 err_message = 'Kuryr CNI components not healthy.'
-                LOG.debug(err_message)
+                LOG.error(err_message)
                 return err_message, httplib.INTERNAL_SERVER_ERROR, self.headers
 
         LOG.debug('Kuryr CNI Liveness verified.')
