@@ -28,7 +28,6 @@ K8S_OBJ_POD = 'Pod'
 K8S_OBJ_SERVICE = 'Service'
 K8S_OBJ_ENDPOINTS = 'Endpoints'
 K8S_OBJ_POLICY = 'NetworkPolicy'
-
 K8S_OBJ_KURYRNET = 'KuryrNet'
 K8S_OBJ_KURYRNETPOLICY = 'KuryrNetPolicy'
 

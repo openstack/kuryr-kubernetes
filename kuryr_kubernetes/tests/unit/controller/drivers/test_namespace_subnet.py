@@ -67,7 +67,6 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
 
     @mock.patch('kuryr_kubernetes.utils.get_subnet')
     def test_get_subnets(self, m_get_subnet):
-        project_id = mock.sentinel.project_id
         pod = get_pod_obj()
         pod_namespace = pod['metadata']['namespace']
         subnet_id = mock.sentinel.subnet_id
@@ -76,34 +75,35 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         cls = subnet_drv.NamespacePodSubnetDriver
         m_driver = mock.MagicMock(spec=cls)
 
-        m_driver._get_namespace_subnet.return_value = subnet_id
+        m_driver._get_namespace_subnet_id.return_value = subnet_id
         m_get_subnet.return_value = subnet
 
-        subnets = cls.get_subnets(m_driver, pod, project_id)
+        subnets = cls.get_namespace_subnet(m_driver, pod_namespace)
 
         self.assertEqual({subnet_id: subnet}, subnets)
-        m_driver._get_namespace_subnet.assert_called_once_with(pod_namespace)
+        m_driver._get_namespace_subnet_id.assert_called_once_with(
+            pod_namespace)
         m_get_subnet.assert_called_once_with(subnet_id)
 
     @mock.patch('kuryr_kubernetes.utils.get_subnet')
     def test_get_subnets_namespace_not_ready(self, m_get_subnet):
-        project_id = mock.sentinel.project_id
         pod = get_pod_obj()
         pod_namespace = pod['metadata']['namespace']
 
         cls = subnet_drv.NamespacePodSubnetDriver
         m_driver = mock.MagicMock(spec=cls)
 
-        m_driver._get_namespace_subnet.side_effect = k_exc.ResourceNotReady(
+        m_driver._get_namespace_subnet_id.side_effect = (
+            k_exc.ResourceNotReady(pod_namespace))
+
+        self.assertRaises(k_exc.ResourceNotReady, cls.get_namespace_subnet,
+                          m_driver, pod_namespace)
+
+        m_driver._get_namespace_subnet_id.assert_called_once_with(
             pod_namespace)
-
-        self.assertRaises(k_exc.ResourceNotReady, cls.get_subnets, m_driver,
-                          pod, project_id)
-
-        m_driver._get_namespace_subnet.assert_called_once_with(pod_namespace)
         m_get_subnet.assert_not_called()
 
-    def test__get_namespace_subnets(self):
+    def test__get_namespace_subnet_id(self):
         cls = subnet_drv.NamespacePodSubnetDriver
         m_driver = mock.MagicMock(spec=cls)
 
@@ -119,11 +119,11 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         kubernetes = self.useFixture(k_fix.MockK8sClient()).client
         kubernetes.get.side_effect = [ns, crd]
 
-        subnet_id_resp = cls._get_namespace_subnet(m_driver, namespace)
+        subnet_id_resp = cls._get_namespace_subnet_id(m_driver, namespace)
         kubernetes.get.assert_called()
         self.assertEqual(subnet_id, subnet_id_resp)
 
-    def test__get_namespace_subnets_get_namespace_exception(self):
+    def test__get_namespace_subnet_id_get_namespace_exception(self):
         cls = subnet_drv.NamespacePodSubnetDriver
         m_driver = mock.MagicMock(spec=cls)
 
@@ -132,11 +132,11 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         kubernetes = self.useFixture(k_fix.MockK8sClient()).client
         kubernetes.get.side_effect = k_exc.K8sClientException
 
-        self.assertRaises(k_exc.ResourceNotReady, cls._get_namespace_subnet,
-                          m_driver, namespace)
+        self.assertRaises(k_exc.ResourceNotReady,
+                          cls._get_namespace_subnet_id, m_driver, namespace)
         kubernetes.get.assert_called_once()
 
-    def test__get_namespace_subnets_missing_annotation(self):
+    def test__get_namespace_subnet_id_missing_annotation(self):
         cls = subnet_drv.NamespacePodSubnetDriver
         m_driver = mock.MagicMock(spec=cls)
 
@@ -153,11 +153,11 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         kubernetes = self.useFixture(k_fix.MockK8sClient()).client
         kubernetes.get.side_effect = [ns, crd]
 
-        self.assertRaises(k_exc.ResourceNotReady, cls._get_namespace_subnet,
-                          m_driver, namespace)
+        self.assertRaises(k_exc.ResourceNotReady,
+                          cls._get_namespace_subnet_id, m_driver, namespace)
         kubernetes.get.assert_called_once()
 
-    def test__get_namespace_subnets_get_crd_exception(self):
+    def test__get_namespace_subnet_id_get_crd_exception(self):
         cls = subnet_drv.NamespacePodSubnetDriver
         m_driver = mock.MagicMock(spec=cls)
 
@@ -167,8 +167,8 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         kubernetes = self.useFixture(k_fix.MockK8sClient()).client
         kubernetes.get.side_effect = [ns, k_exc.K8sClientException]
 
-        self.assertRaises(k_exc.K8sClientException, cls._get_namespace_subnet,
-                          m_driver, namespace)
+        self.assertRaises(k_exc.K8sClientException,
+                          cls._get_namespace_subnet_id, m_driver, namespace)
         kubernetes.get.assert_called()
 
     def test_delete_namespace_subnet(self):

@@ -828,14 +828,28 @@ class NestedVIFPool(BaseVIFPool):
                             LOG.debug('Port %s is not in the available ports '
                                       'pool.', kuryr_subport['id'])
 
+    @lockutils.synchronized('return_to_pool_nested')
+    def populate_pool(self, trunk_ip, project_id, subnets, security_groups,
+                      num_ports=None):
+        if not hasattr(self, '_available_ports_pools'):
+            LOG.info("Kuryr-controller not yet ready to populate pools.")
+            raise exceptions.ResourceNotReady(trunk_ip)
+        pool_key = self._get_pool_key(trunk_ip, project_id, None, subnets)
+        pools = self._available_ports_pools.get(pool_key)
+        if not pools:
+            self.force_populate_pool(trunk_ip, project_id, subnets,
+                                     security_groups, num_ports)
+
     def force_populate_pool(self, trunk_ip, project_id, subnets,
-                            security_groups, num_ports):
+                            security_groups, num_ports=None):
         """Create a given amount of subports at a given trunk port.
 
         This function creates a given amount of subports and attaches them to
         the specified trunk, adding them to the related subports pool
         regardless of the amount of subports already available in the pool.
         """
+        if not num_ports:
+            num_ports = oslo_cfg.CONF.vif_pool.ports_pool_batch
         vifs = self._drv_vif.request_vifs(
             pod=[],
             project_id=project_id,
@@ -998,3 +1012,8 @@ class MultiVIFPool(base.VIFPoolDriver):
                 vif_pool_mapping[pod_driver] = pool_driver
 
         return vif_pool_mapping
+
+    def populate_pool(self, node_ip, project_id, subnets, sg_id):
+        for vif_drv in self._vif_drvs.values():
+            if str(vif_drv) == 'NestedVIFPool':
+                vif_drv.populate_pool(node_ip, project_id, subnets, sg_id)
