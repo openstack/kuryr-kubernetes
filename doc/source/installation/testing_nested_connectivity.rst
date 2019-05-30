@@ -35,7 +35,7 @@ respective loadbalancer at the undercloud::
 	svc/kubernetes   10.0.0.129   <none>        443/TCP   45m
 
 	(UNDERCLOUD)
-	$ neutron lbaas-loadbalancer-list
+	$ openstack loadbalancer list
 	+--------------------------------------+--------------------+----------------------------------+-------------+---------------------+----------+
 	| id                                   | name               | tenant_id                        | vip_address | provisioning_status | provider |
 	+--------------------------------------+--------------------+----------------------------------+-------------+---------------------+----------+
