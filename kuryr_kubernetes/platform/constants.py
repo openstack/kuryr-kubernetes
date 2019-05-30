@@ -13,5 +13,5 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-OCP_API_BASE = '/oapi/v1'
+OCP_API_BASE = '/apis/route.openshift.io/v1'
 OCP_OBJ_ROUTE = 'Route'
