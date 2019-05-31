@@ -120,21 +120,22 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                                                    security_groups)
         else:
             changed = False
-            for ifname, vif in state.vifs.items():
-                if vif.plugin == constants.KURYR_VIF_TYPE_SRIOV:
-                    driver_utils.update_port_pci_info(pod, vif)
-                if not vif.active:
-                    self._drv_vif_pool.activate_vif(pod, vif)
-                    changed = True
-            if changed:
-                self._set_pod_state(pod, state)
-                crd_pod_selectors = self._drv_sg.create_sg_rules(pod)
-
-                if self._is_network_policy_enabled():
-                    services = driver_utils.get_services(
-                        pod['metadata']['namespace'])
-                    self._update_services(
-                        services, crd_pod_selectors, project_id)
+            try:
+                for ifname, vif in state.vifs.items():
+                    if vif.plugin == constants.KURYR_VIF_TYPE_SRIOV:
+                        driver_utils.update_port_pci_info(pod, vif)
+                    if not vif.active:
+                        self._drv_vif_pool.activate_vif(pod, vif)
+                        changed = True
+            finally:
+                if changed:
+                    self._set_pod_state(pod, state)
+                    if self._is_network_policy_enabled():
+                        crd_pod_selectors = self._drv_sg.create_sg_rules(pod)
+                        services = driver_utils.get_services(
+                            pod['metadata']['namespace'])
+                        self._update_services(
+                            services, crd_pod_selectors, project_id)
 
     def on_deleted(self, pod):
         if driver_utils.is_host_network(pod):
