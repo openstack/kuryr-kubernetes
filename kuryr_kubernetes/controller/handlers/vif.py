@@ -132,8 +132,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                     self._set_pod_state(pod, state)
                     if self._is_network_policy_enabled():
                         crd_pod_selectors = self._drv_sg.create_sg_rules(pod)
-                        services = driver_utils.get_services(
-                            pod['metadata']['namespace'])
+                        services = driver_utils.get_services()
                         self._update_services(
                             services, crd_pod_selectors, project_id)
 
@@ -141,7 +140,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         if driver_utils.is_host_network(pod):
             return
 
-        services = driver_utils.get_services(pod['metadata']['namespace'])
+        services = driver_utils.get_services()
         project_id = self._drv_project.get_project(pod)
         crd_pod_selectors = self._drv_sg.delete_sg_rules(pod)
         try:
