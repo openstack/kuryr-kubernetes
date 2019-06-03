@@ -2,6 +2,10 @@
 // by removing the 'gogoproto' dependencies.
 // To regenerate api_pb2.py and api_pb2_grpc.py use:
 //    python -m grpc_tools.protoc -I./  --python_out=. --grpc_python_out=. kuryr_kubernetes/pod_resources/api.proto
+//
+// Important: Version of 'protoc' compiler should be equal to 'protobuf'
+//            version specified in lower-constraints.txt.
+//            Check: 'python -m grpc_tools.protoc --version'.
 
 syntax = 'proto3';
 
