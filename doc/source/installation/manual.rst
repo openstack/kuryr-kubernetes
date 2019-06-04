@@ -73,7 +73,7 @@ Neutron-LBaaSv2):
 
     openstack security group create --project k8s_cluster_project \
         service_pod_access_sg
-    openstack --project k8s_cluster_project security group rule create \
+    openstack security group rule create --project k8s_cluster_project \
         --remote-ip cidr_of_service_subnet --ethertype IPv4 --protocol tcp \
         service_pod_access_sg
 
@@ -87,7 +87,7 @@ Alternatively, to support Octavia L2 mode:
 
     openstack security group create --project k8s_cluster_project \
         octavia_pod_access_sg
-    openstack --project k8s_cluster_project security group rule create \
+    openstack security group rule create --project k8s_cluster_project \
         --remote-ip cidr_of_pod_subnet --ethertype IPv4 --protocol tcp \
         octavia_pod_access_sg
 
