@@ -100,7 +100,8 @@ class TestOcpRouteHandler(test_base.TestCase):
 
     def test_get_endpoints_link_by_route(self):
         m_handler = mock.Mock(spec=h_route.OcpRouteHandler)
-        route_link = '/oapi/v1/namespaces/default/routes/my_route'
+        route_link = (
+            '/apis/route.openshift.io/v1/namespaces/default/routes/my_route')
         ep_name = 'my_endpoint'
         expected_ep_link = '/api/v1/namespaces/default/endpoints/my_endpoint'
         ret_ep_path = h_route.OcpRouteHandler._get_endpoints_link_by_route(
