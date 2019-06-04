@@ -85,8 +85,7 @@ def _create_sg_rules(crd, pod, pod_selector, rule_block,
 
 
 def _parse_selectors_on_pod(crd, pod, pod_selector, namespace_selector,
-                            rule_block, crd_rules, direction):
-    matched = False
+                            rule_block, crd_rules, direction, matched):
     pod_namespace = pod['metadata']['namespace']
     pod_namespace_labels = _get_namespace_labels(pod_namespace)
     policy_namespace = crd['metadata']['namespace']
@@ -111,11 +110,10 @@ def _parse_selectors_on_pod(crd, pod, pod_selector, namespace_selector,
 
 def _parse_selectors_on_namespace(crd, direction, pod_selector,
                                   ns_selector, rule_block, crd_rules,
-                                  namespace):
+                                  namespace, matched):
     ns_name = namespace['metadata'].get('name')
     ns_labels = namespace['metadata'].get('labels')
     sg_id = crd['spec']['securityGroupId']
-    matched = False
 
     if (ns_selector and ns_labels and
             driver_utils.match_selector(ns_selector, ns_labels)):
@@ -168,11 +166,11 @@ def _parse_rules(direction, crd, pod=None, namespace=None):
             if pod:
                 matched, crd_rules = _parse_selectors_on_pod(
                     crd, pod, pod_selector, namespace_selector,
-                    rule_block, crd_rules, direction)
+                    rule_block, crd_rules, direction, matched)
             elif namespace:
                 matched, crd_rules = _parse_selectors_on_namespace(
                     crd, direction, pod_selector, namespace_selector,
-                    rule_block, crd_rules, namespace)
+                    rule_block, crd_rules, namespace, matched)
 
     return matched, crd_rules
 

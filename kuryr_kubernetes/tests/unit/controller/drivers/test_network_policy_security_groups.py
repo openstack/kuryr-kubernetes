@@ -658,3 +658,40 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
 
         self.assertEqual(matched, True)
         self.assertEqual(rules, [get_sg_rule()])
+
+    @mock.patch('kuryr_kubernetes.controller.drivers.'
+                'network_policy_security_groups._parse_selectors_on_pod')
+    def test__parse_rules_multiple_selectors(self, m_parse_selectors_on_pod):
+        no_selector = None
+        matched_selector = True
+        pod = mock.sentinel.pod
+        final_crd_rules = [mock.sentinel.crd_rules]
+        m_parse_selectors_on_pod.side_effect = [
+            (matched_selector, final_crd_rules)]*2
+
+        initial_crd_rules = []
+        direction = "ingress"
+        pod_selector = mock.sentinel.pod_selector
+        namespace_selector = mock.sentinel.namespace_selector
+        rule_block = {'from': [{'podSelector': pod_selector},
+                      {'namespaceSelector': namespace_selector}]}
+        crd = {"spec": {
+               "ingressSgRules": initial_crd_rules,
+               "networkpolicy_spec": {
+                   "ingress": [rule_block],
+                   "policyTypes": [
+                       "Ingress"
+                   ]}, }}
+
+        matched, rules = network_policy_security_groups._parse_rules(
+            direction, crd, pod=pod)
+
+        calls = [mock.call(crd, pod, pod_selector, no_selector, rule_block,
+                           initial_crd_rules, direction, not matched_selector),
+                 mock.call(crd, pod, no_selector, namespace_selector,
+                           rule_block, final_crd_rules, direction,
+                           matched_selector)]
+        m_parse_selectors_on_pod.assert_has_calls(calls)
+
+        self.assertEqual(matched, matched_selector)
+        self.assertEqual(rules, final_crd_rules)
