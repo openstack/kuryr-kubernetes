@@ -1,0 +1,2 @@
+This is golang part of Kuryr, that is the CNI plugin that gets injected into
+the host.
