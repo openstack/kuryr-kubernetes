@@ -1,7 +1,7 @@
 FROM centos:7
 LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redhat.com>"
 
-ARG UPPER_CONSTRAINTS_FILE="https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt"
+ARG UPPER_CONSTRAINTS_FILE="https://opendev.org/openstack/requirements/raw/branch/master/upper-constraints.txt"
 ARG OSLO_LOCK_PATH=/var/kuryr-lock
 
 RUN yum install -y epel-release https://rdoproject.org/repos/rdo-release.rpm \
