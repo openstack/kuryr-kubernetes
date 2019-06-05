@@ -47,7 +47,7 @@ cache.configure_cache_region(oslo_cfg.CONF, namespace_handler_cache_region)
 
 class NamespaceHandler(k8s_base.ResourceEventHandler):
     OBJECT_KIND = constants.K8S_OBJ_NAMESPACE
-    OBJECT_WATCH_PATH = "%s/%s" % (constants.K8S_API_BASE, "namespaces")
+    OBJECT_WATCH_PATH = constants.K8S_API_NAMESPACES
 
     def __init__(self):
         super(NamespaceHandler, self).__init__()
