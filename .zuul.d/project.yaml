@@ -19,6 +19,7 @@
         - kuryr-kubernetes-tempest
         - kuryr-kubernetes-tempest-openshift
         - kuryr-kubernetes-tempest-containerized
+        - kuryr-kubernetes-tempest-containerized-lower-constraints
         - kuryr-kubernetes-tempest-containerized-ovn
         - kuryr-kubernetes-tempest-py36
         - kuryr-kubernetes-tempest-containerized-py36

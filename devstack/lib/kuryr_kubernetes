@@ -324,13 +324,11 @@ EOF
 #       the local docker registry as kuryr/controller:latest and
 #       kuryr/cni:latest respectively
 function build_kuryr_containers() {
-    local cni_build_args
-    local cni_daemon
+    local build_args
     local build_dir
     local use_py3
     local py_suffix
 
-    cni_daemon=$1
     build_dir="${DEST}/kuryr-kubernetes"
     pushd "$build_dir"
 
@@ -339,8 +337,9 @@ function build_kuryr_containers() {
         py_suffix="_py3"
     fi
 
-    if [[ "$cni_daemon" == "False" ]]; then
-        cni_build_args="--build-arg CNI_DAEMON=False"
+    KURYR_CONTAINERS_USE_LOWER_CONSTRAINTS=$(trueorfalse False KURYR_CONTAINERS_USE_LOWER_CONSTRAINTS)
+    if [[ "$KURYR_CONTAINERS_USE_LOWER_CONSTRAINTS" == "True" ]]; then
+        build_args="--build-arg UPPER_CONSTRAINTS_FILE=/opt/kuryr-kubernetes/lower-constraints.txt"
     fi
 
     # Build images
@@ -351,8 +350,8 @@ function build_kuryr_containers() {
         sudo buildah bud -t docker.io/kuryr/controller -f controller${py_suffix}.Dockerfile .
         sudo buildah bud -t docker.io/kuryr/cni -f cni${py_suffix}.Dockerfile .
     else
-        container_runtime build -t kuryr/controller -f controller${py_suffix}.Dockerfile  .
-        container_runtime build -t kuryr/cni -f cni${py_suffix}.Dockerfile ${cni_build_args} .
+        container_runtime build -t kuryr/controller -f controller${py_suffix}.Dockerfile ${build_args}  .
+        container_runtime build -t kuryr/cni -f cni${py_suffix}.Dockerfile ${build_args} .
     fi
     popd
 }
