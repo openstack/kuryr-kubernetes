@@ -44,7 +44,7 @@ LOG = logging.getLogger(__name__)
 # Moved out from neutron_default group
 vif_pool_driver_opts = [
     oslo_cfg.IntOpt('ports_pool_max',
-                    help=_("Set a maximun amount of ports per pool. "
+                    help=_("Set a maximum amount of ports per pool. "
                            "0 to disable"),
                     default=0),
     oslo_cfg.IntOpt('ports_pool_min',
@@ -54,7 +54,7 @@ vif_pool_driver_opts = [
                     help=_("Number of ports to be created in a bulk request"),
                     default=10),
     oslo_cfg.IntOpt('ports_pool_update_frequency',
-                    help=_("Minimun interval (in seconds) "
+                    help=_("Minimum interval (in seconds) "
                            "between pool updates"),
                     default=20),
     oslo_cfg.DictOpt('pools_vif_drivers',
@@ -446,8 +446,8 @@ class NeutronVIFPool(BaseVIFPool):
         name to available_port if the port_debug option is enabled.
         Then the port_id is included in the dict with the available_ports.
 
-        If a maximun number of port per pool is set, the port will be
-        deleted if the maximun has been already reached.
+        If a maximum number of ports per pool is set, the port will be
+        deleted if the maximum has been already reached.
         """
         while True:
             eventlet.sleep(oslo_cfg.CONF.vif_pool.ports_pool_update_frequency)
@@ -667,8 +667,8 @@ class NestedVIFPool(BaseVIFPool):
         name to available_port if the port_debug option is enabled.
         Then the port_id is included in the dict with the available_ports.
 
-        If a maximun number of ports per pool is set, the port will be
-        deleted if the maximun has been already reached.
+        If a maximum number of ports per pool is set, the port will be
+        deleted if the maximum has been already reached.
         """
         while True:
             eventlet.sleep(oslo_cfg.CONF.vif_pool.ports_pool_update_frequency)
