@@ -35,7 +35,7 @@ daemon_opts = [
     cfg.StrOpt('bind_address',
                help=_('Bind address for CNI daemon HTTP server. It is '
                       'recommened to allow only local connections.'),
-               default='127.0.0.1:50036'),
+               default='127.0.0.1:5036'),
     cfg.IntOpt('worker_num',
                help=_('Maximum number of processes that will be spawned to '
                       'process requests from CNI driver.'),
