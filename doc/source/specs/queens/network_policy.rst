@@ -151,7 +151,135 @@ traffic from the selected namespaces.
 Port, protocol
 ##############
 
-This can be translated to port and protocol in security-group-rule.
+A port can be defined as a number or a name. When defined as a number, it's directly
+translated to port on a protocol in security group rule. However, when defined with
+a name, the container pods' name needs to be verified, and in case of matching the
+named port it's translate to a security group rule with the port number of
+the named port on a determined protocol.
+
+The choice of which pods to select to check the containers, depends on the direction
+of the rule being applied. In case of a ingress rule, all the pods selected by
+NetworkPolicySpec's podSelector are verified, in other words, the pods which the
+Network Policy is applied. For a egress rule, the pods selected
+by the NetworkPolicyEgressRule's selector are verified.
+
+To keep track of the pods that have container(s) matching a named port,
+a new field, 'remote_ip_prefixes', needs to be added to the security group rule of the
+KuryrNetPolicy CRD, containing the IP and the namespace of the affected resources.
+This way, the process of creating, deleting or updating a security group rule
+on pod events is facilitated.
+
+Lets assume the following pod and network policy are created
+(based on Kubernetes Upstream e2e tests [11]_):
+
+  .. code-block:: yaml
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: server
+      labels:
+        pod-name: server
+    spec:
+        containers:
+        - env:
+          - name: SERVE_PORT_80
+            value: foo
+          image: gcr.io/kubernetes-e2e-test-images/porter:1.0
+          imagePullPolicy: IfNotPresent
+          name: server-container-80
+          ports:
+          - containerPort: 80
+            name: serve-80
+            protocol: TCP
+        - env:
+          - name: SERVE_PORT_81
+            value: foo
+          image: gcr.io/kubernetes-e2e-test-images/porter:1.0
+          imagePullPolicy: IfNotPresent
+          name: server-container-81
+          ports:
+          - containerPort: 81
+            name: serve-81
+            protocol: TCP
+
+    ---
+
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: allow-client-a-via-named-port-ingress-rule
+      namespace: default
+    spec:
+      podSelector:
+        matchLabels:
+          pod-name: server
+      policyTypes:
+      - Ingress
+      ingress:
+      - ports:
+        - protocol: TCP
+          port: serve-80
+
+The following Custom Resources Definition is generated containing
+all the Neutron resources created to ensure the policy is enforced.
+Note that a 'remote_ip_prefixes' is added to keep track of the pod
+that matched the named port.
+
+  .. code-block:: yaml
+
+    apiVersion: openstack.org/v1
+    kind: KuryrNetPolicy
+    metadata:
+      annotations:
+        networkpolicy_name: allow-client-a-via-named-port-ingress-rule
+        networkpolicy_namespace: default
+        networkpolicy_uid: 65d54bbb-70d5-11e9-9986-fa163e6aa097
+      creationTimestamp: "2019-05-07T14:35:46Z"
+      generation: 2
+      name: np-allow-client-a-via-named-port-ingress-rule
+      namespace: default
+      resourceVersion: "66522"
+      selfLink: /apis/openstack.org/v1/namespaces/default/kuryrnetpolicies/np-allow-client-a-via-named-port-ingress-rule
+      uid: 66eee462-70d5-11e9-9986-fa163e6aa097
+    spec:
+      egressSgRules:
+      - security_group_rule:
+          description: Kuryr-Kubernetes NetPolicy SG rule
+          direction: egress
+          ethertype: IPv4
+          id: e19eefd9-c543-44b8-b933-4a82f0c300b9
+          port_range_max: 65535
+          port_range_min: 1
+          protocol: tcp
+          security_group_id: f4b881ae-ce8f-4587-84ef-9d2867d00aec
+      ingressSgRules:
+      - remote_ip_prefixes:
+          "10.0.0.231:": default
+        security_group_rule:
+          description: Kuryr-Kubernetes NetPolicy SG rule
+          direction: ingress
+          ethertype: IPv4
+          id: f61ab507-cf8c-4720-9a70-c83505bc430f
+          port_range_max: 80
+          port_range_min: 80
+          protocol: tcp
+          security_group_id: f4b881ae-ce8f-4587-84ef-9d2867d00aec
+      networkpolicy_spec:
+        ingress:
+        - ports:
+          - port: serve-80
+            protocol: TCP
+        podSelector:
+          matchLabels:
+            pod-name: server
+        policyTypes:
+        - Ingress
+      podSelector:
+        matchLabels:
+          pod-name: server
+      securityGroupId: f4b881ae-ce8f-4587-84ef-9d2867d00aec
+      securityGroupName: sg-allow-client-a-via-named-port-ingress-rule
 
 Mix of ports and peer
 #####################
@@ -483,3 +611,4 @@ References
 .. [8] https://kubernetes.io/docs/concepts/services-networking/network-policies/#the-networkpolicy-resource
 .. [9] https://github.com/openstack/kuryr-kubernetes/blob/master/doc/source/devref/port_manager.rst
 .. [10] https://v1-8.docs.kubernetes.io/docs/api-reference/v1.8/#labelselector-v1-meta
+.. [11] https://github.com/kubernetes/kubernetes/blob/master/test/e2e/network/network_policy.go
