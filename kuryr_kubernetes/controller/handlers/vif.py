@@ -132,15 +132,15 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                     self._set_pod_state(pod, state)
                     if self._is_network_policy_enabled():
                         crd_pod_selectors = self._drv_sg.create_sg_rules(pod)
-                        services = driver_utils.get_services()
-                        self._update_services(
-                            services, crd_pod_selectors, project_id)
+                        if oslo_cfg.CONF.octavia_defaults.enforce_sg_rules:
+                            services = driver_utils.get_services()
+                            self._update_services(
+                                services, crd_pod_selectors, project_id)
 
     def on_deleted(self, pod):
         if driver_utils.is_host_network(pod):
             return
 
-        services = driver_utils.get_services()
         project_id = self._drv_project.get_project(pod)
         crd_pod_selectors = self._drv_sg.delete_sg_rules(pod)
         try:
@@ -160,7 +160,9 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             for ifname, vif in state.vifs.items():
                 self._drv_vif_pool.release_vif(pod, vif, project_id,
                                                security_groups)
-        if self._is_network_policy_enabled():
+        if (self._is_network_policy_enabled() and
+                oslo_cfg.CONF.octavia_defaults.enforce_sg_rules):
+            services = driver_utils.get_services()
             self._update_services(services, crd_pod_selectors, project_id)
 
     @MEMOIZE
