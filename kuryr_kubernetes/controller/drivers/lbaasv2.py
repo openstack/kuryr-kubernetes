@@ -286,7 +286,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
     def _is_default_rule(self, rule):
         if (rule.get('direction') == 'ingress' and
-                not rule.get('remote_ip_prefix')):
+                not rule.get('remote_ip_prefix') and
+                'network-policy' not in rule.get('description')):
             return True
         return False
 
