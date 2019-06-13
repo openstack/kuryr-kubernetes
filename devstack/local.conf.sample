@@ -224,9 +224,16 @@ enable_service kuryr-daemon
 # KURYR_VIF_POOL_MANAGER=True
 
 # Kuryr Multi-VIF Driver
+# ======================
 # Uncomment the next line to enable the npwg multi-vif driver.
 # Default value: noop
 # KURYR_MULTI_VIF_DRIVER=npwg_multiple_interfaces
+
+# Kuryr own router
+# ================
+# Uncomment the next line to force devstack to create a new router for kuryr
+# networks instead of using the default one being created by devstack
+# KURYR_NEUTRON_DEFAULT_ROUTER = kuryr-router
 
 # Increase Octavia amphorae timeout so that the first LB amphora has time to
 # build and boot

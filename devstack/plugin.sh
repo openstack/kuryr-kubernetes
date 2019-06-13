@@ -273,15 +273,24 @@ function configure_neutron_defaults {
     local ext_svc_subnet_id
     local prot
 
+    project_id=$(get_or_create_project \
+        "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
+    ext_svc_net_id="$(openstack network show -c id -f value \
+        "${KURYR_NEUTRON_DEFAULT_EXT_SVC_NET}")"
+
     # If a subnetpool is not passed, we get the one created in devstack's
     # Neutron module
     subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}}
     router=${KURYR_NEUTRON_DEFAULT_ROUTER:-$Q_ROUTER_NAME}
+    if [ "$router" != "$Q_ROUTER_NAME" ]; then
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            router create --project "$project_id" "$router"
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            router set --external-gateway "$ext_svc_net_id" "$router"
+    fi
     router_id="$(openstack router show -c id -f value \
         "$router")"
 
-    project_id=$(get_or_create_project \
-        "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
     create_k8s_subnet "$project_id" \
                       "$KURYR_NEUTRON_DEFAULT_POD_NET" \
                       "$KURYR_NEUTRON_DEFAULT_POD_SUBNET" \
@@ -303,12 +312,6 @@ function configure_neutron_defaults {
         sg_ids=$(echo $(openstack security group list \
             --project "$project_id" -c ID -f value) | tr ' ' ',')
     fi
-
-    ext_svc_net_id="$(openstack network show -c id -f value \
-        "${KURYR_NEUTRON_DEFAULT_EXT_SVC_NET}")"
-
-    ext_svc_subnet_id="$(openstack subnet show -c id -f value \
-        "${KURYR_NEUTRON_DEFAULT_EXT_SVC_SUBNET}")"
 
     # In order for the ports to allow service traffic under Octavia L3 mode,
     # it is necessary for the service subnet to be allowed into the port's
