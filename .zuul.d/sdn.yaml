@@ -32,6 +32,7 @@
         OVN_L3_CREATE_PUBLIC_NETWORK: true
         # OVN already builds from source by default
         Q_BUILD_OVS_FROM_GIT: false
+        KURYR_NEUTRON_DEFAULT_ROUTER: kuryr-router
       devstack_services:
         ovn-northd: true
         ovn-controller: true
