@@ -699,6 +699,14 @@ exec ./openshift "\$@"
 EOF
     sudo chmod a+x /usr/local/bin/openshift
 
+    # For releases >= 3.11 we'll need hyperkube as well
+    cat << EOF | sudo tee /usr/local/bin/hyperkube
+#!/bin/bash
+cd ${OPENSHIFT_BIN}
+exec ./hyperkube "\$@"
+EOF
+    sudo chmod a+x /usr/local/bin/hyperkube
+
     # Make oc easily available
     cat << EOF | sudo tee /usr/local/bin/oc
 #!/bin/bash
@@ -794,6 +802,8 @@ function make_admin_cluster_admin {
         "${OPENSHIFT_DATA_DIR}/master/ca.crt"
     /usr/local/bin/oc adm policy add-cluster-role-to-user cluster-admin admin \
         "--config=${OPENSHIFT_DATA_DIR}/master/openshift-master.kubeconfig"
+    /usr/local/bin/oc adm policy add-cluster-role-to-user cluster-admin system:openshift-node-admin \
+        "--config=${OPENSHIFT_DATA_DIR}/master/openshift-master.kubeconfig"
 }
 
 # run_openshift_node
@@ -804,11 +814,39 @@ function run_openshift_node {
     #install required CNI loopback driver
     sudo mkdir -p "$CNI_BIN_DIR"
     curl -L "$OPENSHIFT_CNI_BINARY_URL" | sudo tar -C "$CNI_BIN_DIR" -xzvf - ./loopback
-    command="/usr/local/bin/openshift start node \
-        --kubeconfig=${OPENSHIFT_DATA_DIR}/master/master.kubelet-client.kubeconfig \
+
+    # Since 3.11 we should run upstream kubelet through hyperkube.
+    declare -r min_no_node_ver="v3.11.0"
+    if [[ "$min_no_node_ver" == "$(echo -e "${OPENSHIFT_BINARY_VERSION}\n${min_no_node_ver}" | sort -V | head -n 1)" ]]; then
+        # generate kubelet configuration and certs
+        local name
+        name=`hostname`
+        oc adm create-node-config --node-dir ${OPENSHIFT_DATA_DIR}/node \
+                                  --node ${name} \
+                                  --hostnames ${name} \
+                                  --certificate-authority ${OPENSHIFT_DATA_DIR}/master/ca.crt \
+                                  --signer-cert ${OPENSHIFT_DATA_DIR}/master/ca.crt \
+                                  --signer-key=${OPENSHIFT_DATA_DIR}/master/ca.key \
+                                  --signer-serial ${OPENSHIFT_DATA_DIR}/master/ca.serial.txt \
+                                  --node-client-certificate-authority=${OPENSHIFT_DATA_DIR}/master/ca.crt
+
+        command="/usr/local/bin/hyperkube kubelet \
+        --network-plugin=cni \
+        --address=0.0.0.0 \
+        --port=10250 \
+        --cgroup-driver $(docker info|awk '/Cgroup/ {print $NF}') \
+        --fail-swap-on=false \
+        --allow-privileged=true \
+        --v=2 \
+        --tls-cert-file=${OPENSHIFT_DATA_DIR}/node/server.crt \
+        --tls-private-key-file=${OPENSHIFT_DATA_DIR}/node/server.key"
+    else
+        command="/usr/local/bin/openshift start node \
         --enable=kubelet,plugins \
         --network-plugin=cni \
         --listen=https://0.0.0.0:8442"
+    fi
+    command+=" --kubeconfig=${OPENSHIFT_DATA_DIR}/master/master.kubelet-client.kubeconfig"
 
     # Link master config necessary for bootstrapping
     # TODO: This needs to be generated so we don't depend on it on multinode
