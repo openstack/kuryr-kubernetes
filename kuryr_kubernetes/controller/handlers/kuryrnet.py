@@ -16,6 +16,8 @@ from oslo_log import log as logging
 
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base as drivers
+from kuryr_kubernetes.controller.drivers import utils as driver_utils
+from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes import utils
 
@@ -42,18 +44,37 @@ class KuryrNetHandler(k8s_base.ResourceEventHandler):
     def on_added(self, kuryrnet_crd):
         namespace = kuryrnet_crd['metadata']['annotations'].get(
             'namespaceName')
+        subnet_id = kuryrnet_crd['spec'].get('subnetId')
+        if kuryrnet_crd['spec'].get('populated'):
+            LOG.debug("Subnet %s already populated", subnet_id)
+            return
+
         # NOTE(ltomasbo): using namespace name instead of object as it is not
         # required
         project_id = self._drv_project.get_project(namespace)
-        subnet_id = kuryrnet_crd['spec'].get('subnetId')
         subnets = self._drv_subnets.get_namespace_subnet(namespace, subnet_id)
         sg_id = kuryrnet_crd['spec'].get('sgId', [])
 
         nodes = utils.get_nodes_ips()
+        # NOTE(ltomasbo): Patching the kuryrnet_crd here instead of after
+        # populate_pool method to ensure initial repopulation is not happening
+        # twice upon unexpected problems, such as neutron failing to
+        # transition the ports to ACTIVE or being too slow replying.
+        # In such case, even though the repopulation actions got triggered,
+        # the pools will not get the ports loaded (as they are not ACTIVE)
+        # and new population actions may be triggered if the controller was
+        # restarted before performing the populated=true patching.
+        driver_utils.patch_kuryrnet_crd(kuryrnet_crd, populated=True)
         # TODO(ltomasbo): Skip the master node where pods are not usually
         # allocated.
         for node_ip in nodes:
             LOG.debug("Populating subnet pool %s at node %s", subnet_id,
                       node_ip)
-            self._drv_vif_pool.populate_pool(node_ip, project_id, subnets,
-                                             sg_id)
+            try:
+                self._drv_vif_pool.populate_pool(node_ip, project_id, subnets,
+                                                 sg_id)
+            except exceptions.ResourceNotReady:
+                # Ensure the repopulation is retriggered if the system was not
+                # yet ready to perform the repopulation actions
+                driver_utils.patch_kuryrnet_crd(kuryrnet_crd, populated=False)
+                raise

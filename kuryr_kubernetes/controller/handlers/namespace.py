@@ -177,6 +177,11 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         kubernetes = clients.get_kubernetes_client()
         net_crd_name = "ns-" + namespace
         spec = {k: v for k, v in net_crd_spec.items()}
+        # NOTE(ltomasbo): To know if the subnet has bee populated with pools.
+        # This is only needed by the kuryrnet handler to skip actions. But its
+        # addition does not have any impact if not used
+        spec['populated'] = False
+
         net_crd = {
             'apiVersion': 'openstack.org/v1',
             'kind': 'KuryrNet',
