@@ -150,7 +150,7 @@ function generate_containerized_kuryr_resources {
 
     # Generate kuryr resources in k8s formats.
     local output_dir="${DATA_DIR}/kuryr-kubernetes"
-    generate_kuryr_configmap $output_dir $KURYR_CONFIG $KURYR_CONFIG
+    generate_kuryr_configmap $output_dir $KURYR_CONFIG
     generate_kuryr_certificates_secret $output_dir $SSL_BUNDLE_FILE
     generate_kuryr_service_account $output_dir
     generate_controller_deployment $output_dir $KURYR_HEALTH_SERVER_PORT $KURYR_CONTROLLER_HA

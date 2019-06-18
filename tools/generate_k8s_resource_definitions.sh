@@ -18,12 +18,11 @@ DIR=$( cd "$( dirname "$0" )" && pwd )
 source "$DIR/../devstack/lib/kuryr_kubernetes"
 
 OUTPUT_DIR=${1:-.}
-CONTROLLER_CONF_PATH=${2:-""}
-CNI_CONF_PATH=${3:-$CONTROLLER_CONF_PATH}
+CONF_PATH=${2:-""}
 CA_CERTIFICATE_PATH=${CA_CERTIFICATE_PATH:-""}
-CA_CERTIFICATE_PATH=${4:-$CA_CERTIFICATE_PATH}
+CA_CERTIFICATE_PATH=${3:-$CA_CERTIFICATE_PATH}
 
-if [ -z $CONTROLLER_CONF_PATH ]; then
+if [ -z $CONF_PATH ]; then
     api_root=${KURYR_K8S_API_ROOT:-https://127.0.0.1:6443}
     auth_url=${KURYR_K8S_AUTH_URL:-http://127.0.0.1/identity}
     username=${KURYR_K8S_USERNAME:-admin}
@@ -40,9 +39,9 @@ if [ -z $CONTROLLER_CONF_PATH ]; then
     binding_iface=${KURYR_K8S_BINDING_IFACE:-eth0}
     pod_subnet_pool=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID}
 
-    CONTROLLER_CONF_PATH="${OUTPUT_DIR}/kuryr.conf"
-    rm -f $CONTROLLER_CONF_PATH
-    cat >> $CONTROLLER_CONF_PATH << EOF
+    CONF_PATH="${OUTPUT_DIR}/kuryr.conf"
+    rm -f $CONF_PATH
+    cat >> $CONF_PATH << EOF
 [DEFAULT]
 debug = true
 [kubernetes]
@@ -66,42 +65,17 @@ pod_subnet = $pod_subnet_id
 project = $k8s_project_id
 [namespace_subnet]
 pod_subnet_pool = $pod_subnet_pool
-EOF
-
-    if [ ! -z $binding_driver ]; then
-        cat >> $CONTROLLER_CONF_PATH << EOF
-[pod_vif_nested]
-worker_nodes_subnet = $worker_nodes_subnet
-[binding]
-driver = $binding_driver
-link_iface = $binding_iface
-EOF
-    fi
-fi
-
-if [ -z $CNI_CONF_PATH ]; then
-    CNI_CONF_PATH="${OUTPUT_DIR}/kuryr-cni.conf"
-    rm -f $CNI_CONF_PATH
-    cat >> $CNI_CONF_PATH << EOF
-[DEFAULT]
-debug = true
-use_stderr = true
-[kubernetes]
-api_root = $api_root
-token_file = /etc/kuryr/token
-ssl_ca_crt_file = /etc/kuryr/ca.crt
-ssl_verify_server_crt = true
+[cni_daemon]
+docker_mode = true
+netns_proc_dir = /host_proc
 [vif_plug_ovs_privileged]
 helper_command=privsep-helper
 [vif_plug_linux_bridge_privileged]
 helper_command=privsep-helper
-[cni_daemon]
-docker_mode = true
-netns_proc_dir = /host_proc
 EOF
 
     if [ ! -z $binding_driver ]; then
-        cat >> $CNI_CONF_PATH << EOF
+        cat >> $CONF_PATH << EOF
 [pod_vif_nested]
 worker_nodes_subnet = $worker_nodes_subnet
 [binding]
@@ -112,7 +86,7 @@ EOF
 fi
 
 generate_kuryr_certificates_secret $OUTPUT_DIR $CA_CERTIFICATE_PATH
-generate_kuryr_configmap $OUTPUT_DIR $CONTROLLER_CONF_PATH $CNI_CONF_PATH
+generate_kuryr_configmap $OUTPUT_DIR $CONF_PATH
 generate_kuryr_service_account $OUTPUT_DIR
 health_server_port=${KURYR_HEALTH_SERVER_PORT:-8082}
 generate_controller_deployment $OUTPUT_DIR $health_server_port
