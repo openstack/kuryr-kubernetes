@@ -198,8 +198,13 @@ CNI Driver
 ----------
 
 CNI driver is just a thin client that passes CNI ADD and DEL requests to
-kuryr-daemon instance via its HTTP API. It's simple Python executable that is
-supposed to be called by kublet's CNI.
+kuryr-daemon instance via its HTTP API. It's a simple executable that is
+supposed to be called by kubelet's CNI. Since Train release the CNI driver
+has an alternative golang implementation (see the kuryr_cni directory) to make
+injecting it onto the Kubernetes node from the kuryr-cni pod easier. This
+enables Kuryr to work on K8s deployments that does not have Python or curl on
+Kubernetes nodes. Compatibility between Python and golang CNI drivers is
+supposed to be maintained.
 
 .. _cni-daemon:
 
