@@ -568,7 +568,6 @@ class NeutronVIFPool(BaseVIFPool):
         for pool_key, ports in self._available_ports_pools.items():
             if self._get_pool_key_net(pool_key) != net_id:
                 continue
-            self._available_ports_pools[pool_key] = []
             ports_id = []
             for sg_ports in ports.values():
                 ports_id.extend(sg_ports)
@@ -582,6 +581,7 @@ class NeutronVIFPool(BaseVIFPool):
                 except n_exc.PortNotFoundClient:
                     LOG.debug('Unable to release port %s as it no longer '
                               'exists.', port_id)
+            self._available_ports_pools[pool_key] = {}
 
 
 class NestedVIFPool(BaseVIFPool):
@@ -873,7 +873,6 @@ class NestedVIFPool(BaseVIFPool):
         for pool_key, ports in self._available_ports_pools.items():
             if self._get_pool_key_net(pool_key) != net_id:
                 continue
-            self._available_ports_pools[pool_key] = []
             trunk_id = self._get_trunk_id(neutron, pool_key)
             ports_id = [p_id for sg_ports in ports.values()
                         for p_id in sg_ports]
@@ -896,6 +895,7 @@ class NestedVIFPool(BaseVIFPool):
                 except n_exc.PortNotFoundClient:
                     LOG.debug('Unable to delete subport %s as it no longer '
                               'exists.', port_id)
+            self._available_ports_pools[pool_key] = {}
 
 
 class MultiVIFPool(base.VIFPoolDriver):
