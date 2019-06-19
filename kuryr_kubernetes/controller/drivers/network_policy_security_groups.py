@@ -442,8 +442,9 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
             e_matched, e_rules = _parse_rules('egress', crd, pod=pod)
 
             if i_matched or e_matched:
-                driver_utils.patch_kuryr_crd(crd, i_rules,
-                                             e_rules, crd_selector)
+                driver_utils.patch_kuryrnetworkpolicy_crd(crd, i_rules,
+                                                          e_rules,
+                                                          crd_selector)
                 crd_pod_selectors.append(crd_selector)
         return crd_pod_selectors
 
@@ -463,8 +464,9 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
                 egress_rule_list, "egress", pod_ip)
 
             if i_matched or e_matched:
-                driver_utils.patch_kuryr_crd(crd, i_rules, e_rules,
-                                             crd_selector)
+                driver_utils.patch_kuryrnetworkpolicy_crd(crd, i_rules,
+                                                          e_rules,
+                                                          crd_selector)
                 crd_pod_selectors.append(crd_selector)
         return crd_pod_selectors
 
@@ -492,7 +494,7 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
                 egress_rule_list, "egress", ns_name)
 
             if i_matched or e_matched:
-                driver_utils.patch_kuryr_crd(
+                driver_utils.patch_kuryrnetworkpolicy_crd(
                     crd, i_rules, e_rules, crd_selector)
 
     def create_namespace_sg_rules(self, namespace):
@@ -511,8 +513,9 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
                 'egress', crd, namespace=namespace)
 
             if i_matched or e_matched:
-                driver_utils.patch_kuryr_crd(crd, i_rules,
-                                             e_rules, crd_selector)
+                driver_utils.patch_kuryrnetworkpolicy_crd(crd, i_rules,
+                                                          e_rules,
+                                                          crd_selector)
 
     def update_namespace_sg_rules(self, namespace):
         LOG.debug("Updating sg rule for namespace: %s",

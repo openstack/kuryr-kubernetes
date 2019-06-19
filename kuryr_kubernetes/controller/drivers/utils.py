@@ -218,7 +218,20 @@ def delete_security_group_rule(security_group_rule_id):
         raise
 
 
-def patch_kuryr_crd(crd, i_rules, e_rules, pod_selector, np_spec=None):
+def patch_kuryrnet_crd(crd, populated=True):
+    kubernetes = clients.get_kubernetes_client()
+    crd_name = crd['metadata']['name']
+    LOG.debug('Patching KuryrNet CRD %s' % crd_name)
+    try:
+        kubernetes.patch_crd('spec', crd['metadata']['selfLink'],
+                             {'populated': populated})
+    except k_exc.K8sClientException:
+        LOG.exception('Error updating kuryrnet CRD %s', crd_name)
+        raise
+
+
+def patch_kuryrnetworkpolicy_crd(crd, i_rules, e_rules, pod_selector,
+                                 np_spec=None):
     kubernetes = clients.get_kubernetes_client()
     crd_name = crd['metadata']['name']
     if not np_spec:

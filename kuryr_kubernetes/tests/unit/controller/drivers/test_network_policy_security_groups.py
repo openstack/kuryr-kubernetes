@@ -408,14 +408,14 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
                 self.assertEqual(matched, False)
 
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
-                'patch_kuryr_crd')
+                'patch_kuryrnetworkpolicy_crd')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'get_kuryrnetpolicy_crds')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'delete_security_group_rule')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_ip')
     def test_delete_sg_rules(self, m_get_pod_ip, m_delete_sg_rule,
-                             m_get_knp_crds, m_patch_kuryr_crd):
+                             m_get_knp_crds, m_patch_kuryrnetworkpolicy_crd):
         crd = self._crd_with_rule
         i_rule = crd['spec'].get('ingressSgRules')[0]
         sgr_id = i_rule['security_group_rule'].get('id')
@@ -435,7 +435,7 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
         m_get_knp_crds.assert_called_once()
         m_get_pod_ip.assert_called_once_with(pod)
         m_delete_sg_rule.assert_called_once_with(sgr_id)
-        m_patch_kuryr_crd.assert_called_with(
+        m_patch_kuryrnetworkpolicy_crd.assert_called_with(
             crd, i_rules, e_rules, crd['spec'].get('podSelector'))
 
     @mock.patch('kuryr_kubernetes.config.CONF')
@@ -529,13 +529,13 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
         self.assertEqual([str(self._sg_id), str(self._sg_id2)], resp)
 
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
-                'patch_kuryr_crd')
+                'patch_kuryrnetworkpolicy_crd')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'delete_security_group_rule')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'get_kuryrnetpolicy_crds')
     def test_delete_namespace_sg_rule(self, m_get_knp_crd, m_delete_sg_rule,
-                                      m_patch_kuryr_crd):
+                                      m_patch_kuryrnetworkpolicy_crd):
         cls = network_policy_security_groups.NetworkPolicySecurityGroupsDriver
         m_driver = mock.MagicMock(spec=cls)
         i_rule = get_matched_crd_obj()['spec']['ingressSgRules'][0]
@@ -547,17 +547,17 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
 
         m_get_knp_crd.assert_called_once()
         m_delete_sg_rule.assert_called_once_with(sg_rule_id)
-        m_patch_kuryr_crd.assert_called_once()
+        m_patch_kuryrnetworkpolicy_crd.assert_called_once()
 
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
-                'patch_kuryr_crd')
+                'patch_kuryrnetworkpolicy_crd')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'delete_security_group_rule')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'get_kuryrnetpolicy_crds')
     def test_delete_namespace_sg_rule_no_match(self, m_get_knp_crd,
                                                m_delete_sg_rule,
-                                               m_patch_kuryr_crd):
+                                               m_patch_kuryrnetworkpolicy_crd):
         cls = network_policy_security_groups.NetworkPolicySecurityGroupsDriver
         m_driver = mock.MagicMock(spec=cls)
 
@@ -568,7 +568,7 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
 
         m_get_knp_crd.assert_called_once()
         m_delete_sg_rule.assert_not_called()
-        m_patch_kuryr_crd.assert_not_called()
+        m_patch_kuryrnetworkpolicy_crd.assert_not_called()
 
     @mock.patch('kuryr_kubernetes.controller.drivers.'
                 'network_policy_security_groups._create_sg_rule')

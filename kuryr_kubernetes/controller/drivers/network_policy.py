@@ -114,8 +114,9 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                         e_rule["security_group_rule"]["id"] = sgr_id
         # Annotate kuryrnetpolicy CRD with current policy and ruleset
         pod_selector = policy['spec'].get('podSelector')
-        driver_utils.patch_kuryr_crd(crd, i_rules, e_rules, pod_selector,
-                                     np_spec=policy['spec'])
+        driver_utils.patch_kuryrnetworkpolicy_crd(crd, i_rules, e_rules,
+                                                  pod_selector,
+                                                  np_spec=policy['spec'])
 
         if existing_pod_selector != pod_selector:
             return existing_pod_selector

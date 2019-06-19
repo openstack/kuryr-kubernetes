@@ -16,6 +16,7 @@ import mock
 
 from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes.controller.drivers import namespace_subnet as subnet_drv
+from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes.controller.drivers import vif_pool
 from kuryr_kubernetes.controller.handlers import kuryrnet
 from kuryr_kubernetes.tests import base as test_base
@@ -76,8 +77,9 @@ class TestKuryrNetHandler(test_base.TestCase):
         self.assertEqual(subnet_driver, handler._drv_subnets)
         self.assertEqual(vif_pool_driver, handler._drv_vif_pool)
 
+    @mock.patch.object(driver_utils, 'patch_kuryrnet_crd')
     @mock.patch.object(utils, 'get_nodes_ips')
-    def test_on_added(self, m_get_nodes_ips):
+    def test_on_added(self, m_get_nodes_ips, m_patch_kn_crd):
         m_get_nodes_ips.return_value = ['node-ip']
 
         kuryrnet.KuryrNetHandler.on_added(self._handler, self._kuryrnet_crd)
@@ -90,3 +92,4 @@ class TestKuryrNetHandler(test_base.TestCase):
                                                     self._project_id,
                                                     self._subnets,
                                                     [])
+        m_patch_kn_crd.assert_called_once()
