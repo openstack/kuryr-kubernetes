@@ -640,7 +640,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         try:
             if by_listener:
                 pools = [p for p in response if pool.listener_id
-                         in {l.id for l in p.listeners}]
+                         in {l['id'] for l in p.listeners}]
             else:
                 pools = [p for p in response if pool.name == p.name]
 

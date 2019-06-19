@@ -561,7 +561,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
             loadbalancer_id='00EE9E11-91C2-41CF-8FD4-7970579E5C4C')
         pool_id = 'D4F35594-27EB-4F4C-930C-31DD40F53B77'
         resp = [o_pool.Pool(id=pool_id,
-                            listeners=[o_lis.Listener(id=pool.listener_id)])]
+                            listeners=[{"id": pool.listener_id}])]
         lbaas.pools.return_value = resp
 
         ret = cls._find_pool(m_driver, pool)
