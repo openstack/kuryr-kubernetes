@@ -73,6 +73,17 @@
     voting: false
 
 - job:
+    name: kuryr-kubernetes-tempest-containerized-lower-constraints
+    parent: kuryr-kubernetes-tempest-containerized
+    description: |
+        Kuryr-Kubernetes tempest job running kuryr containerized with
+        requirments from lower-constraints.txt
+    vars:
+      devstack_localrc:
+        KURYR_CONTAINERS_USE_LOWER_CONSTRAINTS: true
+    voting: false
+
+- job:
     name: kuryr-kubernetes-tempest-containerized-l2
     parent: kuryr-kubernetes-tempest-containerized
     description: |
