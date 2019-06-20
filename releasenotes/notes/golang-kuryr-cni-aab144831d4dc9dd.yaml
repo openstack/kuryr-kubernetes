@@ -1,0 +1,14 @@
+---
+features:
+  - |
+    kuryr-cni, that is the executable called by kubelet, is now rewritten to
+    golang. This enables Kuryr to work containerized in environments where
+    there is no Python or curl on the hosts running kubelet. This is the case
+    e.g. in K8s deployed by Magnum.
+upgrade:
+  - |
+    kuryr-cni is now a golang binary. The upgrade should be automatic and
+    consists of deploying an updated kuryr-cni container. Please note that if
+    you used a custom listening port for kuryr-daemon, it is currently
+    hardcoded to 5036. We're planning to pass it through 10-kuryr.conf CNI
+    configuration file in the very near future.
