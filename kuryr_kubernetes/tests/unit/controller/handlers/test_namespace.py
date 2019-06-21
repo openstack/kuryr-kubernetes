@@ -42,6 +42,7 @@ class TestNamespaceHandler(test_base.TestCase):
                          'selfLink': self._namespace_link},
             'status': {'phase': 'Active'}
         }
+        self._crd_id = 'ns-' + self._namespace_name
 
         self._handler = mock.MagicMock(spec=namespace.NamespaceHandler)
 
@@ -79,6 +80,9 @@ class TestNamespaceHandler(test_base.TestCase):
     def _get_crd(self):
         crd = {
             'kind': 'KuryrNet',
+            'metadata': {
+                'selfLink': mock.sentinel.self_link
+            },
             'spec': {
                 'routerId': mock.sentinel.router_id,
                 'netId': mock.sentinel.net_id,
@@ -114,6 +118,7 @@ class TestNamespaceHandler(test_base.TestCase):
     def test_on_present(self):
         net_crd = self._get_crd()
         self._get_net_crd_id.return_value = None
+        self._get_net_crd.return_value = None
         self._create_namespace_network.return_value = {'test_net': 'uuid'}
         self._create_namespace_sg.return_value = {'test_sg': 'uuid'}
         net_crd_spec = {'test_net': 'uuid', 'test_sg': 'uuid'}
@@ -122,6 +127,7 @@ class TestNamespaceHandler(test_base.TestCase):
         namespace.NamespaceHandler.on_present(self._handler, self._namespace)
 
         self._get_net_crd_id.assert_called_once_with(self._namespace)
+        self._get_net_crd.assert_called_once_with(self._crd_id)
         self._create_namespace_network.assert_called_once_with(
             self._namespace_name, self._project_id)
         self._create_namespace_sg.assert_called_once_with(
@@ -142,6 +148,7 @@ class TestNamespaceHandler(test_base.TestCase):
 
     def test_on_present_create_network_exception(self):
         self._get_net_crd_id.return_value = None
+        self._get_net_crd.return_value = None
         self._create_namespace_network.side_effect = (
             n_exc.NeutronClientException)
 
@@ -150,6 +157,7 @@ class TestNamespaceHandler(test_base.TestCase):
                           self._handler, self._namespace)
 
         self._get_net_crd_id.assert_called_once_with(self._namespace)
+        self._get_net_crd.assert_called_once_with(self._crd_id)
         self._create_namespace_network.assert_called_once_with(
             self._namespace_name, self._project_id)
         self._create_namespace_sg.assert_not_called()
@@ -157,6 +165,7 @@ class TestNamespaceHandler(test_base.TestCase):
 
     def test_on_present_create_sg_exception(self):
         self._get_net_crd_id.return_value = None
+        self._get_net_crd.return_value = None
         self._create_namespace_network.return_value = {'test_net': 'uuid'}
         self._create_namespace_sg.side_effect = (
             n_exc.NeutronClientException)
@@ -166,6 +175,7 @@ class TestNamespaceHandler(test_base.TestCase):
                           self._handler, self._namespace)
 
         self._get_net_crd_id.assert_called_once_with(self._namespace)
+        self._get_net_crd.assert_called_once_with(self._crd_id)
         self._create_namespace_network.assert_called_once_with(
             self._namespace_name, self._project_id)
         self._create_namespace_sg.assert_called_once_with(
@@ -174,6 +184,7 @@ class TestNamespaceHandler(test_base.TestCase):
 
     def test_on_present_add_kuryrnet_crd_exception(self):
         self._get_net_crd_id.return_value = None
+        self._get_net_crd.return_value = None
         self._create_namespace_network.return_value = {'test_net': 'uuid'}
         self._create_namespace_sg.return_value = {'sgId': 'uuid'}
         net_crd_spec = {'test_net': 'uuid', 'sgId': 'uuid'}
@@ -182,6 +193,7 @@ class TestNamespaceHandler(test_base.TestCase):
         namespace.NamespaceHandler.on_present(self._handler, self._namespace)
 
         self._get_net_crd_id.assert_called_once_with(self._namespace)
+        self._get_net_crd.assert_called_once_with(self._crd_id)
         self._create_namespace_network.assert_called_once_with(
             self._namespace_name, self._project_id)
         self._create_namespace_sg.assert_called_once_with(
@@ -195,6 +207,7 @@ class TestNamespaceHandler(test_base.TestCase):
         net_crd = self._get_crd()
 
         self._get_net_crd_id.return_value = None
+        self._get_net_crd.return_value = None
         self._create_namespace_network.return_value = {'test_net': 'uuid'}
         self._create_namespace_sg.return_value = {'sgId': 'uuid'}
         net_crd_spec = {'test_net': 'uuid', 'sgId': 'uuid'}
@@ -204,6 +217,7 @@ class TestNamespaceHandler(test_base.TestCase):
         namespace.NamespaceHandler.on_present(self._handler, self._namespace)
 
         self._get_net_crd_id.assert_called_once_with(self._namespace)
+        self._get_net_crd.assert_called_once_with(self._crd_id)
         self._create_namespace_network.assert_called_once_with(
             self._namespace_name, self._project_id)
         self._create_namespace_sg.assert_called_once_with(
@@ -217,6 +231,7 @@ class TestNamespaceHandler(test_base.TestCase):
         net_crd = self._get_crd()
 
         self._get_net_crd_id.return_value = None
+        self._get_net_crd.return_value = None
         self._create_namespace_network.return_value = {'test_net': 'uuid'}
         self._create_namespace_sg.return_value = {'sgId': 'uuid'}
         net_crd_spec = {'test_net': 'uuid', 'sgId': 'uuid'}
@@ -230,6 +245,7 @@ class TestNamespaceHandler(test_base.TestCase):
                           self._handler, self._namespace)
 
         self._get_net_crd_id.assert_called_once_with(self._namespace)
+        self._get_net_crd.assert_called_once_with(self._crd_id)
         self._create_namespace_network.assert_called_once_with(
             self._namespace_name, self._project_id)
         self._create_namespace_sg.assert_called_once_with(
@@ -249,12 +265,13 @@ class TestNamespaceHandler(test_base.TestCase):
         namespace.NamespaceHandler.on_deleted(self._handler, self._namespace)
 
         self._get_net_crd_id.assert_called_once_with(self._namespace)
+
         self._get_net_crd.assert_called_once_with(net_crd_id)
         self._delete_network_pools.assert_called_once_with(
             net_crd['spec']['netId'])
         self._delete_namespace_subnet.assert_called_once_with(net_crd)
         self._delete_sg.assert_called_once_with(net_crd['spec']['sgId'])
-        self._del_kuryrnet_crd.assert_called_once_with(net_crd_id)
+        self._del_kuryrnet_crd.assert_called_once_with(self._crd_id)
 
     def test_on_deleted_missing_crd_annotation(self):
         self._get_net_crd_id.return_value = None
