@@ -10,3 +10,33 @@ spec:
     plural: kuryrnets
     singular: kuryrnet
     kind: KuryrNet
+  additionalPrinterColumns:
+    - name: SUBNET-CIDR
+      type: string
+      description: The subnet CIDR allocated to the namespace
+      JSONPath: .spec.subnetCIDR
+    - name: Age
+      type: date
+      JSONPath: .metadata.creationTimestamp
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          required:
+          - netId
+          - routerId
+          - subnetCIDR
+          - subnetId
+          properties:
+            netId:
+              type: string
+            populated:
+              type: boolean
+            routerId:
+              type: string
+            sgId:
+              type: string
+            subnetCIDR:
+              type: string
+            subnetId:
+              type: string
