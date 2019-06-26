@@ -112,7 +112,7 @@ resources:
                 echo "Finding latest ref for change ${change_number}"
                 ref=$(curl -s "https://review.openstack.org/changes/${change_number}?o=CURRENT_REVISION" | tail -n +2 | jq -r '.revisions[].ref')
                 echo "Fetching ref ${ref}"
-                git fetch https://git.openstack.org/openstack/kuryr-kubernetes "${ref}" && git checkout FETCH_HEAD
+                git fetch https://opendev.org/openstack/kuryr-kubernetes "${ref}" && git checkout FETCH_HEAD
             }
 
             function get_from_sha() {
@@ -124,7 +124,7 @@ resources:
             }
 
             cd /opt/stack
-            git clone https://git.openstack.org/openstack-dev/devstack
+            git clone https://opendev.org/openstack-dev/devstack
             git clone https://github.com/openstack/kuryr-kubernetes
             pushd kuryr-kubernetes
 

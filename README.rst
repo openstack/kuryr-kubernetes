@@ -18,7 +18,7 @@ require it or to use different segments and, for example, route between them.
 
 * Free software: Apache license
 * Documentation: https://docs.openstack.org/kuryr-kubernetes/latest
-* Source: https://git.openstack.org/cgit/openstack/kuryr-kubernetes
+* Source: https://opendev.org/openstack/kuryr-kubernetes
 * Bugs: https://bugs.launchpad.net/kuryr-kubernetes
 * Overview and demo: https://superuser.openstack.org/articles/networking-kubernetes-kuryr
 * Release notes: https://docs.openstack.org/releasenotes/kuryr-kubernetes/

@@ -1,7 +1,7 @@
 [[local|localrc]]
 
 enable_plugin kuryr-kubernetes \
-    https://git.openstack.org/openstack/kuryr-kubernetes
+    https://opendev.org/openstack/kuryr-kubernetes
 
 # If you do not want stacking to clone new versions of the enabled services,
 # like for example when you did local modifications and need to ./unstack.sh
@@ -33,7 +33,7 @@ enable_service q-svc
 
 # LBaaSv2 service and Haproxy agent
 enable_plugin neutron-lbaas \
-    https://git.openstack.org/openstack/neutron-lbaas
+    https://opendev.org/openstack/neutron-lbaas
 enable_service q-lbaasv2
 
 # Currently there is problem with the ODL LBaaS driver integration, so we
@@ -54,7 +54,7 @@ ODL_TIMEOUT=60
 ODL_V2DRIVER=True
 ODL_NETVIRT_DEBUG_LOGS=True
 EBTABLES_RACE_FIX=True
-enable_plugin networking-odl http://git.openstack.org/openstack/networking-odl
+enable_plugin networking-odl http://opendev.org/openstack/networking-odl
 
 # Keystone
 enable_service key
@@ -69,7 +69,7 @@ enable_service rabbit
 # ======
 # If you already have docker configured, running and with its socket writable
 # by the stack user, you can omit the following line.
-enable_plugin devstack-plugin-container https://git.openstack.org/openstack/devstack-plugin-container
+enable_plugin devstack-plugin-container https://opendev.org/openstack/devstack-plugin-container
 
 
 # Etcd

@@ -45,7 +45,7 @@ enable_service g-reg
 ### Neutron-lbaas
 # LBaaSv2 service and Haproxy agent
 enable_plugin neutron-lbaas \
-    https://git.openstack.org/openstack/neutron-lbaas
+    https://opendev.org/openstack/neutron-lbaas
 enable_service q-lbaasv2
 
 # Currently there is problem with the ODL LBaaS driver integration, so we
@@ -80,4 +80,4 @@ ODL_NETVIRT_DEBUG_LOGS=True
 Q_SERVICE_PLUGIN_CLASSES=trunk
 EBTABLES_RACE_FIX=True
 
-enable_plugin networking-odl http://git.openstack.org/openstack/networking-odl
+enable_plugin networking-odl http://opendev.org/openstack/networking-odl

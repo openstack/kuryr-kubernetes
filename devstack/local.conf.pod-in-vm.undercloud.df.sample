@@ -11,7 +11,7 @@ ADMIN_PASSWORD=pass
 MULTI_HOST=1
 
 # Dragonflow plugin and services
-enable_plugin dragonflow https://git.openstack.org/openstack/dragonflow
+enable_plugin dragonflow https://opendev.org/openstack/dragonflow
 enable_service df-controller
 enable_service df-redis
 enable_service df-redis-server
@@ -32,7 +32,7 @@ disable_service q-dhcp
 
 # Octavia LBaaSv2
 LIBS_FROM_GIT+=python-octaviaclient
-enable_plugin octavia https://git.openstack.org/openstack/octavia
+enable_plugin octavia https://opendev.org/openstack/octavia
 enable_service octavia
 enable_service o-api
 enable_service o-cw
@@ -49,7 +49,7 @@ enable_service o-hk
 # OCTAVIA_AMP_IMAGE_NAME=test-only-amphora-x64-haproxy-ubuntu-xenial
 ### Image
 ### Barbican
-enable_plugin barbican https://git.openstack.org/openstack/barbican
+enable_plugin barbican https://opendev.org/openstack/barbican
 ### Nova
 enable_service n-api
 enable_service n-api-meta
@@ -65,7 +65,7 @@ enable_service g-reg
 IMAGE_URLS+=",http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.img"
 
 # Enable heat services if you want to deploy overcloud using Heat stack
-enable_plugin heat https://git.openstack.org/openstack/heat
+enable_plugin heat https://opendev.org/openstack/heat
 enable_service h-eng h-api h-api-cfn h-api-cw
 
 disable_service tempest

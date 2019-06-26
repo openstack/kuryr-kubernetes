@@ -62,7 +62,7 @@ Vagrant provisioning.
 For example, to use OVN as the Neutron plugin with Kuryr, you can create a
 "user_local.conf" with the following configuration:
 
-    enable_plugin networking-ovn https://git.openstack.org/openstack/networking-ovn
+    enable_plugin networking-ovn https://opendev.org/openstack/networking-ovn
     enable_service ovn-northd
     enable_service ovn-controller
     disable_service q-agt
