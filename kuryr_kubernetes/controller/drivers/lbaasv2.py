@@ -69,10 +69,14 @@ class LBaaSv2Driver(base.LBaaSDriver):
             LOG.info('Octavia supports resource tags.')
             self._octavia_tags = True
         else:
+            if v is None:
+                v_str = 'unknown'
+            else:
+                v_str = '%d.%d' % v
             LOG.warning('[neutron_defaults]resource_tags is set, but Octavia '
-                        'API %d.%d does not support resource tagging. Kuryr '
+                        'API %s does not support resource tagging. Kuryr '
                         'will put requested tags in the description field of '
-                        'Octavia resources.', *v)
+                        'Octavia resources.', v_str)
 
     def get_service_loadbalancer_name(self, namespace, svc_name):
         return "%s/%s" % (namespace, svc_name)
