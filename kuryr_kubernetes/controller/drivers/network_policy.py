@@ -652,13 +652,13 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 constants.K8S_API_CRD_NAMESPACES,
                 netpolicy_crd_namespace,
                 netpolicy_crd_name))
+        except exceptions.K8sResourceNotFound:
+            LOG.debug("KuryrNetPolicy CRD Object not found: %s",
+                      netpolicy_crd_name)
         except exceptions.K8sClientException:
             LOG.exception("Kubernetes Client Exception deleting kuryrnetpolicy"
                           " CRD.")
             raise
-        except n_exc.NotFound:
-            LOG.debug("KuryrNetPolicy CRD Object not found: %s",
-                      netpolicy_crd_name)
 
     def affected_pods(self, policy, selector=None):
         if selector or selector == {}:
