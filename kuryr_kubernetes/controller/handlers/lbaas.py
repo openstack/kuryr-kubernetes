@@ -409,10 +409,16 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                             'namespace': target_ref['namespace']}}
         project_id = self._drv_pod_project.get_project(pod)
         subnets_map = self._drv_pod_subnets.get_subnets(pod, project_id)
-        # FIXME(ivc): potentially unsafe [0] index
-        return [subnet_id for subnet_id, network in subnets_map.items()
-                for subnet in network.subnets.objects
-                if ip in subnet.cidr][0]
+        subnet_ids = [subnet_id for subnet_id, network in subnets_map.items()
+                      for subnet in network.subnets.objects
+                      if ip in subnet.cidr]
+        if subnet_ids:
+            return subnet_ids[0]
+        else:
+            # NOTE(ltomasbo): We are assuming that if ip is not on the
+            # pod subnet is because the member is using hostnetworking. In
+            # this worker_nodes_subnet will be used
+            return config.CONF.pod_vif_nested.worker_nodes_subnet
 
     def _get_port_in_pool(self, pool, lbaas_state, lbaas_spec):
         for l in lbaas_state.listeners:
