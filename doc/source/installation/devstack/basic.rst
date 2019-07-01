@@ -14,7 +14,7 @@ Cloning required repositories
 
 First of all you need to clone DevStack: ::
 
-    $ git clone https://git.openstack.org/openstack-dev/devstack
+    $ git clone https://opendev.org/openstack-dev/devstack
 
 Create user *stack*, give it required permissions and log in as that user: ::
 
@@ -24,8 +24,8 @@ Create user *stack*, give it required permissions and log in as that user: ::
 *stack* user has ``/opt/stack`` set as its home directory. It will need its own
 repository with DevStack. Also clone kuryr-kubernetes: ::
 
-    $ git clone https://git.openstack.org/openstack-dev/devstack
-    $ git clone https://git.openstack.org/openstack/kuryr-kubernetes
+    $ git clone https://opendev.org/openstack-dev/devstack
+    $ git clone https://opendev.org/openstack/kuryr-kubernetes
 
 Copy sample ``local.conf`` (DevStack configuration file) to devstack
 directory: ::

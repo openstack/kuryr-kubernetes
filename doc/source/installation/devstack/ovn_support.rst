@@ -31,7 +31,7 @@ to use either CentOS 7 or the latest Ubuntu LTS (16.04, Xenial).
 
 ::
 
-     $ git clone https://git.openstack.org/openstack-dev/devstack.git
+     $ git clone https://opendev.org/openstack-dev/devstack.git
      $ sudo ./devstack/tools/create-stack-user.sh
 
 3. Switch to the ``stack`` user and clone DevStack and kuryr-kubernetes.
@@ -39,8 +39,8 @@ to use either CentOS 7 or the latest Ubuntu LTS (16.04, Xenial).
 ::
 
      $ sudo su - stack
-     $ git clone https://git.openstack.org/openstack-dev/devstack.git
-     $ git clone https://git.openstack.org/openstack/kuryr-kubernetes.git
+     $ git clone https://opendev.org/openstack-dev/devstack.git
+     $ git clone https://opendev.org/openstack/kuryr-kubernetes.git
 
 4. Configure DevStack to use OVN.
 

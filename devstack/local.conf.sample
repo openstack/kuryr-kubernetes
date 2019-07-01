@@ -1,7 +1,7 @@
 [[local|localrc]]
 
 enable_plugin kuryr-kubernetes \
-    https://git.openstack.org/openstack/kuryr-kubernetes
+    https://opendev.org/openstack/kuryr-kubernetes
 
 # If you do not want stacking to clone new versions of the enabled services,
 # like for example when you did local modifications and need to ./unstack.sh
@@ -43,7 +43,7 @@ enable_service q-svc
 
 # Octavia LBaaSv2
 LIBS_FROM_GIT+=python-octaviaclient
-enable_plugin octavia https://git.openstack.org/openstack/octavia
+enable_plugin octavia https://opendev.org/openstack/octavia
 enable_service octavia
 enable_service o-api
 enable_service o-cw
@@ -60,7 +60,7 @@ enable_service o-hk
 # OCTAVIA_AMP_IMAGE_NAME=test-only-amphora-x64-haproxy-ubuntu-xenial
 ### Image
 ### Barbican
-enable_plugin barbican https://git.openstack.org/openstack/barbican
+enable_plugin barbican https://opendev.org/openstack/barbican
 ### Nova
 enable_service n-api
 enable_service n-api-meta
@@ -87,7 +87,7 @@ enable_service rabbit
 # ======
 # If you already have docker configured, running and with its socket writable
 # by the stack user, you can omit the following line.
-enable_plugin devstack-plugin-container https://git.openstack.org/openstack/devstack-plugin-container
+enable_plugin devstack-plugin-container https://opendev.org/openstack/devstack-plugin-container
 
 # Etcd
 # ====

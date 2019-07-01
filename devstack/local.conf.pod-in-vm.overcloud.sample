@@ -3,7 +3,7 @@
 RECLONE="no"
 
 enable_plugin kuryr-kubernetes \
-    https://git.openstack.org/openstack/kuryr-kubernetes
+    https://opendev.org/openstack/kuryr-kubernetes
 
 OFFLINE="no"
 LOGFILE=devstack.log
@@ -31,7 +31,7 @@ KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID=UNDERCLOUD_SUBNETPOOL_V4_ID
 # Include the router to use. You can use the one from the default undercloud devstack
 KURYR_NEUTRON_DEFAULT_ROUTER=router1
 
-enable_plugin devstack-plugin-container https://git.openstack.org/openstack/devstack-plugin-container
+enable_plugin devstack-plugin-container https://opendev.org/openstack/devstack-plugin-container
 enable_service etcd3
 enable_service kubernetes-api
 enable_service kubernetes-controller-manager

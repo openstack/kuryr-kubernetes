@@ -55,7 +55,7 @@ function _generate_deployment_name() {
             set -e
             (>&2 echo "Didn't find a Github token in ENV var DEVSTACK_HEAT_GH_TOKEN. Falling back to cloning repo...")
             tmpdir=$(mktemp -d)
-            git clone --depth 1 https://git.openstack.org/openstack/kuryr-kubernetes "${tmpdir}/kuryr-kubernetes" > /dev/null
+            git clone --depth 1 https://opendev.org/openstack/kuryr-kubernetes "${tmpdir}/kuryr-kubernetes" > /dev/null
             pushd "${tmpdir}/kuryr-kubernetes" > /dev/null
             latest_commit=$(git rev-parse HEAD)
             popd > /dev/null
