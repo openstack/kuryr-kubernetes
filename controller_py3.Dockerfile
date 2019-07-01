@@ -12,6 +12,7 @@ COPY . /opt/kuryr-kubernetes
 RUN python3.6 -m ensurepip \
     && python3.6 -m pip install -c $UPPER_CONSTRAINTS_FILE --no-cache-dir /opt/kuryr-kubernetes \
     && dnf -y history undo last \
+    && dnf clean all \
     && rm -rf /opt/kuryr-kubernetes \
     && groupadd -r kuryr -g 711 \
     && useradd -u 711 -g kuryr \

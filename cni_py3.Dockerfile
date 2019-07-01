@@ -22,6 +22,7 @@ RUN python3.6 -m ensurepip \
     && mkdir -p /etc/kuryr-cni \
     && cp /opt/kuryr-kubernetes/etc/cni/net.d/* /etc/kuryr-cni \
     && dnf -y history undo last \
+    && dnf clean all \
     && rm -rf /opt/kuryr-kubernetes \
     && mkdir ${OSLO_LOCK_PATH}
 

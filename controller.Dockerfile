@@ -11,6 +11,7 @@ COPY . /opt/kuryr-kubernetes
 
 RUN pip install -c $UPPER_CONSTRAINTS_FILE --no-cache-dir /opt/kuryr-kubernetes \
     && yum -y history undo last \
+    && yum clean all \
     && rm -rf /opt/kuryr-kubernetes \
     && groupadd -r kuryr -g 711 \
     && useradd -u 711 -g kuryr \

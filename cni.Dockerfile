@@ -21,6 +21,7 @@ RUN pip install -c $UPPER_CONSTRAINTS_FILE /opt/kuryr-kubernetes \
     && mkdir -p /etc/kuryr-cni \
     && cp /opt/kuryr-kubernetes/etc/cni/net.d/* /etc/kuryr-cni \
     && yum -y history undo last \
+    && yum clean all \
     && rm -rf /opt/kuryr-kubernetes \
     && mkdir ${OSLO_LOCK_PATH}
 
