@@ -362,15 +362,13 @@ function indent() {
 
 function generate_kuryr_configmap() {
     local output_dir
-    local controller_conf_path
-    local cni_conf_path
+    local conf_path
     output_dir=$1
-    controller_conf_path=${2:-""}
-    cni_conf_path=${3:-$controller_conf_path}
+    conf_path=${2:-""}
 
     mkdir -p "$output_dir"
     rm -f ${output_dir}/config_map.yml
-    # kuryr-contoller config
+
     cat >> "${output_dir}/config_map.yml" << EOF
 apiVersion: v1
 kind: ConfigMap
@@ -381,14 +379,7 @@ data:
   kuryr.conf: |
 EOF
 
-    cat $controller_conf_path | indent >> "${output_dir}/config_map.yml"
-
-    # kuryr-cni config
-    cat >> "${output_dir}/config_map.yml" << EOF
-  kuryr-cni.conf: |
-EOF
-
-    cat $cni_conf_path | indent >> "${output_dir}/config_map.yml"
+    cat $conf_path | indent >> "${output_dir}/config_map.yml"
 }
 
 function generate_kuryr_certificates_secret() {
@@ -549,8 +540,7 @@ EOF
         terminationMessagePath: "/dev/termination-log"
         volumeMounts:
         - name: config-volume
-          mountPath: "/etc/kuryr/kuryr.conf"
-          subPath: kuryr.conf
+          mountPath: "/etc/kuryr"
         - name: certificates-volume
           mountPath: "/etc/ssl/certs"
           readOnly: true
@@ -630,8 +620,7 @@ spec:
         - name: net-conf
           mountPath: /etc/cni/net.d
         - name: config-volume
-          mountPath: /etc/kuryr/kuryr.conf
-          subPath: kuryr-cni.conf
+          mountPath: /etc/kuryr
         - name: proc
           mountPath: /host_proc
 EOF
