@@ -456,6 +456,12 @@ function configure_neutron_defaults {
              quota set --secgroups 100 --secgroup-rules 100 "$project_id"
     fi
 
+    # NOTE(dulek): DevStack's admin default for SG's and instances is 10, this
+    #              is too little for our tests with Octavia configured to use
+    #              amphora.
+    openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+        quota set --secgroups 100 --secgroup-rules 100 --instances 100 admin
+
     if [ -n "$OVS_BRIDGE" ]; then
         iniset "$KURYR_CONFIG" neutron_defaults ovs_bridge "$OVS_BRIDGE"
     fi
