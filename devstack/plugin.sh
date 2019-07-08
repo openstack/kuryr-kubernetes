@@ -928,7 +928,7 @@ function create_ingress_l7_router {
     local lb_uuid
 
     lb_name=${KURYR_L7_ROUTER_NAME}
-    max_timeout=600
+    max_timeout=1000
     project_id=$(get_or_create_project \
         "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
 
