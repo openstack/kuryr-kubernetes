@@ -829,14 +829,18 @@ class NestedVIFPool(BaseVIFPool):
                                       'pool.', kuryr_subport['id'])
 
     @lockutils.synchronized('return_to_pool_nested')
-    def populate_pool(self, trunk_ip, project_id, subnets, security_groups,
-                      num_ports=None):
+    def populate_pool(self, trunk_ip, project_id, subnets, security_groups):
         if not hasattr(self, '_available_ports_pools'):
             LOG.info("Kuryr-controller not yet ready to populate pools.")
             raise exceptions.ResourceNotReady(trunk_ip)
         pool_key = self._get_pool_key(trunk_ip, project_id, None, subnets)
         pools = self._available_ports_pools.get(pool_key)
         if not pools:
+            # NOTE(ltomasbo): If the amount of nodes is large the repopulation
+            # actions may take too long. Using half of the batch to prevent
+            # the problem
+            num_ports = max(oslo_cfg.CONF.vif_pool.ports_pool_batch/2,
+                            oslo_cfg.CONF.vif_pool.ports_pool_min)
             self.force_populate_pool(trunk_ip, project_id, subnets,
                                      security_groups, num_ports)
 
