@@ -12,6 +12,7 @@ import (
 	"runtime"
 
 	"github.com/containernetworking/cni/pkg/skel"
+	cni "github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
 	"github.com/pkg/errors"
@@ -138,7 +139,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 
 		prefixSize, _ := cidr.Mask.Size()
 		ifaceCIDR := fmt.Sprintf("%s/%d", addr.String(), prefixSize)
-		_, ifaceNet, err := net.ParseCIDR(ifaceCIDR)
+		ipAddress, err := cni.ParseCIDR(ifaceCIDR)
 		if err != nil {
 			return errors.Wrapf(err, "Error when parsing CIDR %s received from kuryr-daemon", ifaceCIDR)
 		}
@@ -148,7 +149,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 			Version:   ver,
 			Interface: &ifaceNum,
 			Gateway:   net.ParseIP(subnet.Gateway),
-			Address:   *ifaceNet,
+			Address:   *ipAddress,
 		})
 
 		for _, route := range subnet.Routes {
