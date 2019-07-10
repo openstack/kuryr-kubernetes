@@ -73,8 +73,10 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             specific_driver='multi_pool')
         self._drv_vif_pool.set_vif_driver()
         self._drv_multi_vif = drivers.MultiVIFDriver.get_enabled_drivers()
-        self._drv_lbaas = drivers.LBaaSDriver.get_instance()
-        self._drv_svc_sg = drivers.ServiceSecurityGroupsDriver.get_instance()
+        if self._is_network_policy_enabled():
+            self._drv_lbaas = drivers.LBaaSDriver.get_instance()
+            self._drv_svc_sg = (
+                drivers.ServiceSecurityGroupsDriver.get_instance())
 
     def on_present(self, pod):
         if driver_utils.is_host_network(pod) or not self._is_pending_node(pod):
