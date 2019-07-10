@@ -111,7 +111,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 
 	iface := current.Interface{}
-	iface.Name = vif.VifName
+	iface.Name = args.IfName
 	iface.Mac = vif.Address
 	iface.Sandbox = args.ContainerID
 

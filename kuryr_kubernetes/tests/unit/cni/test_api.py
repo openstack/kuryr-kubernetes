@@ -64,6 +64,7 @@ class TestCNIDaemonizedRunner(test_base.TestCase, TestCNIRunnerMixin):
             'CNI_COMMAND': cni_cmd,
             'CNI_CONTAINERID': 'a4181c680a39',
             'CNI_ARGS': 'foo=bar',
+            'CNI_IFNAME': 'eth0',
         }
         result = self.runner.run(env, m_fin, m_fout)
         m_post.assert_called_with(

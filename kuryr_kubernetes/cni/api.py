@@ -100,7 +100,7 @@ class CNIRunner(object):
         cni_routes_list = result.setdefault("routes", [])
         result["interfaces"] = [
             {
-                "name": vif.vif_name,
+                "name": params["CNI_IFNAME"],
                 "mac": vif.address,
                 "sandbox": self.get_container_id(params)}]
         for subnet in vif.network.subnets.objects:
