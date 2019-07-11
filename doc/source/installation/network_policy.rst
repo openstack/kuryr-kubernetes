@@ -66,6 +66,12 @@ to add the policy, pod_label and namespace handler and drivers with::
     KURYR_SG_DRIVER=policy
     KURYR_SUBNET_DRIVER=namespace
 
+.. note::
+  If the loadbalancer maintains the source IP (such as ovn-octavia driver),
+  there is no need to enforce sg rules at the load balancer level.
+  To disable the enforcement, you need to set the following variable:
+  KURYR_ENFORCE_SG_RULES=False
+
 Testing the network policy support functionality
 ------------------------------------------------
 

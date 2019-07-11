@@ -402,10 +402,11 @@ class LBaaSv2Driver(base.LBaaSDriver):
             CONF.kubernetes.service_security_groups_driver == 'namespace')
         create_sg = CONF.octavia_defaults.sg_mode == 'create'
 
-        if namespace_isolation and service_type == 'ClusterIP':
-            self._extend_lb_security_group_rules(loadbalancer, listener)
-        elif create_sg:
+        if create_sg:
             self._create_lb_security_group_rule(loadbalancer, listener)
+        if (namespace_isolation and service_type == 'ClusterIP' and
+                CONF.octavia_defaults.enforce_sg_rules):
+            self._extend_lb_security_group_rules(loadbalancer, listener)
 
     def ensure_listener(self, loadbalancer, protocol, port,
                         service_type='ClusterIP'):

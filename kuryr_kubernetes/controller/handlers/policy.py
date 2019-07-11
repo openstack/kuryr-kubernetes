@@ -77,7 +77,8 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
             pod_sgs = self._drv_pod_sg.get_security_groups(pod, project_id)
             self._drv_vif_pool.update_vif_sgs(pod, pod_sgs)
 
-        if pods_to_update:
+        if (pods_to_update and
+                oslo_cfg.CONF.octavia_defaults.enforce_sg_rules):
             # NOTE(ltomasbo): only need to change services if the pods that
             # they point to are updated
             services = driver_utils.get_services(
@@ -117,15 +118,16 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
 
             self._drv_policy.release_network_policy(netpolicy_crd)
 
-            services = driver_utils.get_services(
-                policy['metadata']['namespace'])
-            for service in services.get('items'):
-                if (service['metadata']['name'] == 'kubernetes' or not
-                        self._is_service_affected(service, pods_to_update)):
-                    continue
-                sgs = self._drv_svc_sg.get_security_groups(service,
-                                                           project_id)
-                self._drv_lbaas.update_lbaas_sg(service, sgs)
+            if oslo_cfg.CONF.octavia_defaults.enforce_sg_rules:
+                services = driver_utils.get_services(
+                    policy['metadata']['namespace'])
+                for svc in services.get('items'):
+                    if (svc['metadata']['name'] == 'kubernetes' or not
+                            self._is_service_affected(svc, pods_to_update)):
+                        continue
+                    sgs = self._drv_svc_sg.get_security_groups(svc,
+                                                               project_id)
+                    self._drv_lbaas.update_lbaas_sg(svc, sgs)
 
     def is_ready(self, quota):
         if not utils.has_kuryr_crd(k_const.K8S_API_CRD_KURYRNETPOLICIES):

@@ -225,6 +225,11 @@ octavia_defaults = [
                choices=[('create', 'replace the VIP SG with a new one'),
                         ('update', 'add rules to the existing VIP SG')],
                default='update'),
+    cfg.BoolOpt('enforce_sg_rules',
+                help=_("Enable the enforcement of SG rules at the LB SG "
+                       "in case the LB does not maintain the source IP "
+                       "of the caller resource"),
+                default=True),
 ]
 
 cache_defaults = [

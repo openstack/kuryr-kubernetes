@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
@@ -66,8 +66,9 @@ class PodLabelHandler(k8s_base.ResourceEventHandler):
         self._drv_vif_pool.update_vif_sgs(pod, security_groups)
         self._set_pod_labels(pod, current_pod_labels)
 
-        services = driver_utils.get_services()
-        self._update_services(services, crd_pod_selectors, project_id)
+        if oslo_cfg.CONF.octavia_defaults.enforce_sg_rules:
+            services = driver_utils.get_services()
+            self._update_services(services, crd_pod_selectors, project_id)
 
     def _get_pod_labels(self, pod):
         try:
