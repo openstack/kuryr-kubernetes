@@ -1024,6 +1024,7 @@ function update_tempest_conf_file {
     if [[ "$KURYR_K8S_CLOUD_PROVIDER" == "True" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes cloud_provider True
     fi
+    iniset $TEMPEST_CONFIG kuryr_kubernetes validate_crd True
 }
 
 source $DEST/kuryr-kubernetes/devstack/lib/kuryr_kubernetes
