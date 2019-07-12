@@ -127,8 +127,8 @@ class CNIHealthServer(object):
         data = 'ok'
         no_limit = -1
         try:
-            with IPDB() as a:
-                a.release()
+            with IPDB():
+                pass
         except Exception:
             error_message = 'IPDB not in working order.'
             LOG.error(error_message)
