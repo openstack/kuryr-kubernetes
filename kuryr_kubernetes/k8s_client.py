@@ -218,15 +218,16 @@ class K8sClient(object):
                     'annotations', {})
 
                 for k, v in annotations.items():
-                    if v != retrieved_annotations.get(k, v):
+                    if v != retrieved_annotations.get(k):
                         break
                 else:
-                    # No conflicting annotations found. Retry patching
-                    resource_version = new_version
-                    continue
-                LOG.debug("Annotations for %(path)s already present: "
-                          "%(names)s", {'path': path,
-                                        'names': retrieved_annotations})
+                    LOG.debug("Annotations for %(path)s already present: "
+                              "%(names)s", {'path': path,
+                                            'names': retrieved_annotations})
+                    return retrieved_annotations
+                # Retry patching with updated resourceVersion
+                resource_version = new_version
+                continue
 
             LOG.error("Exception response, headers: %(headers)s, "
                       "content: %(content)s, text: %(text)s"
