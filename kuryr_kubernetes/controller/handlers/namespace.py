@@ -84,6 +84,12 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
             self.on_deleted(namespace, net_crd)
             raise exceptions.ResourceNotReady(namespace)
 
+        # NOTE(ltomasbo): Ensure there is no previously created networks
+        # leftovers due to a kuryr-controller crash/restart
+        LOG.debug("Deleting leftovers network resources for namespace: %s",
+                  ns_name)
+        self._drv_subnets.cleanup_namespace_networks(ns_name)
+
         LOG.debug("Creating network resources for namespace: %s", ns_name)
         net_crd_spec = self._drv_subnets.create_namespace_network(ns_name,
                                                                   project_id)

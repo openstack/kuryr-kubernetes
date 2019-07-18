@@ -190,6 +190,17 @@ class PodSubnetsDriver(DriverBase):
         """
         raise NotImplementedError()
 
+    def cleanup_namespace_networks(self, namespace):
+        """Clean up network leftover on the namespace.
+
+        Due to Kuryr controller restarts it may happen that some network
+        resources are leftover. This method ensures they are deleted upon
+        retries.
+
+        :param namespace: name of the Kubernetes namespace object
+        """
+        raise NotImplementedError()
+
 
 @six.add_metaclass(abc.ABCMeta)
 class ServiceSubnetsDriver(DriverBase):

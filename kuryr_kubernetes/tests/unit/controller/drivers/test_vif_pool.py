@@ -326,7 +326,8 @@ class BaseVIFPool(test_base.TestCase):
 
         self.assertEqual(resp, [])
 
-    def test_cleanup_leftover_ports(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
+    def test_cleanup_leftover_ports(self, m_get_ports):
         cls = vif_pool.BaseVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -336,7 +337,7 @@ class BaseVIFPool(test_base.TestCase):
         net_id = port['network_id']
         tags = 'clusterTest'
         port['tags'] = [tags]
-        m_driver._get_ports_by_attrs.return_value = [port]
+        m_get_ports.return_value = [port]
         oslo_cfg.CONF.set_override('resource_tags',
                                    tags,
                                    group='neutron_defaults')
@@ -346,7 +347,8 @@ class BaseVIFPool(test_base.TestCase):
         neutron.list_networks.assert_called()
         neutron.delete_port.assert_not_called()
 
-    def test_cleanup_leftover_ports_different_network(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
+    def test_cleanup_leftover_ports_different_network(self, m_get_ports):
         cls = vif_pool.BaseVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -355,7 +357,7 @@ class BaseVIFPool(test_base.TestCase):
         port = get_port_obj(port_id=port_id)
         tags = 'clusterTest'
         port['tags'] = [tags]
-        m_driver._get_ports_by_attrs.return_value = [port]
+        m_get_ports.return_value = [port]
         oslo_cfg.CONF.set_override('resource_tags',
                                    tags,
                                    group='neutron_defaults')
@@ -365,7 +367,8 @@ class BaseVIFPool(test_base.TestCase):
         neutron.list_networks.assert_called()
         neutron.delete_port.assert_not_called()
 
-    def test_cleanup_leftover_ports_no_binding(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
+    def test_cleanup_leftover_ports_no_binding(self, m_get_ports):
         cls = vif_pool.BaseVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -376,7 +379,7 @@ class BaseVIFPool(test_base.TestCase):
         tags = 'clusterTest'
         port['tags'] = [tags]
         port['binding:host_id'] = None
-        m_driver._get_ports_by_attrs.return_value = [port]
+        m_get_ports.return_value = [port]
         oslo_cfg.CONF.set_override('resource_tags',
                                    tags,
                                    group='neutron_defaults')
@@ -386,7 +389,8 @@ class BaseVIFPool(test_base.TestCase):
         neutron.list_networks.assert_called()
         neutron.delete_port.assert_called_once_with(port['id'])
 
-    def test_cleanup_leftover_ports_no_tags(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
+    def test_cleanup_leftover_ports_no_tags(self, m_get_ports):
         cls = vif_pool.BaseVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -395,7 +399,7 @@ class BaseVIFPool(test_base.TestCase):
         port = get_port_obj(port_id=port_id)
         net_id = port['network_id']
         tags = 'clusterTest'
-        m_driver._get_ports_by_attrs.return_value = [port]
+        m_get_ports.return_value = [port]
         oslo_cfg.CONF.set_override('resource_tags',
                                    tags,
                                    group='neutron_defaults')
@@ -405,14 +409,15 @@ class BaseVIFPool(test_base.TestCase):
         neutron.list_networks.assert_called()
         neutron.delete_port.assert_called_once_with(port['id'])
 
-    def test_cleanup_leftover_ports_no_tagging(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
+    def test_cleanup_leftover_ports_no_tagging(self, m_get_ports):
         cls = vif_pool.BaseVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
 
         port_id = str(uuid.uuid4())
         port = get_port_obj(port_id=port_id)
-        m_driver._get_ports_by_attrs.return_value = [port]
+        m_get_ports.return_value = [port]
         oslo_cfg.CONF.set_override('resource_tags',
                                    [],
                                    group='neutron_defaults')
@@ -421,7 +426,8 @@ class BaseVIFPool(test_base.TestCase):
         neutron.list_networks.assert_not_called()
         neutron.delete_port.assert_not_called()
 
-    def test_cleanup_leftover_ports_no_tagging_no_binding(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
+    def test_cleanup_leftover_ports_no_tagging_no_binding(self, m_get_ports):
         cls = vif_pool.BaseVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -429,7 +435,7 @@ class BaseVIFPool(test_base.TestCase):
         port_id = str(uuid.uuid4())
         port = get_port_obj(port_id=port_id)
         port['binding:host_id'] = None
-        m_driver._get_ports_by_attrs.return_value = [port]
+        m_get_ports.return_value = [port]
         oslo_cfg.CONF.set_override('resource_tags',
                                    [],
                                    group='neutron_defaults')
@@ -659,8 +665,9 @@ class NeutronVIFPool(test_base.TestCase):
 
         neutron.update_port.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
     @ddt.data((0), (10))
-    def test__trigger_return_to_pool(self, max_pool):
+    def test__trigger_return_to_pool(self, max_pool, m_get_ports):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -677,7 +684,7 @@ class NeutronVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('port_debug',
                                    True,
                                    group='kubernetes')
-        m_driver._get_ports_by_attrs.return_value = [
+        m_get_ports.return_value = [
             {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
 
@@ -693,8 +700,9 @@ class NeutronVIFPool(test_base.TestCase):
             })
         neutron.delete_port.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
     @ddt.data((0), (10))
-    def test__trigger_return_to_pool_no_update(self, max_pool):
+    def test__trigger_return_to_pool_no_update(self, max_pool, m_get_ports):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -711,7 +719,7 @@ class NeutronVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('port_debug',
                                    False,
                                    group='kubernetes')
-        m_driver._get_ports_by_attrs.return_value = [
+        m_get_ports.return_value = [
             {'id': port_id, 'security_groups': ['security_group']}]
         m_driver._get_pool_size.return_value = pool_length
 
@@ -720,7 +728,8 @@ class NeutronVIFPool(test_base.TestCase):
         neutron.update_port.assert_not_called()
         neutron.delete_port.assert_not_called()
 
-    def test__trigger_return_to_pool_delete_port(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
+    def test__trigger_return_to_pool_delete_port(self, m_get_ports):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -736,7 +745,7 @@ class NeutronVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    10,
                                    group='vif_pool')
-        m_driver._get_ports_by_attrs.return_value = [
+        m_get_ports.return_value = [
             {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
 
@@ -745,7 +754,8 @@ class NeutronVIFPool(test_base.TestCase):
         neutron.update_port.assert_not_called()
         neutron.delete_port.assert_called_once_with(port_id)
 
-    def test__trigger_return_to_pool_update_exception(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
+    def test__trigger_return_to_pool_update_exception(self, m_get_ports):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -765,7 +775,7 @@ class NeutronVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('port_debug',
                                    True,
                                    group='kubernetes')
-        m_driver._get_ports_by_attrs.return_value = [
+        m_get_ports.return_value = [
             {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
         neutron.update_port.side_effect = n_exc.NeutronClientException
@@ -782,7 +792,8 @@ class NeutronVIFPool(test_base.TestCase):
             })
         neutron.delete_port.assert_not_called()
 
-    def test__trigger_return_to_pool_delete_exception(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
+    def test__trigger_return_to_pool_delete_exception(self, m_get_ports):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -798,7 +809,7 @@ class NeutronVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    5,
                                    group='vif_pool')
-        m_driver._get_ports_by_attrs.return_value = [
+        m_get_ports.return_value = [
             {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
         neutron.delete_port.side_effect = n_exc.PortNotFoundClient
@@ -808,7 +819,8 @@ class NeutronVIFPool(test_base.TestCase):
         neutron.update_port.assert_not_called()
         neutron.delete_port.assert_called_once_with(port_id)
 
-    def test__trigger_return_to_pool_delete_key_error(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
+    def test__trigger_return_to_pool_delete_key_error(self, m_get_ports):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -823,7 +835,7 @@ class NeutronVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    5,
                                    group='vif_pool')
-        m_driver._get_ports_by_attrs.return_value = [
+        m_get_ports.return_value = [
             {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
 
@@ -832,9 +844,11 @@ class NeutronVIFPool(test_base.TestCase):
         neutron.update_port.assert_not_called()
         neutron.delete_port.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
     @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif')
     @mock.patch('kuryr_kubernetes.utils.get_subnet')
-    def test__recover_precreated_ports(self, m_get_subnet, m_to_osvif):
+    def test__recover_precreated_ports(self, m_get_subnet, m_to_osvif,
+                                       m_get_ports):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
@@ -848,7 +862,7 @@ class NeutronVIFPool(test_base.TestCase):
         port_id = str(uuid.uuid4())
         port = get_port_obj(port_id=port_id)
         filtered_ports = [port]
-        m_driver._get_ports_by_attrs.return_value = filtered_ports
+        m_get_ports.return_value = filtered_ports
         vif_plugin = mock.sentinel.plugin
         m_driver._drv_vif._get_vif_plugin.return_value = vif_plugin
 
@@ -870,7 +884,7 @@ class NeutronVIFPool(test_base.TestCase):
 
         cls._recover_precreated_ports(m_driver)
 
-        m_driver._get_ports_by_attrs.assert_called_once()
+        m_get_ports.assert_called_once()
         m_get_subnet.assert_called_with(subnet_id)
         m_driver._drv_vif._get_vif_plugin.assert_called_once_with(port)
         m_to_osvif.assert_called_once_with(vif_plugin, port, subnet)
@@ -879,14 +893,16 @@ class NeutronVIFPool(test_base.TestCase):
         self.assertEqual(m_driver._available_ports_pools[pool_key],
                          {tuple(port['security_groups']): [port_id]})
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
     @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif')
     @mock.patch('kuryr_kubernetes.utils.get_subnet')
-    def test__recover_precreated_ports_empty(self, m_get_subnet, m_to_osvif):
+    def test__recover_precreated_ports_empty(self, m_get_subnet, m_to_osvif,
+                                             m_get_ports):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
         filtered_ports = []
-        m_driver._get_ports_by_attrs.return_value = filtered_ports
+        m_get_ports.return_value = filtered_ports
         m_driver._get_trunks_info.return_value = ({}, {}, {})
 
         oslo_cfg.CONF.set_override('port_debug',
@@ -895,7 +911,7 @@ class NeutronVIFPool(test_base.TestCase):
 
         cls._recover_precreated_ports(m_driver)
 
-        m_driver._get_ports_by_attrs.assert_called_once()
+        m_get_ports.assert_called_once()
         m_get_subnet.assert_not_called()
         m_to_osvif.assert_not_called()
 
@@ -1193,8 +1209,9 @@ class NestedVIFPool(test_base.TestCase):
 
         neutron.update_port.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
     @ddt.data((0), (10))
-    def test__trigger_return_to_pool(self, max_pool):
+    def test__trigger_return_to_pool(self, max_pool, m_get_ports):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -1211,7 +1228,7 @@ class NestedVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('port_debug',
                                    True,
                                    group='kubernetes')
-        m_driver._get_ports_by_attrs.return_value = [
+        m_get_ports.return_value = [
             {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
 
@@ -1226,8 +1243,9 @@ class NestedVIFPool(test_base.TestCase):
             })
         neutron.delete_port.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
     @ddt.data((0), (10))
-    def test__trigger_return_to_pool_no_update(self, max_pool):
+    def test__trigger_return_to_pool_no_update(self, max_pool, m_get_ports):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -1244,7 +1262,7 @@ class NestedVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('port_debug',
                                    False,
                                    group='kubernetes')
-        m_driver._get_ports_by_attrs.return_value = [
+        m_get_ports.return_value = [
             {'id': port_id, 'security_groups': ['security_group']}]
         m_driver._get_pool_size.return_value = pool_length
 
@@ -1253,7 +1271,8 @@ class NestedVIFPool(test_base.TestCase):
         neutron.update_port.assert_not_called()
         neutron.delete_port.assert_not_called()
 
-    def test__trigger_return_to_pool_delete_port(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
+    def test__trigger_return_to_pool_delete_port(self, m_get_ports):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -1274,7 +1293,7 @@ class NestedVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    10,
                                    group='vif_pool')
-        m_driver._get_ports_by_attrs.return_value = [
+        m_get_ports.return_value = [
             {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
         m_driver._get_trunk_id.return_value = trunk_id
@@ -1289,7 +1308,8 @@ class NestedVIFPool(test_base.TestCase):
                                                                   trunk_id,
                                                                   port_id)
 
-    def test__trigger_return_to_pool_update_exception(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
+    def test__trigger_return_to_pool_update_exception(self, m_get_ports):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -1306,7 +1326,7 @@ class NestedVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('port_debug',
                                    True,
                                    group='kubernetes')
-        m_driver._get_ports_by_attrs.return_value = [
+        m_get_ports.return_value = [
             {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
         neutron.update_port.side_effect = n_exc.NeutronClientException
@@ -1322,7 +1342,8 @@ class NestedVIFPool(test_base.TestCase):
             })
         neutron.delete_port.assert_not_called()
 
-    def test__trigger_return_to_pool_delete_exception(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
+    def test__trigger_return_to_pool_delete_exception(self, m_get_ports):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -1343,7 +1364,7 @@ class NestedVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    5,
                                    group='vif_pool')
-        m_driver._get_ports_by_attrs.return_value = [
+        m_get_ports.return_value = [
             {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
         m_driver._get_trunk_id.return_value = trunk_id
@@ -1359,7 +1380,8 @@ class NestedVIFPool(test_base.TestCase):
                                                                   port_id)
         neutron.delete_port.assert_called_once_with(port_id)
 
-    def test__trigger_return_to_pool_delete_key_error(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
+    def test__trigger_return_to_pool_delete_key_error(self, m_get_ports):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
@@ -1378,7 +1400,7 @@ class NestedVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    5,
                                    group='vif_pool')
-        m_driver._get_ports_by_attrs.return_value = [
+        m_get_ports.return_value = [
             {'id': port_id, 'security_groups': ['security_group_modified']}]
         m_driver._get_pool_size.return_value = pool_length
         m_driver._known_trunk_ids = {}
@@ -1407,8 +1429,9 @@ class NestedVIFPool(test_base.TestCase):
         self.assertEqual(ip_address, cls._get_parent_port_ip(m_driver,
                                                              port_id))
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
     @mock.patch('kuryr_kubernetes.utils.get_subnet')
-    def test__get_trunk_info(self, m_get_subnet):
+    def test__get_trunk_info(self, m_get_subnet, m_get_ports):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
@@ -1426,7 +1449,7 @@ class NestedVIFPool(test_base.TestCase):
         subport_id = str(uuid.uuid4())
         subport = get_port_obj(port_id=subport_id,
                                device_owner='trunk:subport')
-        m_driver._get_ports_by_attrs.return_value = [trunk_port, subport]
+        m_get_ports.return_value = [trunk_port, subport]
         m_driver._get_in_use_ports.return_value = []
         subnet = mock.sentinel.subnet
         m_get_subnet.return_value = subnet
@@ -1443,11 +1466,12 @@ class NestedVIFPool(test_base.TestCase):
         self.assertEqual(r_subports, {subport_id: subport})
         self.assertEqual(r_subnets, exp_subnets)
 
-    def test__get_trunk_info_empty(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
+    def test__get_trunk_info_empty(self, m_get_ports):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
-        m_driver._get_ports_by_attrs.return_value = []
+        m_get_ports.return_value = []
         m_driver._get_in_use_ports.return_value = []
 
         r_p_ports, r_subports, r_subnets = cls._get_trunks_info(m_driver)
@@ -1456,14 +1480,15 @@ class NestedVIFPool(test_base.TestCase):
         self.assertEqual(r_subports, {})
         self.assertEqual(r_subnets, {})
 
-    def test__get_trunk_info_no_trunk_details(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
+    def test__get_trunk_info_no_trunk_details(self, m_get_ports):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
         port_id = str(uuid.uuid4())
         port = get_port_obj(port_id=port_id)
         port = get_port_obj(port_id=port_id, device_owner='compute:nova')
-        m_driver._get_ports_by_attrs.return_value = [port]
+        m_get_ports.return_value = [port]
         m_driver._get_in_use_ports.return_value = []
 
         r_p_ports, r_subports, r_subnets = cls._get_trunks_info(m_driver)

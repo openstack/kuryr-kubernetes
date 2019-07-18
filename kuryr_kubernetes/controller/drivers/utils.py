@@ -534,3 +534,9 @@ def get_port_annot_pci_info(nodename, neutron_port):
         LOG.exception('Exception when reading annotations '
                       '%s and converting from json', annot_name)
     return pci_info
+
+
+def get_ports_by_attrs(**attrs):
+    neutron = clients.get_neutron_client()
+    ports = neutron.list_ports(**attrs)
+    return ports['ports']
