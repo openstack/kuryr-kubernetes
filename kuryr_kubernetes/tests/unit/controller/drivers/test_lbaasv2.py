@@ -717,21 +717,22 @@ class TestLBaaSv2Driver(test_base.TestCase):
         obj = mock.sentinel.obj
         create = mock.sentinel.create
         find = mock.sentinel.find
-        expected_result = mock.sentinel.expected_result
-        timer = [mock.sentinel.t0, mock.sentinel.t1]
+        timer = [mock.sentinel.t0]
         m_driver._provisioning_timer.return_value = timer
-        m_driver._ensure.side_effect = [o_exc.BadRequestException,
-                                        expected_result]
+        resp = requests.Response()
+        resp.status_code = 400
+        m_driver._ensure.side_effect = requests.exceptions.HTTPError(
+            response=resp)
 
-        ret = cls._ensure_provisioned(m_driver, loadbalancer, obj, create,
-                                      find)
+        self.assertRaises(requests.exceptions.HTTPError,
+                          cls._ensure_provisioned, m_driver,
+                          loadbalancer, obj, create, find)
 
         m_driver._wait_for_provisioning.assert_has_calls(
             [mock.call(loadbalancer, t, d_lbaasv2._LB_STS_POLL_FAST_INTERVAL)
              for t in timer])
         m_driver._ensure.assert_has_calls(
             [mock.call(obj, create, find) for _ in timer])
-        self.assertEqual(expected_result, ret)
 
     def test_ensure_not_ready(self):
         cls = d_lbaasv2.LBaaSv2Driver

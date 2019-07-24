@@ -14,6 +14,7 @@
 #    under the License.
 
 import random
+from six.moves import http_client as httplib
 import time
 
 import requests
@@ -420,7 +421,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             result = self._ensure_provisioned(
                 loadbalancer, listener, self._create_listener,
                 self._find_listener, _LB_STS_POLL_SLOW_INTERVAL)
-        except o_exc.BadRequestException:
+        except requests.exceptions.HTTPError:
             LOG.info("Listener creation failed, most probably because "
                      "protocol %(prot)s is not supported", {'prot': protocol})
             return None
@@ -715,8 +716,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 result = self._ensure(obj, create, find)
                 if result:
                     return result
-            except o_exc.BadRequestException:
-                continue
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code == httplib.BAD_REQUEST:
+                    raise
 
         raise k_exc.ResourceNotReady(obj)
 
