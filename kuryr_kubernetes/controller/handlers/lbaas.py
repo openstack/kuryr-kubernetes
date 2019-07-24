@@ -508,14 +508,22 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
 
     def _add_new_listeners(self, endpoints, lbaas_spec, lbaas_state):
         changed = False
-        current_port_tuples = {(listener.protocol, listener.port)
-                               for listener in lbaas_state.listeners}
-        for port_spec in lbaas_spec.ports:
+        lbaas_spec_ports = sorted(lbaas_spec.ports, key=lambda x: x.protocol)
+        for port_spec in lbaas_spec_ports:
             protocol = port_spec.protocol
             port = port_spec.port
-            if (protocol, port) in current_port_tuples:
+            # FIXME (maysams): Due to a bug in Octavia, which does
+            # not allows listeners with same port but different
+            # protocols to co-exist, we need to skip the creation of
+            # listeners that have the same port as an existing one.
+            name = "%s:%s" % (lbaas_state.loadbalancer.name, protocol)
+            listener = self._get_listener_with_same_port(lbaas_state, port)
+            if listener:
+                if listener.protocol != protocol:
+                    LOG.warning("Skipping listener creation for %s "
+                                "as another one already exists with port %r",
+                                name, port)
                 continue
-
             listener = self._drv_lbaas.ensure_listener(
                 loadbalancer=lbaas_state.loadbalancer,
                 protocol=protocol,
@@ -525,6 +533,12 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                 lbaas_state.listeners.append(listener)
                 changed = True
         return changed
+
+    def _get_listener_with_same_port(self, lbaas_state, port):
+        for listener in lbaas_state.listeners:
+            if listener.port == port:
+                return listener
+        return None
 
     def _remove_unused_listeners(self, endpoints, lbaas_state, lbaas_spec):
         current_listeners = {p.listener_id for p in lbaas_state.pools}
