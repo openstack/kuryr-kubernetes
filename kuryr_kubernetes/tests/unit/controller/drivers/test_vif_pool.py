@@ -326,6 +326,118 @@ class BaseVIFPool(test_base.TestCase):
 
         self.assertEqual(resp, [])
 
+    def test_cleanup_leftover_ports(self):
+        cls = vif_pool.BaseVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        port_id = str(uuid.uuid4())
+        port = get_port_obj(port_id=port_id)
+        net_id = port['network_id']
+        tags = 'clusterTest'
+        port['tags'] = [tags]
+        m_driver._get_ports_by_attrs.return_value = [port]
+        oslo_cfg.CONF.set_override('resource_tags',
+                                   tags,
+                                   group='neutron_defaults')
+        neutron.list_networks.return_value = {'networks': [{'id': net_id}]}
+
+        cls._cleanup_leftover_ports(m_driver)
+        neutron.list_networks.assert_called()
+        neutron.delete_port.assert_not_called()
+
+    def test_cleanup_leftover_ports_different_network(self):
+        cls = vif_pool.BaseVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        port_id = str(uuid.uuid4())
+        port = get_port_obj(port_id=port_id)
+        tags = 'clusterTest'
+        port['tags'] = [tags]
+        m_driver._get_ports_by_attrs.return_value = [port]
+        oslo_cfg.CONF.set_override('resource_tags',
+                                   tags,
+                                   group='neutron_defaults')
+        neutron.list_networks.return_value = {'networks': []}
+
+        cls._cleanup_leftover_ports(m_driver)
+        neutron.list_networks.assert_called()
+        neutron.delete_port.assert_not_called()
+
+    def test_cleanup_leftover_ports_no_binding(self):
+        cls = vif_pool.BaseVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        port_id = str(uuid.uuid4())
+        port = get_port_obj(port_id=port_id)
+        net_id = port['network_id']
+        tags = 'clusterTest'
+        port['tags'] = [tags]
+        port['binding:host_id'] = None
+        m_driver._get_ports_by_attrs.return_value = [port]
+        oslo_cfg.CONF.set_override('resource_tags',
+                                   tags,
+                                   group='neutron_defaults')
+        neutron.list_networks.return_value = {'networks': [{'id': net_id}]}
+
+        cls._cleanup_leftover_ports(m_driver)
+        neutron.list_networks.assert_called()
+        neutron.delete_port.assert_called_once_with(port['id'])
+
+    def test_cleanup_leftover_ports_no_tags(self):
+        cls = vif_pool.BaseVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        port_id = str(uuid.uuid4())
+        port = get_port_obj(port_id=port_id)
+        net_id = port['network_id']
+        tags = 'clusterTest'
+        m_driver._get_ports_by_attrs.return_value = [port]
+        oslo_cfg.CONF.set_override('resource_tags',
+                                   tags,
+                                   group='neutron_defaults')
+        neutron.list_networks.return_value = {'networks': [{'id': net_id}]}
+
+        cls._cleanup_leftover_ports(m_driver)
+        neutron.list_networks.assert_called()
+        neutron.delete_port.assert_called_once_with(port['id'])
+
+    def test_cleanup_leftover_ports_no_tagging(self):
+        cls = vif_pool.BaseVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        port_id = str(uuid.uuid4())
+        port = get_port_obj(port_id=port_id)
+        m_driver._get_ports_by_attrs.return_value = [port]
+        oslo_cfg.CONF.set_override('resource_tags',
+                                   [],
+                                   group='neutron_defaults')
+
+        cls._cleanup_leftover_ports(m_driver)
+        neutron.list_networks.assert_not_called()
+        neutron.delete_port.assert_not_called()
+
+    def test_cleanup_leftover_ports_no_tagging_no_binding(self):
+        cls = vif_pool.BaseVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        port_id = str(uuid.uuid4())
+        port = get_port_obj(port_id=port_id)
+        port['binding:host_id'] = None
+        m_driver._get_ports_by_attrs.return_value = [port]
+        oslo_cfg.CONF.set_override('resource_tags',
+                                   [],
+                                   group='neutron_defaults')
+
+        cls._cleanup_leftover_ports(m_driver)
+        neutron.list_networks.assert_not_called()
+        neutron.delete_port.assert_called_once_with(port['id'])
+
 
 @ddt.ddt
 class NeutronVIFPool(test_base.TestCase):

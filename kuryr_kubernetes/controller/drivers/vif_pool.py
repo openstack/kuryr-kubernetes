@@ -314,6 +314,7 @@ class BaseVIFPool(base.VIFPoolDriver):
         # NOTE(ltomasbo): Ensure previously created ports are recovered into
         # their respective pools
         self._recover_precreated_ports()
+        self._cleanup_leftover_ports()
 
     def _get_trunks_info(self):
         """Returns information about trunks and their subports.
@@ -378,6 +379,45 @@ class BaseVIFPool(base.VIFPoolDriver):
                                               utils.get_subnet(
                                                   subnet_id)}
         return parent_ports, subports, subnets
+
+    def _cleanup_leftover_ports(self):
+        neutron = clients.get_neutron_client()
+        attrs = {'device_owner': kl_const.DEVICE_OWNER, 'status': 'DOWN'}
+        existing_ports = self._get_ports_by_attrs(**attrs)
+
+        tags = config.CONF.neutron_defaults.resource_tags
+        if tags:
+            nets = neutron.list_networks(tags=tags)['networks']
+            nets_ids = [n['id'] for n in nets]
+            for port in existing_ports:
+                net_id = port['network_id']
+                if net_id in nets_ids:
+                    if port.get('binding:host_id'):
+                        for tag in tags:
+                            if tag not in port.get('tags', []):
+                                # delete the port if it has binding details, it
+                                # belongs to the deployment subnet and it does
+                                # not have the right tags
+                                try:
+                                    neutron.delete_port(port['id'])
+                                    break
+                                except n_exc.NeutronClientException:
+                                    LOG.debug("Problem deleting leftover port "
+                                              "%s. Skipping.", port['id'])
+                                    continue
+                    else:
+                        # delete port if they have no binding but belong to the
+                        # deployment networks, regardless of their tagging
+                        try:
+                            neutron.delete_port(port['id'])
+                        except n_exc.NeutronClientException:
+                            LOG.debug("Problem deleting leftover port %s. "
+                                      "Skipping.", port['id'])
+                            continue
+        else:
+            for port in existing_ports:
+                if not port.get('binding:host_id'):
+                    neutron.delete_port(port['id'])
 
 
 class NeutronVIFPool(BaseVIFPool):
