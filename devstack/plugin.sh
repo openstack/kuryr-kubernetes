@@ -630,7 +630,6 @@ function run_k8s_api {
                 --insecure-bind-address=0.0.0.0
                 --insecure-port=${KURYR_K8S_API_PORT}
                 --etcd-servers=http://${SERVICE_HOST}:${ETCD_PORT}
-                --admission-control=NamespaceLifecycle,LimitRanger,ServiceAccount,ResourceQuota
                 --client-ca-file=/srv/kubernetes/ca.crt
                 --basic-auth-file=/srv/kubernetes/basic_auth.csv
                 --min-request-timeout=300
