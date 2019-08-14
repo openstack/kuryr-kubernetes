@@ -80,6 +80,7 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
         vifs = wait_for_active(pod_name)
         for vif in vifs.values():
             if not vif.active:
+                LOG.error("Timed out waiting for vifs to become active")
                 raise exceptions.ResourceNotReady(pod_name)
 
         return vifs[k_const.DEFAULT_IFNAME]
@@ -125,6 +126,8 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
                 ifname, vif_obj in d['vifs'].items()
             }
         except KeyError:
+            LOG.error("Timed out waiting for requested pod to appear in "
+                      "registry")
             raise exceptions.ResourceNotReady(pod_name)
 
         for ifname, vif in vifs.items():

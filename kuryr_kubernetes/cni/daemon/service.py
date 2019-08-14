@@ -80,10 +80,9 @@ class DaemonServer(object):
         try:
             vif = self.plugin.add(params)
             data = jsonutils.dumps(vif.obj_to_primitive())
-        except exceptions.ResourceNotReady as e:
+        except exceptions.ResourceNotReady:
             self._check_failure()
-            LOG.error("Timed out waiting for requested pod to appear in "
-                      "registry: %s.", e)
+            LOG.error('Error when processing addNetwork request')
             return '', httplib.GATEWAY_TIMEOUT, self.headers
         except Exception:
             self._check_failure()
@@ -102,14 +101,14 @@ class DaemonServer(object):
 
         try:
             self.plugin.delete(params)
-        except exceptions.ResourceNotReady as e:
+        except exceptions.ResourceNotReady:
             # NOTE(dulek): It's better to ignore this error - most of the time
             #              it will happen when pod is long gone and kubelet
             #              overzealously tries to delete it from the network.
             #              We cannot really do anything without VIF annotation,
             #              so let's just tell kubelet to move along.
-            LOG.warning("Timed out waiting for requested pod to appear in "
-                        "registry: %s. Ignoring.", e)
+            LOG.warning('Error when processing delNetwork request. '
+                        'Ignoring this error, pod is most likely gone')
             return '', httplib.NO_CONTENT, self.headers
         except Exception:
             LOG.exception('Error when processing delNetwork request. CNI '
