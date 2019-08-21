@@ -437,7 +437,7 @@ rules:
     - services
     - services/status
     - namespaces
-- apiGroups: ["oapi"]
+- apiGroups: ["route.openshift.io"]
   resources:
   - routes
   verbs: ["*"]
