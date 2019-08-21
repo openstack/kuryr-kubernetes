@@ -16,6 +16,7 @@
 import abc
 import collections
 import eventlet
+import os
 import six
 import time
 
@@ -302,14 +303,21 @@ class BaseVIFPool(base.VIFPoolDriver):
     @lockutils.synchronized('return_to_pool_baremetal')
     @lockutils.synchronized('return_to_pool_nested')
     def sync_pools(self):
+        # NOTE(ltomasbo): Ensure readiness probe is not set to true until the
+        # pools sync is completed in case of controller restart
+        try:
+            os.remove('/tmp/pools_loaded')
+        except OSError:
+            pass
+
         self._available_ports_pools = collections.defaultdict()
         self._existing_vifs = collections.defaultdict()
         self._recyclable_ports = collections.defaultdict()
         self._last_update = collections.defaultdict()
         # NOTE(ltomasbo): Ensure previously created ports are recovered into
         # their respective pools
-        self._recover_precreated_ports()
         self._cleanup_leftover_ports()
+        self._recover_precreated_ports()
 
     def _get_trunks_info(self):
         """Returns information about trunks and their subports.
