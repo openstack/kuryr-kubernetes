@@ -86,13 +86,19 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         state = driver_utils.get_pod_state(pod)
         LOG.debug("Got VIFs from annotation: %r", state)
         project_id = self._drv_project.get_project(pod)
+        security_groups = self._drv_sg.get_security_groups(pod, project_id)
         if not state:
-            security_groups = self._drv_sg.get_security_groups(pod, project_id)
             subnets = self._drv_subnets.get_subnets(pod, project_id)
 
             # Request the default interface of pod
             main_vif = self._drv_vif_pool.request_vif(
                 pod, project_id, subnets, security_groups)
+
+            if not main_vif:
+                pod_name = pod['metadata']['name']
+                LOG.warning("Ignoring event due to pod %s not being "
+                            "scheduled yet.", pod_name)
+                return
 
             state = objects.vif.PodState(default_vif=main_vif)
 
@@ -129,7 +135,17 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                         changed = True
             finally:
                 if changed:
-                    self._set_pod_state(pod, state)
+                    try:
+                        self._set_pod_state(pod, state)
+                    except k_exc.K8sResourceNotFound as ex:
+                        LOG.exception("Failed to set annotation: %s", ex)
+                        for ifname, vif in state.vifs.items():
+                            self._drv_vif_pool.release_vif(
+                                pod, vif, project_id,
+                                security_groups)
+                    except k_exc.K8sClientException:
+                        pod_name = pod['metadata']['name']
+                        raise k_exc.ResourceNotReady(pod_name)
                     if self._is_network_policy_enabled():
                         crd_pod_selectors = self._drv_sg.create_sg_rules(pod)
                         if oslo_cfg.CONF.octavia_defaults.enforce_sg_rules:
