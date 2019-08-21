@@ -46,6 +46,15 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
             LOG.debug("CRD existing at the new namespace")
             return
 
+        net_crd_name = 'ns-' + ns_name
+        net_crd = self._get_net_crd(net_crd_name)
+        if net_crd:
+            LOG.debug("Previous CRD existing at the new namespace. "
+                      "Deleting namespace resources and retrying its "
+                      "creation.")
+            self.on_deleted(namespace, net_crd)
+            raise exceptions.ResourceNotReady(namespace)
+
         LOG.debug("Creating network resources for namespace: %s", ns_name)
         net_crd_spec = self._drv_subnets.create_namespace_network(ns_name,
                                                                   project_id)
@@ -67,20 +76,29 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         try:
             net_crd = self._add_kuryrnet_crd(ns_name, net_crd_spec)
             self._set_net_crd(namespace, net_crd)
+        except exceptions.K8sResourceNotFound:
+            LOG.debug("Namespace could not be annotated. Rolling back "
+                      "resources created for it.")
+            self._drv_subnets.rollback_network_resources(net_crd_spec, ns_name)
+            self._drv_sg.delete_sg(net_crd_sg['sgId'])
+            self._del_kuryrnet_crd(net_crd_name)
         except exceptions.K8sClientException:
             LOG.exception("Kuryrnet CRD could not be added. Rolling back "
                           "network resources created for the namespace.")
             self._drv_subnets.rollback_network_resources(net_crd_spec, ns_name)
             self._drv_sg.delete_sg(net_crd_sg['sgId'])
 
-    def on_deleted(self, namespace):
+    def on_deleted(self, namespace, net_crd=None):
         LOG.debug("Deleting namespace: %s", namespace)
-        net_crd_id = self._get_net_crd_id(namespace)
-        if not net_crd_id:
-            LOG.warning("There is no CRD annotated at the namespace %s",
-                        namespace)
-            return
-        net_crd = self._get_net_crd(net_crd_id)
+        if not net_crd:
+            net_crd_id = self._get_net_crd_id(namespace)
+            if not net_crd_id:
+                LOG.warning("There is no CRD annotated at the namespace %s",
+                            namespace)
+                return
+            net_crd = self._get_net_crd(net_crd_id)
+
+        net_crd_name = 'ns-' + namespace['metadata']['name']
 
         self._drv_vif_pool.delete_network_pools(net_crd['spec']['netId'])
         try:
@@ -98,8 +116,7 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         else:
             LOG.debug("There is no security group associated with the "
                       "namespace to be deleted")
-
-        self._del_kuryrnet_crd(net_crd_id)
+        self._del_kuryrnet_crd(net_crd_name)
 
     def _get_net_crd_id(self, namespace):
         try:
@@ -114,6 +131,8 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         try:
             kuryrnet_crd = k8s.get('%s/kuryrnets/%s' % (constants.K8S_API_CRD,
                                                         net_crd_id))
+        except exceptions.K8sResourceNotFound:
+            return None
         except exceptions.K8sClientException:
             LOG.exception("Kubernetes Client Exception.")
             raise
@@ -156,6 +175,8 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         try:
             kubernetes.delete('%s/kuryrnets/%s' % (constants.K8S_API_CRD,
                                                    net_crd_name))
+        except exceptions.K8sResourceNotFound:
+            LOG.debug("KuryrNetPolicy CRD not found: %s", net_crd_name)
         except exceptions.K8sClientException:
             LOG.exception("Kubernetes Client Exception deleting kuryrnet "
                           "CRD.")
