@@ -111,6 +111,7 @@ class DaemonServer(object):
                         'Ignoring this error, pod is most likely gone')
             return '', httplib.NO_CONTENT, self.headers
         except Exception:
+            self._check_failure()
             LOG.exception('Error when processing delNetwork request. CNI '
                           'Params: %s.', params)
             return '', httplib.INTERNAL_SERVER_ERROR, self.headers
@@ -139,7 +140,8 @@ class DaemonServer(object):
                 self.failure_count.value += 1
             else:
                 with self.healthy.get_lock():
-                    LOG.debug("Reporting maximun CNI ADD failures reached.")
+                    LOG.debug("Reporting maximum CNI ADD/DEL failures "
+                              "reached.")
                     self.healthy.value = False
 
 
