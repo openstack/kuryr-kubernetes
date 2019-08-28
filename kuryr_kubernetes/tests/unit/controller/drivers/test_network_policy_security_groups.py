@@ -390,8 +390,11 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
                 self.assertEqual(matched, True)
 
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'get_pod_ip')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'match_selector', return_value=False)
-    def test__create_sg_rules_no_match(self, m_match_selector):
+    def test__create_sg_rules_no_match(self, m_match_selector,
+                                       m_get_pod_ip):
         crd = get_crd_obj_with_all_selectors()
         pod = self._pod2
 

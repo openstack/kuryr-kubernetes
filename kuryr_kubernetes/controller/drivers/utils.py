@@ -284,9 +284,10 @@ def create_security_group_rule_body(
 
 @MEMOIZE
 def get_pod_ip(pod):
-    vif = pod['metadata']['annotations'].get('openstack.org/kuryr-vif')
-    if vif is None:
-        return vif
+    try:
+        vif = pod['annotations'][constants.K8S_ANNOTATION_VIF]
+    except KeyError:
+        raise k_exc.ResourceNotReady(pod['metadata']['name'])
     vif = jsonutils.loads(vif)
     vif = vif['versioned_object.data']['default_vif']
     network = (vif['versioned_object.data']['network']
