@@ -117,7 +117,8 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
             LOG.exception("Kubernetes client exception. Rolling back "
                           "resources created for the namespace.")
             self._drv_subnets.rollback_network_resources(net_crd_spec, ns_name)
-            self._drv_sg.delete_sg(net_crd_sg['sgId'])
+            if net_crd_sg.get('sgId'):
+                self._drv_sg.delete_sg(net_crd_sg['sgId'])
             self._del_kuryrnet_crd(net_crd_name)
 
     def on_deleted(self, namespace, net_crd=None):
