@@ -280,6 +280,8 @@ class CNIDaemonServiceManager(cotyledon.ServiceManager):
 
         os_vif.initialize()
         clients.setup_kubernetes_client()
+        if CONF.sriov.enable_pod_resource_service:
+            clients.setup_pod_resources_client()
 
         self.manager = multiprocessing.Manager()
         registry = self.manager.dict()  # For Watcher->Server communication.

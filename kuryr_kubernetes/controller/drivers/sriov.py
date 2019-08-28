@@ -58,6 +58,8 @@ class SriovVIFDriver(neutron_vif.NeutronPodVIFDriver):
         c_utils.tag_neutron_resources('ports', [port['id']])
         vif = ovu.neutron_to_osvif_vif(vif_plugin, port, subnets)
         vif.physnet = physnet
+        vif.pod_name = pod_name
+        vif.pod_link = pod['metadata']['selfLink']
 
         LOG.debug("{} vifs are available for the pod {}".format(
             amount, pod_name))

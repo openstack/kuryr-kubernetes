@@ -131,6 +131,33 @@ We have to add to the sriov section following mapping:
   device_plugin_resource_prefix = samsung.com
   physnet_resource_mappings = physnet1:numa0
 
+5. Enable Kubelet Pod Resources feature
+
+To use SR-IOV functionality properly it is necessary to enable Kubelet Pod
+Resources feature. Pod Resources is a service provided by Kubelet via gRPC
+server that allows to request list of resources allocated for each pod and
+container on the node. These resources are devices allocated by k8s device
+plugins. Service was implemented mainly for monitoring purposes, but it also
+suitable for SR-IOV binding driver allowing it to know which VF was allocated
+for particular container.
+
+To enable Pod Resources service it is needed to add
+``--feature-gates KubeletPodResources=true`` into ``/etc/sysconfig/kubelet``.
+This file could look like::
+
+  KUBELET_EXTRA_ARGS="--feature-gates KubeletPodResources=true"
+
+Note that it is important to set right value for parameter ``kubelet_root_dir``
+in ``kuryr.conf``. By default it is ``/var/lib/kubelet``.
+In case of using containerized CNI it is necessary to mount
+``'kubelet_root_dir'/pod-resources`` directory into CNI container.
+
+To use this feature add ``enable_pod_resource_service`` into kuryr.conf.
+
+.. code-block:: ini
+
+  [sriov]
+  enable_pod_resource_service = True
 
 6. Use privileged user
 

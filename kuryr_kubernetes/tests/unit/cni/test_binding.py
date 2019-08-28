@@ -19,6 +19,7 @@ from os_vif import objects as osv_objects
 from oslo_config import cfg
 
 from kuryr_kubernetes.cni.binding import base
+from kuryr_kubernetes.cni.binding import sriov
 from kuryr_kubernetes import objects
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests import fake
@@ -213,22 +214,50 @@ class TestSriovDriver(TestDriverMixin, test_base.TestCase):
     def setUp(self):
         super(TestSriovDriver, self).setUp()
         self.vif = fake._fake_vif(objects.vif.VIFSriov)
-        self.vif.physnet = 'test_physnet'
+        self.vif.physnet = 'physnet2'
         self.pci_info = mock.Mock()
+        self.vif.pod_link = 'pod_link'
+        self.vif.pod_name = 'pod_1'
+        self.pci = mock.Mock()
+
+        self.device_ids = ['pci_dev_1']
+        self.device = mock.Mock()
+        self.device.device_ids = self.device_ids
+        self.device.resource_name = 'intel.com/sriov'
+
+        self.cont_devs = [self.device]
+        self.container = mock.Mock()
+        self.container.devices = self.cont_devs
+
+        self.pod_containers = [self.container]
+        self.pod_resource = mock.Mock()
+        self.pod_resource.containers = self.pod_containers
+        self.pod_resource.name = 'pod_1'
+
+        self.resources = [self.pod_resource]
+
+        CONF.set_override('physnet_resource_mappings', 'physnet2:sriov',
+                          group='sriov')
+        self.addCleanup(CONF.clear_override, 'physnet_resource_mappings',
+                        group='sriov')
+        CONF.set_override('device_plugin_resource_prefix', 'intel.com',
+                          group='sriov')
 
     @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
-                '_get_host_pf_names')
+                '_annotate_device')
     @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
-                '_get_available_vf_info')
+                '_choose_pci')
+    @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
+                '_get_vf_info')
     @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
                 '_set_vf_mac')
     @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
                 '_save_pci_info')
-    def test_connect(self, m_save_pci_info, m_set_vf_mac, m_avail_vf_info,
-                     m_host_pf_names):
-        m_avail_vf_info.return_value = [self.ifname, 1,
-                                        'h_interface', self.pci_info]
-        m_host_pf_names.return_value = 'h_interface'
+    def test_connect(self, m_save_pci_info, m_set_vf_mac, m_vf_info,
+                     m_choose_pci, m_annot_dev):
+        m_vf_info.return_value = [self.ifname, 1, 'h_interface',
+                                  self.pci_info]
+        m_choose_pci.return_value = self.pci
         self._test_connect()
 
         self.assertEqual(self.ifname, self.m_c_iface.ifname)
@@ -237,9 +266,41 @@ class TestSriovDriver(TestDriverMixin, test_base.TestCase):
         m_set_vf_mac.assert_called_once_with('h_interface', 1,
                                              str(self.vif.address))
         m_save_pci_info.assert_called_once_with(self.vif.id, self.pci_info)
+        m_annot_dev.assert_called_once_with(self.vif.pod_link, self.pci)
 
     @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
                 '_remove_pci_info')
     def test_disconnect(self, m_remove_pci):
         m_remove_pci.return_value = None
         self._test_disconnect()
+
+    @mock.patch('kuryr_kubernetes.clients.get_pod_resources_client')
+    @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
+                '_get_resource_by_physnet')
+    def test_choose_pci(self, m_get_res_ph, m_get_prc):
+        cls = sriov.VIFSriovDriver
+        m_driver = mock.Mock(spec=cls)
+
+        m_driver._make_resource.return_value = 'intel.com/sriov'
+        m_driver._get_pod_devices.return_value = ['pci_dev_2']
+
+        pod_resources_list = mock.Mock()
+        pod_resources_list.pod_resources = self.resources
+        pod_resources_client = mock.Mock()
+        pod_resources_client.list.return_value = pod_resources_list
+        m_get_prc.return_value = pod_resources_client
+
+        self.assertEqual('pci_dev_1', cls._choose_pci(m_driver, self.vif,
+                                                      self.ifname, self.netns))
+
+    def test_get_resource_by_physnet(self):
+        cls = sriov.VIFSriovDriver
+        m_driver = mock.Mock(spec=cls)
+        self.assertEqual(
+            'sriov', cls._get_resource_by_physnet(m_driver, self.vif.physnet))
+
+    def test_make_resource(self):
+        cls = sriov.VIFSriovDriver
+        m_driver = mock.Mock(spec=cls)
+        self.assertEqual('intel.com/sriov', cls._make_resource(m_driver,
+                                                               'sriov'))
