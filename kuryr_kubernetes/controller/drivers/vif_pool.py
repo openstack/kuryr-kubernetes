@@ -192,8 +192,8 @@ class BaseVIFPool(base.VIFPoolDriver):
         try:
             host_addr = self._get_host_addr(pod)
         except KeyError:
-            LOG.warning("Pod has not been scheduled yet.")
-            raise
+            return None
+
         pool_key = self._get_pool_key(host_addr, project_id, None, subnets)
 
         try:

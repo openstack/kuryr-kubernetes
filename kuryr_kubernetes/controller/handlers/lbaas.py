@@ -288,7 +288,15 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
 
         lb = lbaas_state.loadbalancer
         default_sgs = config.CONF.neutron_defaults.pod_security_groups
-        lbaas_spec_sgs = lbaas_spec.security_groups_ids
+        # NOTE(maysams) As the endpoint and svc are annotated with the
+        # 'lbaas_spec' in two separate k8s calls, it's possible that
+        # the endpoint got annotated and the svc haven't due to controller
+        # restarts. For this case, a resourceNotReady exception is raised
+        # till the svc gets annotated with a 'lbaas_spec'.
+        if lbaas_spec:
+            lbaas_spec_sgs = lbaas_spec.security_groups_ids
+        else:
+            raise k_exc.ResourceNotReady(svc_link)
         if lb.security_groups and lb.security_groups != lbaas_spec_sgs:
             sgs = [lb_sg for lb_sg in lb.security_groups
                    if lb_sg not in default_sgs]

@@ -170,8 +170,9 @@ class BaseVIFPool(test_base.TestCase):
         security_groups = [mock.sentinel.security_groups]
         m_driver._get_host_addr.side_effect = KeyError
 
-        self.assertRaises(KeyError, cls.request_vif, m_driver, pod, project_id,
-                          subnets, security_groups)
+        resp = cls.request_vif(m_driver, pod, project_id, subnets,
+                               security_groups)
+        self.assertIsNone(resp)
 
     @mock.patch('time.time', return_value=50)
     @ddt.data((neutron_vif.NeutronPodVIFDriver),

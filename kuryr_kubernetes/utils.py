@@ -271,14 +271,22 @@ def set_lbaas_spec(service, lbaas_spec):
     try:
         k8s.annotate(ep_link,
                      {constants.K8S_ANNOTATION_LBAAS_SPEC: annotation})
-    except exceptions.K8sResourceNotFound:
+    except exceptions.K8sResourceNotFound as ex:
+        LOG.debug("Failed to annotate svc: %s", ex)
         raise exceptions.ResourceNotReady(ep_link)
     except exceptions.K8sClientException:
         LOG.debug("Failed to annotate endpoint %r", ep_link)
         raise
-    k8s.annotate(svc_link,
-                 {constants.K8S_ANNOTATION_LBAAS_SPEC: annotation},
-                 resource_version=service['metadata']['resourceVersion'])
+    try:
+        k8s.annotate(svc_link,
+                     {constants.K8S_ANNOTATION_LBAAS_SPEC: annotation},
+                     resource_version=service['metadata']['resourceVersion'])
+    except exceptions.K8sResourceNotFound as ex:
+        LOG.debug("Failed to annotate svc: %s", ex)
+        raise exceptions.ResourceNotReady(svc_link)
+    except exceptions.K8sClientException:
+        LOG.exception("Failed to annotate svc: %r", svc_link)
+        raise
 
 
 def get_lbaas_state(endpoint):
