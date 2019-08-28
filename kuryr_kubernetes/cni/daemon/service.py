@@ -192,7 +192,7 @@ class CNIDaemonWatcherService(cotyledon.Service):
         self.pipeline = h_cni.CNIPipeline()
         self.pipeline.register(h_cni.CallbackHandler(self.on_done,
                                                      self.on_deleted))
-        self.watcher = k_watcher.Watcher(self.pipeline, exit_on_stop=True)
+        self.watcher = k_watcher.Watcher(self.pipeline)
         self.watcher.add(
             "%(base)s/pods?fieldSelector=spec.nodeName=%(node_name)s" % {
                 'base': k_const.K8S_API_BASE,
