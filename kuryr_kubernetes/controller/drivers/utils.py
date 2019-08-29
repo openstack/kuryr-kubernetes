@@ -299,14 +299,19 @@ def get_pod_ip(pod):
     return first_subnet_ip
 
 
-def get_annotated_labels(resource, annotation_labels):
+def get_annotations(resource, annotation):
     try:
         annotations = resource['metadata']['annotations']
-        labels_annotation = annotations[annotation_labels]
+        return annotations[annotation]
     except KeyError:
         return None
-    labels = jsonutils.loads(labels_annotation)
-    return labels
+
+
+def get_annotated_labels(resource, annotation_labels):
+    labels_annotation = get_annotations(resource, annotation_labels)
+    if labels_annotation:
+        return jsonutils.loads(labels_annotation)
+    return None
 
 
 def get_kuryrnetpolicy_crds(namespace=None):

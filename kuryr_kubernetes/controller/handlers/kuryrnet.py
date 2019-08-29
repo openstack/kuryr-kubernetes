@@ -42,11 +42,19 @@ class KuryrNetHandler(k8s_base.ResourceEventHandler):
         self._drv_vif_pool.set_vif_driver()
 
     def on_added(self, kuryrnet_crd):
-        namespace = kuryrnet_crd['metadata']['annotations'].get(
-            'namespaceName')
         subnet_id = kuryrnet_crd['spec'].get('subnetId')
         if kuryrnet_crd['spec'].get('populated'):
             LOG.debug("Subnet %s already populated", subnet_id)
+            return
+
+        namespace = kuryrnet_crd['metadata']['annotations'].get(
+            'namespaceName')
+        namespace_obj = driver_utils.get_namespace(namespace)
+        namespace_kuryrnet_annotations = driver_utils.get_annotations(
+            namespace_obj, constants.K8S_ANNOTATION_NET_CRD)
+        if namespace_kuryrnet_annotations != kuryrnet_crd['metadata']['name']:
+            # NOTE(ltomasbo): Ensure pool is not populated if namespace is not
+            # yet annotated with kuryrnet information
             return
 
         # NOTE(ltomasbo): using namespace name instead of object as it is not
