@@ -55,7 +55,7 @@ munch==2.2.0
 netaddr==0.7.19
 netifaces==0.10.6
 neutron-lib==1.13.0
-openstackdocstheme==1.18.1
+openstackdocstheme==1.20.0
 openstacksdk==0.13.0
 os-client-config==1.29.0
 os-service-types==1.2.0
