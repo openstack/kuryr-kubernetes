@@ -156,11 +156,24 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                                 services, crd_pod_selectors, project_id)
 
     def on_deleted(self, pod):
-        if driver_utils.is_host_network(pod):
+        if (driver_utils.is_host_network(pod) or
+                not pod['spec'].get('nodeName')):
             return
 
         project_id = self._drv_project.get_project(pod)
-        crd_pod_selectors = self._drv_sg.delete_sg_rules(pod)
+        try:
+            crd_pod_selectors = self._drv_sg.delete_sg_rules(pod)
+        except k_exc.ResourceNotReady:
+            # NOTE(ltomasbo): If the pod is being deleted before
+            # kuryr-controller annotated any information about the port
+            # associated, there is no need for deleting sg rules associated to
+            # it. So this exception could be safetly ignored for the current
+            # sg drivers. Only the NP driver associates rules to the pods ips,
+            # and that waits for annotations to start.
+            LOG.debug("Pod was not yet annotated by Kuryr-controller. "
+                      "Skipping SG rules deletion associated to the pod %s",
+                      pod)
+            crd_pod_selectors = []
         try:
             security_groups = self._drv_sg.get_security_groups(pod, project_id)
         except k_exc.ResourceNotReady:
@@ -178,7 +191,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             for ifname, vif in state.vifs.items():
                 self._drv_vif_pool.release_vif(pod, vif, project_id,
                                                security_groups)
-        if (self._is_network_policy_enabled() and
+        if (self._is_network_policy_enabled() and crd_pod_selectors and
                 oslo_cfg.CONF.octavia_defaults.enforce_sg_rules):
             services = driver_utils.get_services()
             self._update_services(services, crd_pod_selectors, project_id)
