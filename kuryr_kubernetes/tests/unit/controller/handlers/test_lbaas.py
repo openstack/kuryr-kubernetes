@@ -441,9 +441,11 @@ class TestLoadBalancerHandler(test_base.TestCase):
         self.assertEqual(mock.sentinel.drv_lb_ip, handler._drv_service_pub_ip)
         self.assertEqual('ovn', handler._lb_provider)
 
+    @mock.patch('kuryr_kubernetes.utils.get_lbaas_spec')
     @mock.patch('kuryr_kubernetes.utils.set_lbaas_state')
     @mock.patch('kuryr_kubernetes.utils.get_lbaas_state')
-    def test_on_present(self, m_get_lbaas_state, m_set_lbaas_state):
+    def test_on_present(self, m_get_lbaas_state, m_set_lbaas_state,
+                        m_get_lbaas_spec):
         lbaas_spec = mock.sentinel.lbaas_spec
         lbaas_spec.type = 'DummyType'
         lbaas_spec.lb_ip = "1.2.3.4"
@@ -461,7 +463,7 @@ class TestLoadBalancerHandler(test_base.TestCase):
         m_drv_service_pub_ip.associate_pub_ip.return_value = True
 
         m_handler = mock.Mock(spec=h_lbaas.LoadBalancerHandler)
-        m_handler._get_lbaas_spec.return_value = lbaas_spec
+        m_get_lbaas_spec.return_value = lbaas_spec
         m_handler._should_ignore.return_value = False
         m_get_lbaas_state.return_value = lbaas_state
         m_handler._sync_lbaas_members.return_value = True
@@ -469,7 +471,7 @@ class TestLoadBalancerHandler(test_base.TestCase):
 
         h_lbaas.LoadBalancerHandler.on_present(m_handler, endpoints)
 
-        m_handler._get_lbaas_spec.assert_called_once_with(endpoints)
+        m_get_lbaas_spec.assert_called_once_with(endpoints)
         m_handler._should_ignore.assert_called_once_with(endpoints, lbaas_spec)
         m_get_lbaas_state.assert_called_once_with(endpoints)
         m_handler._sync_lbaas_members.assert_called_once_with(
@@ -485,10 +487,11 @@ class TestLoadBalancerHandler(test_base.TestCase):
         lbaas_state.service_pub_ip_info = None
         return True
 
+    @mock.patch('kuryr_kubernetes.utils.get_lbaas_spec')
     @mock.patch('kuryr_kubernetes.utils.set_lbaas_state')
     @mock.patch('kuryr_kubernetes.utils.get_lbaas_state')
-    def test_on_present_loadbalancer_service(self, m_get_lbaas_state,
-                                             m_set_lbaas_state):
+    def test_on_present_loadbalancer_service(
+            self, m_get_lbaas_state, m_set_lbaas_state, m_get_lbaas_spec):
         lbaas_spec = mock.sentinel.lbaas_spec
         lbaas_spec.type = 'LoadBalancer'
         lbaas_spec.lb_ip = "1.2.3.4"
@@ -511,7 +514,7 @@ class TestLoadBalancerHandler(test_base.TestCase):
         m_drv_service_pub_ip.associate_pub_ip.return_value = True
 
         m_handler = mock.Mock(spec=h_lbaas.LoadBalancerHandler)
-        m_handler._get_lbaas_spec.return_value = lbaas_spec
+        m_get_lbaas_spec.return_value = lbaas_spec
         m_handler._should_ignore.return_value = False
         m_get_lbaas_state.return_value = lbaas_state
         m_handler._sync_lbaas_members = self._fake_sync_lbaas_members
@@ -519,17 +522,18 @@ class TestLoadBalancerHandler(test_base.TestCase):
 
         h_lbaas.LoadBalancerHandler.on_present(m_handler, endpoints)
 
-        m_handler._get_lbaas_spec.assert_called_once_with(endpoints)
+        m_get_lbaas_spec.assert_called_once_with(endpoints)
         m_handler._should_ignore.assert_called_once_with(endpoints, lbaas_spec)
         m_get_lbaas_state.assert_called_once_with(endpoints)
         m_set_lbaas_state.assert_called_once_with(
             endpoints, lbaas_state)
         m_handler._update_lb_status.assert_called()
 
+    @mock.patch('kuryr_kubernetes.utils.get_lbaas_spec')
     @mock.patch('kuryr_kubernetes.utils.set_lbaas_state')
     @mock.patch('kuryr_kubernetes.utils.get_lbaas_state')
     def test_on_present_rollback(self, m_get_lbaas_state,
-                                 m_set_lbaas_state):
+                                 m_set_lbaas_state, m_get_lbaas_spec):
         lbaas_spec = mock.sentinel.lbaas_spec
         lbaas_spec.type = 'ClusterIp'
         lbaas_spec.lb_ip = '1.2.3.4'
@@ -546,7 +550,7 @@ class TestLoadBalancerHandler(test_base.TestCase):
         endpoints = mock.sentinel.endpoints
 
         m_handler = mock.Mock(spec=h_lbaas.LoadBalancerHandler)
-        m_handler._get_lbaas_spec.return_value = lbaas_spec
+        m_get_lbaas_spec.return_value = lbaas_spec
         m_handler._should_ignore.return_value = False
         m_get_lbaas_state.return_value = lbaas_state
         m_handler._sync_lbaas_members.return_value = True
@@ -555,7 +559,7 @@ class TestLoadBalancerHandler(test_base.TestCase):
         m_handler._drv_service_pub_ip = m_drv_service_pub_ip
         h_lbaas.LoadBalancerHandler.on_present(m_handler, endpoints)
 
-        m_handler._get_lbaas_spec.assert_called_once_with(endpoints)
+        m_get_lbaas_spec.assert_called_once_with(endpoints)
         m_handler._should_ignore.assert_called_once_with(endpoints, lbaas_spec)
         m_get_lbaas_state.assert_called_once_with(endpoints)
         m_handler._sync_lbaas_members.assert_called_once_with(
