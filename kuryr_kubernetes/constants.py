@@ -53,6 +53,9 @@ K8S_ANNOTATION_NPWG_CRD_DRIVER_TYPE = 'driverType'
 
 K8S_ANNOTATION_NODE_PCI_DEVICE_INFO = 'openstack.org/kuryr-pci-info'
 K8S_ANNOTATION_PCI_DEVICES = K8S_ANNOTATION_PREFIX + '-pci-devices'
+K8S_ANNOTATION_OLD_DRIVER = 'old_driver'
+K8S_ANNOTATION_CURRENT_DRIVER = 'current_driver'
+K8S_ANNOTATION_NEUTRON_PORT = 'neutron_id'
 
 K8S_OS_VIF_NOOP_PLUGIN = "noop"
 
@@ -81,3 +84,5 @@ K8S_OPERATOR_IN = 'in'
 K8S_OPERATOR_NOT_IN = 'notin'
 K8S_OPERATOR_DOES_NOT_EXIST = 'doesnotexist'
 K8S_OPERATOR_EXISTS = 'exists'
+
+USERSPACE_DRIVERS = ['vfio-pci', 'uio', 'uio_pci_generic', 'igb_uio']

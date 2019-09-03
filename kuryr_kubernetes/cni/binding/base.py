@@ -17,12 +17,16 @@ import abc
 import six
 
 import os_vif
+from oslo_log import log as logging
 import pyroute2
 from stevedore import driver as stv_driver
 
+from kuryr_kubernetes import config
+from kuryr_kubernetes import constants
 from kuryr_kubernetes import utils
 
 _BINDING_NAMESPACE = 'kuryr_kubernetes.cni.binding'
+LOG = logging.getLogger(__name__)
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -91,6 +95,29 @@ def _configure_l3(vif, ifname, netns, is_default_gateway):
                            dst='default').commit()
 
 
+def _need_configure_l3(vif):
+    if not hasattr(vif, 'physnet'):
+        return True
+    physnet = vif.physnet
+    mapping_res = config.CONF.sriov.physnet_resource_mappings
+    try:
+        resource = mapping_res[physnet]
+    except KeyError:
+        LOG.exception("No resource name for physnet %s", physnet)
+        raise
+    mapping_driver = config.CONF.sriov.resource_driver_mappings
+    try:
+        driver_name = mapping_driver[resource]
+    except KeyError:
+        LOG.exception("No driver for resource_name %s", resource)
+        raise
+    if driver_name in constants.USERSPACE_DRIVERS:
+        LOG.info("_configure_l3 will not be called for vif %s "
+                 "because of it's driver", vif)
+        return False
+    return True
+
+
 def connect(vif, instance_info, ifname, netns=None, report_health=None,
             is_default_gateway=True, container_id=None):
     driver = _get_binding_driver(vif)
@@ -98,7 +125,8 @@ def connect(vif, instance_info, ifname, netns=None, report_health=None,
         report_health(driver.is_alive())
     os_vif.plug(vif, instance_info)
     driver.connect(vif, ifname, netns, container_id)
-    _configure_l3(vif, ifname, netns, is_default_gateway)
+    if _need_configure_l3(vif):
+        _configure_l3(vif, ifname, netns, is_default_gateway)
 
 
 def disconnect(vif, instance_info, ifname, netns=None, report_health=None,

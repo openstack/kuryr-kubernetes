@@ -17,6 +17,7 @@ from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
+from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import neutron_vif
 from kuryr_kubernetes.controller.drivers import utils as c_utils
 from kuryr_kubernetes import os_vif_util as ovu
@@ -90,6 +91,15 @@ class SriovVIFDriver(neutron_vif.NeutronPodVIFDriver):
                 result[v] = v
         return result
 
+    def _get_driver_by_res(self, resource_name):
+        mapping = config.CONF.sriov.resource_driver_mappings
+        try:
+            driver = mapping[resource_name]
+        except KeyError:
+            LOG.exception("No driver for resource_name %s", resource_name)
+            raise
+        return driver
+
     def _get_physnet_for_subnet_id(self, subnet_id):
         """Returns an appropriate physnet for exact subnet_id from mapping"""
         try:
@@ -130,6 +140,7 @@ class SriovVIFDriver(neutron_vif.NeutronPodVIFDriver):
     def _reduce_remaining_sriov_vfs(self, pod, physnet):
         """Reduces number of available vfs for request"""
 
+        driver = self._get_driver_by_res(physnet)
         sriov_resource_name = self._physnet_resname_mapping.get(physnet, None)
         if not sriov_resource_name:
             LOG.error("No mapping for physnet {} in {}".format(
@@ -145,6 +156,8 @@ class SriovVIFDriver(neutron_vif.NeutronPodVIFDriver):
                 if num_of_sriov == 0:
                     continue
                 requests[sriov_resource_name] = str(num_of_sriov - 1)
+                if driver in constants.USERSPACE_DRIVERS:
+                    break
             except KeyError:
                     continue
 
