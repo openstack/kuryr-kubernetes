@@ -15,7 +15,6 @@
 
 from kuryr.lib._i18n import _
 from oslo_log import log as logging
-from oslo_serialization import jsonutils
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
@@ -171,7 +170,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                 config.CONF.kubernetes.endpoints_driver_octavia_provider)
 
     def on_present(self, endpoints):
-        lbaas_spec = self._get_lbaas_spec(endpoints)
+        lbaas_spec = utils.get_lbaas_spec(endpoints)
         if self._should_ignore(endpoints, lbaas_spec):
             LOG.debug("Ignoring Kubernetes endpoints %s",
                       endpoints['metadata']['name'])
@@ -622,15 +621,3 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
 
         lbaas_state.loadbalancer = lb
         return changed
-
-    def _get_lbaas_spec(self, endpoints):
-        # TODO(ivc): same as '_get_lbaas_state'
-        try:
-            annotations = endpoints['metadata']['annotations']
-            annotation = annotations[k_const.K8S_ANNOTATION_LBAAS_SPEC]
-        except KeyError:
-            return None
-        obj_dict = jsonutils.loads(annotation)
-        obj = obj_lbaas.LBaaSServiceSpec.obj_from_primitive(obj_dict)
-        LOG.debug("Got LBaaSServiceSpec from annotation: %r", obj)
-        return obj

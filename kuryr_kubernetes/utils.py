@@ -242,9 +242,10 @@ def has_kuryr_crd(crd_url):
     return True
 
 
-def get_lbaas_spec(service):
+def get_lbaas_spec(k8s_object):
+    # k8s_object can be service or endpoint
     try:
-        annotations = service['metadata']['annotations']
+        annotations = k8s_object['metadata']['annotations']
         annotation = annotations[constants.K8S_ANNOTATION_LBAAS_SPEC]
     except KeyError:
         return None

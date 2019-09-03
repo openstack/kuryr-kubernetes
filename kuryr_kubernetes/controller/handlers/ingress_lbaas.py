@@ -23,6 +23,7 @@ from kuryr_kubernetes.controller.drivers import base as drv_base
 from kuryr_kubernetes.controller.handlers import lbaas as h_lbaas
 from kuryr_kubernetes.controller.ingress import ingress_ctl
 from kuryr_kubernetes.objects import lbaas as obj_lbaas
+from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -55,7 +56,7 @@ class IngressLoadBalancerHandler(h_lbaas.LoadBalancerHandler):
                 LOG.info("No L7 router found - do nothing")
                 return
 
-        lbaas_spec = self._get_lbaas_spec(endpoints)
+        lbaas_spec = utils.get_lbaas_spec(endpoints)
         if self._should_ignore(endpoints, lbaas_spec):
             return
 

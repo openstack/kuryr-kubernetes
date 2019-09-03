@@ -33,14 +33,15 @@ class TestIngressLoadBalancerHandler(t_lbaas.TestLoadBalancerHandler):
 
         self.assertEqual(mock.sentinel.drv_lbaas, handler._drv_lbaas)
 
-    def test_on_present_no_ing_ctrlr(self):
+    @mock.patch('kuryr_kubernetes.utils.get_lbaas_spec')
+    def test_on_present_no_ing_ctrlr(self, m_get_lbaas_spec):
         endpoints = mock.sentinel.endpoints
 
         m_handler = mock.Mock(spec=h_ing_lbaas.IngressLoadBalancerHandler)
         m_handler._l7_router = None
         h_ing_lbaas.IngressLoadBalancerHandler.on_present(m_handler, endpoints)
 
-        m_handler._get_lbaas_spec.assert_not_called()
+        m_get_lbaas_spec.assert_not_called()
         m_handler._should_ignore.assert_not_called()
 
     def test_should_ignore(self):
