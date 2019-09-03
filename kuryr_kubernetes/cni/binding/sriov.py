@@ -128,7 +128,7 @@ class VIFSriovDriver(object):
 
     def _compute_pci(self, pci, driver, pod_link, vif, ifname, netns):
         port_id = vif.id
-        vf_name, vf_index, pf, pci_info = self._get_vf_info(pci)
+        vf_name, vf_index, pf, pci_info = self._get_vf_info(pci, driver)
         if driver in constants.USERSPACE_DRIVERS:
             LOG.info("PCI device %s will be rebinded to userspace network "
                      "driver %s", pci, driver)
@@ -165,10 +165,15 @@ class VIFSriovDriver(object):
 
         return pci_info
 
-    def _get_vf_info(self, pci):
+    def _get_vf_info(self, pci, driver):
         vf_sys_path = '/sys/bus/pci/devices/{}/net/'.format(pci)
-        vf_names = os.listdir(vf_sys_path)
-        vf_name = vf_names[0]
+        if not os.path.exists(vf_sys_path):
+            if driver not in constants.USERSPACE_DRIVERS:
+                raise OSError(_("No vf name for device {}").format(pci))
+            vf_name = None
+        else:
+            vf_names = os.listdir(vf_sys_path)
+            vf_name = vf_names[0]
 
         pfysfn_path = '/sys/bus/pci/devices/{}/physfn/net/'.format(pci)
         pf_names = os.listdir(pfysfn_path)
