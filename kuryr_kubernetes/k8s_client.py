@@ -15,6 +15,7 @@
 import contextlib
 import itertools
 import os
+import ssl
 
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
@@ -25,6 +26,7 @@ from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
 from kuryr_kubernetes import exceptions as exc
 
+CONF = config.CONF
 LOG = logging.getLogger(__name__)
 
 
@@ -240,21 +242,39 @@ class K8sClient(object):
                 raise exc.K8sClientException(response.text)
 
     def watch(self, path):
-        params = {'watch': 'true'}
         url = self._base_url + path
+        resource_version = None
         header = {}
+        timeouts = (CONF.kubernetes.watch_connection_timeout,
+                    CONF.kubernetes.watch_read_timeout)
         if self.token:
             header.update({'Authorization': 'Bearer %s' % self.token})
 
-        # TODO(ivc): handle connection errors and retry on failure
         while True:
-            with contextlib.closing(
-                    requests.get(url, params=params, stream=True,
-                                 cert=self.cert, verify=self.verify_server,
-                                 headers=header)) as response:
-                if not response.ok:
-                    raise exc.K8sClientException(response.text)
-                for line in response.iter_lines():
-                    line = line.decode('utf-8').strip()
-                    if line:
-                        yield jsonutils.loads(line)
+            try:
+                params = {'watch': 'true'}
+                if resource_version:
+                    params['resourceVersion'] = resource_version
+                with contextlib.closing(
+                        requests.get(
+                            url, params=params, stream=True, cert=self.cert,
+                            verify=self.verify_server, headers=header,
+                            timeout=timeouts)) as response:
+                    if not response.ok:
+                        raise exc.K8sClientException(response.text)
+                    for line in response.iter_lines():
+                        line = line.decode('utf-8').strip()
+                        if line:
+                            line_dict = jsonutils.loads(line)
+                            yield line_dict
+                            # Saving the resourceVersion in case of a restart.
+                            # At this point it's safely passed to handler.
+                            m = line_dict.get('object', {}).get('metadata', {})
+                            resource_version = m.get('resourceVersion', None)
+            except (requests.ReadTimeout, ssl.SSLError) as e:
+                if isinstance(e, ssl.SSLError) and e.args != ('timed out',):
+                    raise
+
+                LOG.warning('%ds without data received from watching %s. '
+                            'Retrying the connection with resourceVersion=%s.',
+                            timeouts[1], path, params.get('resourceVersion'))
