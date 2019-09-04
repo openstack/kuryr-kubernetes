@@ -144,17 +144,23 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
             c_utils.tag_neutron_resources('networks', [neutron_net['id']])
 
             # create a subnet within that network
-            neutron_subnet = neutron.create_subnet(
-                {
-                    "subnet": {
-                        "network_id": neutron_net['id'],
-                        "ip_version": 4,
-                        "name": subnet_name,
-                        "enable_dhcp": False,
-                        "subnetpool_id": subnet_pool_id,
-                        "project_id": project_id
-                    }
-                }).get('subnet')
+            try:
+                neutron_subnet = neutron.create_subnet(
+                    {
+                        "subnet": {
+                            "network_id": neutron_net['id'],
+                            "ip_version": 4,
+                            "name": subnet_name,
+                            "enable_dhcp": False,
+                            "subnetpool_id": subnet_pool_id,
+                            "project_id": project_id
+                        }
+                    }).get('subnet')
+            except n_exc.Conflict:
+                LOG.debug("Max number of retries on neutron side achieved, "
+                          "raising ResourceNotReady to retry subnet creation "
+                          "for %s", subnet_name)
+                raise exceptions.ResourceNotReady(subnet_name)
             c_utils.tag_neutron_resources('subnets', [neutron_subnet['id']])
 
             # connect the subnet to the router
