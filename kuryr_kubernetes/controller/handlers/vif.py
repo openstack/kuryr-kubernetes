@@ -79,7 +79,8 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                 drivers.ServiceSecurityGroupsDriver.get_instance())
 
     def on_present(self, pod):
-        if driver_utils.is_host_network(pod) or not self._is_pending_node(pod):
+        if (driver_utils.is_host_network(pod) or
+                not self._is_pod_scheduled(pod)):
             # REVISIT(ivc): consider an additional configurable check that
             # would allow skipping pods to enable heterogeneous environments
             # where certain pods/namespaces/nodes can be managed by other
@@ -193,8 +194,8 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         return True
 
     @staticmethod
-    def _is_pending_node(pod):
-        """Checks if Pod is in PENDGING status and has node assigned."""
+    def _is_pod_scheduled(pod):
+        """Checks if Pod is in PENDING status and has node assigned."""
         try:
             return (pod['spec']['nodeName'] and
                     pod['status']['phase'] == constants.K8S_POD_STATUS_PENDING)
