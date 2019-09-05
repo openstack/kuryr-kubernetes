@@ -45,6 +45,7 @@ do
     for container in ${containers}
     do
         /usr/local/bin/kubectl --kubeconfig=${HOME}/.kube/config logs -n ${namespace} -c ${container} ${name} >> ${K8S_LOG_DIR}/pod_logs/${namespace}-${name}-${container}.txt
+        /usr/local/bin/kubectl --kubeconfig=${HOME}/.kube/config logs -n ${namespace} -p -c ${container} ${name} >> ${K8S_LOG_DIR}/pod_logs/${namespace}-${name}-${container}-prev.txt
     done
 done < <(/usr/local/bin/kubectl get pods -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace --all-namespaces | tail -n +2)
 
