@@ -330,7 +330,7 @@ class TestSriovDriver(TestDriverMixin, test_base.TestCase):
                                                          self.vif,
                                                          self.ifname,
                                                          self.netns))
-        m_driver._get_vf_info.assert_called_once_with(self.pci)
+        m_driver._get_vf_info.assert_called_once_with(self.pci, new_driver)
         m_driver._set_vf_mac.assert_called_once_with(pf, vf_index,
                                                      self.vif.address)
         m_driver._bind_device.assert_called_once_with(self.pci, new_driver)
@@ -359,7 +359,7 @@ class TestSriovDriver(TestDriverMixin, test_base.TestCase):
                                                          self.ifname,
                                                          self.netns))
 
-        m_driver._get_vf_info.assert_called_once_with(self.pci)
+        m_driver._get_vf_info.assert_called_once_with(self.pci, new_driver)
         m_driver._move_to_netns.assert_called_once_with(self.pci, self.ifname,
                                                         self.netns, self.vif,
                                                         vf_name, vf_index, pf,
