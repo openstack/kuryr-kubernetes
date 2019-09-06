@@ -112,7 +112,6 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
             net_crd = self._add_kuryrnet_crd(ns_name, net_crd_spec)
             self._set_net_crd(namespace, net_crd)
             self._drv_sg.create_namespace_sg_rules(namespace)
-            self._set_namespace_labels(namespace, current_namespace_labels)
         except exceptions.K8sClientException:
             LOG.exception("Kubernetes client exception. Rolling back "
                           "resources created for the namespace.")
