@@ -211,8 +211,7 @@ class TestWatcher(test_base.TestCase):
 
     @staticmethod
     def _test_watch_create_watcher(path, handler, timeout=0):
-        watcher_obj = watcher.Watcher(handler, timeout=timeout,
-                                      exit_on_stop=True)
+        watcher_obj = watcher.Watcher(handler, timeout=timeout)
         watcher_obj._running = True
         watcher_obj._resources.add(path)
         watcher_obj._idle[path] = True

@@ -84,7 +84,7 @@ class KuryrK8sService(six.with_metaclass(KuryrK8sServiceMeta,
 
         objects.register_locally_defined_vifs()
         pipeline = h_pipeline.ControllerPipeline(self.tg)
-        self.watcher = watcher.Watcher(pipeline, self.tg, exit_on_stop=True)
+        self.watcher = watcher.Watcher(pipeline, self.tg)
         self.health_manager = health.HealthServer()
         self.current_leader = None
         self.node_name = utils.get_node_name()

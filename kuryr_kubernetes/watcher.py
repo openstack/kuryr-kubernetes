@@ -56,8 +56,7 @@ class Watcher(health.HealthHandler):
     graceful=False)` for asynchronous `Watcher`).
     """
 
-    def __init__(self, handler, thread_group=None, timeout=None,
-                 exit_on_stop=False):
+    def __init__(self, handler, thread_group=None, timeout=None):
         """Initializes a new Watcher instance.
 
         :param handler: a `callable` object to be invoked for each observed
@@ -84,7 +83,6 @@ class Watcher(health.HealthHandler):
         if timeout is None:
             timeout = CONF.kubernetes.watch_retry_timeout
         self._timeout = timeout
-        self._exit_on_stop = exit_on_stop
 
     def add(self, path):
         """Adds ths K8s resource to the Watcher.
@@ -161,11 +159,8 @@ class Watcher(health.HealthHandler):
         finally:
             if not self._watching and not self._idle:
                 self.stop()
-                if self._exit_on_stop:
-                    LOG.info("No remaining active watchers, Exiting...")
-                    # TODO(dulek): This complicates things, remove once we
-                    #              don't support running without kuryr-daemon.
-                    sys.exit(1)
+                LOG.info("No remaining active watchers, Exiting...")
+                sys.exit(1)
 
     def _watch(self, path):
         attempts = 0
