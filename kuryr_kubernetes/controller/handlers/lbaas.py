@@ -597,6 +597,9 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
             self._drv_lbaas.release_loadbalancer(
                 loadbalancer=lb)
             lb = None
+            lbaas_state.pools = []
+            lbaas_state.listeners = []
+            lbaas_state.members = []
             changed = True
 
         if not lb:
