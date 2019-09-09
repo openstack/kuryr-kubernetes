@@ -335,7 +335,34 @@ class TestK8sClient(test_base.TestCase):
         self.assertEqual(cycles, m_resp.close.call_count)
         m_get.assert_called_with(self.base_url + path, headers={}, stream=True,
                                  params={'watch': 'true'}, cert=(None, None),
-                                 verify=False)
+                                 verify=False, timeout=(30, 60))
+
+    @mock.patch('requests.get')
+    def test_watch_restart(self, m_get):
+        path = '/test'
+        data = [{'object': {'metadata': {'name': 'obj%s' % i,
+                                         'resourceVersion': i}}}
+                for i in range(3)]
+        lines = [jsonutils.dump_as_bytes(i) for i in data]
+
+        m_resp = mock.MagicMock()
+        m_resp.ok = True
+        m_resp.iter_lines.side_effect = [lines, requests.ReadTimeout, lines]
+        m_get.return_value = m_resp
+
+        self.assertEqual(data * 2,
+                         list(itertools.islice(self.client.watch(path),
+                                               len(data) * 2)))
+        self.assertEqual(3, m_get.call_count)
+        self.assertEqual(3, m_resp.close.call_count)
+        m_get.assert_any_call(
+            self.base_url + path, headers={}, stream=True,
+            params={"watch": "true"}, cert=(None, None), verify=False,
+            timeout=(30, 60))
+        m_get.assert_any_call(
+            self.base_url + path, headers={}, stream=True,
+            params={"watch": "true", "resourceVersion": 2}, cert=(None, None),
+            verify=False, timeout=(30, 60))
 
     @mock.patch('requests.get')
     def test_watch_exception(self, m_get):

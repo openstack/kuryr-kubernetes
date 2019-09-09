@@ -155,6 +155,18 @@ k8s_opts = [
     cfg.IntOpt('watch_retry_timeout',
                help=_('Time (in seconds) the watcher retries watching for.'),
                default=60),
+    cfg.IntOpt('watch_connection_timeout',
+               help=_('TCP connection timeout (in seconds) for the watcher '
+                      'connections to K8s API.'),
+               default=30),
+    cfg.IntOpt('watch_read_timeout',
+               help=_('TCP read timeout (in seconds) for the watcher '
+                      'connections to K8s API. This affects reaction to time '
+                      'when there are no events being streamed from K8s API. '
+                      'When too low, Kuryr will reconnect more often. When '
+                      'too high, Kuryr will take longer to reconnect when K8s '
+                      'API stream was being silently broken.'),
+               default=60),
     cfg.ListOpt('enabled_handlers',
                 help=_("The comma-separated handlers that should be "
                        "registered for watching in the pipeline."),
