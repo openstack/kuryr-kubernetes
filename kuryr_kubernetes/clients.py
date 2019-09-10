@@ -74,7 +74,9 @@ def setup_kubernetes_client():
 def setup_openstacksdk():
     auth_plugin = utils.get_auth_plugin('neutron')
     session = utils.get_keystone_session('neutron', auth_plugin)
-    conn = connection.Connection(session=session)
+    conn = connection.Connection(
+        session=session,
+        region_name=getattr(config.CONF.neutron, 'region_name', None))
     _clients[_OPENSTACKSDK] = conn
 
 
