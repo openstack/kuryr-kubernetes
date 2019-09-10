@@ -278,3 +278,12 @@ class K8sClient(object):
                 LOG.warning('%ds without data received from watching %s. '
                             'Retrying the connection with resourceVersion=%s.',
                             timeouts[1], path, params.get('resourceVersion'))
+            except requests.exceptions.ChunkedEncodingError:
+                LOG.warning("Connection to %s closed when watching. This "
+                            "mostly happens when Octavia's Amphora closes "
+                            "connection due to lack of activity for 50s. "
+                            "Since Rocky Octavia this is configurable and "
+                            "should be set to at least 20m, so check timeouts "
+                            "on Kubernetes API LB listener. Restarting "
+                            "connection with resourceVersion=%s.", path,
+                            params.get('resourceVersion'))
