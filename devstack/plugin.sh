@@ -1005,6 +1005,9 @@ function update_tempest_conf_file {
     if [[ "$KURYR_SG_DRIVER" == "namespace" ]] && [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes namespace_enabled True
     fi
+    if [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes subnet_per_namespace True
+    fi
     if [[ "$KURYR_K8S_SERIAL_TESTS" == "True" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes run_tests_serial True
     fi
