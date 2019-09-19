@@ -25,6 +25,7 @@ function ovs_bind_for_kubelet() {
     local ifname
     local service_subnet_cidr
     local pod_subnet_gw
+    local cidrs
 
     project_id="$1"
     port_number="$2"
@@ -77,8 +78,8 @@ function ovs_bind_for_kubelet() {
     done
     if [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
         subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}}
-        subnetpool_cidr=$(openstack subnet pool show "${subnetpool_id}" \
-            -c prefixes -f value | cut -f2)
+        cidrs=$(openstack subnet pool show "${subnetpool_id}" -c prefixes -f value)
+        subnetpool_cidr=$(python -c "print ${cidrs}[0]")
         sudo ip route add "$subnetpool_cidr" via "$pod_subnet_gw" dev "$ifname"
     else
         sudo ip route add "$service_subnet_cidr" via "$pod_subnet_gw" dev "$ifname"
