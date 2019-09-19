@@ -15,6 +15,7 @@
 function ovs_bind_for_kubelet() {
     local port_id
     local port_mac
+    local fixed_ips
     local port_ips
     local port_subnets
     local prefix
@@ -56,10 +57,9 @@ function ovs_bind_for_kubelet() {
                     -c gateway_ip -f value)
 
     port_mac=$(openstack port show "$port_id" -c mac_address -f value)
-    port_ips=($(openstack port show "$port_id" -f value -c fixed_ips | \
-        awk -F"'" '{print $2}'))
-    port_subnets=($(openstack port show "$port_id" -f value -c fixed_ips | \
-        awk -F"'" '{print $4}'))
+    fixed_ips=$(openstack port show "$port_id" -f value -c fixed_ips)
+    port_ips=($(python -c "print ${fixed_ips}[0]['ip_address']"))
+    port_subnets=($(python -c "print ${fixed_ips}[0]['subnet_id']"))
 
     sudo ovs-vsctl -- --may-exist add-port $OVS_BRIDGE "$ifname" \
         -- set Interface "$ifname" type=internal \
