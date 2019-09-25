@@ -1165,6 +1165,7 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
     if is_service_enabled kuryr-kubernetes; then
         /usr/local/bin/kubectl apply -f ${KURYR_HOME}/kubernetes_crds/kuryrnet.yaml
         /usr/local/bin/kubectl apply -f ${KURYR_HOME}/kubernetes_crds/kuryrnetpolicy.yaml
+        /usr/local/bin/kubectl apply -f ${KURYR_HOME}/kubernetes_crds/kuryrloadbalancer.yaml
         if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
             generate_containerized_kuryr_resources
         fi

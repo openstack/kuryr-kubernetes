@@ -149,7 +149,9 @@ class TestUtils(test_base.TestCase):
 
     def test__has_kuryr_crd_error(self):
         crds = [k_const.K8S_API_CRD_KURYRNETS,
-                k_const.K8S_API_CRD_KURYRNETPOLICIES]
+                k_const.K8S_API_CRD_KURYRNETPOLICIES,
+                k_const.K8S_API_CRD_KURYRLOADBALANCERS]
+
         for crd_url in crds:
             kubernetes = self.useFixture(k_fix.MockK8sClient()).client
             kubernetes.get.side_effect = k_exc.K8sClientException
