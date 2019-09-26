@@ -285,9 +285,10 @@ def create_security_group_rule_body(
 @MEMOIZE
 def get_pod_ip(pod):
     try:
-        vif = pod['annotations'][constants.K8S_ANNOTATION_VIF]
+        pod_metadata = pod['metadata']['annotations']
+        vif = pod_metadata[constants.K8S_ANNOTATION_VIF]
     except KeyError:
-        raise k_exc.ResourceNotReady(pod['metadata']['name'])
+        return None
     vif = jsonutils.loads(vif)
     vif = vif['versioned_object.data']['default_vif']
     network = (vif['versioned_object.data']['network']
