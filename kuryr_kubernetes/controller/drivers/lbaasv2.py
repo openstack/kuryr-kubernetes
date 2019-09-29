@@ -955,7 +955,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         svc_namespace = service['metadata']['namespace']
         svc_name = service['metadata']['name']
-        svc_ports = service['spec']['ports']
+        svc_ports = service['spec'].get('ports', [])
 
         lbaas_name = "%s/%s" % (svc_namespace, svc_name)
 
