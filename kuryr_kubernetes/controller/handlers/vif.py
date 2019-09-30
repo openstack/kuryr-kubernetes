@@ -123,7 +123,8 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             if additional_vifs:
                 state.additional_vifs = {}
                 for i, vif in enumerate(additional_vifs, start=1):
-                    k = constants.ADDITIONAL_IFNAME_PREFIX + str(i)
+                    k = (oslo_cfg.CONF.kubernetes.additional_ifname_prefix
+                         + str(i))
                     state.additional_vifs[k] = vif
 
             try:

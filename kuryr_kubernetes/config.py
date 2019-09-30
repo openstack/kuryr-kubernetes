@@ -186,6 +186,10 @@ k8s_opts = [
                 help=_("The drivers that provide additional VIFs for "
                        "Kubernetes Pods."),
                 default='noop'),
+    cfg.StrOpt('additional_ifname_prefix',
+               help=_("The prefix to use for additional vifs created by "
+                      " multi_vif drivers"),
+               default='eth'),
 ]
 
 neutron_defaults = [

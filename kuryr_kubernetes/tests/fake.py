@@ -61,8 +61,8 @@ def _fake_vif_string(dictionary=None):
         return jsonutils.dumps(_fake_vif_dict())
 
 
-def _fake_vifs(cls=osv_vif.VIFOpenVSwitch):
-    return {'eth0': _fake_vif(cls), 'eth1': _fake_vif(cls)}
+def _fake_vifs(cls=osv_vif.VIFOpenVSwitch, prefix='eth'):
+    return {'eth0': _fake_vif(cls), prefix+'1': _fake_vif(cls)}
 
 
 def _fake_vifs_dict(obj=None):
