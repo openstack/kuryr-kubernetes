@@ -103,9 +103,8 @@ class PodLabelHandler(k8s_base.ResourceEventHandler):
 
     def _update_services(self, services, crd_pod_selectors, project_id):
         for service in services.get('items'):
-            if (service['metadata']['name'] == 'kubernetes' or not
-                    driver_utils.service_matches_affected_pods(
-                        service, crd_pod_selectors)):
+            if not driver_utils.service_matches_affected_pods(
+                    service, crd_pod_selectors):
                 continue
             sgs = self._drv_svc_sg.get_security_groups(service,
                                                        project_id)

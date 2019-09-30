@@ -445,6 +445,8 @@ def service_matches_affected_pods(service, pod_selectors):
             and False otherwise.
     """
     svc_selector = service['spec'].get('selector')
+    if not svc_selector:
+        return False
     for selector in pod_selectors:
         if match_selector(selector, svc_selector):
             return True
