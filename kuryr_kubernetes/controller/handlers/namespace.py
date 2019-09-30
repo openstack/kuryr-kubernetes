@@ -20,7 +20,7 @@ from oslo_serialization import jsonutils
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base as drivers
-from kuryr_kubernetes.controller.drivers import utils as drivers_utils
+from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes import utils
@@ -57,20 +57,28 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         self._drv_vif_pool = drivers.VIFPoolDriver.get_instance(
             specific_driver='multi_pool')
         self._drv_vif_pool.set_vif_driver()
+        if self._is_network_policy_enabled():
+            self._drv_lbaas = drivers.LBaaSDriver.get_instance()
+            self._drv_svc_sg = (
+                drivers.ServiceSecurityGroupsDriver.get_instance())
 
     def on_present(self, namespace):
         ns_name = namespace['metadata']['name']
         current_namespace_labels = namespace['metadata'].get('labels')
-        previous_namespace_labels = drivers_utils.get_annotated_labels(
+        previous_namespace_labels = driver_utils.get_annotated_labels(
             namespace, constants.K8S_ANNOTATION_NAMESPACE_LABEL)
         LOG.debug("Got previous namespace labels from annotation: %r",
                   previous_namespace_labels)
 
-        if current_namespace_labels != previous_namespace_labels:
-            self._drv_sg.update_namespace_sg_rules(namespace)
-            self._set_namespace_labels(namespace, current_namespace_labels)
-
         project_id = self._drv_project.get_project(namespace)
+        if current_namespace_labels != previous_namespace_labels:
+            crd_selectors = self._drv_sg.update_namespace_sg_rules(namespace)
+            self._set_namespace_labels(namespace, current_namespace_labels)
+            if (self._is_network_policy_enabled() and crd_selectors and
+                    oslo_cfg.CONF.octavia_defaults.enforce_sg_rules):
+                services = driver_utils.get_services()
+                self._update_services(services, crd_selectors, project_id)
+
         net_crd_id = self._get_net_crd_id(namespace)
         if net_crd_id:
             LOG.debug("CRD existing at the new namespace")
@@ -149,7 +157,13 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
             LOG.debug("There is no security group associated with the "
                       "namespace to be deleted")
         self._del_kuryrnet_crd(net_crd_name)
-        self._drv_sg.delete_namespace_sg_rules(namespace)
+        crd_selectors = self._drv_sg.delete_namespace_sg_rules(namespace)
+
+        if (self._is_network_policy_enabled() and crd_selectors and
+                oslo_cfg.CONF.octavia_defaults.enforce_sg_rules):
+            project_id = self._drv_project.get_project(namespace)
+            services = driver_utils.get_services()
+            self._update_services(services, crd_selectors, project_id)
 
     def is_ready(self, quota):
         if not utils.has_kuryr_crd(constants.K8S_API_CRD_KURYRNETS):
@@ -253,3 +267,17 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         k8s.annotate(namespace['metadata']['selfLink'],
                      {constants.K8S_ANNOTATION_NAMESPACE_LABEL: annotation},
                      resource_version=namespace['metadata']['resourceVersion'])
+
+    def _update_services(self, services, crd_selectors, project_id):
+        for service in services.get('items'):
+            if not driver_utils.service_matches_affected_pods(
+                    service, crd_selectors):
+                continue
+            sgs = self._drv_svc_sg.get_security_groups(service,
+                                                       project_id)
+            self._drv_lbaas.update_lbaas_sg(service, sgs)
+
+    def _is_network_policy_enabled(self):
+        enabled_handlers = oslo_cfg.CONF.kubernetes.enabled_handlers
+        svc_sg_driver = oslo_cfg.CONF.kubernetes.service_security_groups_driver
+        return ('policy' in enabled_handlers and svc_sg_driver == 'policy')

@@ -64,6 +64,8 @@ class TestNamespaceHandler(test_base.TestCase):
             self._handler._drv_sg.create_namespace_sg)
         self._delete_sg = (
             self._handler._drv_sg.delete_sg)
+        self._delete_namespace_sg_rules = (
+            self._handler._drv_sg.delete_namespace_sg_rules)
         self._cleanup_namespace_networks = (
             self._handler._drv_subnets.cleanup_namespace_networks)
         self._get_net_crd = self._handler._get_net_crd
@@ -94,21 +96,24 @@ class TestNamespaceHandler(test_base.TestCase):
         }
         return crd
 
+    @mock.patch.object(drivers.LBaaSDriver, 'get_instance')
     @mock.patch.object(drivers.VIFPoolDriver, 'get_instance')
     @mock.patch.object(drivers.PodSecurityGroupsDriver, 'get_instance')
     @mock.patch.object(drivers.PodSubnetsDriver, 'get_instance')
     @mock.patch.object(drivers.NamespaceProjectDriver, 'get_instance')
     def test_init(self, m_get_project_driver, m_get_subnets_driver,
-                  m_get_sg_driver, m_get_vif_pool_driver):
+                  m_get_sg_driver, m_get_vif_pool_driver, m_get_lbaas_driver):
         project_driver = mock.sentinel.project_driver
         subnets_driver = mock.sentinel.subnets_driver
         sg_driver = mock.sentinel.sg_driver
         vif_pool_driver = mock.Mock(spec=vif_pool.MultiVIFPool)
+        lbaas_driver = mock.sentinel.lbaas_driver
 
         m_get_project_driver.return_value = project_driver
         m_get_subnets_driver.return_value = subnets_driver
         m_get_sg_driver.return_value = sg_driver
         m_get_vif_pool_driver.return_value = vif_pool_driver
+        m_get_lbaas_driver.return_value = lbaas_driver
 
         handler = namespace.NamespaceHandler()
 
@@ -278,6 +283,7 @@ class TestNamespaceHandler(test_base.TestCase):
 
         self._get_net_crd_id.return_value = net_crd_id
         self._get_net_crd.return_value = net_crd
+        self._delete_namespace_sg_rules.return_value = []
 
         namespace.NamespaceHandler.on_deleted(self._handler, self._namespace)
 

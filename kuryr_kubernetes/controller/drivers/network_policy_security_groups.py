@@ -509,6 +509,7 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
         LOG.debug("Deleting sg rule for namespace: %s",
                   ns_name)
 
+        crd_selectors = []
         knp_crds = driver_utils.get_kuryrnetpolicy_crds()
         for crd in knp_crds.get('items'):
             crd_selector = crd['spec'].get('podSelector')
@@ -523,11 +524,14 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
             if i_matched or e_matched:
                 driver_utils.patch_kuryrnetworkpolicy_crd(
                     crd, i_rules, e_rules, crd_selector)
+                crd_selectors.append(crd_selector)
+        return crd_selectors
 
     def create_namespace_sg_rules(self, namespace):
         kubernetes = clients.get_kubernetes_client()
         ns_name = namespace['metadata']['name']
         LOG.debug("Creating sg rule for namespace: %s", ns_name)
+        crd_selectors = []
         namespace = kubernetes.get(
             '{}/namespaces/{}'.format(constants.K8S_API_BASE, ns_name))
         knp_crds = driver_utils.get_kuryrnetpolicy_crds()
@@ -543,12 +547,16 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
                 driver_utils.patch_kuryrnetworkpolicy_crd(crd, i_rules,
                                                           e_rules,
                                                           crd_selector)
+                crd_selectors.append(crd_selector)
+        return crd_selectors
 
     def update_namespace_sg_rules(self, namespace):
         LOG.debug("Updating sg rule for namespace: %s",
                   namespace['metadata']['name'])
-        self.delete_namespace_sg_rules(namespace)
-        self.create_namespace_sg_rules(namespace)
+        crd_selectors = []
+        crd_selectors.extend(self.delete_namespace_sg_rules(namespace))
+        crd_selectors.extend(self.create_namespace_sg_rules(namespace))
+        return crd_selectors
 
     def create_namespace_sg(self, namespace, project_id, crd_spec):
         LOG.debug("Security group driver does not create SGs for the "
