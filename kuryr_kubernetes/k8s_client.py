@@ -195,7 +195,7 @@ class K8sClient(object):
         The annotate operation is made with a PATCH HTTP request of kind:
         application/merge-patch+json as described in:
 
-        https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#patch-operations  # noqa
+        https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#patch-operations  # noqa
         """
         LOG.debug("Annotate %(path)s: %(names)s", {
             'path': path, 'names': list(annotations)})

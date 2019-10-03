@@ -242,7 +242,7 @@ class VIFSriovDriver(object):
             devices = {}
         except Exception as ex:
             LOG.exception("Exception while getting annotations: %s", ex)
-        LOG.debug("Pod %s has devies %s", pod_link, devices)
+        LOG.debug("Pod %s has devices %s", pod_link, devices)
         return devices
 
     def _return_device_driver(self, vif):
