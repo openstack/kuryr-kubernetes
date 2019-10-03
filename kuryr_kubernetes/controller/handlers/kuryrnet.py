@@ -50,6 +50,9 @@ class KuryrNetHandler(k8s_base.ResourceEventHandler):
         namespace = kuryrnet_crd['metadata']['annotations'].get(
             'namespaceName')
         namespace_obj = driver_utils.get_namespace(namespace)
+        if not namespace_obj:
+            LOG.debug("Skipping Kuryrnet addition. Inexistent namespace.")
+            return
         namespace_kuryrnet_annotations = driver_utils.get_annotations(
             namespace_obj, constants.K8S_ANNOTATION_NET_CRD)
         if namespace_kuryrnet_annotations != kuryrnet_crd['metadata']['name']:
