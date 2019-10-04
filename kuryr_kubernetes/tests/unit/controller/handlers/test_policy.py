@@ -78,6 +78,8 @@ class TestPolicyHandler(test_base.TestCase):
         self._update_vif_sgs.return_value = None
         self._update_lbaas_sg = self._handler._drv_lbaas.update_lbaas_sg
         self._update_lbaas_sg.return_value = None
+        self._remove_sg = self._handler._drv_vif_pool.remove_sg_from_pools
+        self._remove_sg.return_value = None
 
     def _get_knp_obj(self):
         knp_obj = {
@@ -243,3 +245,4 @@ class TestPolicyHandler(test_base.TestCase):
                                                           self._project_id)
         self._update_vif_sgs.assert_called_once_with(match_pod, sg1)
         self._update_lbaas_sg.assert_not_called()
+        self._remove_sg.assert_called_once()
