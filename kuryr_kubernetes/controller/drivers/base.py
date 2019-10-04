@@ -741,6 +741,21 @@ class VIFPoolDriver(PodVIFDriver):
         """
         raise NotImplementedError()
 
+    @abc.abstractmethod
+    def remove_sg_from_pools(self, sg_id, net_id):
+        """Remove the SG from the ports associated to the pools.
+
+        This method ensure that ports on net_id that belongs to pools and have
+        the referenced SG are updated to clean up their SGs and put back on
+        the default pool for that network.
+
+        :param sg_id: Security Group ID that needs to be removed from pool
+                      ports
+        :param net_id: Network ID associated to the pools to clean up, and
+                       where the ports must belong to.
+        """
+        raise NotImplementedError()
+
 
 @six.add_metaclass(abc.ABCMeta)
 class ServicePubIpDriver(DriverBase):

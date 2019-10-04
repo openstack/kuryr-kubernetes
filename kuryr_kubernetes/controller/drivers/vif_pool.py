@@ -122,6 +122,9 @@ class NoopVIFPool(base.VIFPoolDriver):
     def update_vif_sgs(self, pod, sgs):
         self._drv_vif.update_vif_sgs(pod, sgs)
 
+    def remove_sg_from_pools(self, sg_id, net_id):
+        pass
+
     def sync_pools(self):
         pass
 
@@ -287,6 +290,33 @@ class BaseVIFPool(base.VIFPoolDriver):
 
     def delete_network_pools(self, net_id):
         raise NotImplementedError()
+
+    def remove_sg_from_pools(self, sg_id, net_id):
+        neutron = clients.get_neutron_client()
+        for pool_key, pool_ports in self._available_ports_pools.items():
+            if self._get_pool_key_net(pool_key) != net_id:
+                continue
+            for sg_key, ports in pool_ports.items():
+                if sg_id not in sg_key:
+                    continue
+                # remove the pool associated to that SG
+                del self._available_ports_pools[pool_key][sg_key]
+                for port_id in ports:
+                    # remove all SGs from the port to be reused
+                    neutron.update_port(
+                        port_id,
+                        {
+                            "port": {
+                                'security_groups': []
+                            }
+                        })
+                    # add the port to the default pool
+                    self._available_ports_pools[pool_key].setdefault(
+                        tuple([]), []).append(port_id)
+                # NOTE(ltomasbo): as this ports were not created for this
+                # pool, ensuring they are used first, marking them as the
+                # most outdated
+                self._last_update[pool_key] = {tuple([]): 0}
 
     def _create_healthcheck_file(self):
         # Note(ltomasbo): Create a health check file when the pre-created
@@ -1024,6 +1054,12 @@ class MultiVIFPool(base.VIFPoolDriver):
     def update_vif_sgs(self, pod, sgs):
         pod_vif_type = self._get_pod_vif_type(pod)
         self._vif_drvs[pod_vif_type].update_vif_sgs(pod, sgs)
+
+    def remove_sg_from_pools(self, sg_id, net_id):
+        for vif_drv in self._vif_drvs.values():
+            if str(vif_drv) == 'NoopVIFPool':
+                continue
+            vif_drv.remove_sg_from_pools(sg_id, net_id)
 
     def delete_network_pools(self, net_id):
         for vif_drv in self._vif_drvs.values():
