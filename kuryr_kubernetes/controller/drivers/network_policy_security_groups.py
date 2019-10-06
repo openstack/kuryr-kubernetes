@@ -180,6 +180,10 @@ def _create_sg_rule_on_text_port(sg_id, direction, port, rule_selected_pods,
                 pods=pods)
         else:
             namespace_obj = driver_utils.get_namespace(namespace)
+            if not namespace_obj:
+                LOG.debug("Skipping SG rule creation. Inexistent"
+                          " namespace.")
+                continue
             namespace_cidr = driver_utils.get_namespace_subnet_cidr(
                 namespace_obj)
             sg_rule = driver_utils.create_security_group_rule_body(

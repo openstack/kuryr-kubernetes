@@ -507,9 +507,14 @@ def get_ports(resource, port):
 
 def get_namespace(namespace_name):
     kubernetes = clients.get_kubernetes_client()
-    return kubernetes.get(
-        '{}/namespaces/{}'.format(
-            constants.K8S_API_BASE, namespace_name))
+    try:
+        return kubernetes.get(
+            '{}/namespaces/{}'.format(
+                constants.K8S_API_BASE, namespace_name))
+    except k_exc.K8sResourceNotFound:
+        LOG.debug("Namespace not found: %s",
+                  namespace_name)
+        return None
 
 
 def update_port_pci_info(pod, vif):

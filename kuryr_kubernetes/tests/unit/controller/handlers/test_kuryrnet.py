@@ -99,3 +99,15 @@ class TestKuryrNetHandler(test_base.TestCase):
                                                     self._subnets,
                                                     [])
         m_patch_kn_crd.assert_called_once()
+
+    @mock.patch.object(driver_utils, 'get_annotations')
+    @mock.patch.object(driver_utils, 'get_namespace')
+    def test_on_added_no_namespace(self, m_get_ns, m_get_ann):
+        m_get_ns.return_value = None
+        ns_name = self._kuryrnet_crd['metadata']['annotations'].get(
+            'namespaceName')
+
+        kuryrnet.KuryrNetHandler.on_added(self._handler, self._kuryrnet_crd)
+
+        m_get_ns.assert_called_once_with(ns_name)
+        m_get_ann.assert_not_called()
