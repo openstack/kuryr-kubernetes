@@ -627,7 +627,7 @@ function run_k8s_api {
         command+=(--restart=on-failure)
     fi
     command+=(${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}
-              /hyperkube apiserver
+              /hyperkube kube-apiserver
                 --service-cluster-ip-range=${cluster_ip_range}
                 --insecure-bind-address=0.0.0.0
                 --insecure-port=${KURYR_K8S_API_PORT}
@@ -657,7 +657,7 @@ function run_k8s_controller_manager {
         command+=(--restart=on-failure)
     fi
     command+=(${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}
-              /hyperkube controller-manager
+              /hyperkube kube-controller-manager
                 --master=$KURYR_K8S_API_URL
                 --service-account-private-key-file=/srv/kubernetes/server.key
                 --root-ca-file=/srv/kubernetes/ca.crt
@@ -680,7 +680,7 @@ function run_k8s_scheduler {
         command+=(--restart=on-failure)
     fi
     command+=(${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}
-              /hyperkube scheduler
+              /hyperkube kube-scheduler
                 --master=$KURYR_K8S_API_URL
                 --v=$(get_k8s_log_level)
                 --logtostderr=true)
@@ -757,7 +757,6 @@ function run_k8s_kubelet {
     sudo mkdir -p "${KURYR_HYPERKUBE_DATA_DIR}/"{kubelet,kubelet.cert}
     command="$KURYR_HYPERKUBE_BINARY kubelet\
         --kubeconfig=${HOME}/.kube/config \
-        --allow-privileged=true \
         --v=2 \
         --address=0.0.0.0 \
         --enable-server \
