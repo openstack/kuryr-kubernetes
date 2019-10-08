@@ -576,6 +576,19 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         neutron.trunk_remove_subports.assert_called_once_with(
             trunk_id, {'sub_ports': subportid_dict})
 
+    def test__remove_subports_duplicate(self):
+        cls = nested_vlan_vif.NestedVlanPodVIFDriver
+        m_driver = mock.Mock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        trunk_id = mock.sentinel.trunk_id
+        subport_id = mock.sentinel.subport_id
+        subportid_dict = [{'port_id': subport_id}]
+        cls._remove_subports(m_driver, neutron, trunk_id, [subport_id,
+                                                           subport_id])
+
+        neutron.trunk_remove_subports.assert_called_once_with(
+            trunk_id, {'sub_ports': subportid_dict})
+
     @mock.patch('kuryr.lib.segmentation_type_drivers.allocate_segmentation_id')
     def test_get_vlan_id(self, mock_alloc_seg_id):
         cls = nested_vlan_vif.NestedVlanPodVIFDriver

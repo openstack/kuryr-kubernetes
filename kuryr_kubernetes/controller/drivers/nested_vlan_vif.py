@@ -218,7 +218,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
 
     def _remove_subports(self, neutron, trunk_id, subports_id):
         subports_body = []
-        for subport_id in subports_id:
+        for subport_id in set(subports_id):
             subports_body.append({'port_id': subport_id})
         try:
             neutron.trunk_remove_subports(trunk_id,
