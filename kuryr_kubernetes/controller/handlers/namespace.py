@@ -137,6 +137,14 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
                             namespace)
                 return
             net_crd = self._get_net_crd(net_crd_id)
+            if not net_crd:
+                LOG.warning("This should not happen. Probably this is event "
+                            "is processed twice due to a restart or etcd is "
+                            "not in sync")
+                # NOTE(ltomasbo): We should rely on etcd properly behaving, so
+                # we are returning here to prevent duplicated events processing
+                # but not to prevent etcd failures.
+                return
 
         net_crd_name = 'ns-' + namespace['metadata']['name']
 
