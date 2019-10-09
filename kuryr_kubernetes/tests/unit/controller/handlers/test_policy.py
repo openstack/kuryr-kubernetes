@@ -186,6 +186,7 @@ class TestPolicyHandler(test_base.TestCase):
         match_pod = mock.sentinel.match_pod
         m_host_network.return_value = False
 
+        self._handler._is_service_affected.return_value = True
         knp_on_ns = self._handler._drv_policy.knps_on_namespace
         knp_on_ns.return_value = True
         namespaced_pods = self._handler._drv_policy.namespaced_pods
@@ -196,7 +197,8 @@ class TestPolicyHandler(test_base.TestCase):
         sg1 = [mock.sentinel.sg1]
         sg2 = [mock.sentinel.sg2]
         self._get_security_groups.side_effect = [sg1, sg2]
-        service = {'metadata': {'name': 'service-test'}}
+        service = {'metadata': {'name': 'service-test'},
+                   'spec': {'selector': mock.sentinel.selector}}
         m_get_services.return_value = {'items': [service]}
 
         policy.NetworkPolicyHandler.on_present(self._handler, self._policy)
@@ -208,9 +210,10 @@ class TestPolicyHandler(test_base.TestCase):
         calls = [mock.call(modified_pod, self._project_id),
                  mock.call(match_pod, self._project_id)]
         self._get_security_groups.assert_has_calls(calls)
-
         calls = [mock.call(modified_pod, sg1), mock.call(match_pod, sg2)]
         self._update_vif_sgs.assert_has_calls(calls)
+        self._handler._is_service_affected.assert_called_once_with(
+            service, [modified_pod, match_pod])
         self._update_lbaas_sg.assert_called_once()
 
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
