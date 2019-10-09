@@ -107,6 +107,11 @@ def _create_sg_rules_with_container_ports(matched_pods, container_ports,
     for pod, container_port in container_ports:
         pod_namespace = pod['metadata']['namespace']
         pod_ip = driver_utils.get_pod_ip(pod)
+        if not pod_ip:
+            LOG.debug("Skipping SG rule creation for pod %s due to "
+                      "no IP assigned", pod['metadata']['name'])
+            continue
+
         pod_info = {pod_ip: pod_namespace}
         matched = True
         if allow_all or namespace:
@@ -120,6 +125,10 @@ def _create_sg_rules_with_container_ports(matched_pods, container_ports,
                     matched_pods[container_port] = pod_info
         else:
             pod_ip = driver_utils.get_pod_ip(rule_selected_pod)
+            if not pod_ip:
+                LOG.debug("Skipping SG rule creation for pod %s due to no IP "
+                          "assigned", rule_selected_pod['metadata']['name'])
+                continue
             sg_rule = driver_utils.create_security_group_rule_body(
                 sg_id, direction, container_port,
                 protocol=port.get('protocol'),
@@ -188,6 +197,10 @@ def _create_sg_rules(crd, pod, pod_selector, rule_block,
                      allow_all=False):
     pod_labels = pod['metadata'].get('labels')
     pod_ip = driver_utils.get_pod_ip(pod)
+    if not pod_ip:
+        LOG.debug("Skipping SG rule creation for pod %s due to "
+                  "no IP assigned", pod['metadata']['name'])
+        return None
 
     # NOTE (maysams) No need to differentiate between podSelector
     # with empty value or with '{}', as they have same result in here.
@@ -274,12 +287,22 @@ def _parse_selectors_on_namespace(crd, direction, pod_selector,
                         matched = True
                         for pod in pods:
                             pod_ip = driver_utils.get_pod_ip(pod)
+                            if not pod_ip:
+                                pod_name = pod['metadata']['name']
+                                LOG.debug("Skipping SG rule creation for pod "
+                                          "%s due to no IP assigned", pod_name)
+                                continue
                             crd_rules.append(_create_sg_rule(
                                 sg_id, direction, pod_ip, port=port,
                                 namespace=ns_name))
             else:
                 for pod in pods:
                     pod_ip = driver_utils.get_pod_ip(pod)
+                    if not pod_ip:
+                        pod_name = pod['metadata']['name']
+                        LOG.debug("Skipping SG rule creation for pod %s due"
+                                  " to no IP assigned", pod_name)
+                        continue
                     matched = True
                     crd_rules.append(_create_sg_rule(
                         sg_id, direction, pod_ip,
@@ -451,6 +474,10 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
     def delete_sg_rules(self, pod):
         LOG.debug("Deleting sg rule for pod: %s", pod['metadata']['name'])
         pod_ip = driver_utils.get_pod_ip(pod)
+        if not pod_ip:
+            LOG.debug("Skipping SG rule deletion as pod %s has no IP assigned",
+                      pod['metadata']['name'])
+            return None
         crd_pod_selectors = []
         knp_crds = driver_utils.get_kuryrnetpolicy_crds()
         for crd in knp_crds.get('items'):
