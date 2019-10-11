@@ -64,15 +64,15 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
             annotations = ns['metadata']['annotations']
             net_crd_name = annotations[constants.K8S_ANNOTATION_NET_CRD]
         except KeyError:
-            LOG.warning("Namespace missing CRD annotations for selecting the "
-                        "corresponding subnet.")
+            LOG.debug("Namespace missing CRD annotations for selecting "
+                      "the corresponding subnet.")
             raise exceptions.ResourceNotReady(namespace)
 
         try:
             net_crd = kubernetes.get('%s/kuryrnets/%s' % (
                 constants.K8S_API_CRD, net_crd_name))
         except exceptions.K8sResourceNotFound:
-            LOG.warning("Kuryrnet resource not yet created, retrying...")
+            LOG.debug("Kuryrnet resource not yet created, retrying...")
             raise exceptions.ResourceNotReady(net_crd_name)
         except exceptions.K8sClientException:
             LOG.exception("Kubernetes Client Exception.")
