@@ -20,6 +20,7 @@ from neutronclient.common import exceptions as n_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
 
+from kuryr_kubernetes import clients
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.handlers import base
 from kuryr_kubernetes import utils
@@ -48,10 +49,31 @@ class Retry(base.EventHandler):
         self._exceptions = exceptions
         self._timeout = timeout
         self._interval = interval
+        self._k8s = clients.get_kubernetes_client()
 
     def __call__(self, event):
         deadline = time.time() + self._timeout
         for attempt in itertools.count(1):
+            if event.get('type') in ['MODIFIED', 'ADDED']:
+                obj = event.get('object')
+                if obj:
+                    try:
+                        obj_link = obj['metadata']['selfLink']
+                    except KeyError:
+                        LOG.debug("Skipping object check as it does not have "
+                                  "selfLink: %s", obj)
+                    else:
+                        try:
+                            self._k8s.get(obj_link)
+                        except exceptions.K8sResourceNotFound:
+                            LOG.debug("There is no need to process the "
+                                      "retry as the object %s has already "
+                                      "been deleted.", obj_link)
+                            return
+                        except exceptions.K8sClientException:
+                            LOG.debug("Kubernetes client error getting the "
+                                      "object. Continuing with handler "
+                                      "execution.")
             try:
                 self._handler(event)
                 break

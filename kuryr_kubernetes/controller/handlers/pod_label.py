@@ -20,6 +20,7 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes.controller.drivers import utils as driver_utils
+from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import k8s_base
 
 LOG = logging.getLogger(__name__)
@@ -64,7 +65,11 @@ class PodLabelHandler(k8s_base.ResourceEventHandler):
         project_id = self._drv_project.get_project(pod)
         security_groups = self._drv_sg.get_security_groups(pod, project_id)
         self._drv_vif_pool.update_vif_sgs(pod, security_groups)
-        self._set_pod_labels(pod, current_pod_labels)
+        try:
+            self._set_pod_labels(pod, current_pod_labels)
+        except k_exc.K8sResourceNotFound:
+            LOG.debug("Pod already deleted, no need to retry.")
+            return
 
         if oslo_cfg.CONF.octavia_defaults.enforce_sg_rules:
             services = driver_utils.get_services()

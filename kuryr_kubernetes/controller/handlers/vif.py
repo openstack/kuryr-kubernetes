@@ -94,7 +94,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         if not state:
             try:
                 subnets = self._drv_subnets.get_subnets(pod, project_id)
-            except n_exc.NotFound:
+            except (n_exc.NotFound, k_exc.K8sResourceNotFound):
                 LOG.warning("Subnet does not exists. If namespace driver is "
                             "used, probably the namespace for the pod is "
                             "already deleted. So this pod does not need to "

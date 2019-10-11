@@ -40,7 +40,7 @@ VALID_MULTI_POD_POOLS_OPTS = {'noop': ['neutron-vif',
                               'neutron': ['neutron-vif'],
                               'nested': ['nested-vlan'],
                               }
-DEFAULT_TIMEOUT = 180
+DEFAULT_TIMEOUT = 500
 DEFAULT_INTERVAL = 3
 
 subnet_caching_opts = [
