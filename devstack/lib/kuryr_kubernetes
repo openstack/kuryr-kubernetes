@@ -423,7 +423,7 @@ metadata:
   namespace: kube-system
 ---
 kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kuryr-controller
 rules:
@@ -462,7 +462,7 @@ rules:
   - get
 ---
 kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: kuryr-controller-global
 subjects:
@@ -483,7 +483,7 @@ function generate_controller_deployment() {
     mkdir -p "$output_dir"
     rm -f ${output_dir}/controller_deployment.yml
     cat >> "${output_dir}/controller_deployment.yml" << EOF
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
@@ -492,6 +492,9 @@ metadata:
   namespace: kube-system
 spec:
   replicas: ${KURYR_CONTROLLER_REPLICAS:-1}
+  selector:
+    matchLabels:
+      name: kuryr-controller
 EOF
 
     # When running without HA we should make sure that we won't have more than
@@ -578,20 +581,23 @@ function generate_cni_daemon_set() {
     mkdir -p "$output_dir"
     rm -f ${output_dir}/cni_ds.yml
     cat >> "${output_dir}/cni_ds.yml" << EOF
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: kuryr-cni-ds
   namespace: kube-system
   labels:
     tier: node
-    app: kuryr
+    app: kuryr-cni
 spec:
+  selector:
+    matchLabels:
+      app: kuryr-cni
   template:
     metadata:
       labels:
         tier: node
-        app: kuryr
+        app: kuryr-cni
     spec:
       hostNetwork: true
       tolerations:
