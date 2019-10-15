@@ -448,6 +448,7 @@ rules:
   resources:
     - kuryrnets
     - kuryrnetpolicies
+    - kuryrloadbalancers
 - apiGroups: ["networking.k8s.io"]
   resources:
   - networkpolicies

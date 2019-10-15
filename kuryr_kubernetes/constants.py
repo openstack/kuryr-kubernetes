@@ -19,6 +19,7 @@ K8S_API_CRD = '/apis/openstack.org/v1'
 K8S_API_CRD_NAMESPACES = K8S_API_CRD + '/namespaces'
 K8S_API_CRD_KURYRNETS = K8S_API_CRD + '/kuryrnets'
 K8S_API_CRD_KURYRNETPOLICIES = K8S_API_CRD + '/kuryrnetpolicies'
+K8S_API_CRD_KURYRLOADBALANCERS = K8S_API_CRD + '/kuryrloadbalancers'
 K8S_API_POLICIES = '/apis/networking.k8s.io/v1/networkpolicies'
 
 K8S_API_NPWG_CRD = '/apis/k8s.cni.cncf.io/v1'
@@ -30,6 +31,7 @@ K8S_OBJ_ENDPOINTS = 'Endpoints'
 K8S_OBJ_POLICY = 'NetworkPolicy'
 K8S_OBJ_KURYRNET = 'KuryrNet'
 K8S_OBJ_KURYRNETPOLICY = 'KuryrNetPolicy'
+K8S_OBJ_KURYRLOADBALANCER = 'KuryrLoadBalancer'
 
 K8S_POD_STATUS_PENDING = 'Pending'
 
