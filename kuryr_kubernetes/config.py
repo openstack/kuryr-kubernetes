@@ -329,6 +329,8 @@ logging.register_options(CONF)
 def init(args, **kwargs):
     version_k8s = version.version_info.version_string()
     CONF(args=args, project='kuryr-k8s', version=version_k8s, **kwargs)
+    if os.environ.get('CNI_COMMAND') == 'VERSION':
+        CONF.set_default('use_stderr', True)
 
 
 def setup_logging():

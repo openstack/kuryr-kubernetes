@@ -40,7 +40,8 @@ def run():
     else:
         d = jsonutils.load(sys.stdin)
     cni_conf = utils.CNIConfig(d)
-    args = ['--config-file', cni_conf.kuryr_conf]
+    args = (['--config-file', cni_conf.kuryr_conf] if 'kuryr_conf' in d
+            else [])
 
     try:
         if cni_conf.debug:
