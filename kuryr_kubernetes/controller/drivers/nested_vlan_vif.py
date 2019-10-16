@@ -98,10 +98,12 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                 LOG.error("vlan ids already in use on trunk")
                 for port in ports:
                     neutron.delete_port(port['id'])
-                raise
+                return []
         except n_exc.NeutronClientException:
             LOG.exception("Error happened during subport addition to trunk")
-            raise
+            for port in ports:
+                neutron.delete_port(port['id'])
+            return []
 
         vifs = []
         for index, port in enumerate(ports):
