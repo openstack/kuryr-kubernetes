@@ -247,8 +247,10 @@ class BaseVIFPool(base.VIFPoolDriver):
             if not vifs:
                 self._last_update[pool_key] = {security_groups: last_update}
 
-    def release_vif(self, pod, vif, project_id, security_groups):
-        host_addr = self._get_host_addr(pod)
+    def release_vif(self, pod, vif, project_id, security_groups,
+                    host_addr=None):
+        if not host_addr:
+            host_addr = self._get_host_addr(pod)
 
         pool_key = self._get_pool_key(host_addr, project_id, vif.network.id,
                                       None)
@@ -688,6 +690,41 @@ class NestedVIFPool(BaseVIFPool):
 
     def set_vif_driver(self, driver):
         self._drv_vif = driver
+
+    def _get_parent_port_id(self, vif):
+        neutron = clients.get_neutron_client()
+        args = {}
+        if config.CONF.neutron_defaults.resource_tags:
+            args['tags'] = config.CONF.neutron_defaults.resource_tags
+        trunks = neutron.list_trunks(**args)
+        for trunk in trunks['trunks']:
+            for sp in trunk['sub_ports']:
+                if sp['port_id'] == vif.id:
+                    return trunk['port_id']
+
+        return None
+
+    def release_vif(self, pod, vif, project_id, security_groups):
+        try:
+            host_addr = self._get_host_addr(pod)
+        except KeyError:
+            name = pod['metadata']['name']
+            LOG.warning("Pod %s does not have status.hostIP field set when "
+                        "getting deleted. This is unusual. Trying to "
+                        "determine the IP by calling Neutron.",
+                        name)
+
+            parent_id = self._get_parent_port_id(vif)
+            if not parent_id:
+                LOG.warning("Port %s not found, ignoring its release request.",
+                            vif.id)
+                return
+
+            host_addr = self._get_parent_port_ip(parent_id)
+            LOG.debug("Determined hostIP for pod %s is %s", name, host_addr)
+
+        super(NestedVIFPool, self).release_vif(
+            pod, vif, project_id, security_groups, host_addr=host_addr)
 
     def _get_port_from_pool(self, pool_key, pod, subnets, security_groups):
         try:
