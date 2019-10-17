@@ -17,8 +17,10 @@ import fixtures
 import mock
 import time
 
+from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.handlers import retry as h_retry
 from kuryr_kubernetes.tests import base as test_base
+from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
 
 
 class _EX1(Exception):
@@ -41,6 +43,11 @@ class TestRetryHandler(test_base.TestCase):
         self.now = time.time()
         f_time = self.useFixture(fixtures.MockPatch('time.time'))
         f_time.mock.return_value = self.now
+
+        self.k8s = self.useFixture(k_fix.MockK8sClient()).client
+        f_k8s = self.useFixture(fixtures.MockPatch(
+            'kuryr_kubernetes.clients.get_kubernetes_client'))
+        f_k8s.mock.return_value = self.k8s
 
     @mock.patch('random.randint')
     @mock.patch('time.sleep')
@@ -87,10 +94,27 @@ class TestRetryHandler(test_base.TestCase):
         m_handler = mock.Mock()
         m_count.return_value = list(range(1, 5))
         retry = h_retry.Retry(m_handler)
+        event = {'type': 'DELETED'}
 
-        retry(mock.sentinel.event)
+        retry(event)
 
-        m_handler.assert_called_once_with(mock.sentinel.event)
+        m_handler.assert_called_once_with(event)
+        m_sleep.assert_not_called()
+
+    @mock.patch('itertools.count')
+    @mock.patch.object(h_retry.Retry, '_sleep')
+    def test_call_outdated_event(self, m_sleep, m_count):
+        m_handler = mock.Mock()
+        m_count.return_value = list(range(1, 5))
+        obj = {'metadata': {'selfLink': mock.sentinel.selflink}}
+        event = {'type': 'MODIFIED', 'object': obj}
+        self.k8s.get.side_effect = exceptions.K8sResourceNotFound(obj)
+
+        retry = h_retry.Retry(m_handler)
+        retry(event)
+
+        self.k8s.get.assert_called_once_with(obj['metadata']['selfLink'])
+        m_handler.assert_not_called()
         m_sleep.assert_not_called()
 
     @mock.patch('itertools.count')
@@ -100,7 +124,7 @@ class TestRetryHandler(test_base.TestCase):
         timeout = 10
         deadline = self.now + timeout
         failures = [_EX1()] * (attempts - 1)
-        event = mock.sentinel.event
+        event = {'type': 'DELETED'}
         m_handler = mock.Mock()
         m_handler.side_effect = failures + [None]
         m_sleep.return_value = 1
@@ -121,7 +145,7 @@ class TestRetryHandler(test_base.TestCase):
         timeout = 10
         deadline = self.now + timeout
         failures = [_EX1(), _EX1(), _EX11()]
-        event = mock.sentinel.event
+        event = {'type': 'DELETED'}
         m_handler = mock.Mock()
         m_handler.side_effect = failures
         m_sleep.side_effect = [1] * (attempts - 1) + [0]

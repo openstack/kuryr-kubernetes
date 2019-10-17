@@ -532,12 +532,9 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
         return crd_selectors
 
     def create_namespace_sg_rules(self, namespace):
-        kubernetes = clients.get_kubernetes_client()
         ns_name = namespace['metadata']['name']
         LOG.debug("Creating sg rule for namespace: %s", ns_name)
         crd_selectors = []
-        namespace = kubernetes.get(
-            '{}/namespaces/{}'.format(constants.K8S_API_BASE, ns_name))
         knp_crds = driver_utils.get_kuryrnetpolicy_crds()
         for crd in knp_crds.get('items'):
             crd_selector = crd['spec'].get('podSelector')
