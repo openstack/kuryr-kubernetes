@@ -85,7 +85,8 @@ class TestNamespaceHandler(test_base.TestCase):
         crd = {
             'kind': 'KuryrNet',
             'metadata': {
-                'selfLink': mock.sentinel.self_link
+                'selfLink': mock.sentinel.self_link,
+                'name': 'ns-' + self._namespace_name,
             },
             'spec': {
                 'routerId': mock.sentinel.router_id,

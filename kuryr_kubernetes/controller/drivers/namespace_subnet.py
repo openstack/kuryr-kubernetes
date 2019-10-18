@@ -117,11 +117,22 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
                     neutron.delete_port(leftover_port['id'])
                 except n_exc.PortNotFoundClient:
                     LOG.debug("Port already deleted.")
-                except n_exc.NeutronClientException:
-                    LOG.debug("Unexpected error deleting leftover port %s. "
-                              "Skiping it and continue with the other rest.",
-                              leftover_port['id'])
-                    continue
+                except n_exc.NeutronClientException as e:
+                    if "currently a subport for trunk" in str(e):
+                        LOG.warning("Port %s is in DOWN status but still "
+                                    "associated to a trunk. This should not "
+                                    "happen. Trying to delete it from the "
+                                    "trunk.", leftover_port['id'])
+                        # Get the trunk_id from the error message
+                        trunk_id = (
+                            str(e).split('trunk')[1].split('.')[0].strip())
+                        neutron.trunk_remove_subports(
+                            trunk_id, {'sub_ports': [
+                                {'port_id': leftover_port['id']}]})
+                    else:
+                        LOG.exception("Unexpected error deleting leftover "
+                                      "port %s. Skiping it and continue with "
+                                      "the other rest.", leftover_port['id'])
             raise exceptions.ResourceNotReady(net_id)
         except n_exc.NeutronClientException:
             LOG.exception("Error deleting network %s.", net_id)

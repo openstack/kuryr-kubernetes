@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import eventlet
+import time
+
 from oslo_cache import core as cache
 from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
@@ -61,6 +64,10 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
             self._drv_lbaas = drivers.LBaaSDriver.get_instance()
             self._drv_svc_sg = (
                 drivers.ServiceSecurityGroupsDriver.get_instance())
+
+        # NOTE(ltomasbo): Checks and clean up leftovers due to
+        # kuryr-controller retarts
+        eventlet.spawn(self._cleanup_namespace_leftovers)
 
     def on_present(self, namespace):
         ns_name = namespace['metadata']['name']
@@ -146,7 +153,7 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
                 # but not to prevent etcd failures.
                 return
 
-        net_crd_name = 'ns-' + namespace['metadata']['name']
+        net_crd_name = net_crd['metadata']['name']
 
         self._drv_vif_pool.delete_network_pools(net_crd['spec']['netId'])
         try:
@@ -289,3 +296,43 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         enabled_handlers = oslo_cfg.CONF.kubernetes.enabled_handlers
         svc_sg_driver = oslo_cfg.CONF.kubernetes.service_security_groups_driver
         return ('policy' in enabled_handlers and svc_sg_driver == 'policy')
+
+    def _cleanup_namespace_leftovers(self):
+        k8s = clients.get_kubernetes_client()
+        while True:
+            retry = False
+            try:
+                net_crds = k8s.get(constants.K8S_API_CRD_KURYRNETS)
+                namespaces = k8s.get(constants.K8S_API_NAMESPACES)
+            except exceptions.K8sClientException:
+                LOG.warning("Error retriving namespace information")
+                return
+            ns_dict = {'ns-' + ns['metadata']['name']: ns
+                       for ns in namespaces.get('items')}
+
+            for net_crd in net_crds.get('items'):
+                try:
+                    ns_dict[net_crd['metadata']['name']]
+                except KeyError:
+                    # Note(ltomasbo): The CRD does not have an associated
+                    # namespace. It must be deleted
+                    LOG.debug("Removing namespace leftovers associated to: "
+                              "%s", net_crd)
+                    # removing the 'ns-' preceding the namespace name on the
+                    # net CRDs
+                    ns_name = net_crd['metadata']['name'][3:]
+                    # only namespace name is needed for on_deleted, faking the
+                    # nonexistent object
+                    ns_to_delete = {'metadata': {'name': ns_name}}
+                    try:
+                        self.on_deleted(ns_to_delete, net_crd)
+                    except exceptions.ResourceNotReady:
+                        LOG.debug("Cleanup of namespace %s failed. A retry "
+                                  "will be triggered.", ns_name)
+                        retry = True
+                        continue
+            if not retry:
+                break
+
+            # Leave time between retries to help Neutron to complete actions
+            time.sleep(60)
