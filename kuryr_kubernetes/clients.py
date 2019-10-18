@@ -13,10 +13,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from functools import partial
 import os
 
 from kuryr.lib import utils
 from openstack import connection
+from openstack import exceptions as os_exc
+from openstack.network.v2 import port as os_port
 
 from kuryr_kubernetes import config
 from kuryr_kubernetes import k8s_client
@@ -75,12 +78,24 @@ def setup_kubernetes_client():
     _clients[_KUBERNETES_CLIENT] = k8s_client.K8sClient(api_root)
 
 
+def _create_ports(self, payload):
+    """bulk create ports using openstacksdk module"""
+    # TODO(gryf): this should be implemented on openstacksdk instead.
+    response = self.post(os_port.Port.base_path, json=payload)
+
+    if not response.ok:
+        raise os_exc.SDKException('Error when bulk creating ports: %s',
+                                  response.text)
+    return (os_port.Port(**item) for item in response.json()['ports'])
+
+
 def setup_openstacksdk():
     auth_plugin = utils.get_auth_plugin('neutron')
     session = utils.get_keystone_session('neutron', auth_plugin)
     conn = connection.Connection(
         session=session,
         region_name=getattr(config.CONF.neutron, 'region_name', None))
+    conn.network.create_ports = partial(_create_ports, conn.network)
     _clients[_OPENSTACKSDK] = conn
 
 
