@@ -31,6 +31,7 @@ class TestK8sClient(test_base.TestCase):
         neutron_mock = mock.Mock()
         openstacksdk_mock = mock.Mock()
         openstacksdk_mock.load_balancer = mock.Mock()
+        openstacksdk_mock.network = mock.Mock()
         k8s_dummy = object()
 
         m_cfg.kubernetes.api_root = k8s_api_root
@@ -46,3 +47,5 @@ class TestK8sClient(test_base.TestCase):
         self.assertIs(openstacksdk_mock, clients.get_openstacksdk())
         self.assertIs(openstacksdk_mock.load_balancer,
                       clients.get_loadbalancer_client())
+        self.assertIs(openstacksdk_mock.network,
+                      clients.get_network_client())

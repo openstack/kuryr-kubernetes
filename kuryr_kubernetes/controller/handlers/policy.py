@@ -141,11 +141,10 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
 
     @MEMOIZE
     def _check_quota(self, quota):
-        neutron = clients.get_neutron_client()
-        sg_quota = quota['security_group']
-        sg_func = neutron.list_security_groups
-        if utils.has_limit(sg_quota):
-            return utils.is_available('security_groups', sg_quota, sg_func)
+        os_net = clients.get_network_client()
+        if utils.has_limit(quota.security_groups):
+            return utils.is_available('security_groups', quota.security_groups,
+                                      os_net.security_groups)
         return True
 
     def _is_service_affected(self, service, affected_pods):

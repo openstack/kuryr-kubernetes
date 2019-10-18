@@ -13,6 +13,8 @@
 # limitations under the License.
 import mock
 
+import munch
+from openstack import exceptions as os_exc
 from os_vif import objects
 from oslo_config import cfg
 
@@ -28,6 +30,7 @@ CONF = cfg.CONF
 
 
 class TestUtils(test_base.TestCase):
+
     @mock.patch('socket.gethostname')
     def test_get_node_name(self, m_gethostname):
         m_gethostname.return_value = 'foo'
@@ -64,18 +67,18 @@ class TestUtils(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_network')
     @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_subnet')
     def test_get_subnet(self, m_osv_subnet, m_osv_network):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         subnet = mock.MagicMock()
         network = mock.MagicMock()
         subnet_id = mock.sentinel.subnet_id
         network_id = mock.sentinel.network_id
 
-        neutron_subnet = {'network_id': network_id}
+        neutron_subnet = munch.Munch({'network_id': network_id})
         neutron_network = mock.sentinel.neutron_network
 
-        neutron.show_subnet.return_value = {'subnet': neutron_subnet}
-        neutron.show_network.return_value = {'network': neutron_network}
+        os_net.get_subnet.return_value = neutron_subnet
+        os_net.get_network.return_value = neutron_network
 
         m_osv_subnet.return_value = subnet
         m_osv_network.return_value = network
@@ -83,8 +86,8 @@ class TestUtils(test_base.TestCase):
         ret = utils.get_subnet(subnet_id)
 
         self.assertEqual(network, ret)
-        neutron.show_subnet.assert_called_once_with(subnet_id)
-        neutron.show_network.assert_called_once_with(network_id)
+        os_net.get_subnet.assert_called_once_with(subnet_id)
+        os_net.get_network.assert_called_once_with(network_id)
         m_osv_subnet.assert_called_once_with(neutron_subnet)
         m_osv_network.assert_called_once_with(neutron_network)
         network.subnets.objects.append.assert_called_once_with(subnet)
@@ -217,3 +220,55 @@ class TestUtils(test_base.TestCase):
         ret = utils.has_port_changes(service, lbaas_spec)
 
         self.assertFalse(ret)
+
+    def test_get_nodes_ips(self):
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
+        ip1 = munch.Munch({'fixed_ips': [{'ip_address': '10.0.0.1'}],
+                           'trunk_details': True})
+        ip2 = munch.Munch({'fixed_ips': [{'ip_address': '10.0.0.2'}],
+                           'trunk_details': True})
+        ip3 = munch.Munch({'fixed_ips': [{'ip_address': '10.0.0.3'}],
+                           'trunk_details': None})
+        ports = (p for p in [ip1, ip2, ip3])
+
+        os_net.ports.return_value = ports
+        trunk_ips = utils.get_nodes_ips()
+        os_net.ports.assert_called_once_with(status='ACTIVE')
+        self.assertEqual(trunk_ips, [ip1.fixed_ips[0]['ip_address'],
+                                     ip2.fixed_ips[0]['ip_address']])
+
+    def test_get_nodes_ips_tagged(self):
+        CONF.set_override('resource_tags', ['foo'], group='neutron_defaults')
+        self.addCleanup(CONF.clear_override, 'resource_tags',
+                        group='neutron_defaults')
+
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
+        ip1 = munch.Munch({'fixed_ips': [{'ip_address': '10.0.0.1'}],
+                           'trunk_details': True})
+        ip2 = munch.Munch({'fixed_ips': [{'ip_address': '10.0.0.2'}],
+                           'trunk_details': False})
+        ports = (p for p in [ip1, ip2])
+
+        os_net.ports.return_value = ports
+        trunk_ips = utils.get_nodes_ips()
+        os_net.ports.assert_called_once_with(status='ACTIVE', tags=['foo'])
+        self.assertEqual(trunk_ips, [ip1.fixed_ips[0]['ip_address']])
+
+    def test_get_subnet_cidr(self):
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
+        subnet_id = mock.sentinel.subnet_id
+        subnet = munch.Munch(cidr='10.0.0.0/24')
+        os_net.get_subnet.return_value = subnet
+
+        result = utils.get_subnet_cidr(subnet_id)
+        os_net.get_subnet.assert_called_once_with(subnet_id)
+        self.assertEqual(result, '10.0.0.0/24')
+
+    def test_get_subnet_cidr_no_such_subnet(self):
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
+        subnet_id = mock.sentinel.subnet_id
+        os_net.get_subnet.side_effect = os_exc.ResourceNotFound
+
+        self.assertRaises(os_exc.ResourceNotFound, utils.get_subnet_cidr,
+                          subnet_id)
+        os_net.get_subnet.assert_called_once_with(subnet_id)
