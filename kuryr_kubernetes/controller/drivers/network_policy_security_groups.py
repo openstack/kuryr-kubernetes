@@ -468,6 +468,7 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
                 driver_utils.patch_kuryrnetworkpolicy_crd(crd, i_rules,
                                                           e_rules,
                                                           crd_selector)
+            if i_matched:
                 crd_pod_selectors.append(crd_selector)
         return crd_pod_selectors
 
@@ -494,6 +495,7 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
                 driver_utils.patch_kuryrnetworkpolicy_crd(crd, i_rules,
                                                           e_rules,
                                                           crd_selector)
+            if i_matched:
                 crd_pod_selectors.append(crd_selector)
         return crd_pod_selectors
 
@@ -524,6 +526,7 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
             if i_matched or e_matched:
                 driver_utils.patch_kuryrnetworkpolicy_crd(
                     crd, i_rules, e_rules, crd_selector)
+            if i_matched:
                 crd_selectors.append(crd_selector)
         return crd_selectors
 
@@ -544,6 +547,7 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
                 driver_utils.patch_kuryrnetworkpolicy_crd(crd, i_rules,
                                                           e_rules,
                                                           crd_selector)
+            if i_matched:
                 crd_selectors.append(crd_selector)
         return crd_selectors
 
