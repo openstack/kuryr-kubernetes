@@ -188,6 +188,7 @@ class TestPolicyHandler(test_base.TestCase):
         match_pod = mock.sentinel.match_pod
         m_host_network.return_value = False
 
+        self._handler._is_egress_only_policy.return_value = False
         self._handler._is_service_affected.return_value = True
         knp_on_ns = self._handler._drv_policy.knps_on_namespace
         knp_on_ns.return_value = True
