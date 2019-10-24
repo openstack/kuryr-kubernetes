@@ -16,7 +16,7 @@ import time
 
 import requests
 
-from neutronclient.common import exceptions as n_exc
+from openstack import exceptions as os_exc
 from os_vif import objects
 from oslo_cache import core as cache
 from oslo_config import cfg
@@ -162,45 +162,42 @@ def get_leader_name():
 def get_nodes_ips():
     """Get the IPs of the trunk ports associated to the deployment."""
     trunk_ips = []
-    neutron = clients.get_neutron_client()
+    os_net = clients.get_network_client()
     tags = CONF.neutron_defaults.resource_tags
     if tags:
-        ports = neutron.list_ports(status='ACTIVE',
-                                   tags=CONF.neutron_defaults.resource_tags)
+        ports = os_net.ports(status='ACTIVE', tags=tags)
     else:
         # NOTE(ltomasbo: if tags are not used, assume all the trunk ports are
         # part of the kuryr deployment
-        ports = neutron.list_ports(status='ACTIVE')
-    for port in ports.get('ports'):
-        if port.get('trunk_details'):
-            trunk_ips.append(port['fixed_ips'][0]['ip_address'])
+        ports = os_net.ports(status='ACTIVE')
+    for port in ports:
+        if port.trunk_details:
+            trunk_ips.append(port.fixed_ips[0]['ip_address'])
     return trunk_ips
 
 
 @MEMOIZE
 def get_subnet(subnet_id):
-    neutron = clients.get_neutron_client()
+    os_net = clients.get_network_client()
 
-    n_subnet = neutron.show_subnet(subnet_id).get('subnet')
-    network_id = n_subnet['network_id']
-    n_network = neutron.show_network(network_id).get('network')
+    n_subnet = os_net.get_subnet(subnet_id)
+    n_network = os_net.get_network(n_subnet.network_id)
 
     subnet = os_vif_util.neutron_to_osvif_subnet(n_subnet)
     network = os_vif_util.neutron_to_osvif_network(n_network)
     network.subnets.objects.append(subnet)
-
     return network
 
 
 @MEMOIZE
 def get_subnet_cidr(subnet_id):
-    neutron = clients.get_neutron_client()
+    os_net = clients.get_network_client()
     try:
-        subnet_obj = neutron.show_subnet(subnet_id)
-    except n_exc.NeutronClientException:
+        subnet_obj = os_net.get_subnet(subnet_id)
+    except os_exc.ResourceNotFound:
         LOG.exception("Subnet %s CIDR not found!", subnet_id)
         raise
-    return subnet_obj.get('subnet')['cidr']
+    return subnet_obj.cidr
 
 
 def extract_pod_annotation(annotation):
@@ -222,8 +219,8 @@ def has_limit(quota):
     return quota != NO_LIMIT
 
 
-def is_available(resource, resource_quota, neutron_func):
-    qnt_resources = len(neutron_func().get(resource))
+def is_available(resource, resource_quota, network_func):
+    qnt_resources = len(list(network_func()))
     availability = resource_quota - qnt_resources
     if availability <= 0:
         LOG.error("Quota exceeded for resource: %s", resource)

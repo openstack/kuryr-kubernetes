@@ -29,6 +29,10 @@ _OPENSTACKSDK = 'openstacksdk'
 _POD_RESOURCES_CLIENT = 'pod-resources-client'
 
 
+def get_network_client():
+    return _clients[_OPENSTACKSDK].network
+
+
 def get_neutron_client():
     return _clients[_NEUTRON_CLIENT]
 

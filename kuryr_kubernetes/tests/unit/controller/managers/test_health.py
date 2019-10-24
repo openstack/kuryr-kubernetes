@@ -144,29 +144,29 @@ class TestHealthServer(base.TestCase):
 
     @mock.patch.object(_TestHandler, 'is_ready')
     def test__components_ready(self, m_status):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
-        neutron.show_quota.return_value = get_quota_obj()
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
+        os_net.get_quota.return_value = get_quota_obj()
         self.srv._registry = [_TestHandler()]
         m_status.return_value = True
 
         resp = self.srv._components_ready()
 
         m_status.assert_called_once()
-        self.assertEqual(resp, True)
-        neutron.show_quota.assert_called_once()
+        self.assertIs(resp, True)
+        os_net.get_quota.assert_called_once()
 
     @mock.patch.object(_TestHandler, 'is_ready')
     def test__components_ready_error(self, m_status):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
-        neutron.show_quota.return_value = get_quota_obj()
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
+        os_net.get_quota.return_value = get_quota_obj()
         self.srv._registry = [_TestHandler()]
         m_status.return_value = False
 
         resp = self.srv._components_ready()
 
         m_status.assert_called_once()
-        self.assertEqual(resp, False)
-        neutron.show_quota.assert_called_once()
+        self.assertIs(resp, False)
+        os_net.get_quota.assert_called_once()
 
     @mock.patch.object(_TestHandler, 'is_alive')
     def test_liveness(self, m_status):

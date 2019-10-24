@@ -342,6 +342,9 @@ class BaseVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('resource_tags',
                                    tags,
                                    group='neutron_defaults')
+        self.addCleanup(oslo_cfg.CONF.clear_override, 'resource_tags',
+                        group='neutron_defaults')
+
         neutron.list_networks.return_value = {'networks': [{'id': net_id}]}
 
         cls._cleanup_leftover_ports(m_driver)
@@ -362,6 +365,8 @@ class BaseVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('resource_tags',
                                    tags,
                                    group='neutron_defaults')
+        self.addCleanup(oslo_cfg.CONF.clear_override, 'resource_tags',
+                        group='neutron_defaults')
         neutron.list_networks.return_value = {'networks': []}
 
         cls._cleanup_leftover_ports(m_driver)
@@ -384,6 +389,9 @@ class BaseVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('resource_tags',
                                    tags,
                                    group='neutron_defaults')
+        self.addCleanup(oslo_cfg.CONF.clear_override, 'resource_tags',
+                        group='neutron_defaults')
+
         neutron.list_networks.return_value = {'networks': [{'id': net_id}]}
 
         cls._cleanup_leftover_ports(m_driver)
@@ -404,6 +412,9 @@ class BaseVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('resource_tags',
                                    tags,
                                    group='neutron_defaults')
+        self.addCleanup(oslo_cfg.CONF.clear_override, 'resource_tags',
+                        group='neutron_defaults')
+
         neutron.list_networks.return_value = {'networks': [{'id': net_id}]}
 
         cls._cleanup_leftover_ports(m_driver)
@@ -419,9 +430,6 @@ class BaseVIFPool(test_base.TestCase):
         port_id = str(uuid.uuid4())
         port = get_port_obj(port_id=port_id)
         m_get_ports.return_value = [port]
-        oslo_cfg.CONF.set_override('resource_tags',
-                                   [],
-                                   group='neutron_defaults')
 
         cls._cleanup_leftover_ports(m_driver)
         neutron.list_networks.assert_not_called()
@@ -437,9 +445,6 @@ class BaseVIFPool(test_base.TestCase):
         port = get_port_obj(port_id=port_id)
         port['binding:host_id'] = None
         m_get_ports.return_value = [port]
-        oslo_cfg.CONF.set_override('resource_tags',
-                                   [],
-                                   group='neutron_defaults')
 
         cls._cleanup_leftover_ports(m_driver)
         neutron.list_networks.assert_not_called()
