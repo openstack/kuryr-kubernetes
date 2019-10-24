@@ -1028,6 +1028,9 @@ function update_tempest_conf_file {
     if [[ "$KURYR_K8S_CLOUD_PROVIDER" == "True" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes cloud_provider True
     fi
+    if [[ "$KURYR_CONFIGMAP_MODIFIABLE" == "True" ]]; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes configmap_modifiable True
+    fi
     iniset $TEMPEST_CONFIG kuryr_kubernetes validate_crd True
 }
 

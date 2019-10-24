@@ -128,6 +128,7 @@
         KURYR_USE_PORT_POOLS: true
         KURYR_POD_VIF_DRIVER: neutron-vif
         KURYR_VIF_POOL_DRIVER: neutron
+        KURYR_CONFIGMAP_MODIFIABLE: true
 
 - job:
     name: kuryr-kubernetes-tempest-containerized-network-policy
