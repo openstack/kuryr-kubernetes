@@ -244,6 +244,8 @@ class BaseVIFPool(base.VIFPoolDriver):
                 self._available_ports_pools.setdefault(
                     pool_key, {}).setdefault(
                         security_groups, []).append(vif.id)
+            if not vifs:
+                self._last_update[pool_key] = {security_groups: last_update}
 
     def release_vif(self, pod, vif, project_id, security_groups,
                     host_addr=None):
