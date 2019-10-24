@@ -56,6 +56,9 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
         try:
             ns = kubernetes.get('%s/namespaces/%s' % (constants.K8S_API_BASE,
                                                       namespace))
+        except exceptions.K8sResourceNotFound:
+            LOG.warning("Namespace %s not found", namespace)
+            raise
         except exceptions.K8sClientException:
             LOG.exception("Kubernetes Client Exception.")
             raise exceptions.ResourceNotReady(namespace)
