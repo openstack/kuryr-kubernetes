@@ -150,7 +150,6 @@ class CNIDaemonServerService(cotyledon.Service):
 
     def __init__(self, worker_id, registry, healthy):
         super(CNIDaemonServerService, self).__init__(worker_id)
-        self.run_queue_reading = False
         self.registry = registry
         self.healthy = healthy
         self.plugin = k8s_cni_registry.K8sCNIRegistryPlugin(registry,
