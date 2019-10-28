@@ -55,8 +55,8 @@ def _get_net_crd(namespace):
         annotations = ns['metadata']['annotations']
         net_crd_name = annotations[constants.K8S_ANNOTATION_NET_CRD]
     except KeyError:
-        LOG.exception("Namespace missing CRD annotations for selecting "
-                      "the corresponding security group.")
+        LOG.debug("Namespace missing CRD annotations for selecting the "
+                  "corresponding security group. Action will be retried.")
         raise exceptions.ResourceNotReady(namespace)
     try:
         net_crd = kubernetes.get('%s/kuryrnets/%s' % (constants.K8S_API_CRD,
