@@ -203,7 +203,8 @@ class BaseVIFPool(base.VIFPoolDriver):
             return self._get_port_from_pool(pool_key, pod, subnets,
                                             tuple(sorted(security_groups)))
         except exceptions.ResourceNotReady:
-            LOG.warning("Ports pool does not have available ports!")
+            LOG.debug("Ports pool does not have available ports: %s",
+                      pool_key)
             eventlet.spawn(self._populate_pool, pool_key, pod, subnets,
                            tuple(sorted(security_groups)))
             raise
