@@ -216,6 +216,7 @@ class BaseVIFPool(base.VIFPoolDriver):
         # from the pool_key, which will be required when multi-network is
         # supported
         now = time.time()
+        last_update = 0
         pool_updates = self._last_update.get(pool_key)
         if pool_updates:
             last_update = pool_updates.get(security_groups, 0)
