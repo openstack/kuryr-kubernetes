@@ -17,10 +17,10 @@ import os
 
 from kuryr.lib._i18n import _
 from oslo_concurrency import lockutils
-from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
+import pyroute2
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes.cni.binding import base as b_base
@@ -356,30 +356,29 @@ class VIFSriovDriver(object):
         return nvfs
 
     def _set_vf_mac(self, pf, vf_index, mac):
-        """Call `ip link set enp2s0f1 vf 3 mac fa:16:3e:87:b2:ac`"""
-
-        LOG.debug("Seting VF MAC: pf = %s, vf_index = %s, mac = %s",
+        LOG.debug("Setting VF MAC: pf = %s, vf_index = %s, mac = %s",
                   pf, vf_index, mac)
-        cmd = [
-            'ip', 'link',
-            'set', pf, 'vf', vf_index, 'mac', mac
-        ]
+
+        ip = pyroute2.IPRoute()
+        pf_index = ip.link_lookup(ifname=pf)[0]
         try:
-            return processutils.execute(*cmd, run_as_root=True)
-        except Exception:
-            LOG.exception("Unable to execute %s", cmd)
+            ip.link("set", index=pf_index, vf={"vf": vf_index, "mac": mac})
+        except pyroute2.netlink.exceptions.NetlinkError:
+            LOG.exception("Unable to set mac for VF %s on pf %s",
+                          vf_index, pf)
             raise
 
     def _set_vf_vlan(self, pf, vf_index, vlan_id):
-        """Call `ip link set enp1s0f0 vf 5 vlan 10`"""
-        cmd = [
-            'ip', 'link',
-            'set', pf, 'vf', vf_index, 'vlan', vlan_id
-        ]
+        LOG.debug("Setting VF VLAN: pf = %s, vf_index = %s, vlan_id = %s",
+                  pf, vf_index, vlan_id)
+        ip = pyroute2.IPRoute()
+        pf_index = ip.link_lookup(ifname=pf)[0]
         try:
-            return processutils.execute(*cmd, run_as_root=True)
-        except Exception:
-            LOG.exception("Unable to execute %s", cmd)
+            ip.link("set", index=pf_index, vf={"vf": vf_index,
+                                               "vlan": vlan_id})
+        except pyroute2.netlink.exceptions.NetlinkError:
+            LOG.exception("Unable to set vlan for VF %s on pf %s",
+                          vf_index, pf)
             raise
 
     def is_alive(self):
