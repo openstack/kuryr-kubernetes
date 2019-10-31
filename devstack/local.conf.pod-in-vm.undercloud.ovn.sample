@@ -48,11 +48,10 @@ enable_service o-cw
 enable_service o-hm
 enable_service o-hk
 ## Octavia Deps
-# Current Octavia image generation using diskimage-builder is broken ATM
-# You can fetch a precreated qcow image from here [1] and set up octavia to
-# use it by uncommenting the following lines.
-# [1] https://tarballs.openstack.org/octavia/test-images/
-#             test-only-amphora-x64-haproxy-ubuntu-xenial.qcow2
+# In order to skip building the Octavia Amphora image you can fetch a
+# precreated qcow image from here [1] and set up octavia to use it by
+# uncommenting the following lines.
+# [1] https://tarballs.openstack.org/octavia/test-images/test-only-amphora-x64-haproxy-ubuntu-xenial.qcow2
 # OCTAVIA_AMP_IMAGE_FILE=/tmp/test-only-amphora-x64-haproxy-ubuntu-xenial.qcow2
 # OCTAVIA_AMP_IMAGE_SIZE=3
 # OCTAVIA_AMP_IMAGE_NAME=test-only-amphora-x64-haproxy-ubuntu-xenial
