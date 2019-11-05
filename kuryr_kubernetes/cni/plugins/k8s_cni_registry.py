@@ -100,6 +100,23 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
         except KeyError:
             pass
         self._do_work(params, b_base.disconnect)
+        # NOTE(ndesh): We need to lock here to avoid race condition
+        #              with the deletion code in the watcher to ensure that
+        #              we delete the registry entry exactly once
+        try:
+            with lockutils.lock(pod_name, external=True):
+                if self.registry[pod_name]['del_received']:
+                    del self.registry[pod_name]
+                else:
+                    pod_dict = self.registry[pod_name]
+                    pod_dict['vif_unplugged'] = True
+                    self.registry[pod_name] = pod_dict
+        except KeyError:
+            # This means the pod was removed before vif was unplugged. This
+            # shouldn't happen, but we can't do anything about it now
+            LOG.debug('Pod %s not found registry while handling DEL request. '
+                      'Ignoring.', pod_name)
+            pass
 
     def report_drivers_health(self, driver_healthy):
         if not driver_healthy:
