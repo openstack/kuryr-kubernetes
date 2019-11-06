@@ -1,7 +1,7 @@
 FROM fedora:30
 LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redhat.com>"
 
-ARG UPPER_CONSTRAINTS_FILE="https://opendev.org/openstack/requirements/raw/branch/master/upper-constraints.txt"
+ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/train"
 
 RUN dnf update -y \
     && dnf install -y --setopt=tsflags=nodocs python36 libstdc++ \

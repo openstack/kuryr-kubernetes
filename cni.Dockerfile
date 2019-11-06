@@ -7,7 +7,7 @@ RUN go build -o /go/bin/kuryr-cni ./kuryr_cni
 FROM centos:7
 LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redhat.com>"
 
-ARG UPPER_CONSTRAINTS_FILE="https://opendev.org/openstack/requirements/raw/branch/master/upper-constraints.txt"
+ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/train"
 ARG OSLO_LOCK_PATH=/var/kuryr-lock
 
 RUN yum install -y epel-release https://rdoproject.org/repos/rdo-release.rpm \
