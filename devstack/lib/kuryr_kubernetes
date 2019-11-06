@@ -163,11 +163,11 @@ function _allocation_range {
   python - <<EOF "$@"
 import sys
 
-from ipaddress import ip_network
+from netaddr import IPNetwork
 import six
 
 
-n = ip_network(six.text_type(sys.argv[1]))
+n = IPNetwork(six.text_type(sys.argv[1]))
 gateway_position = sys.argv[2]
 
 if gateway_position == 'beginning':
@@ -1030,12 +1030,12 @@ function split_subnet {
     python - <<EOF "$@"
 import sys
 
-from ipaddress import ip_network
+from netaddr import IPNetwork
 import six
 
 
-n = ip_network(six.text_type(sys.argv[1]))
-first, last = n.subnets(prefixlen_diff=1)
+n = IPNetwork(six.text_type(sys.argv[1]))
+first, last = n.subnet(n.prefixlen+1)
 
 print("%s\\t%s" % (first, last))
 EOF
