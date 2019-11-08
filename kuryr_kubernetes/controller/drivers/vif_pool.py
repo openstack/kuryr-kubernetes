@@ -905,6 +905,22 @@ class NestedVIFPool(BaseVIFPool):
         if not available_subports:
             return
 
+        # FIXME(ltomasbo): Workaround for ports already detached from trunks
+        # whose status is ACTIVE
+        trunks_subports = [subport_id['port_id']
+                           for p_port in parent_ports.values()
+                           for subport_id in p_port['subports']]
+        port_ids_to_delete = [p_id for p_id in available_subports.keys()
+                              if p_id not in trunks_subports]
+        for port_id in port_ids_to_delete:
+            LOG.debug("Deleting port with wrong status: %s", port_id)
+            try:
+                neutron.delete_port(port_id)
+            except n_exc.PortNotFoundClient:
+                LOG.debug('Port already deleted: %s', port_id)
+            except n_exc.NeutronClientException:
+                LOG.exception('Error removing the port %s', port_id)
+
         for trunk_id, parent_port in parent_ports.items():
             host_addr = parent_port.get('ip')
             if trunk_ips and host_addr not in trunk_ips:
