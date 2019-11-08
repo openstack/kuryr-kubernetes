@@ -1,15 +1,15 @@
-FROM centos:7
+FROM centos:8
 LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redhat.com>"
 
 ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/master"
 
 RUN yum install -y epel-release \
-    && yum install -y --setopt=tsflags=nodocs python-pip libstdc++ \
-    && yum install -y --setopt=tsflags=nodocs gcc python-devel git
+    && yum install -y --setopt=tsflags=nodocs python3-pip libstdc++ \
+    && yum install -y --setopt=tsflags=nodocs gcc python3-devel git
 
 COPY . /opt/kuryr-kubernetes
 
-RUN pip install -c $UPPER_CONSTRAINTS_FILE --no-cache-dir /opt/kuryr-kubernetes \
+RUN pip3 install -c $UPPER_CONSTRAINTS_FILE --no-cache-dir /opt/kuryr-kubernetes \
     && yum -y history undo last \
     && yum clean all \
     && rm -rf /opt/kuryr-kubernetes \
@@ -22,4 +22,4 @@ RUN pip install -c $UPPER_CONSTRAINTS_FILE --no-cache-dir /opt/kuryr-kubernetes 
 
 USER kuryr
 CMD ["--config-dir", "/etc/kuryr"]
-ENTRYPOINT [ "/usr/bin/kuryr-k8s-controller" ]
+ENTRYPOINT [ "kuryr-k8s-controller" ]

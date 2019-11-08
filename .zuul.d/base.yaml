@@ -39,6 +39,7 @@
         Q_BUILD_OVS_FROM_GIT: true
         KURYR_K8S_CLOUD_PROVIDER: false
         ETCD_USE_RAMDISK: true
+        USE_PYTHON3: true
       devstack_services:
         # TODO(dmellado):Temporary workaround until proper fix
         base: false

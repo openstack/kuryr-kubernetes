@@ -21,15 +21,11 @@
         - kuryr-kubernetes-tempest-containerized
         - kuryr-kubernetes-tempest-containerized-lower-constraints
         - kuryr-kubernetes-tempest-containerized-ovn
-        - kuryr-kubernetes-tempest-py36
-        - kuryr-kubernetes-tempest-containerized-py36
         - kuryr-kubernetes-tempest-multinode-containerized
-        - kuryr-kubernetes-tempest-centos-7
     gate:
       jobs:
         - kuryr-kubernetes-tempest
-        - kuryr-kubernetes-tempest-py36
-        - kuryr-kubernetes-tempest-containerized-py36
+        - kuryr-kubernetes-tempest-containerized
     experimental:
       jobs:
         - kuryr-kubernetes-tempest-containerized-openshift
@@ -45,7 +41,6 @@
 
 - project:
     templates:
-      - openstack-python-jobs
       - openstack-python3-ussuri-jobs
       - openstack-lower-constraints-jobs
       - publish-openstack-docs-pti

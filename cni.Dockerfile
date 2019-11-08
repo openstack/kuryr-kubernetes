@@ -4,19 +4,19 @@ WORKDIR /go/src/opendev.com/kuryr-kubernetes
 COPY . .
 RUN go build -o /go/bin/kuryr-cni ./kuryr_cni
 
-FROM centos:7
+FROM centos:8
 LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redhat.com>"
 
 ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/master"
 ARG OSLO_LOCK_PATH=/var/kuryr-lock
 
 RUN yum install -y epel-release https://rdoproject.org/repos/rdo-release.rpm \
-    && yum install -y --setopt=tsflags=nodocs python-pip iproute bridge-utils openvswitch sudo libstdc++ \
-    && yum install -y --setopt=tsflags=nodocs gcc python-devel git
+    && yum install -y --setopt=tsflags=nodocs python3-pip openvswitch sudo \
+    && yum install -y --setopt=tsflags=nodocs gcc python3-devel git
 
 COPY . /opt/kuryr-kubernetes
 
-RUN pip install -c $UPPER_CONSTRAINTS_FILE /opt/kuryr-kubernetes \
+RUN pip3 install -c $UPPER_CONSTRAINTS_FILE /opt/kuryr-kubernetes \
     && cp /opt/kuryr-kubernetes/cni_ds_init /usr/bin/cni_ds_init \
     && mkdir -p /etc/kuryr-cni \
     && cp /opt/kuryr-kubernetes/etc/cni/net.d/* /etc/kuryr-cni \

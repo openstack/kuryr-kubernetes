@@ -327,16 +327,9 @@ EOF
 function build_kuryr_containers() {
     local build_args
     local build_dir
-    local use_py3
-    local py_suffix
 
     build_dir="${DEST}/kuryr-kubernetes"
     pushd "$build_dir"
-
-    use_py3=$(trueorfalse False KURYR_CONTAINERS_USE_PY3)
-    if [[ "$use_py3" == "True" ]]; then
-        py_suffix="_py3"
-    fi
 
     KURYR_CONTAINERS_USE_LOWER_CONSTRAINTS=$(trueorfalse False KURYR_CONTAINERS_USE_LOWER_CONSTRAINTS)
     if [[ "$KURYR_CONTAINERS_USE_LOWER_CONSTRAINTS" == "True" ]]; then
@@ -348,11 +341,11 @@ function build_kuryr_containers() {
     #               resolved instead of podman we need to use buildah directly,
     #               hence this awful if clause.
     if [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
-        sudo buildah bud -t docker.io/kuryr/controller -f controller${py_suffix}.Dockerfile .
-        sudo buildah bud -t docker.io/kuryr/cni -f cni${py_suffix}.Dockerfile .
+        sudo buildah bud -t docker.io/kuryr/controller -f controller.Dockerfile .
+        sudo buildah bud -t docker.io/kuryr/cni -f cni.Dockerfile .
     else
-        container_runtime build -t kuryr/controller -f controller${py_suffix}.Dockerfile ${build_args}  .
-        container_runtime build -t kuryr/cni -f cni${py_suffix}.Dockerfile ${build_args} .
+        container_runtime build -t kuryr/controller -f controller.Dockerfile ${build_args}  .
+        container_runtime build -t kuryr/cni -f cni.Dockerfile ${build_args} .
     fi
     popd
 }

@@ -102,9 +102,6 @@ KURYR_ENABLE_INGRESS=${KURYR_ENABLE_INGRESS:-False}
 # Kuryr L7 router's name
 KURYR_L7_ROUTER_NAME=${KURYR_L7_ROUTER_NAME:-kuryr-l7-router}
 
-# Whether to use Python3
-KURYR_CONTAINERS_USE_PY3=${KURYR_CONTAINERS_USE_PY3:-False}
-
 # Whether to use lower-constraints.txt when installing dependencies.
 KURYR_CONTAINERS_USE_LOWER_CONSTRAINTS=${KURYR_CONTAINERS_USE_LOWER_CONSTRAINTS:-False}
 

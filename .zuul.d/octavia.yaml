@@ -54,15 +54,6 @@
     voting: false
 
 - job:
-    name: kuryr-kubernetes-tempest-py36
-    parent: kuryr-kubernetes-tempest
-    description: |
-      Tempest with DevStack running on Python 3.6
-    vars:
-      devstack_localrc:
-        USE_PYTHON3: true
-
-- job:
     name: kuryr-kubernetes-tempest-containerized
     parent: kuryr-kubernetes-tempest
     description: |
@@ -141,17 +132,6 @@
         KURYR_SG_DRIVER: policy
         KURYR_SUBNET_DRIVER: namespace
     voting: false
-
-- job:
-    name: kuryr-kubernetes-tempest-containerized-py36
-    description: |
-      Tempest with Kuryr running on Python3.6 containers
-    parent: kuryr-kubernetes-tempest-containerized
-    vars:
-      devstack_localrc:
-        KURYR_CONTAINERS_USE_PY3: True
-        USE_PYTHON3: true
-    voting: true
 
 - job:
     name: kuryr-kubernetes-tempest-containerized-openshift
