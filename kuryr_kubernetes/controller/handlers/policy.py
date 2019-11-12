@@ -79,7 +79,8 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
             self._drv_vif_pool.update_vif_sgs(pod, pod_sgs)
 
         if (pods_to_update and
-                oslo_cfg.CONF.octavia_defaults.enforce_sg_rules):
+                oslo_cfg.CONF.octavia_defaults.enforce_sg_rules and
+                not self._is_egress_only_policy(policy)):
             # NOTE(ltomasbo): only need to change services if the pods that
             # they point to are updated
             services = driver_utils.get_services(
@@ -123,7 +124,8 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
 
             self._drv_policy.release_network_policy(netpolicy_crd)
 
-            if oslo_cfg.CONF.octavia_defaults.enforce_sg_rules:
+            if (oslo_cfg.CONF.octavia_defaults.enforce_sg_rules and
+                    not self._is_egress_only_policy(policy)):
                 services = driver_utils.get_services(
                     policy['metadata']['namespace'])
                 for svc in services.get('items'):
@@ -166,3 +168,9 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
             LOG.exception("Kubernetes Client Exception.")
             raise
         return net_crd['spec']['netId']
+
+    def _is_egress_only_policy(self, policy):
+        policy_types = policy['spec'].get('policyTypes', [])
+        return (policy_types == ['Egress'] or
+                (policy['spec'].get('egress') and
+                    not policy['spec'].get('ingress')))

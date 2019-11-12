@@ -243,6 +243,8 @@ def patch_kuryrnetworkpolicy_crd(crd, i_rules, e_rules, pod_selector,
                               'egressSgRules': e_rules,
                               'podSelector': pod_selector,
                               'networkpolicy_spec': np_spec})
+    except k_exc.K8sResourceNotFound:
+        LOG.debug('KuryrNetPolicy CRD not found %s', crd_name)
     except k_exc.K8sClientException:
         LOG.exception('Error updating kuryrnetpolicy CRD %s', crd_name)
         raise
