@@ -61,9 +61,10 @@ Kubernetes load balancers and their members:
   Neutron port to the subnet of each of the members. This way the traffic from
   the Service Haproxy to the members will not go through the router again, only
   will have gone through the router to reach the service.
-* Layer3: Octavia only creates the VIP port. The traffic from the service VIP to
-  the members will go back to the router to reach the pod subnet. It is
-  important to note that it will have some performance impact depending on the SDN.
+* Layer3: Octavia only creates the VIP port. The traffic from the service VIP
+  to the members will go back to the router to reach the pod subnet. It is
+  important to note that it will have some performance impact depending on the
+  SDN.
 
 To support the L3 mode (both for Octavia and for the deprecated
 Neutron-LBaaSv2):

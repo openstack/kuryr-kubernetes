@@ -40,7 +40,7 @@ steps can be followed:
     $ openstack floating ip create --port port0 public
 
 
-Note subports can be added to the trunk port, and be used inside the VM with the
-specific vlan, 102 in the example, by doing::
+Note subports can be added to the trunk port, and be used inside the VM with
+the specific vlan, 102 in the example, by doing::
 
     $ openstack network trunk set --subport port=subport0,segmentation-type=vlan,segmentation-id=102 trunk0

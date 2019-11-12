@@ -47,7 +47,7 @@ container creation, and Neutron ports are deleted after container deletion.
 But there is still a need to keep the Ports and Port pools details and have
 them available in case of Kuryr Controller restart. Since Kuryr is stateless
 service, the details should be kept either as part of Neutron or Kubernetes
-data. Due to the perfromance costs, K8s option is more performant.
+data. Due to the performance costs, K8s option is more preferred.
 
 
 Proposed Solution
@@ -171,13 +171,12 @@ KuryrPorts objects that were annotated with `deleting` label at the
 (e.g. ports) in case the controller crashed while deleting the Neutron
 (or any other SDN) associated resources.
 
-As for the Ports Pools, right now they reside on memory on the
-Kuryr-controller and need to be recovered every time the controller gets
-restarted. To perform this recovery we are relying on Neutron Port
-device-owner information which may not be completely waterproof in all
-situations (e.g., if there is another entity using the same device
-owner name). Consequently, by storing the information into K8s CRD objests we
-have the benefit of:
+As for the Ports Pools, right now they reside on memory on the Kuryr-controller
+and need to be recovered every time the controller gets restarted. To perform
+this recovery we are relying on Neutron Port device-owner information which may
+not be completely waterproof in all situations (e.g., if there is another
+entity using the same device owner name). Consequently, by storing the
+information into K8s CRD objects we have the benefit of:
 
   * Calling K8s API instead of Neutron API
   * Being sure the recovered ports into the pools were created by

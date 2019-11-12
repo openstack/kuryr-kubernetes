@@ -92,9 +92,9 @@ Additional Subnets Driver
 Since it is possible to request additional subnets for the pod through the pod
 annotations it is necessary to have new driver. According to parsed information
 (requested subnets) by Multi-vif driver it has to return dictionary containing
-the mapping 'subnet_id' -> 'network' for all requested subnets in unified format
-specified in PodSubnetsDriver class.
-Here's how a Pod Spec with additional subnets requests might look like:
+the mapping 'subnet_id' -> 'network' for all requested subnets in unified
+format specified in PodSubnetsDriver class.  Here's how a Pod Spec with
+additional subnets requests might look like:
 
 .. code-block:: yaml
 
@@ -137,11 +137,11 @@ Specific ports support
 Specific ports support is enabled by default and will be a part of the drivers
 to implement it. It is possile to have manually precreated specific ports in
 neutron and specify them in pod annotations as preferably used. This means that
-drivers will use specific ports if it is specified in pod annotations, otherwise
-it will create new ports by default. It is important that specific ports can have
-vnic_type both direct and normal, so it is necessary to provide processing
-support for specific ports in both SRIOV and generic driver.
-Pod annotation with requested specific ports might look like this:
+drivers will use specific ports if it is specified in pod annotations,
+otherwise it will create new ports by default. It is important that specific
+ports can have vnic_type both direct and normal, so it is necessary to provide
+processing support for specific ports in both SRIOV and generic driver. Pod
+annotation with requested specific ports might look like this:
 
 .. code-block:: yaml
 
@@ -158,10 +158,10 @@ Pod annotation with requested specific ports might look like this:
                 "id_of_normal_precreated_port"
             ]'
 
-Pod spec above should be interpreted the following way:
-Multi-vif driver parses pod annotations and gets ids of specific ports.
-If vnic_type is "normal" and such ports exist, it calls generic driver to create vif
-objects for these ports. Else if vnic_type is "direct" and such ports exist, it calls
-sriov driver to create vif objects for these ports. If certain ports are not
-requested in annotations then driver doesn't return additional vifs to Multi-vif
-driver.
+Pod spec above should be interpreted the following way: Multi-vif driver parses
+pod annotations and gets ids of specific ports. If vnic_type is "normal" and
+such ports exist, it calls generic driver to create vif objects for these
+ports. Else if vnic_type is "direct" and such ports exist, it calls sriov
+driver to create vif objects for these ports. If certain ports are not
+requested in annotations then driver doesn't return additional vifs to
+Multi-vif driver.

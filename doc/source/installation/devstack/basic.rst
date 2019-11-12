@@ -46,8 +46,8 @@ Now edit ``devstack/local.conf`` to set up some initial options:
 * If you have multiple network interfaces, you need to set ``HOST_IP`` variable
   to the IP on the interface you want to use as DevStack's primary.
 * ``KURYR_K8S_LBAAS_USE_OCTAVIA`` can be set to False if you want more
-  lightweight installation. In that case installation of Glance and Nova will be
-  omitted.
+  lightweight installation. In that case installation of Glance and Nova will
+  be omitted.
 * If you already have Docker installed on the machine, you can comment out line
   starting with ``enable_plugin devstack-plugin-container``.
 
@@ -133,12 +133,12 @@ You can verify that this IP is really assigned to Neutron port: ::
     | 3ce7fd13-ad0a-4e92-9b6f-0d38d50b1699 |     | fa:16:3e:8e:f4:30 | ip_address='10.0.0.73', subnet_id='ddfbc8e9-68da-48f9-8a05-238ea0607e0d' | ACTIVE |
 
 If those steps were successful, then it looks like your DevStack with
-kuryr-kubernetes is working correctly. In case of errors, copy last ~50 lines of
-the logs, paste them into `paste.openstack.org <http://paste.openstack.org>`_
-and ask other developers for help on `Kuryr's IRC channel
-<chat.freenode.net:6667/openstack-kuryr>`_. More info on how to use DevStack can
-be found in `DevStack Documentation
-<https://docs.openstack.org/devstack/latest/>`_, especially in section
-`Using Systemd in DevStack
+kuryr-kubernetes is working correctly. In case of errors, copy last ~50 lines
+of the logs, paste them into `paste.openstack.org
+<http://paste.openstack.org>`_ and ask other developers for help on `Kuryr's
+IRC channel <chat.freenode.net:6667/openstack-kuryr>`_. More info on how to use
+DevStack can be found in `DevStack Documentation
+<https://docs.openstack.org/devstack/latest/>`_, especially in section `Using
+Systemd in DevStack
 <https://docs.openstack.org/devstack/latest/systemd.html>`_, which explains how
 to use ``systemctl`` to control services and ``journalctl`` to read its logs.

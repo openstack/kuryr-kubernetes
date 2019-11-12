@@ -24,8 +24,8 @@ Rebuilding container images
 ---------------------------
 
 Instructions on how to manually rebuild both kuryr-controller and kuryr-cni
-container images are presented on :doc:`../containerized` page. In case you want
-to test any code changes, you need to rebuild the images first.
+container images are presented on :doc:`../containerized` page. In case you
+want to test any code changes, you need to rebuild the images first.
 
 
 Changing configuration
@@ -39,8 +39,8 @@ associated ConfigMap. On DevStack deployment this can be done using: ::
 Then the editor will appear that will let you edit the config map. Make sure to
 keep correct indentation when doing changes. Also note that there are two files
 present in the ConfigMap: kuryr.conf and kuryr-cni.conf. First one is attached
-to kuryr-controller and second to kuryr-cni. Make sure to modify both when doing
-changes important for both services.
+to kuryr-controller and second to kuryr-cni. Make sure to modify both when
+doing changes important for both services.
 
 
 Restarting services

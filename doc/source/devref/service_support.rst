@@ -31,9 +31,10 @@ A Kubernetes Service is an abstraction which defines a logical set of Pods and
 a policy by which to access them. Service is a Kubernetes managed API object.
 For Kubernetes-native applications, Kubernetes offers an Endpoints API that is
 updated whenever the set of Pods in a Service changes. For detailed information
-please refer to `Kubernetes service <http://kubernetes.io/docs/user-guide/services/>`_
-Kubernetes supports services with kube-proxy component that runs on each node,
-`Kube-Proxy <http://kubernetes.io/docs/admin/kube-proxy/>`_.
+please refer to `Kubernetes service
+<http://kubernetes.io/docs/user-guide/services/>`_ Kubernetes supports services
+with kube-proxy component that runs on each node, `Kube-Proxy
+<http://kubernetes.io/docs/admin/kube-proxy/>`_.
 
 
 Proposed Solution
@@ -43,18 +44,20 @@ Kubernetes service in its essence is a Load Balancer across Pods that fit the
 service selection. Kuryr's choice is to support Kubernetes services by using
 Neutron LBaaS service. The initial implementation is based on the OpenStack
 LBaaSv2 API, so compatible with any LBaaSv2 API provider.
-In order to be compatible with Kubernetes networking, Kuryr-Kubernetes
-makes sure that services Load Balancers have access to Pods Neutron ports.
-This may be affected once Kubernetes Network Policies will be supported.
-Oslo versioned objects are used to keep translation details in Kubernetes entities
-annotation. This will allow future changes to be backward compatible.
+
+In order to be compatible with Kubernetes networking, Kuryr-Kubernetes makes
+sure that services Load Balancers have access to Pods Neutron ports.  This may
+be affected once Kubernetes Network Policies will be supported.  Oslo versioned
+objects are used to keep translation details in Kubernetes entities annotation.
+This will allow future changes to be backward compatible.
 
 
 Data Model Translation
 ~~~~~~~~~~~~~~~~~~~~~~
 
 Kubernetes service is mapped to the LBaaSv2 Load Balancer with associated
-Listeners and Pools. Service endpoints are mapped to Load Balancer Pool members.
+Listeners and Pools. Service endpoints are mapped to Load Balancer Pool
+members.
 
 
 Kuryr Controller Impact
@@ -71,11 +74,10 @@ Two Kubernetes Event Handlers are added to the Controller pipeline.
   Endpoints (LoadBalancer) handler. To avoid conflicting annotations, K8s
   Services's resourceVersion is used for Service and Endpoints while handling
   Services events.
-
 - LoadBalancerHandler manages Kubernetes endpoints events. It manages
   LoadBalancer, LoadBalancerListener, LoadBalancerPool and LoadBalancerPool
-  members to reflect and keep in sync with the Kubernetes service. It keeps details of
-  Neutron resources by annotating the Kubernetes Endpoints object.
+  members to reflect and keep in sync with the Kubernetes service. It keeps
+  details of Neutron resources by annotating the Kubernetes Endpoints object.
 
 Both Handlers use Project, Subnet and SecurityGroup service drivers to get
 details for service mapping.

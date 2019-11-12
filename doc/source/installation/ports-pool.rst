@@ -22,8 +22,8 @@ maximum size can be disabled by setting it to 0::
        ports_pool_max = 10
        ports_pool_min = 5
 
-In addition the size of the bulk operation, e.g., the number
-of ports created in a bulk request upon pool population, can be modified::
+In addition the size of the bulk operation, e.g., the number of ports created
+in a bulk request upon pool population, can be modified::
 
        [vif_pool]
        ports_pool_batch = 5
@@ -101,15 +101,15 @@ nodes are Bare Metal while others are running inside VMs, therefore having
 different VIF drivers (e.g., neutron and nested-vlan).
 
 This new multi pool driver is the default pool driver used even if a different
-vif_pool_driver is set at the config option. However if the configuration
-about the mappings between the different pod vif and pools drivers is not
-provided at the vif_pool_mapping config option of vif_pool configuration
-section only one pool driver will be loaded -- using the standard
-pod_vif_driver and vif_pool_driver  config options, i.e., using the one
-selected at kuryr.conf options.
+vif_pool_driver is set at the config option. However if the configuration about
+the mappings between the different pod vif and pools drivers is not provided at
+the vif_pool_mapping config option of vif_pool configuration section only one
+pool driver will be loaded -- using the standard pod_vif_driver and
+vif_pool_driver  config options, i.e., using the one selected at kuryr.conf
+options.
 
-To enable the option of having different pools depending on the node's pod
-vif types, you need to state the type of pool that you want for each pod vif
+To enable the option of having different pools depending on the node's pod vif
+types, you need to state the type of pool that you want for each pod vif
 driver, e.g.:
 
     .. code-block:: ini

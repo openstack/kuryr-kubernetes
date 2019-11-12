@@ -2,9 +2,9 @@
 Testing UDP Services
 ====================
 
-In this example, we will use the `kuryr-udp-demo`_ image.
-This image implements a simple UDP server that listens on port 9090,
-and replies towards client when a packet is received.
+In this example, we will use the `kuryr-udp-demo`_ image. This image
+implements a simple UDP server that listens on port 9090, and replies towards
+client when a packet is received.
 
 We first create a deployment named demo::
 
@@ -37,7 +37,8 @@ Next, we expose the deployment as a service, setting UDP port to 90::
     demo         ClusterIP   10.0.0.150   <none>        90/UDP    16s
     kubernetes   ClusterIP   10.0.0.129   <none>        443/TCP   17m
 
-Now, let's check the OpenStack load balancer created by Kuryr for **demo** service::
+Now, let's check the OpenStack load balancer created by Kuryr for **demo**
+service::
 
     $ openstack loadbalancer list
     +--------------------------------------+--------------------+----------------------------------+-------------+---------------------+----------+
@@ -113,14 +114,13 @@ And the load balancer has two members listening on UDP port 9090::
     +--------------------------------------+-----------------------------------+----------------------------------+---------------------+-----------+---------------+------------------+--------+
 
 At this point, we have both the kubernetes **demo** service and corresponding
-openstack load balancer running, and we are ready to run the
-client application.
+openstack load balancer running, and we are ready to run the client
+application.
 
-For the client application we will use the `udp-client`_ python  script.
-The UDP client script sends UDP message towards specific IP and port, and
-waits for a response from the server.
-The way that the client application can communicate with the server is by
-leveraging the Kubernetes service functionality.
+For the client application we will use the `udp-client`_ python script. The UDP
+client script sends UDP message towards specific IP and port, and waits for a
+response from the server. The way that the client application can communicate
+with the server is by leveraging the Kubernetes service functionality.
 
 First we clone the client script::
 
@@ -149,8 +149,8 @@ Last step will be to ping the UDP server service::
     demo-fbb89f54c-q9fq7: HELLO, I AM ALIVE!!!
 
 Since the `kuryr-udp-demo`_ application concatenates the pod's name to the
-replyed message, it is plain to see that both service's pods are
-replying to the requests from the client.
+replyed message, it is plain to see that both service's pods are replying to
+the requests from the client.
 
 
 .. _kuryr-udp-demo: https://hub.docker.com/r/yboaron/kuryr-udp-demo/

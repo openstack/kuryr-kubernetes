@@ -46,10 +46,10 @@ kubernetes, the Openshift Route matches the functionality of kubernetes Ingress.
 Proposed Solution
 -----------------
 
-The solution will rely on L7 router, Service/Endpoints handler and
-L7 router driver components described at kuryr-kubernetes Ingress integration
-design, where a new component - OCP-Route handler, will satisfy requests for
-Openshift Route resources.
+The solution will rely on L7 router, Service/Endpoints handler and L7 router
+driver components described at kuryr-kubernetes Ingress integration design,
+where a new component - OCP-Route handler, will satisfy requests for Openshift
+Route resources.
 
 
 Controller Handlers impact:
@@ -72,14 +72,13 @@ The following scheme describes OCP-Route controller SW architecture:
 
 Similar to Kubernetes Ingress, each OCP-Route object being translated to a L7
 policy in L7 router, and the rules on OCP-Route become L7 (URL) mapping rules
-in that L7 policy.
-The L7 policy is configured to forward the filtered traffic to LbaaS Pool.
-The LbaaS pool represents an Endpoints resource, and it's the Service/Endpoints
-handler responsibility to attach all its members to this pool.
-Since the Endpoints resource is not aware of changes in OCP-Route objects
-pointing to it, the OCP-Route handler should trigger this notification,
-the notification will be implemented using annotation of the relevant
-Endpoint resource.
+in that L7 policy. The L7 policy is configured to forward the filtered traffic
+to LbaaS Pool. The LbaaS pool represents an Endpoints resource, and it's the
+Service/Endpoints handler responsibility to attach all its members to this
+pool. Since the Endpoints resource is not aware of changes in OCP-Route objects
+pointing to it, the OCP-Route handler should trigger this notification, the
+notification will be implemented using annotation of the relevant Endpoint
+resource.
 
 
 Use cases examples
@@ -87,8 +86,8 @@ Use cases examples
 
 This section describes in details the following scenarios:
 
-  A. Create OCP-Route, create Service/Endpoints.
-  B. Create Service/Endpoints, create OCP-Route, delete OCP-Route.
+A. Create OCP-Route, create Service/Endpoints.
+B. Create Service/Endpoints, create OCP-Route, delete OCP-Route.
 
 * Create OCP-Route, create Service/Endpoints:
 

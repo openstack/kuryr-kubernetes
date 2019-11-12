@@ -25,7 +25,7 @@ options needs to be set at the local.conf file:
 
 
 3. Then, in case you want to set a limit to the maximum number of ports, or
-   increase/reduce the default one for the mininum number, as well as to modify
+   increase/reduce the default one for the minimum number, as well as to modify
    the way the pools are repopulated, both in time as well as regarding bulk
    operation sizes, the next option can be included and modified accordingly::
 

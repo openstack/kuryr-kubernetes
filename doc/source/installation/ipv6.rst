@@ -191,9 +191,9 @@ Setting it up
    Note that it is /113 because the other half of the /112 will be used by the
    Octavia LB vrrp ports.
 
-#. Follow the :ref:`k8s_lb_reachable` guide but using IPv6 addresses instead for
-   the host Kubernetes API. You should also make sure that the Kubernetes API
-   server binds on the IPv6 address of the host.
+#. Follow the :ref:`k8s_lb_reachable` guide but using IPv6 addresses instead
+   for the host Kubernetes API. You should also make sure that the Kubernetes
+   API server binds on the IPv6 address of the host.
 
 
 Troubleshooting

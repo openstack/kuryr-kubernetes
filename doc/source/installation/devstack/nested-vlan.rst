@@ -2,18 +2,21 @@
 How to try out nested-pods locally (VLAN + trunk)
 =================================================
 
-Following are the instructions for an all-in-one setup where Kubernetes will also be
-running inside the same Nova VM in which Kuryr-controller and Kuryr-cni will be
-running. 4GB memory and 2 vCPUs, is the minimum resource requirement for the VM:
+Following are the instructions for an all-in-one setup where Kubernetes will
+also be running inside the same Nova VM in which Kuryr-controller and Kuryr-cni
+will be running. 4GB memory and 2 vCPUs, is the minimum resource requirement
+for the VM:
 
-1. To install OpenStack services run devstack with ``devstack/local.conf.pod-in-vm.undercloud.sample``.
-   Ensure that "trunk" service plugin is enabled in ``/etc/neutron/neutron.conf``::
+1. To install OpenStack services run devstack with
+   ``devstack/local.conf.pod-in-vm.undercloud.sample``. Ensure that "trunk"
+   service plugin is enabled in ``/etc/neutron/neutron.conf``::
 
     [DEFAULT]
     service_plugins = neutron.services.l3_router.l3_router_plugin.L3RouterPlugin,neutron.services.trunk.plugin.TrunkPlugin
 
-2. Launch a VM with `Neutron trunk port. <https://wiki.openstack.org/wiki/Neutron/TrunkPort>`_.
-   The next steps can be followed: `Boot VM with a Trunk Port`_.
+2. Launch a VM with `Neutron trunk port.
+   <https://wiki.openstack.org/wiki/Neutron/TrunkPort>`_. The next steps can be
+   followed: `Boot VM with a Trunk Port`_.
 
 .. _Boot VM with a Trunk Port: https://docs.openstack.org/kuryr-kubernetes/latest/installation/trunk_ports.html
 

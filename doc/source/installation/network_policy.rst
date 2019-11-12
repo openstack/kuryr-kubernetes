@@ -2,10 +2,10 @@
 Enable network policy support functionality
 ===========================================
 
-Enable policy, pod_label and namespace handlers to respond to network policy events.
-As this is not done by default you'd have to explicitly add that to the list of enabled
-handlers at kuryr.conf (further info on how to do this can be found  at
-:doc:`./devstack/containerized`)::
+Enable policy, pod_label and namespace handlers to respond to network policy
+events.  As this is not done by default you'd have to explicitly add that to
+the list of enabled handlers at kuryr.conf (further info on how to do this can
+be found  at :doc:`./devstack/containerized`)::
 
     [kubernetes]
     enabled_handlers=vif,lb,lbaasspec,policy,pod_label,namespace,kuryrnetpolicy

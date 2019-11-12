@@ -9,7 +9,8 @@ be implemented in the following way:
 * **Service**: It is translated to a single **LoadBalancer** and as many
   **Listeners** and **Pools** as ports the Kubernetes Service spec defines.
 * **ClusterIP**: It is translated to a LoadBalancer's VIP.
-* **loadBalancerIP**: Translated to public IP associated with the LoadBalancer's VIP.
+* **loadBalancerIP**: Translated to public IP associated with the
+  LoadBalancer's VIP.
 * **Endpoints**: The Endpoint object is translated to a LoadBalancer's VIP.
 
 
@@ -20,16 +21,15 @@ be implemented in the following way:
   :width: 100%
   :alt: Graphical depiction of the translation explained above
 
-  In this diagram you can see how the Kubernetes entities in the top left corner
-  are implemented in plain Kubernetes networking (top-right) and in Kuryr's
-  default configuration (bottom)
+  In this diagram you can see how the Kubernetes entities in the top left
+  corner are implemented in plain Kubernetes networking (top-right) and in
+  Kuryr's default configuration (bottom)
 
 If you are paying attention and are familiar with the `LBaaS API`_ you probably
 noticed that we have separate pools for each exposed port in a service. This is
-probably not optimal and we would probably benefit from keeping a single Neutron
-pool that lists each of the per port listeners.
-Since `LBaaS API`_ doesn't support UDP load balancing, service exported UDP
-ports will be ignored.
+probably not optimal and we would probably benefit from keeping a single
+Neutron pool that lists each of the per port listeners.  Since `LBaaS API`_
+doesn't support UDP load balancing, service exported UDP ports will be ignored.
 
 When installing you can decide to use the legacy Neutron HAProxy driver for
 LBaaSv2 or install and configure OpenStack Octavia, which as of Pike implements
@@ -43,8 +43,8 @@ will be offered on each.
 Legacy Neutron HAProxy agent
 ----------------------------
 
-The requirements for running Kuryr with the legacy Neutron HAProxy agent are the
-following:
+The requirements for running Kuryr with the legacy Neutron HAProxy agent are
+the following:
 
 * Keystone
 * Neutron
@@ -53,9 +53,10 @@ following:
 As you can see, the only addition from the minimal OpenStack deployment for
 Kuryr is the Neutron lbaasv2 agent.
 
-In order to use Neutron HAProxy as the Neutron LBaaSv2 implementation you should
-not only install the neutron-lbaas agent but also place this snippet in the
-*[service_providers]* section of neutron.conf in your network controller node::
+In order to use Neutron HAProxy as the Neutron LBaaSv2 implementation you
+should not only install the neutron-lbaas agent but also place this snippet in
+the *[service_providers]* section of neutron.conf in your network controller
+node::
 
     NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
 
@@ -90,12 +91,11 @@ network namespace is used by Octavia to reconfigure and monitor the Load
 Balancer, which it talks to via HAProxy's control unix domain socket.
 
 Running Kuryr with Octavia means that each Kubernetes service that runs in the
-cluster will need at least one Load Balancer VM, i.e., an *Amphora*.
-To avoid single point of failure at Amphora, Octavia should be configured to
-support active/standby loadbalancer topology.
-In addition, it is important to configure the right Octavia flavor for your
-deployment and to size the compute nodes appropriately so that Octavia can
-operate well.
+cluster will need at least one Load Balancer VM, i.e., an *Amphora*.  To avoid
+single point of failure at Amphora, Octavia should be configured to support
+active/standby loadbalancer topology.  In addition, it is important to
+configure the right Octavia flavor for your deployment and to size the compute
+nodes appropriately so that Octavia can operate well.
 
 Another important consideration is where do the Amphorae run, i.e., whether the
 worker nodes should also be compute nodes so that they run the Amphorae or if
@@ -396,13 +396,13 @@ The services and pods subnets should be created.
 
     --service-cluster-ip-range=10.2.0.0/17
 
-   As a result of this, Kubernetes will allocate the **10.2.0.1** address to the
-   Kubernetes API service, i.e., the service used for pods to talk to the
-   Kubernetes API server. It will be able to allocate service addresses up until
-   **10.2.127.254**. The rest of the addresses, as stated above, will be for
-   Octavia load balancer *vrrp* ports. **If this subnetting was not done,
-   Octavia would allocate *vrrp* ports with the Neutron IPAM from the same range
-   as Kubernetes service IPAM and we'd end up with conflicts**.
+   As a result of this, Kubernetes will allocate the **10.2.0.1** address to
+   the Kubernetes API service, i.e., the service used for pods to talk to the
+   Kubernetes API server. It will be able to allocate service addresses up
+   until **10.2.127.254**. The rest of the addresses, as stated above, will be
+   for Octavia load balancer *vrrp* ports. **If this subnetting was not done,
+   Octavia would allocate *vrrp* ports with the Neutron IPAM from the same
+   range as Kubernetes service IPAM and we'd end up with conflicts**.
 
 #. Once you have Kubernetes installed and you have the API host reachable from
    the pod subnet, follow the `Making the Pods be able to reach the Kubernetes
@@ -453,7 +453,8 @@ The services and pods subnets should be created.
     | updated_at          | 2017-10-02T09:22:37Z                 |
     +---------------------+--------------------------------------+
 
-  and then create k8s service with type=LoadBalancer and load-balancer-ip=<floating_ip> (e.g: 172.24.4.13)
+  and then create k8s service with type=LoadBalancer and
+  load-balancer-ip=<floating_ip> (e.g: 172.24.4.13)
 
   In both 'User' and 'Pool' methods, the external IP address could be found
   in k8s service status information (under loadbalancer/ingress/ip)
@@ -507,9 +508,9 @@ of doing the following:
     +---------------------------+--------------------------------------+
 
    Create the subnet. Note that we disable dhcp as Kuryr-Kubernetes pod subnets
-   have no need for them for Pod networking. We also put the gateway on the last
-   IP of the subnet range so that the beginning of the range can be kept for
-   Kubernetes driven service IPAM::
+   have no need for them for Pod networking. We also put the gateway on the
+   last IP of the subnet range so that the beginning of the range can be kept
+   for Kubernetes driven service IPAM::
 
     $ openstack subnet create --network k8s --no-dhcp \
         --gateway 10.0.255.254 \
@@ -558,15 +559,15 @@ of doing the following:
 
     --service-cluster-ip-range=10.0.0.0/18
 
-   As a result of this, Kubernetes will allocate the **10.0.0.1** address to the
-   Kubernetes API service, i.e., the service used for pods to talk to the
-   Kubernetes API server. It will be able to allocate service addresses up until
-   **10.0.63.255**. The rest of the addresses will be for pods or Octavia load
-   balancer *vrrp* ports.
+   As a result of this, Kubernetes will allocate the **10.0.0.1** address to
+   the Kubernetes API service, i.e., the service used for pods to talk to the
+   Kubernetes API server. It will be able to allocate service addresses up
+   until **10.0.63.255**. The rest of the addresses will be for pods or Octavia
+   load balancer *vrrp* ports.
 
 #. Once you have Kubernetes installed and you have the API host reachable from
-   the pod subnet, follow the `Making the Pods be able to reach the Kubernetes API`_
-   section
+   the pod subnet, follow the `Making the Pods be able to reach the Kubernetes
+   API`_ section
 
 
 .. _k8s_lb_reachable:

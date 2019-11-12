@@ -7,7 +7,7 @@ a given amount of subports at the specified pools (i.e., at the VM trunks), as
 well as to free the unused ones.
 
 The first step to perform is to enable the pool manager by adding this to
-`/etc/kuryr/kuryr.conf`::
+``/etc/kuryr/kuryr.conf``::
 
     [kubernetes]
     enable_manager = True
@@ -17,7 +17,7 @@ If the environment has been deployed with devstack, the socket file directory
 will have been created automatically. However, if that is not the case, you
 need to create the directory for the socket file with the right permissions.
 If no other path is specified, the default location for the socket file is:
-`/run/kuryr/kuryr_manage.sock`
+``/run/kuryr/kuryr_manage.sock``
 
 Hence, you need to create that directory and give it read/write access to the
 user who is running the kuryr-kubernetes.service, for instance::
@@ -36,7 +36,7 @@ Populate subport pools for nested environment
 
 Once the nested environment is up and running, and the pool manager has been
 started, we can populate the pools, i.e., the trunk ports in used by the
-overcloud VMs, with subports. From the `undercloud` we just need to make use
+overcloud VMs, with subports. From the *undercloud* we just need to make use
 of the subports.py tool.
 
 To obtain information about the tool options::

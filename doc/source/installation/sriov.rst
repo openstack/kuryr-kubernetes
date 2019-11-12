@@ -4,10 +4,9 @@
 How to configure SR-IOV ports
 =============================
 
-Current approach of SR-IOV relies on sriov-device-plugin [2]_. While
-creating pods with SR-IOV, sriov-device-plugin should be turned on
-on all nodes. To use a SR-IOV port on a baremetal installation the 3
-following steps should be done:
+Current approach of SR-IOV relies on sriov-device-plugin [2]_. While creating
+pods with SR-IOV, sriov-device-plugin should be turned on on all nodes. To use
+a SR-IOV port on a baremetal installation the 3 following steps should be done:
 
 1. Create OpenStack network and subnet for SR-IOV.
 Following steps should be done with admin rights.
@@ -27,9 +26,10 @@ Subnet id <UUID of vlan-sriov-net> will be used later in NetworkAttachmentDefini
   physical_device_mappings = physnet1:ens4f0
   default_physnet_subnets = physnet1:<UUID of vlan-sriov-net>
 
-This mapping is required for ability to find appropriate PF/VF functions at binding phase.
-physnet1 is just an identifier for subnet <UUID of vlan-sriov-net>.
-Such kind of transition is necessary to support many-to-many relation.
+This mapping is required for ability to find appropriate PF/VF functions at
+binding phase.  physnet1 is just an identifier for subnet <UUID of
+vlan-sriov-net>.  Such kind of transition is necessary to support many-to-many
+relation.
 
 3. Prepare NetworkAttachmentDefinition object.
 Apply NetworkAttachmentDefinition with "sriov" driverType inside,
@@ -72,25 +72,27 @@ into the pod's yaml.
             intel.com/sriov: '2'
 
 
-In the above example two SR-IOV devices will be attached to pod. First one is described
-in sriov-net1 NetworkAttachmentDefinition, second one in sriov-net2. They may have
-different subnetId.
+In the above example two SR-IOV devices will be attached to pod. First one is
+described in sriov-net1 NetworkAttachmentDefinition, second one in sriov-net2.
+They may have different subnetId.
 
 4. Specify resource names
 
-The resource name *intel.com/sriov*, which used in the above example is the default
-resource name. This name was used in SR-IOV network device plugin in
-version 1 (release-v1 branch). But since latest version the device plugin can use any
-arbitrary name of the resources [3]_. This name should match "^\[a-zA-Z0-9\_\]+$"
-regular expression. To be able to work with arbitrary resource names
-physnet_resource_mappings and device_plugin_resource_prefix in [sriov] section
-of kuryr-controller configuration file should be filled. The default value for
-device_plugin_resource_prefix is intel.com, the same as in SR-IOV network device plugin,
-in case of SR-IOV network device plugin was started with value of -resource-prefix option
-different from intel.com, than value should be set to
-device_plugin_resource_prefix, otherwise kuryr-kubernetes will not work with resource.
+The resource name *intel.com/sriov*, which used in the above example is the
+default resource name. This name was used in SR-IOV network device plugin in
+version 1 (release-v1 branch). But since latest version the device plugin can
+use any arbitrary name of the resources [3]_. This name should match
+"^\[a-zA-Z0-9\_\]+$" regular expression. To be able to work with arbitrary
+resource names physnet_resource_mappings and device_plugin_resource_prefix in
+[sriov] section of kuryr-controller configuration file should be filled. The
+default value for device_plugin_resource_prefix is intel.com, the same as in
+SR-IOV network device plugin, in case of SR-IOV network device plugin was
+started with value of -resource-prefix option different from intel.com, than
+value should be set to device_plugin_resource_prefix, otherwise
+kuryr-kubernetes will not work with resource.
 
-Assume we have following SR-IOV network device plugin (defined by -config-file option)
+Assume we have following SR-IOV network device plugin (defined by -config-file
+option)
 
 .. code-block:: json
 
@@ -107,9 +109,9 @@ Assume we have following SR-IOV network device plugin (defined by -config-file o
     }
 
 We defined numa0 resource name, also assume we started sriovdp with
--resource-prefix samsung.com value. The PCI address of ens4f0 interface
-is "0000:02:00.0". If we assigned 8 VF to ens4f0 and launch SR-IOV network
-device plugin, we can see following state of kubernetes
+-resource-prefix samsung.com value. The PCI address of ens4f0 interface is
+"0000:02:00.0". If we assigned 8 VF to ens4f0 and launch SR-IOV network device
+plugin, we can see following state of kubernetes
 
 .. code-block:: bash
 

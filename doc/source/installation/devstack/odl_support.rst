@@ -20,7 +20,7 @@ Testing with DevStack
 
 The next points describe how to test OpenStack with ODL using DevStack.
 We will start by describing how to test the baremetal case on a single host,
-and then cover a nested environemnt where containers are created inside VMs.
+and then cover a nested environment where containers are created inside VMs.
 
 
 Single Node Test Environment

@@ -2,8 +2,8 @@
 Upgrading kuryr-kubernetes
 ==========================
 
-Kuryr-Kubernetes supports standard OpenStack utility for checking upgrade
-is possible and safe:
+Kuryr-Kubernetes supports standard OpenStack utility for checking upgrade is
+possible and safe:
 
 .. code-block:: bash
 
@@ -87,5 +87,5 @@ It's possible that some annotations were somehow malformed. That will generate
 a warning that should be investigated, but isn't blocking upgrading to T
 (it won't make things any worse).
 
-If in any case you need to rollback those changes, there is
-``kuryr-k8s-status upgrade downgrade-annotations`` command as well.
+If in any case you need to rollback those changes, there is ``kuryr-k8s-status
+upgrade downgrade-annotations`` command as well.
