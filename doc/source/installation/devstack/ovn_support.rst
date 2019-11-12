@@ -13,14 +13,15 @@ nested) containers and VM networking in a OVN-based OpenStack deployment.
 
 
 Testing with DevStack
-=====================
+---------------------
 
 The next points describe how to test OpenStack with OVN using DevStack.
 We will start by describing how to test the baremetal case on a single host,
 and then cover a nested environment where containers are created inside VMs.
 
+
 Single Node Test Environment
-----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 1. Create a test system.
 
@@ -105,21 +106,21 @@ ip address and sent out on the network:
 
 
 Inspect default Configuration
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++++++++++++++++++++++++++++++
 
 In order to check the default configuration, in term of networks, subnets,
 security groups and loadbalancers created upon a successful devstack stacking,
 you can check the :doc:`../default_configuration`
 
 Testing Network Connectivity
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+++++++++++++++++++++++++++++
 
 Once the environment is ready, we can test that network connectivity works
 among pods. To do that check out :doc:`../testing_connectivity`
 
 
 Nested Containers Test Environment (VLAN)
------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Another deployment option is the nested-vlan where containers are created
 inside OpenStack VMs by using the Trunk ports support. Thus, first we need to
@@ -131,7 +132,7 @@ components.
 
 
 Undercloud deployment
-~~~~~~~~~~~~~~~~~~~~~
++++++++++++++++++++++
 
 The steps to deploy the undercloud environment are the same described above
 for the `Single Node Test Environment` with the different of the sample
@@ -164,7 +165,7 @@ steps detailed at :doc:`../trunk_ports`
 
 
 Overcloud deployment
-~~~~~~~~~~~~~~~~~~~~
+++++++++++++++++++++
 
 Once the VM is up and running, we can start with the overcloud configuration.
 The steps to perform are the same as without OVN integration, i.e., the
@@ -178,7 +179,8 @@ same steps as for ML2/OVS:
 
 
 Testing Nested Network Connectivity
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++++++++++++++++++++++++++++++++++++
+
 Similarly to the baremetal testing, we can create a demo deployment at the
 overcloud VM, scale it to any number of pods and expose the service to check if
 the deployment was successful. To do that check out

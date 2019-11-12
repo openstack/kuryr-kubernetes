@@ -1,6 +1,6 @@
-===================================
- Queens Series Release Notes
-===================================
+===========================
+Queens Series Release Notes
+===========================
 
 .. release-notes::
    :branch: stable/queens

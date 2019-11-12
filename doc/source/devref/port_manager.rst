@@ -16,9 +16,9 @@
 Kuryr Kubernetes Port Manager Design
 ====================================
 
-
 Purpose
 -------
+
 The purpose of this document is to present Kuryr Kubernetes Port Manager,
 capturing the design decision currently taken by the kuryr team.
 
@@ -28,8 +28,10 @@ the amount of calls to Neutron by ensuring port reusal as well as performing
 bulk actions, e.g., creating/deleting several ports within the same Neutron
 call.
 
+
 Overview
 --------
+
 Interactions between Kuryr and Neutron may take more time than desired from
 the container management perspective.
 
@@ -47,8 +49,10 @@ consequently remove the waiting time for:
 - Creating ports and waiting for them to become active when booting containers
 - Deleting ports when removing containers
 
+
 Proposed Solution
 -----------------
+
 The Port Manager will be in charge of handling Neutron ports. The main
 difference with the current implementation resides on when and how these
 ports are managed. The idea behind is to minimize the amount of calls to the
@@ -61,6 +65,7 @@ can be added.
 
 Ports Manager
 ~~~~~~~~~~~~~
+
 The Port Manager will handle different pool of Neutron ports:
 
 - Available pools: There will be a pool of ports for each tenant, host (or
@@ -105,8 +110,10 @@ In addition, a Time-To-Live (TTL) could be set to the ports at the pool, so
 that if they are not used during a certain period of time, they are removed --
 if and only if the available_pool size is still larger than the target minimum.
 
+
 Recovery of pool ports upon Kuryr-Controller restart
-++++++++++++++++++++++++++++++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 If the Kuryr-Controller is restarted, the pre-created ports will still exist
 on the Neutron side but the Kuryr-controller will be unaware of them, thus
 pre-creating more upon pod allocation requests. To avoid having these existing
@@ -134,8 +141,10 @@ attached to each existing trunk port to find where the filtered ports are
 attached and then obtain all the needed information to re-add them into the
 corresponding pools.
 
+
 Kuryr Controller Impact
-+++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~
+
 A new VIF Pool driver is created to manage the ports pools upon pods creation
 and deletion events. It will ensure that a pool with at least X ports is
 available for each tenant, host or trunk port, and security group, when the
@@ -151,16 +160,20 @@ changes related to the VIF drivers. The VIF drivers (neutron-vif and nested)
 will be extended to support bulk ports creation of Neutron ports and similarly
 for the VIF objects requests.
 
+
 Future enhancement
-''''''''''''''''''
+++++++++++++++++++
+
 The VIFHandler needs to be aware of the new Pool driver, which will load the
 respective VIF driver to be used. In a sense, the Pool Driver will be a proxy
 to the VIF Driver, but also managing the pools. When a mechanism to load and
 set the VIFHandler drivers is in place, this will be reverted so that the
 VIFHandlers becomes unaware of the pool drivers.
 
+
 Kuryr CNI Impact
-++++++++++++++++
+~~~~~~~~~~~~~~~~
+
 For the nested vlan case, the subports at the different pools are already
 attached to the VMs trunk ports, therefore they are already in ACTIVE status.
 However, for the generic case the ports are not really bond to anything (yet),
@@ -175,6 +188,8 @@ OVS agent sees them as 'still connected' and maintains their ACTIVE status.
 This modification must ensure the OVS (br-int) ports where these veth devices
 are connected are not deleted after container deletion by the CNI.
 
+
 Future enhancement
-''''''''''''''''''
+++++++++++++++++++
+
 The CNI modifications will be implemented in a second phase.

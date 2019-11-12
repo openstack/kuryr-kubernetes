@@ -1,5 +1,6 @@
+==========================
 Upgrading kuryr-kubernetes
-===========================
+==========================
 
 Kuryr-Kubernetes supports standard OpenStack utility for checking upgrade
 is possible and safe:
@@ -18,6 +19,7 @@ is possible and safe:
 If any issue will be found, the utility will give you explanation and possible
 remediations. Also note that *Warning* results aren't blocking an upgrade, but
 are worth investigating.
+
 
 Stein (0.6.x) to T (0.7.x) upgrade
 ----------------------------------

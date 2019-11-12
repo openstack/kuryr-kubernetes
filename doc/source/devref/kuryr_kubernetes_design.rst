@@ -16,22 +16,26 @@
 Kuryr Kubernetes Integration Design
 ===================================
 
-
 Purpose
 -------
+
 The purpose of this document is to present the main Kuryr-K8s integration
 components and capture the design decisions of each component currently taken
 by the kuryr team.
 
+
 Goal Statement
 --------------
+
 Enable OpenStack Neutron realization of the Kubernetes networking. Start by
 supporting network connectivity and expand to support advanced features, such
 as Network Policies. In the future, it  may be extended to some  other
 openstack services.
 
+
 Overview
 --------
+
 In order to integrate Neutron into kubernetes networking, 2 components are
 introduced: Controller and CNI Driver.
 Controller is a supervisor component responsible to maintain translation of
@@ -47,8 +51,10 @@ Please see below the component view of the integrated system:
     :align: center
     :width: 100%
 
+
 Design Principles
 -----------------
+
 1. Loose coupling between integration components.
 2. Flexible deployment options to support different project, subnet and
    security groups assignment profiles.
@@ -64,8 +70,10 @@ Design Principles
    configuration. If some vendor requires some extra code, it should be handled
    in one of the stevedore drivers.
 
+
 Kuryr Controller Design
 -----------------------
+
 Controller is responsible for watching Kubernetes API endpoints to make sure
 that the corresponding model is maintained in Neutron. Controller updates K8s
 resources  endpoints' annotations to keep neutron details required by the CNI
@@ -73,16 +81,20 @@ driver as well as for the model mapping persistency.
 
 Controller is composed from the following components:
 
+
 Watcher
 ~~~~~~~
+
 Watcher is a common software component used by both the  Controller and the CNI
 driver. Watcher connects to Kubernetes API. Watcher's responsibility is to observe the
 registered (either on startup or dynamically during its runtime) endpoints and
 invoke registered callback handler (pipeline) to pass all events from
 registered endpoints.
 
+
 Event Handler
 ~~~~~~~~~~~~~
+
 EventHandler is an interface class for the Kubernetes event handling. There are
 several 'wrapper' event handlers that can be composed to implement Controller
 handling pipeline.
@@ -107,8 +119,10 @@ facility.
 handlers based on event content and handler predicate provided during event
 handler registration.
 
+
 ControllerPipeline
 ~~~~~~~~~~~~~~~~~~
+
 ControllerPipeline serves as an event dispatcher of the Watcher for Kuryr-K8s
 controller Service. Currently watched endpoints are 'pods', 'services' and
 'endpoints'. Kubernetes resource event handlers (Event Consumers) are registered into
@@ -127,8 +141,10 @@ order arrival. Events of different Kubernetes objects are handled concurrently.
     :align: center
     :width: 100%
 
+
 ResourceEventHandler
 ~~~~~~~~~~~~~~~~~~~~
+
 ResourceEventHandler is a convenience base class for the Kubernetes event processing.
 The specific Handler associates itself with specific Kubernetes object kind (through
 setting OBJECT_KIND) and  is expected to implement at least one of the methods
@@ -139,8 +155,10 @@ actions, Handler has 'on_present' method that is invoked for both event types.
 The specific Handler implementation should strive to put all the common ADDED
 and MODIFIED event handling logic in this method to avoid code duplication.
 
+
 Pluggable Handlers
 ~~~~~~~~~~~~~~~~~~
+
 Starting with the Rocky release, Kuryr-Kubernetes includes a pluggable
 interface for the Kuryr controller handlers.
 The pluggable handlers framework allows :
@@ -170,6 +188,7 @@ at kuryr.conf::
 
 Providers
 ~~~~~~~~~
+
 Provider (Drivers) are used by ResourceEventHandlers to manage specific aspects
 of the Kubernetes resource in the OpenStack domain. For example, creating a Kubernetes Pod
 will require a neutron port to be created on a specific network with the proper
@@ -185,14 +204,17 @@ drivers. There are drivers that handle the Pod based on the project, subnet
 and security groups specified via configuration settings during cluster
 deployment phase.
 
+
 NeutronPodVifDriver
 ~~~~~~~~~~~~~~~~~~~
+
 PodVifDriver subclass should implement request_vif, release_vif and
 activate_vif methods. In case request_vif returns Vif object in down state,
 Controller will invoke activate_vif.  Vif 'active' state is required by the
 CNI driver to complete pod handling.
 The NeutronPodVifDriver is the default driver that creates neutron port upon
 Pod addition and deletes port upon Pod removal.
+
 
 CNI Driver
 ----------
@@ -207,6 +229,7 @@ Kubernetes nodes. Compatibility between Python and golang CNI drivers is
 supposed to be maintained.
 
 .. _cni-daemon:
+
 
 CNI Daemon
 ----------
@@ -232,6 +255,7 @@ kubernetes API and added to the registry by Watcher thread, Server will
 eventually get VIF it needs to connect for a given pod. Then it waits for the
 VIF to become active before returning to the CNI Driver.
 
+
 Communication
 ~~~~~~~~~~~~~
 
@@ -247,8 +271,10 @@ For reference see updated pod creation flow diagram:
     :align: center
     :width: 100%
 
+
 /addNetwork
 +++++++++++
+
 **Function**: Is equivalent of running ``K8sCNIPlugin.add``.
 
 **Return code:** 201 Created
@@ -257,8 +283,10 @@ For reference see updated pod creation flow diagram:
 oslo.versionedobject from ``os_vif`` library. On the other side it can be
 deserialized using o.vo's ``obj_from_primitive()`` method.
 
+
 /delNetwork
 +++++++++++
+
 **Function**: Is equivalent of running ``K8sCNIPlugin.delete``.
 
 **Return code:** 204 No content
@@ -271,5 +299,6 @@ to perform its tasks and wait on socket for result.
 
 Kubernetes Documentation
 ------------------------
+
 The `Kubernetes reference documentation <https://kubernetes.io/docs/reference/>`_
 is a great source for finding more details about Kubernetes API, CLIs, and tools.

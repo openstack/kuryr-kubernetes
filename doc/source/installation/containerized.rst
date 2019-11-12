@@ -1,3 +1,4 @@
+================================================
 Kuryr installation as a Kubernetes network addon
 ================================================
 
@@ -23,6 +24,7 @@ Alternatively, you can remove ``imagePullPolicy: Never`` from kuryr-controller
 Deployment and kuryr-cni DaemonSet definitions to use pre-built
 `controller <https://hub.docker.com/r/kuryr/controller/>`_ and `cni <https://hub.docker.com/r/kuryr/cni/>`_
 images from the Docker Hub. Those definitions will be generated in next step.
+
 
 Generating Kuryr resource definitions for Kubernetes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -112,6 +114,7 @@ This should generate 5 files in your ``<output_dir>``:
   mount point, otherwise connection of this socket will be refused.
   In case when Open vSwitch keeps vhostuser socket files not in /var/run/openvswitch, openvswitch
   mount point in cni_ds.yaml and [vhostuser] section in config_map.yml should be changed properly.
+
 
 Deploying Kuryr resources on Kubernetes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

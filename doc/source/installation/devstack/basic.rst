@@ -1,3 +1,4 @@
+===========================
 Basic DevStack installation
 ===========================
 
@@ -8,6 +9,7 @@ Document assumes using Centos 7 OS, but same steps should apply for other
 operating systems. It is also assumed that ``git`` is already installed on the
 system. DevStack will make sure to install and configure OpenStack, Kubernetes
 and dependencies of both systems.
+
 
 Cloning required repositories
 -----------------------------

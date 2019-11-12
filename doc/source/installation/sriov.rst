@@ -1,5 +1,6 @@
 .. _sriov:
 
+=============================
 How to configure SR-IOV ports
 =============================
 
@@ -164,6 +165,7 @@ To use this feature add ``enable_pod_resource_service`` into kuryr.conf.
 To make neutron ports active kuryr-k8s makes requests to neutron API to update
 ports with binding:profile information. Due to this it is necessary to make
 actions with privileged user with admin rights.
+
 
 Reference
 ---------

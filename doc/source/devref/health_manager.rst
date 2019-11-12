@@ -16,15 +16,16 @@
 Kuryr Kubernetes Health Manager Design
 ======================================
 
-
 Purpose
 -------
+
 The purpose of this document is to present the design decision behind
 Kuryr Kubernetes Health Managers.
 
 The main purpose of the Health Managers is to perform Health verifications that
 assures readiness and liveness to Kuryr Controller and CNI pod, and so improve
 the management that Kubernetes does on Kuryr-Kubernetes pods.
+
 
 Overview
 --------
@@ -46,8 +47,10 @@ configurations are properly verified to assure CNI daemon is in a good shape.
 On this way, the CNI Health Manager will check and serve the health state to
 Kubernetes readiness and liveness probes.
 
+
 Proposed Solution
 -----------------
+
 One of the endpoints provided by the Controller Health Manager will check
 whether it is able to watch the Kubernetes API, authenticate with Keystone
 and talk to Neutron, since these are services needed by Kuryr Controller.

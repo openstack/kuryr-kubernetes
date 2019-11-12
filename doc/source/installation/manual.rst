@@ -1,3 +1,4 @@
+====================================
 Installing kuryr-kubernetes manually
 ====================================
 
@@ -103,6 +104,7 @@ Alternatively you may run it in screen::
 
     $ screen -dm kuryr-k8s-controller --config-file /etc/kuryr/kuryr.conf -d
 
+
 Configure kuryr-cni
 -------------------
 
@@ -157,8 +159,9 @@ to work correctly::
     deactivate
     sudo pip install 'oslo.privsep>=1.20.0' 'os-vif>=1.5.0'
 
+
 Configure Kuryr CNI Daemon
--------------------------------------
+--------------------------
 
 Kuryr CNI Daemon is a service designed to increased scalability of the Kuryr
 operations done on Kubernetes nodes. More information can be found on
@@ -200,6 +203,7 @@ Run kuryr-daemon::
 Alternatively you may run it in screen::
 
     $ screen -dm kuryr-daemon --config-file /etc/kuryr/kuryr.conf -d
+
 
 Kuryr CNI Daemon health checks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

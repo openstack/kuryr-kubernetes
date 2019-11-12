@@ -1,9 +1,11 @@
+==========================
 Containerized installation
 ==========================
 
 It is possible to configure DevStack to install kuryr-controller and kuryr-cni
 on Kubernetes as pods. Details can be found on :doc:`../containerized` page,
 this page will explain DevStack aspects of running containerized.
+
 
 Installation
 ------------
@@ -17,12 +19,14 @@ line to your ``local.conf``: ::
 This will trigger building the kuryr-controller and kuryr-cni containers during
 installation, as well as will deploy those on Kubernetes cluster it installed.
 
+
 Rebuilding container images
 ---------------------------
 
 Instructions on how to manually rebuild both kuryr-controller and kuryr-cni
 container images are presented on :doc:`../containerized` page. In case you want
 to test any code changes, you need to rebuild the images first.
+
 
 Changing configuration
 ----------------------
@@ -38,11 +42,13 @@ present in the ConfigMap: kuryr.conf and kuryr-cni.conf. First one is attached
 to kuryr-controller and second to kuryr-cni. Make sure to modify both when doing
 changes important for both services.
 
+
 Restarting services
 -------------------
 
 Once any changes are made to docker images or the configuration, it is crucial
 to restart pod you've modified.
+
 
 kuryr-controller
 ~~~~~~~~~~~~~~~~
@@ -55,6 +61,7 @@ kill existing pod: ::
     $ kubectl -n kube-system delete pod <pod-name>
 
 Deployment controller will make sure to restart the pod with new configuration.
+
 
 kuryr-cni
 ~~~~~~~~~

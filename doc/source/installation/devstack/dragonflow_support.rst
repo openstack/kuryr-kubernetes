@@ -1,6 +1,6 @@
-=========================================
+=======================================
 Kuryr Kubernetes Dragonflow Integration
-=========================================
+=======================================
 
 Dragonflow  is a distributed, modular and extendable SDN controller that
 enables to connect cloud network instances (VMs, Containers and Bare Metal
@@ -21,14 +21,15 @@ networking interface for Dragonflow.
 
 
 Testing with DevStack
-=====================
+---------------------
 
 The next points describe how to test OpenStack with Dragonflow using DevStack.
 We will start by describing how to test the baremetal case on a single host,
 and then cover a nested environemnt where containers are created inside VMs.
 
+
 Single Node Test Environment
-----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 1. Create a test system.
 
@@ -98,7 +99,7 @@ rewritten to your network controller's ip address and sent out on the network:
 
 
 Inspect default Configuration
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++++++++++++++++++++++++++++++
 
 In order to check the default configuration, in term of networks, subnets,
 security groups and loadbalancers created upon a successful devstack stacking,
@@ -108,7 +109,7 @@ you can check the `Inspect default Configuration`_.
 
 
 Testing Network Connectivity
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+++++++++++++++++++++++++++++
 
 Once the environment is ready, we can test that network connectivity works
 among pods. To do that check out `Testing Network Connectivity`_.
@@ -117,7 +118,7 @@ among pods. To do that check out `Testing Network Connectivity`_.
 
 
 Nested Containers Test Environment (VLAN)
------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Another deployment option is the nested-vlan where containers are created
 inside OpenStack VMs by using the Trunk ports support. Thus, first we need to
@@ -129,7 +130,7 @@ the kuryr components.
 
 
 Undercloud deployment
-~~~~~~~~~~~~~~~~~~~~~
++++++++++++++++++++++
 
 The steps to deploy the undercloud environment are the same as described above
 for the `Single Node Test Environment` with the different sample local.conf to
@@ -165,7 +166,7 @@ steps detailed at `Boot VM with a Trunk Port`_.
 
 
 Overcloud deployment
-~~~~~~~~~~~~~~~~~~~~
+++++++++++++++++++++
 
 Once the VM is up and running, we can start with the overcloud configuration.
 The steps to perform are the same as without Dragonflow integration, i.e., the
@@ -182,10 +183,12 @@ same steps as for ML2/OVS:
 
 
 Testing Nested Network Connectivity
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++++++++++++++++++++++++++++++++++++
+
 Similarly to the baremetal testing, we can create a demo deployment at the
 overcloud VM, scale it to any number of pods and expose the service to check if
 the deployment was successful. To do that check out
 `Testing Nested Network Connectivity`_.
+
 
 .. _Testing Nested Network Connectivity: https://docs.openstack.org/kuryr-kubernetes/latest/installation/testing_nested_connectivity.html

@@ -1,3 +1,4 @@
+==============================
 Kubernetes services networking
 ==============================
 
@@ -38,6 +39,7 @@ It is beyond the scope of this document to explain in detail the inner workings
 of these two possible Neutron LBaaSv2 backends thus, only a brief explanation
 will be offered on each.
 
+
 Legacy Neutron HAProxy agent
 ----------------------------
 
@@ -62,6 +64,7 @@ spawn a HAProxy process. The HAProxy will then configure the LoadBalancer as
 listeners and pools are added. Thus you should take into consideration the
 memory requirements that arise from having one HAProxy process per Kubernetes
 Service.
+
 
 Octavia
 -------
@@ -455,8 +458,10 @@ The services and pods subnets should be created.
   In both 'User' and 'Pool' methods, the external IP address could be found
   in k8s service status information (under loadbalancer/ingress/ip)
 
+
 Alternative configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~
+
 It is actually possible to avoid this routing by performing a deployment change
 that was successfully pioneered by the people at EasyStack Inc. which consists
 of doing the following:
@@ -562,6 +567,7 @@ of doing the following:
 #. Once you have Kubernetes installed and you have the API host reachable from
    the pod subnet, follow the `Making the Pods be able to reach the Kubernetes API`_
    section
+
 
 .. _k8s_lb_reachable:
 
@@ -684,6 +690,7 @@ Kubernetes service to be accessible to Pods.
     | sni_container_refs        | []                                   |
     | updated_at                | 2017-08-10T16:46:55                  |
     +---------------------------+--------------------------------------+
+
 
 .. _services_troubleshooting:
 

@@ -18,6 +18,7 @@ Kuryr Kubernetes Port CRD Usage
 
 Purpose
 -------
+
 The purpose of this document is to present Kuryr Kubernetes Port and PortPool
 CRD [1]_ usage, capturing the design decisions currently taken by the Kuryr
 team.
@@ -32,8 +33,10 @@ Having the details in K8s data model should also serve the case where Kuryr is
 used as generic SDN K8s integration framework. This means that Port CRD can be
 not neutron specific.
 
+
 Overview
 --------
+
 Interactions between Kuryr and Neutron may take more time than desired from
 the container management perspective.
 
@@ -46,8 +49,10 @@ them available in case of Kuryr Controller restart. Since Kuryr is stateless
 service, the details should be kept either as part of Neutron or Kubernetes
 data. Due to the perfromance costs, K8s option is more performant.
 
+
 Proposed Solution
 -----------------
+
 The proposal is to start relying on K8s CRD objects more and more.
 The first action is to create a KuryrPort CRD where the needed information
 about the Neutron Ports will be stored (or any other SDN).
@@ -192,7 +197,8 @@ Note this is similar to the approach already followed by the network per
 namespace subnet driver and it could be similarly applied to other SDN
 resources, such as LoadBalancers.
 
+
 References
 ==========
-.. [1] https://kubernetes.io/docs/concepts/api-extension/custom-resources/#custom-resources
 
+.. [1] https://kubernetes.io/docs/concepts/api-extension/custom-resources/#custom-resources

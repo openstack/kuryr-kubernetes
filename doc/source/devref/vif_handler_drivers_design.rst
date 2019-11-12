@@ -18,12 +18,15 @@ VIF-Handler And Vif Drivers Design
 
 Purpose
 -------
+
 The purpose of this document is to present an approach for implementing
 design of interaction between VIF-handler and the drivers it uses in
 Kuryr-Kubernetes Controller.
 
+
 VIF-Handler
 -----------
+
 VIF-handler is intended to handle VIFs. The main aim of VIF-handler is to get
 the pod object, send it to 1) the VIF-driver for the default network, 2)
 enabled Multi-VIF drivers for the additional networks, and get VIF objects
@@ -31,8 +34,10 @@ from both. After that VIF-handler is able to activate, release or update VIFs.
 VIF-handler should stay clean whereas parsing of specific pod information
 should be done by Multi-VIF drivers.
 
+
 Multi-VIF driver
 ~~~~~~~~~~~~~~~~
+
 The new type of drivers which is used to call other VIF-drivers to attach
 additional interfaces to Pods. The main aim of this kind of drivers is to get
 additional interfaces from the Pods definition, then invoke real VIF-drivers
@@ -53,8 +58,10 @@ Diagram describing VifHandler - Drivers flow is giver below:
     :align: center
     :width: 100%
 
+
 Config Options
 ~~~~~~~~~~~~~~
+
 Add new config option "multi_vif_drivers" (list) to config file that shows
 what Multi-VIF drivers should be used in to specify the addition VIF objects.
 It is allowed to have one or more multi_vif_drivers enabled, which means that
@@ -78,8 +85,10 @@ Or like this:
 
     multi_vif_drivers =  npwg_multiple_interfaces
 
+
 Additional Subnets Driver
 ~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Since it is possible to request additional subnets for the pod through the pod
 annotations it is necessary to have new driver. According to parsed information
 (requested subnets) by Multi-vif driver it has to return dictionary containing
@@ -104,6 +113,7 @@ Here's how a Pod Spec with additional subnets requests might look like:
 
 SRIOV Driver
 ~~~~~~~~~~~~
+
 SRIOV driver gets pod object from Multi-vif driver, according to parsed
 information (sriov requests) by Multi-vif driver. It should return a list of
 created vif objects. Method request_vif() has unified interface with
@@ -123,6 +133,7 @@ Here's how a Pod Spec with sriov requests might look like:
 
 Specific ports support
 ----------------------
+
 Specific ports support is enabled by default and will be a part of the drivers
 to implement it. It is possile to have manually precreated specific ports in
 neutron and specify them in pod annotations as preferably used. This means that

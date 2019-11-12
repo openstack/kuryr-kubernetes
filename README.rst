@@ -1,3 +1,4 @@
+========================
 Team and repository tags
 ========================
 
@@ -5,6 +6,7 @@ Team and repository tags
     :target: https://governance.openstack.org/tc/reference/tags/index.html
 
 .. Change things from this point on
+
 
 Project description
 ===================
@@ -26,4 +28,5 @@ require it or to use different segments and, for example, route between them.
 
 Contribution guidelines
 -----------------------
+
 For the process of new feature addition, refer to the `Kuryr Policy <https://wiki.openstack.org/wiki/Kuryr#Kuryr_Policies>`_

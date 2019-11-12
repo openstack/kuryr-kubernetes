@@ -16,9 +16,9 @@
 Active/Passive High Availability
 ================================
 
-
 Overview
 --------
+
 Initially it was assumed that there will only be a single kuryr-controller
 instance in the Kuryr-Kubernetes deployment. While it simplified a lot of
 controller code, it is obviously not a perfect situation. Having redundant
@@ -29,16 +29,20 @@ Now with introduction of possibility to run Kuryr in Pods on Kubernetes cluster
 HA is much easier to be implemented. The purpose of this document is to explain
 how will it work in practice.
 
+
 Proposed Solution
 -----------------
+
 There are two types of HA - Active/Passive and Active/Active. In this document
 we'll focus on the former. A/P basically works as one of the instances being
 the leader (doing all the exclusive tasks) and other instances waiting in
 *standby* mode in case the leader *dies* to take over the leader role. As you
 can see a *leader election* mechanism is required to make this work.
 
+
 Leader election
-+++++++++++++++
+~~~~~~~~~~~~~~~
+
 The idea here is to use leader election mechanism based on Kubernetes
 endpoints. The idea is neatly `explained on Kubernetes blog
 <https://kubernetes.io/blog/2016/01/simple-leader-election-with-kubernetes/>`_.
@@ -67,8 +71,10 @@ This adds a new container to the pod. This container will do the
 leader-election and expose the simple JSON API on port 16401 by default. This
 API will be available to kuryr-controller container.
 
+
 Kuryr Controller Implementation
-+++++++++++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 The main issue with having multiple controllers is task division. All of the
 controllers are watching the same endpoints and getting the same notifications,
 but those notifications cannot be processed by multiple controllers at once,
@@ -93,8 +99,10 @@ Please note that this means that in HA mode Watcher will not get started on
 controller startup, but only when periodic task will notice that it is the
 leader.
 
+
 Issues
-++++++
+~~~~~~
+
 There are certain issues related to orphaned OpenStack resources that we may
 hit. Those can happen in two cases:
 
@@ -116,8 +124,10 @@ The latter of the issues can also be tackled by saving last seen
 ``resourceVersion`` of watched resources list when stopping the Watcher and
 restarting watching from that point.
 
+
 Future enhancements
-+++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~
+
 It would be useful to implement the garbage collector and
 ``resourceVersion``-based protection mechanism described in section above.
 

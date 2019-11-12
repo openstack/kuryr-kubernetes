@@ -16,9 +16,9 @@
 HowTo Update PodResources gRPC API
 ==================================
 
-
 Purpose
 -------
+
 The purpose of this document is to describe how to update gRPC API files in
 kuryr-kubernetes repository in case of upgrading to a new version of Kubernetes
 PodResources API. These files are ``api_pb2_grpc.py``, ``api_pb2.py`` and
@@ -42,8 +42,10 @@ Kubernetes source tree.
       version (this is highly unlikely). In this case ``protobuf`` could fail
       to use our python bindings.
 
+
 Automated update
 ----------------
+
 ``contrib/regenerate_pod_resources_api.sh`` script could be used to re-generate
 PodResources gRPC API files. By default, this script will download ``v1alpha1``
 version of ``api.proto`` file from the Kubernetes GitHub repo and create
@@ -60,6 +62,7 @@ Define ``API_VERSION`` environment variable to use specific version of
 ``api.proto`` from the Kubernetes GitHub::
 
   $ export API_VERSION=v1alpha1
+
 
 Manual update steps
 -------------------
@@ -81,6 +84,7 @@ Don't forget to update the file header that should point to the original
   // Generated from kubernetes/pkg/kubelet/apis/podresources/<version>/api.proto
   // To regenerate api.proto, api_pb2.py and api_pb2_grpc.py follow instructions
   // from doc/source/devref/updating_pod_resources_api.rst.
+
 
 Generating the python bindings
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -116,4 +120,3 @@ Generating the python bindings
     (venv) [kuryr-kubernetes]$ python -m grpc_tools.protoc -I./               \
                                       --python_out=. --grpc_python_out=.      \
                                       kuryr_kubernetes/pod_resources/api.proto
-

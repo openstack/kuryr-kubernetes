@@ -18,11 +18,14 @@ Kuryr Kubernetes Openshift Routes integration design
 
 Purpose
 -------
+
 The purpose of this document is to present how Openshift Routes are supported
 by kuryr-kubernetes.
 
+
 Overview
 --------
+
 OpenShift Origin [1]_ is an open source cloud application development and
 hosting platform that automates the provisioning, management and scaling
 of applications.
@@ -39,19 +42,25 @@ incoming connections.
 The Openshift Routes concept introduced before Ingress [3]_ was supported by
 kubernetes, the Openshift Route matches the functionality of kubernetes Ingress.
 
+
 Proposed Solution
 -----------------
+
 The solution will rely on L7 router, Service/Endpoints handler and
 L7 router driver components described at kuryr-kubernetes Ingress integration
 design, where a new component - OCP-Route handler, will satisfy requests for
 Openshift Route resources.
 
+
 Controller Handlers impact:
 ---------------------------
+
 The controller handlers should be extended to support OCP-Route resource.
+
 
 The OCP-Route handler
 ~~~~~~~~~~~~~~~~~~~~~
+
 The OCP-Route handler watches the apiserver's for updates to Openshift
 Route resources.
 The following scheme describes OCP-Route controller SW architecture:
@@ -72,8 +81,10 @@ pointing to it, the OCP-Route handler should trigger this notification,
 the notification will be implemented using annotation of the relevant
 Endpoint resource.
 
+
 Use cases examples
 ~~~~~~~~~~~~~~~~~~
+
 This section describes in details the following scenarios:
 
   A. Create OCP-Route, create Service/Endpoints.
@@ -151,8 +162,10 @@ This section describes in details the following scenarios:
     * As a result to the OCP-Route handler notification, the Service/Endpoints
       handler will set its internal state to 'no Ingress is pointing' state.
 
+
 References
 ==========
+
 .. [1] https://www.openshift.org/
 .. [2] https://docs.openshift.com/enterprise/3.0/architecture/core_concepts/routes.html
 .. [3] https://kubernetes.io/docs/concepts/Services-networking/ingress/

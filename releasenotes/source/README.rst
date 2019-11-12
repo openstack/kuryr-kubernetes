@@ -1,6 +1,6 @@
-=====================================
- Kuryr-Kubernetes Release Notes Howto
-=====================================
+====================================
+Kuryr-Kubernetes Release Notes Howto
+====================================
 
 Release notes are a new feature for documenting new features in
 OpenStack projects. Background on the process, tooling, and

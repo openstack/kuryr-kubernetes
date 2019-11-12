@@ -16,15 +16,17 @@
 Kuryr Kubernetes Services Integration Design
 ============================================
 
-
 Purpose
 -------
+
 The purpose of this document is to present how Kubernetes Service is supported
 by the kuryr integration and to capture the design decisions currently taken
 by the kuryr team.
 
+
 Overview
 --------
+
 A Kubernetes Service is an abstraction which defines a logical set of Pods and
 a policy by which to access them. Service is a Kubernetes managed API object.
 For Kubernetes-native applications, Kubernetes offers an Endpoints API that is
@@ -33,8 +35,10 @@ please refer to `Kubernetes service <http://kubernetes.io/docs/user-guide/servic
 Kubernetes supports services with kube-proxy component that runs on each node,
 `Kube-Proxy <http://kubernetes.io/docs/admin/kube-proxy/>`_.
 
+
 Proposed Solution
 -----------------
+
 Kubernetes service in its essence is a Load Balancer across Pods that fit the
 service selection. Kuryr's choice is to support Kubernetes services by using
 Neutron LBaaS service. The initial implementation is based on the OpenStack
@@ -45,13 +49,17 @@ This may be affected once Kubernetes Network Policies will be supported.
 Oslo versioned objects are used to keep translation details in Kubernetes entities
 annotation. This will allow future changes to be backward compatible.
 
+
 Data Model Translation
 ~~~~~~~~~~~~~~~~~~~~~~
+
 Kubernetes service is mapped to the LBaaSv2 Load Balancer with associated
 Listeners and Pools. Service endpoints are mapped to Load Balancer Pool members.
 
+
 Kuryr Controller Impact
 ~~~~~~~~~~~~~~~~~~~~~~~
+
 Two Kubernetes Event Handlers are added to the Controller pipeline.
 
 - LBaaSSpecHandler manages Kubernetes Service creation and modification events.

@@ -1,9 +1,11 @@
+===============
 IPv6 networking
 ===============
 
 Kuryr Kubernetes can be used with IPv6 networking. In this guide we'll show how
 you can create the Neutron resources and configure Kubernetes and
 Kuryr-Kubernetes to achieve an IPv6 only Kubernetes cluster.
+
 
 Setting it up
 -------------
@@ -192,6 +194,7 @@ Setting it up
 #. Follow the :ref:`k8s_lb_reachable` guide but using IPv6 addresses instead for
    the host Kubernetes API. You should also make sure that the Kubernetes API
    server binds on the IPv6 address of the host.
+
 
 Troubleshooting
 ---------------

@@ -1,3 +1,4 @@
+=========================================
 Watching Kubernetes api-server over HTTPS
 =========================================
 
@@ -20,4 +21,3 @@ If want to query HTTPS Kubernetes api server with ``--insecure`` mode::
 
     [kubernetes]
     ssl_verify_server_crt = False
-

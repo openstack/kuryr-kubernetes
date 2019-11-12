@@ -1,13 +1,16 @@
+====================
 Kuryr kubectl plugin
 ====================
 
 This plugin aims to bring kuryr introspection an interaction to the kubectl and
 oc command line tools.
 
+
 Installation
 ------------
 
 Place the kuryr directory in your ~/.kube/plugins
+
 
 Usage
 -----
@@ -15,6 +18,7 @@ Usage
 The way to use it is via the kubectl/oc plugin facility::
 
     kubectl plugin kuryr get vif -o wide -l deploymentconfig=demo
+
 
 Media
 -----

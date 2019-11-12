@@ -1,3 +1,4 @@
+====================
 Kuryr Heat Templates
 ====================
 
@@ -5,8 +6,9 @@ This set of scripts and Heat templates are useful for deploying devstack
 scenarios. It handles the creation of an allinone devstack nova instance and its
 networking needs.
 
+
 Prerequisites
-~~~~~~~~~~~~~
+-------------
 
 Packages to install on the host you run devstack-heat (not on the cloud server):
 
@@ -29,8 +31,9 @@ After creating the instance, devstack-heat will immediately start creating a
 devstack `stack` user and using devstack to stack kuryr-kubernetes. When it is
 finished, there'll be a file names `/opt/stack/ready`.
 
+
 How to run
-~~~~~~~~~~
+----------
 
 In order to run it, make sure that you have sourced your OpenStack cloud
 provider openrc file and tweaked `hot/parameters.yml` to your liking then launch
@@ -53,8 +56,11 @@ This will create a stack named *gerrit_465657*. Further devstack-heat
 subcommands should be called with the whole name of the stack, i.e.,
 *gerrit_465657*.
 
+
 Getting inside the deployment
------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can then ssh into the deployment in two ways:
 
 You can then ssh into the deployment in two ways::
 
@@ -79,8 +85,9 @@ To delete the deployment::
 
     ./devstack-heat unstack name_of_my_stack
 
+
 Supported images
-----------------
+~~~~~~~~~~~~~~~~
 
 It should work with the latest centos7 image. It is not tested with the latest
 ubuntu 16.04 cloud image but it will probably work.
