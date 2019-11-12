@@ -33,18 +33,18 @@ to use either CentOS 7 or the latest Ubuntu LTS (16.04, Xenial).
 
 2. Create the ``stack`` user.
 
-::
+   .. code-block:: console
 
-     $ git clone https://opendev.org/openstack-dev/devstack.git
-     $ sudo ./devstack/tools/create-stack-user.sh
+      $ git clone https://opendev.org/openstack-dev/devstack.git
+      $ sudo ./devstack/tools/create-stack-user.sh
 
 3. Switch to the ``stack`` user and clone DevStack and kuryr-kubernetes.
 
-::
+   .. code-block:: console
 
-     $ sudo su - stack
-     $ git clone https://opendev.org/openstack-dev/devstack.git
-     $ git clone https://opendev.org/openstack/kuryr-kubernetes.git
+      $ sudo su - stack
+      $ git clone https://opendev.org/openstack-dev/devstack.git
+      $ git clone https://opendev.org/openstack/kuryr-kubernetes.git
 
 4. Configure DevStack to use ODL.
 
@@ -53,10 +53,10 @@ can start with. For example, you may want to set some values for the various
 PASSWORD variables in that file, or change the LBaaS service provider to use.
 Feel free to edit it if you'd like, but it should work as-is.
 
-::
+   .. code-block:: console
 
-    $ cd devstack
-    $ cp ../kuryr-kubernetes/devstack/local.conf.odl.sample local.conf
+      $ cd devstack
+      $ cp ../kuryr-kubernetes/devstack/local.conf.odl.sample local.conf
 
 
 Optionally, the ports pool funcionality can be enabled by following:
@@ -69,41 +69,41 @@ Optionally, the ports pool funcionality can be enabled by following:
 This is going to take a while. It installs a bunch of packages, clones a bunch
 of git repos, and installs everything from these git repos.
 
-::
+   .. code-block:: console
 
-    $ ./stack.sh
+      $ ./stack.sh
 
 Once DevStack completes successfully, you should see output that looks
-something like this::
+something like this:
 
-    This is your host IP address: 192.168.5.10
-    This is your host IPv6 address: ::1
-    Keystone is serving at http://192.168.5.10/identity/
-    The default users are: admin and demo
-    The password: pass
+   .. code-block:: console
 
+      This is your host IP address: 192.168.5.10
+      This is your host IPv6 address: ::1
+      Keystone is serving at http://192.168.5.10/identity/
+      The default users are: admin and demo
+      The password: pass
 
 6. Extra configurations.
 
 Devstack does not wire up the public network by default so we must do
 some extra steps for floating IP usage as well as external connectivity:
 
-::
+   .. code-block:: console
 
-    $ sudo ip link set br-ex up
-    $ sudo ip route add 172.24.4.0/24 dev br-ex
-    $ sudo ip addr add 172.24.4.1/24 dev br-ex
-
+      $ sudo ip link set br-ex up
+      $ sudo ip route add 172.24.4.0/24 dev br-ex
+      $ sudo ip addr add 172.24.4.1/24 dev br-ex
 
 Then you can create forwarding and NAT rules that will cause "external"
 traffic from your instances to get rewritten to your network controller's
 ip address and sent out on the network:
 
-::
+   .. code-block:: console
 
-	$ sudo iptables -A FORWARD -d 172.24.4.0/24 -j ACCEPT
-	$ sudo iptables -A FORWARD -s 172.24.4.0/24 -j ACCEPT
-	$ sudo iptables -t nat -I POSTROUTING 1 -s 172.24.4.1/24 -j MASQUERADE
+      $ sudo iptables -A FORWARD -d 172.24.4.0/24 -j ACCEPT
+      $ sudo iptables -A FORWARD -s 172.24.4.0/24 -j ACCEPT
+      $ sudo iptables -t nat -I POSTROUTING 1 -s 172.24.4.1/24 -j MASQUERADE
 
 
 Inspect default Configuration
@@ -142,11 +142,12 @@ Undercloud deployment
 
 The steps to deploy the undercloud environment are the same described above
 for the `Single Node Test Environment` with the different of the sample
-local.conf to use (step 4), in this case::
+local.conf to use (step 4), in this case:
 
-    $ cd devstack
-    $ cp ../kuryr-kubernetes/devstack/local.conf.pod-in-vm.undercloud.odl.sample local.conf
+.. code-block:: console
 
+   $ cd devstack
+   $ cp ../kuryr-kubernetes/devstack/local.conf.pod-in-vm.undercloud.odl.sample local.conf
 
 The main differences with the default odl local.conf sample are that:
 
@@ -179,9 +180,11 @@ Once the VM is up and running, we can start with the overcloud configuration.
 The steps to perform are the same as without ODL integration, i.e., the
 same steps as for ML2/OVS:
 
-1. Log in into the VM::
+1. Log in into the VM:
 
-    $ ssh -i id_rsa_demo centos@FLOATING_IP
+   .. code-block:: console
+
+      $ ssh -i id_rsa_demo centos@FLOATING_IP
 
 2. Deploy devstack following steps 3 and 4 detailed at
    `How to try out nested-pods locally (VLAN + trunk)`_.

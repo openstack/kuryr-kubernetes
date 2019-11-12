@@ -9,10 +9,12 @@ for the VM:
 
 1. To install OpenStack services run devstack with
    ``devstack/local.conf.pod-in-vm.undercloud.sample``. Ensure that "trunk"
-   service plugin is enabled in ``/etc/neutron/neutron.conf``::
+   service plugin is enabled in ``/etc/neutron/neutron.conf``:
 
-    [DEFAULT]
-    service_plugins = neutron.services.l3_router.l3_router_plugin.L3RouterPlugin,neutron.services.trunk.plugin.TrunkPlugin
+   .. code-block:: ini
+
+      [DEFAULT]
+      service_plugins = neutron.services.l3_router.l3_router_plugin.L3RouterPlugin,neutron.services.trunk.plugin.TrunkPlugin
 
 2. Launch a VM with `Neutron trunk port.
    <https://wiki.openstack.org/wiki/Neutron/TrunkPort>`_. The next steps can be
@@ -26,21 +28,26 @@ for the VM:
     - Run devstack with ``devstack/local.conf.pod-in-vm.overcloud.sample``.
       but first fill in the needed information:
 
-        - Point to the undercloud deployment by setting::
+        - Point to the undercloud deployment by setting:
 
-            SERVICE_HOST=UNDERCLOUD_CONTROLLER_IP
+          .. code-block:: bash
 
+             SERVICE_HOST=UNDERCLOUD_CONTROLLER_IP
 
         - Fill in the subnetpool id of the undercloud deployment, as well as
           the router where the new pod and service networks need to be
-          connected::
+          connected:
 
-            KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID=UNDERCLOUD_SUBNETPOOL_V4_ID
-            KURYR_NEUTRON_DEFAULT_ROUTER=router1
+          .. code-block:: bash
 
-        - Ensure the nested-vlan driver is going to be set by setting::
+             KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID=UNDERCLOUD_SUBNETPOOL_V4_ID
+             KURYR_NEUTRON_DEFAULT_ROUTER=router1
 
-            KURYR_POD_VIF_DRIVER=nested-vlan
+        - Ensure the nested-vlan driver is going to be set by setting:
+
+          .. code-block:: bash
+
+             KURYR_POD_VIF_DRIVER=nested-vlan
 
         - Optionally, the ports pool funcionality can be enabled by following:
           `How to enable ports pool with devstack`_.
@@ -48,31 +55,40 @@ for the VM:
         .. _How to enable ports pool with devstack: https://docs.openstack.org/kuryr-kubernetes/latest/installation/devstack/ports-pool.html
 
         - [OPTIONAL] If you want to enable the subport pools driver and the
-          VIF Pool Manager you need to include::
+          VIF Pool Manager you need to include:
 
-            KURYR_VIF_POOL_MANAGER=True
+          .. code-block:: bash
 
+             KURYR_VIF_POOL_MANAGER=True
 
 4. Once devstack is done and all services are up inside VM. Next steps are to
    configure the missing information at ``/etc/kuryr/kuryr.conf``:
 
-    - Configure worker VMs subnet::
+    - Configure worker VMs subnet:
 
-       [pod_vif_nested]
-       worker_nodes_subnet = <UNDERCLOUD_SUBNET_WORKER_NODES_UUID>
+      .. code-block:: ini
 
-    - Configure binding section::
+         [pod_vif_nested]
+         worker_nodes_subnet = <UNDERCLOUD_SUBNET_WORKER_NODES_UUID>
 
-       [binding]
-       driver = kuryr.lib.binding.drivers.vlan
-       link_iface = <VM interface name eg. eth0>
+    - Configure binding section:
 
-    - Restart kuryr-k8s-controller::
+      .. code-block:: ini
 
-       sudo systemctl restart devstack@kuryr-kubernetes.service
+         [binding]
+         driver = kuryr.lib.binding.drivers.vlan
+         link_iface = <VM interface name eg. eth0>
 
-    - Restart kuryr-daemon::
+    - Restart kuryr-k8s-controller:
 
-       sudo systemctl restart devstack@kuryr-daemon.service
+      .. code-block:: console
+
+         $ sudo systemctl restart devstack@kuryr-kubernetes.service
+
+    - Restart kuryr-daemon:
+
+      .. code-block:: console
+
+         $ sudo systemctl restart devstack@kuryr-daemon.service
 
 Now launch pods using kubectl, Undercloud Neutron will serve the networking.

@@ -184,10 +184,12 @@ lbaasspec         Service
 ================  =========================
 
 For example, to enable only the 'vif' controller handler we should set the
-following at kuryr.conf::
+following at kuryr.conf:
 
-         [kubernetes]
-         enabled_handlers=vif
+.. code-block:: ini
+
+   [kubernetes]
+   enabled_handlers=vif
 
 
 Providers

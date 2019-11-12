@@ -8,17 +8,23 @@ Building images
 First you should build kuryr-controller and kuryr-cni docker images and place
 them on cluster-wide accessible registry.
 
-For creating controller image on local machine: ::
+For creating controller image on local machine:
 
-    $ docker build -t kuryr/controller -f controller.Dockerfile .
+.. code-block:: console
 
-For creating cni daemonset image on local machine: ::
+   $ docker build -t kuryr/controller -f controller.Dockerfile .
 
-    $ docker build -t kuryr/cni -f cni.Dockerfile .
+For creating cni daemonset image on local machine:
 
-If you want to run kuryr CNI without the daemon, build theimage with: ::
+.. code-block:: console
 
-    $ docker build -t kuryr/cni -f cni.Dockerfile --build-arg CNI_DAEMON=False .
+   $ docker build -t kuryr/cni -f cni.Dockerfile .
+
+If you want to run kuryr CNI without the daemon, build the image with:
+
+.. code-block:: console
+
+   $ docker build -t kuryr/cni -f cni.Dockerfile --build-arg CNI_DAEMON=False .
 
 Alternatively, you can remove ``imagePullPolicy: Never`` from kuryr-controller
 Deployment and kuryr-cni DaemonSet definitions to use pre-built `controller
@@ -32,9 +38,11 @@ Generating Kuryr resource definitions for Kubernetes
 
 kuryr-kubernetes includes a tool that lets you generate resource definitions
 that can be used to Deploy Kuryr on Kubernetes. The script is placed in
-``tools/generate_k8s_resource_definitions.sh`` and takes up to 3 arguments: ::
+``tools/generate_k8s_resource_definitions.sh`` and takes up to 3 arguments:
 
-    $ ./tools/generate_k8s_resource_definitions <output_dir> [<controller_conf_path>] [<cni_conf_path>] [<ca_certificate_path>]
+.. code-block:: console
+
+   $ ./tools/generate_k8s_resource_definitions <output_dir> [<controller_conf_path>] [<cni_conf_path>] [<ca_certificate_path>]
 
 * ``output_dir`` - directory where to put yaml files with definitions.
 * ``controller_conf_path`` - path to custom kuryr-controller configuration
@@ -83,13 +91,14 @@ script. Below is the list of available variables:
    and ``oslo.privsep`` to do pod wiring tasks. By default it'll call ``sudo``
    to raise privileges, even though container is priviledged by itself or
    ``sudo`` is missing from container OS (e.g. default CentOS 7). To prevent
-   that make sure to set following options in kuryr.conf used for
-   kuryr-daemon::
+   that make sure to set following options in kuryr.conf used for kuryr-daemon:
 
-    [vif_plug_ovs_privileged]
-    helper_command=privsep-helper
-    [vif_plug_linux_bridge_privileged]
-    helper_command=privsep-helper
+   .. code-block:: ini
+
+     [vif_plug_ovs_privileged]
+     helper_command=privsep-helper
+     [vif_plug_linux_bridge_privileged]
+     helper_command=privsep-helper
 
    Those options will prevent oslo.privsep from doing that. If rely on
    aformentioned script to generate config files, those options will be added
@@ -104,9 +113,11 @@ variable must be set:
 
 * ``$KURYR_USE_PORTS_POOLS`` - ``True`` (default: False)
 
-Example run: ::
+Example run:
 
-    $ KURYR_K8S_API_ROOT="192.168.0.1:6443" ./tools/generate_k8s_resource_definitions /tmp
+.. code-block:: console
+
+   $ KURYR_K8S_API_ROOT="192.168.0.1:6443" ./tools/generate_k8s_resource_definitions /tmp
 
 This should generate 5 files in your ``<output_dir>``:
 
@@ -133,13 +144,15 @@ This should generate 5 files in your ``<output_dir>``:
 Deploying Kuryr resources on Kubernetes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To deploy the files on your Kubernetes cluster run: ::
+To deploy the files on your Kubernetes cluster run:
 
-    $ kubectl apply -f config_map.yml -n kube-system
-    $ kubectl apply -f certificates_secret.yml -n kube-system
-    $ kubectl apply -f service_account.yml -n kube-system
-    $ kubectl apply -f controller_deployment.yml -n kube-system
-    $ kubectl apply -f cni_ds.yml -n kube-system
+.. code-block:: console
+
+   $ kubectl apply -f config_map.yml -n kube-system
+   $ kubectl apply -f certificates_secret.yml -n kube-system
+   $ kubectl apply -f service_account.yml -n kube-system
+   $ kubectl apply -f controller_deployment.yml -n kube-system
+   $ kubectl apply -f cni_ds.yml -n kube-system
 
 After successful completion:
 
@@ -148,8 +161,11 @@ After successful completion:
 * kuryr-cni gets installed as a daemonset object on all the nodes in
   kube-system namespace
 
-To see kuryr-controller logs ::
-    $ kubectl logs <pod-name>
+To see kuryr-controller logs:
+
+.. code-block:: console
+
+   $ kubectl logs <pod-name>
 
 NOTE: kuryr-cni has no logs and to debug failures you need to check out kubelet
 logs.

@@ -4,29 +4,37 @@ How to enable ports pool support
 
 To enable the utilization of the ports pool feature, the selected pool driver
 needs to be included at the kuryr.conf at the kubernetes section. So, for the
-baremetal deployment::
+baremetal deployment:
 
-       [kubernetes]
-       vif_pool_driver = neutron
+.. code-block:: ini
 
-And for the nested (VLAN+Trunk) case::
+   [kubernetes]
+   vif_pool_driver = neutron
 
-       [kubernetes]
-       vif_pool_driver = nested
+And for the nested (VLAN+Trunk) case:
+
+.. code-block:: ini
+
+   [kubernetes]
+   vif_pool_driver = nested
 
 On the other hand, there are a few extra (optional) configuration options
 regarding the maximum and minimum desired sizes of the pools, where the
-maximum size can be disabled by setting it to 0::
+maximum size can be disabled by setting it to 0:
 
-       [vif_pool]
-       ports_pool_max = 10
-       ports_pool_min = 5
+.. code-block:: ini
+
+   [vif_pool]
+   ports_pool_max = 10
+   ports_pool_min = 5
 
 In addition the size of the bulk operation, e.g., the number of ports created
-in a bulk request upon pool population, can be modified::
+in a bulk request upon pool population, can be modified:
 
-       [vif_pool]
-       ports_pool_batch = 5
+.. code-block:: ini
+
+   [vif_pool]
+   ports_pool_batch = 5
 
 Note this value should be smaller than the ports_pool_max (if the
 ports_pool_max is enabled).
@@ -36,32 +44,42 @@ modified, and it should be adjusted based on your specific deployment, e.g., if
 the port creation actions are slow, it is desirable to raise it in order not to
 have overlapping actions. As a simple rule of thumbs, the frequency should be
 at least as large as the time needed to perform the bulk requests (ports
-creation, including subports attachment for the nested case)::
+creation, including subports attachment for the nested case):
 
-       [vif_pool]
-       ports_pool_update_frequency = 20
+.. code-block:: ini
+
+   [vif_pool]
+   ports_pool_update_frequency = 20
 
 After these configurations, the final step is to restart the
-kuryr-k8s-controller. At devstack deployment::
+kuryr-k8s-controller. At devstack deployment:
 
-       sudo systemctl restart devstack@kuryr-kubernetes.service
+.. code-block:: console
 
-And for RDO packaging based installations::
+   $ sudo systemctl restart devstack@kuryr-kubernetes.service
 
-      sudo systemctl restart kuryr-controller
+And for RDO packaging based installations:
+
+.. code-block:: console
+
+   $ sudo systemctl restart kuryr-controller
 
 Note that for the containerized deployment, you need to edit the associated
-ConfigMap to change the kuryr.conf files with::
+ConfigMap to change the kuryr.conf files with:
 
-      kubectl -n kube-system edit cm kuryr-config
+.. code-block:: console
+
+   $ kubectl -n kube-system edit cm kuryr-config
 
 Then modify the kuryr.conf (not the kuryr-cni.conf) to modify the controller
 configuration regarding the pools. After that, to have the new configuration
 applied you need to restart the kuryr-controller just by killing the existing
-pod::
+pod:
 
-      kubectl -n kube-system get pod | grep kuryr-controller
-      kubectl -n kube-system delete pod KURYR_CONTROLLER_POD_NAME
+.. code-block:: console
+
+   $ kubectl -n kube-system get pod | grep kuryr-controller
+   $ kubectl -n kube-system delete pod KURYR_CONTROLLER_POD_NAME
 
 
 Ports loading into pools
@@ -112,10 +130,10 @@ To enable the option of having different pools depending on the node's pod vif
 types, you need to state the type of pool that you want for each pod vif
 driver, e.g.:
 
-    .. code-block:: ini
+.. code-block:: ini
 
-      [vif_pool]
-      vif_pool_mapping=nested-vlan:nested,neutron-vif:neutron
+   [vif_pool]
+   vif_pool_mapping=nested-vlan:nested,neutron-vif:neutron
 
 This will use a pool driver nested to handle the pods whose vif driver is
 nested-vlan, and a pool driver neutron to handle the pods whose vif driver is
@@ -147,13 +165,17 @@ When the namespace subnet driver is used (either for namespace isolation or
 for network policies) a new subnet is created for each namespace. The ports
 associated to each namespace will therefore be on different pools. In order
 to prepopulate the pools associated to a newly created namespace (i.e.,
-subnet), the next handler needs to be enabled::
+subnet), the next handler needs to be enabled:
 
-  [kubernetes]
-  enabled_handlers=vif,lb,lbaasspec,namespace,*kuryrnet*
+.. code-block:: ini
+
+   [kubernetes]
+   enabled_handlers=vif,lb,lbaasspec,namespace,*kuryrnet*
 
 
 This can be enabled at devstack deployment time to by adding the next to the
-local.conf::
+local.conf:
 
-  KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,namespace,*kuryrnet*
+.. code-block:: bash
+
+   KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,namespace,*kuryrnet*

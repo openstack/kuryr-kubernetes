@@ -97,15 +97,15 @@ B. Create Service/Endpoints, create OCP-Route, delete OCP-Route.
 
     .. code-block:: yaml
 
-        apiVersion: v1
-        kind: Route
-        metadata:
-          name: test
-          spec:
-            host: www.example.com
-            to:
-              kind: Service
-              name: s1
+       apiVersion: v1
+       kind: Route
+       metadata:
+         name: test
+         spec:
+           host: www.example.com
+           to:
+             kind: Service
+             name: s1
 
     * Since it's the first route pointing to this Service, the OCP-Route
       handler will create LbaaS pool (attached to L7 router)- named

@@ -23,23 +23,31 @@ nested MACVLAN driver rather than VLAN and trunk ports.
 4. Once devstack is done and all services are up inside VM. Next steps are to
    configure the missing information at ``/etc/kuryr/kuryr.conf``:
 
-    - Configure worker VMs subnet::
+    - Configure worker VMs subnet:
 
-       [pod_vif_nested]
-       worker_nodes_subnet = <UNDERCLOUD_SUBNET_WORKER_NODES_UUID>
+     .. code-block:: ini
 
-    - Configure "pod_vif_driver" as "nested-macvlan"::
+        [pod_vif_nested]
+        worker_nodes_subnet = <UNDERCLOUD_SUBNET_WORKER_NODES_UUID>
 
-       [kubernetes]
-       pod_vif_driver = nested-macvlan
+    - Configure "pod_vif_driver" as "nested-macvlan":
 
-    - Configure binding section::
+     .. code-block:: ini
 
-       [binding]
-       link_iface = <VM interface name eg. eth0>
+        [kubernetes]
+        pod_vif_driver = nested-macvlan
 
-    - Restart kuryr-k8s-controller::
+    - Configure binding section:
 
-       sudo systemctl restart devstack@kuryr-kubernetes.service
+     .. code-block:: ini
+
+        [binding]
+        link_iface = <VM interface name eg. eth0>
+
+    - Restart kuryr-k8s-controller:
+
+     .. code-block:: console
+
+        $ sudo systemctl restart devstack@kuryr-kubernetes.service
 
 Now launch pods using kubectl, Undercloud Neutron will serve the networking.

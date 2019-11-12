@@ -73,17 +73,15 @@ Option in config file might look like this:
 
 .. code-block:: ini
 
-    [kubernetes]
-
-    multi_vif_drivers =  sriov, additional_subnets
+   [kubernetes]
+   multi_vif_drivers =  sriov, additional_subnets
 
 Or like this:
 
 .. code-block:: ini
 
-    [kubernetes]
-
-    multi_vif_drivers =  npwg_multiple_interfaces
+   [kubernetes]
+   multi_vif_drivers =  npwg_multiple_interfaces
 
 
 Additional Subnets Driver
@@ -98,17 +96,17 @@ additional subnets requests might look like:
 
 .. code-block:: yaml
 
-    spec:
-      replicas: 1
-      template:
-        metadata:
-          name: some-name
-          labels:
-            app: some-name
-          annotations:
-            openstack.org/kuryr-additional-subnets: '[
-                "id_of_neutron_subnet_created_previously"
-            ]'
+   spec:
+     replicas: 1
+     template:
+       metadata:
+         name: some-name
+         labels:
+           app: some-name
+         annotations:
+           openstack.org/kuryr-additional-subnets: '[
+               "id_of_neutron_subnet_created_previously"
+           ]'
 
 
 SRIOV Driver
@@ -122,13 +120,13 @@ Here's how a Pod Spec with sriov requests might look like:
 
 .. code-block:: yaml
 
-    spec:
-      containers:
-      - name: vf-container
-        image: vf-image
-        resources:
-          requests:
-            pod.alpha.kubernetes.io/opaque-int-resource-sriov-vf-physnet2: 1
+   spec:
+     containers:
+     - name: vf-container
+       image: vf-image
+       resources:
+         requests:
+           pod.alpha.kubernetes.io/opaque-int-resource-sriov-vf-physnet2: 1
 
 
 Specific ports support
@@ -145,18 +143,18 @@ annotation with requested specific ports might look like this:
 
 .. code-block:: yaml
 
-    spec:
-      replicas: 1
-      template:
-        metadata:
-          name: some-name
-          labels:
-            app: some-name
-          annotations:
-            spec-ports: '[
-                "id_of_direct_precreated_port".
-                "id_of_normal_precreated_port"
-            ]'
+   spec:
+     replicas: 1
+     template:
+       metadata:
+         name: some-name
+         labels:
+           app: some-name
+         annotations:
+           spec-ports: '[
+               "id_of_direct_precreated_port".
+               "id_of_normal_precreated_port"
+           ]'
 
 Pod spec above should be interpreted the following way: Multi-vif driver parses
 pod annotations and gets ids of specific ports. If vnic_type is "normal" and

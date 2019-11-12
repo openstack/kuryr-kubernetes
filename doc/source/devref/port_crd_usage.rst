@@ -58,25 +58,26 @@ The first action is to create a KuryrPort CRD where the needed information
 about the Neutron Ports will be stored (or any other SDN).
 
 Currently, the pods are annotated with the vif information of the port
-assigned to it::
+assigned to it:
 
-  "kind": "Pod",
-  "metadata": {
-      "annotations": {
-          "openstack.org/kuryr-vif": "{\"eth0\": {\"versioned_object.data\": {\"active\": true, \"address\": \"fa:16:3e:bf:84:ff\", \"has_traffic_filtering\
-          ": false, \"id\": \"18f968a5-c420-4318-92d7-941eb5f9e60e\", \"network\": {\"versioned_object.data\": {\"id\": \"144164d9-8c21-4274-acec-43245de0aed0\", \"labe
-          l\": \"ns/luis-net\", \"mtu\": 1350, \"multi_host\": false, \"should_provide_bridge\": false, \"should_provide_vlan\": false, \"subnets\": {\"versioned_object
-          .data\": {\"objects\": [{\"versioned_object.data\": {\"cidr\": \"10.11.9.0/24\", \"dns\": [], \"gateway\": \"10.11.9.1\", \"ips\": {\"versioned_object.data\":
-          {\"objects\": [{\"versioned_object.data\": {\"address\": \"10.11.9.5\"}, \"versioned_object.name\": \"FixedIP\", \"versioned_object.namespace\": \"os_vif\",
-          \"versioned_object.version\": \"1.0\"}]}, \"versioned_object.name\": \"FixedIPList\", \"versioned_object.namespace\": \"os_vif\", \"versioned_object.version\"
-          : \"1.0\"}, \"routes\": {\"versioned_object.data\": {\"objects\": []}, \"versioned_object.name\": \"RouteList\", \"versioned_object.namespace\": \"os_vif\", \
-          "versioned_object.version\": \"1.0\"}}, \"versioned_object.name\": \"Subnet\", \"versioned_object.namespace\": \"os_vif\", \"versioned_object.version\": \"1.0
-          \"}]}, \"versioned_object.name\": \"SubnetList\", \"versioned_object.namespace\": \"os_vif\", \"versioned_object.version\": \"1.0\"}}, \"versioned_object.name
-          \": \"Network\", \"versioned_object.namespace\": \"os_vif\", \"versioned_object.version\": \"1.1\"}, \"plugin\": \"noop\", \"preserve_on_delete\": false, \"vi
-          f_name\": \"tap18f968a5-c4\", \"vlan_id\": 1346}, \"versioned_object.name\": \"VIFVlanNested\", \"versioned_object.namespace\": \"os_vif\", \"versioned_object
-          .version\": \"1.0\"}}"
-      },
+.. code-block::
 
+   "kind": "Pod",
+   "metadata": {
+       "annotations": {
+           "openstack.org/kuryr-vif": "{\"eth0\": {\"versioned_object.data\": {\"active\": true, \"address\": \"fa:16:3e:bf:84:ff\", \"has_traffic_filtering\": false,
+           \"id\": \"18f968a5-c420-4318-92d7-941eb5f9e60e\", \"network\": {\"versioned_object.data\": {\"id\": \"144164d9-8c21-4274-acec-43245de0aed0\", \"labe
+           l\": \"ns/luis-net\", \"mtu\": 1350, \"multi_host\": false, \"should_provide_bridge\": false, \"should_provide_vlan\": false, \"subnets\": {\"versioned_object
+           .data\": {\"objects\": [{\"versioned_object.data\": {\"cidr\": \"10.11.9.0/24\", \"dns\": [], \"gateway\": \"10.11.9.1\", \"ips\": {\"versioned_object.data\":
+           {\"objects\": [{\"versioned_object.data\": {\"address\": \"10.11.9.5\"}, \"versioned_object.name\": \"FixedIP\", \"versioned_object.namespace\": \"os_vif\",
+           \"versioned_object.version\": \"1.0\"}]}, \"versioned_object.name\": \"FixedIPList\", \"versioned_object.namespace\": \"os_vif\", \"versioned_object.version\"
+           : \"1.0\"}, \"routes\": {\"versioned_object.data\": {\"objects\": []}, \"versioned_object.name\": \"RouteList\", \"versioned_object.namespace\": \"os_vif\", \
+           "versioned_object.version\": \"1.0\"}}, \"versioned_object.name\": \"Subnet\", \"versioned_object.namespace\": \"os_vif\", \"versioned_object.version\": \"1.0
+           \"}]}, \"versioned_object.name\": \"SubnetList\", \"versioned_object.namespace\": \"os_vif\", \"versioned_object.version\": \"1.0\"}}, \"versioned_object.name
+           \": \"Network\", \"versioned_object.namespace\": \"os_vif\", \"versioned_object.version\": \"1.1\"}, \"plugin\": \"noop\", \"preserve_on_delete\": false, \"vi
+           f_name\": \"tap18f968a5-c4\", \"vlan_id\": 1346}, \"versioned_object.name\": \"VIFVlanNested\", \"versioned_object.namespace\": \"os_vif\", \"versioned_object
+           .version\": \"1.0\"}}"
+       },
 
 The proposal is to store the information of the VIF in the new defined
 KuryrPort CRD as a new KuryrPort object, including similar information to the
@@ -85,81 +86,82 @@ object selfLink at the pod by using oslo.versionedobject to easy identify
 the changes into the annotation format. Note the selfLink should contain the
 Neutron Port UUID if that is used as the name for the KuryrPort CRD object.
 In case of other SDN a unique value that represents the port should be used
-as the name for the KuryrPort CRD object::
+as the name for the KuryrPort CRD object:
 
-  $ kubectl get POD_NAME -o json
-  "kind": "Pod",
-  "metadata": {
-      "annotations": {
-          "openstack.org/kuryr-vif": "{"eth0": {\"versioned_object.data\": {\"selfLink\": \"/apis/openstack.org/v1/kuryrports/18f968a5-c420-4318-92d7-941eb5f9e60e\"}},
-          \"versioned_object.name\": \"KuryrPortCRD\", \"versioned_object.version\": \"1.0\"}"
-      },
-  ...
+.. code-block:: console
 
-  $ openstack port show 18f968a5-c420-4318-92d7-941eb5f9e60e
-  +-----------------------+---------------------------------------------------------------------------+
-  | Field                 | Value                                                                     |
-  +-----------------------+---------------------------------------------------------------------------+
-  | admin_state_up        | UP                                                                        |
-  | allowed_address_pairs |                                                                           |
-  | binding_host_id       | None                                                                      |
-  | binding_profile       | None                                                                      |
-  | binding_vif_details   | None                                                                      |
-  | binding_vif_type      | None                                                                      |
-  | binding_vnic_type     | normal                                                                    |
-  | created_at            | 2018-06-18T15:58:23Z                                                      |
-  | data_plane_status     | None                                                                      |
-  | description           |                                                                           |
-  | device_id             |                                                                           |
-  | device_owner          | trunk:subport                                                             |
-  | dns_assignment        | None                                                                      |
-  | dns_domain            | None                                                                      |
-  | dns_name              | None                                                                      |
-  | extra_dhcp_opts       |                                                                           |
-  | fixed_ips             | ip_address='10.11.9.5', subnet_id='fa660385-65f1-4677-8dc7-3f4f9cd15d7f'  |
-  | id                    | 18f968a5-c420-4318-92d7-941eb5f9e60e                                      |
-  | ip_address            | None                                                                      |
-  | mac_address           | fa:16:3e:bf:84:ff                                                         |
-  | name                  |                                                                           |
-  | network_id            | 144164d9-8c21-4274-acec-43245de0aed0                                      |
-  | option_name           | None                                                                      |
-  | option_value          | None                                                                      |
-  | port_security_enabled | True                                                                      |
-  | project_id            | d85bdba083204fe2845349a86cb87d82                                          |
-  | qos_policy_id         | None                                                                      |
-  | revision_number       | 4                                                                         |
-  | security_group_ids    | 32704585-8cbe-43f3-a4d5-56ffe2d3ab24                                      |
-  | status                | ACTIVE                                                                    |
-  | subnet_id             | None                                                                      |
-  | tags                  |                                                                           |
-  | trunk_details         | None                                                                      |
-  | updated_at            | 2018-06-18T15:58:30Z                                                      |
-  +-----------------------+---------------------------------------------------------------------------+
+   $ kubectl get POD_NAME -o json
+   "kind": "Pod",
+   "metadata": {
+       "annotations": {
+           "openstack.org/kuryr-vif": "{"eth0": {\"versioned_object.data\": {\"selfLink\": \"/apis/openstack.org/v1/kuryrports/18f968a5-c420-4318-92d7-941eb5f9e60e\"}},
+           \"versioned_object.name\": \"KuryrPortCRD\", \"versioned_object.version\": \"1.0\"}"
+       },
+   ...
 
-  $ kubectl get kuryrports 18f968a5-c420-4318-92d7-941eb5f9e60e -o json
-  {
-    "apiVersion": "openstack.org/v1",
-    "kind": "KuryrPort",
-    "metadata": {
-        "resourceVersion": "164682",
-        "selfLink": "/apis/openstack.org/v1/kuryrports/18f968a5-c420-4318-92d7-941eb5f9e60e",
-        "uid": "d2834c13-6e6e-11e8-8acd-fa163ed12aae"
-        "name": "18f968a5-c420-4318-92d7-941eb5f9e60e"
-        "portStatus": "created"
-    },
-    "spec": {
-        "active": true",
-        "address": "fa:16:3e:bf:84:ff",
-        "id": "18f968a5-c420-4318-92d7-941eb5f9e60e",
-        "network": {
-          "id": "144164d9-8c21-4274-acec-43245de0aed0",
-          "mtu": 1350,
-          ...
-        }
-        ...
-    }
-  }
+   $ openstack port show 18f968a5-c420-4318-92d7-941eb5f9e60e
+   +-----------------------+---------------------------------------------------------------------------+
+   | Field                 | Value                                                                     |
+   +-----------------------+---------------------------------------------------------------------------+
+   | admin_state_up        | UP                                                                        |
+   | allowed_address_pairs |                                                                           |
+   | binding_host_id       | None                                                                      |
+   | binding_profile       | None                                                                      |
+   | binding_vif_details   | None                                                                      |
+   | binding_vif_type      | None                                                                      |
+   | binding_vnic_type     | normal                                                                    |
+   | created_at            | 2018-06-18T15:58:23Z                                                      |
+   | data_plane_status     | None                                                                      |
+   | description           |                                                                           |
+   | device_id             |                                                                           |
+   | device_owner          | trunk:subport                                                             |
+   | dns_assignment        | None                                                                      |
+   | dns_domain            | None                                                                      |
+   | dns_name              | None                                                                      |
+   | extra_dhcp_opts       |                                                                           |
+   | fixed_ips             | ip_address='10.11.9.5', subnet_id='fa660385-65f1-4677-8dc7-3f4f9cd15d7f'  |
+   | id                    | 18f968a5-c420-4318-92d7-941eb5f9e60e                                      |
+   | ip_address            | None                                                                      |
+   | mac_address           | fa:16:3e:bf:84:ff                                                         |
+   | name                  |                                                                           |
+   | network_id            | 144164d9-8c21-4274-acec-43245de0aed0                                      |
+   | option_name           | None                                                                      |
+   | option_value          | None                                                                      |
+   | port_security_enabled | True                                                                      |
+   | project_id            | d85bdba083204fe2845349a86cb87d82                                          |
+   | qos_policy_id         | None                                                                      |
+   | revision_number       | 4                                                                         |
+   | security_group_ids    | 32704585-8cbe-43f3-a4d5-56ffe2d3ab24                                      |
+   | status                | ACTIVE                                                                    |
+   | subnet_id             | None                                                                      |
+   | tags                  |                                                                           |
+   | trunk_details         | None                                                                      |
+   | updated_at            | 2018-06-18T15:58:30Z                                                      |
+   +-----------------------+---------------------------------------------------------------------------+
 
+   $ kubectl get kuryrports 18f968a5-c420-4318-92d7-941eb5f9e60e -o json
+   {
+     "apiVersion": "openstack.org/v1",
+     "kind": "KuryrPort",
+     "metadata": {
+         "resourceVersion": "164682",
+         "selfLink": "/apis/openstack.org/v1/kuryrports/18f968a5-c420-4318-92d7-941eb5f9e60e",
+         "uid": "d2834c13-6e6e-11e8-8acd-fa163ed12aae"
+         "name": "18f968a5-c420-4318-92d7-941eb5f9e60e"
+         "portStatus": "created"
+     },
+     "spec": {
+         "active": true",
+         "address": "fa:16:3e:bf:84:ff",
+         "id": "18f968a5-c420-4318-92d7-941eb5f9e60e",
+         "network": {
+           "id": "144164d9-8c21-4274-acec-43245de0aed0",
+           "mtu": 1350,
+           ...
+         }
+         ...
+     }
+   }
 
 This allows a more standard way of annotating the pods, ensuring all needed
 information is there regardless of the SDN backend.

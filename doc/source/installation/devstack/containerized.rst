@@ -12,9 +12,11 @@ Installation
 
 To configure DevStack to install Kuryr services as containerized Kubernetes
 resources, you need to switch ``KURYR_K8S_CONTAINERIZED_DEPLOYMENT``. Add this
-line to your ``local.conf``: ::
+line to your ``local.conf``:
 
-    KURYR_K8S_CONTAINERIZED_DEPLOYMENT=True
+.. code-block:: ini
+
+   KURYR_K8S_CONTAINERIZED_DEPLOYMENT=True
 
 This will trigger building the kuryr-controller and kuryr-cni containers during
 installation, as well as will deploy those on Kubernetes cluster it installed.
@@ -32,9 +34,11 @@ Changing configuration
 ----------------------
 
 To change kuryr.conf files that are put into containers you need to edit the
-associated ConfigMap. On DevStack deployment this can be done using: ::
+associated ConfigMap. On DevStack deployment this can be done using:
 
-    $ kubectl -n kube-system edit cm kuryr-config
+.. code-block:: console
+
+   $ kubectl -n kube-system edit cm kuryr-config
 
 Then the editor will appear that will let you edit the config map. Make sure to
 keep correct indentation when doing changes. Also note that there are two files
@@ -54,11 +58,13 @@ kuryr-controller
 ~~~~~~~~~~~~~~~~
 
 To restart kuryr-controller and let it load new image and configuration, simply
-kill existing pod: ::
+kill existing pod:
 
-    $ kubectl -n kube-system get pods
-    <find kuryr-controller pod you want to restart>
-    $ kubectl -n kube-system delete pod <pod-name>
+.. code-block:: console
+
+   $ kubectl -n kube-system get pods
+   <find kuryr-controller pod you want to restart>
+   $ kubectl -n kube-system delete pod <pod-name>
 
 Deployment controller will make sure to restart the pod with new configuration.
 
@@ -71,8 +77,10 @@ actually idling with ``sleep infinity`` once all the files are copied into
 correct locations on Kubernetes host.
 
 You can force it to redeploy new files by killing it. DaemonSet controller
-should make sure to restart it with new image and configuration files. ::
+should make sure to restart it with new image and configuration files.
 
-    $ kubectl -n kube-system get pods
-    <find kuryr-cni pods you want to restart>
-    $ kubectl -n kube-system delete pod <pod-name1> <pod-name2> <...>
+.. code-block:: console
+
+   $ kubectl -n kube-system get pods
+   <find kuryr-cni pods you want to restart>
+   $ kubectl -n kube-system delete pod <pod-name1> <pod-name2> <...>

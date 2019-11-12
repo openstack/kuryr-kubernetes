@@ -101,14 +101,16 @@ For achieving external connectivity the L7 router is attached to a floating
 IP (allocated from 'external_svc_subnet').
 
 The following parameters should be configured in kuryr.conf file to
-enable L7 Router::
+enable L7 Router:
 
-         [ingress]
-         l7_router_uuid=<loadbalancer uuid>
-         [kubernetes]
-         enable_ingress = True
-         # make sure that 'ingresslb' appears in enabled_handlers
-         enabled_handlers= vif,lb,lbaasspec,ingresslb
+.. code-block:: ini
+
+   [ingress]
+   l7_router_uuid=<loadbalancer uuid>
+   [kubernetes]
+   enable_ingress = True
+   # make sure that 'ingresslb' appears in enabled_handlers
+   enabled_handlers= vif,lb,lbaasspec,ingresslb
 
 The L7 Router should notify the Health Manager upon any failure that could
 lead to L7 Router's malfunctionality.
@@ -190,18 +192,18 @@ This section describe in details the following scenarios:
 
     .. code-block:: yaml
 
-        apiVersion: extensions/v1beta1
-        kind: Ingress
-        metadata:
-        name: test
-        spec:
-        rules:
-        - host: www.example.com
-            http:
-            paths:
-            - backend:
-                serviceName: s1
-                servicePort: 80
+       apiVersion: extensions/v1beta1
+       kind: Ingress
+       metadata:
+       name: test
+       spec:
+       rules:
+       - host: www.example.com
+           http:
+           paths:
+           - backend:
+               serviceName: s1
+               servicePort: 80
 
     * Since its the first Ingress pointing to this Service, the Ingress
       handler will create LBaaS pool (attached to L7 router)- named

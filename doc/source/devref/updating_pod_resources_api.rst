@@ -48,19 +48,25 @@ Automated update
 ``contrib/regenerate_pod_resources_api.sh`` script could be used to re-generate
 PodResources gRPC API files. By default, this script will download ``v1alpha1``
 version of ``api.proto`` file from the Kubernetes GitHub repo and create
-required kuryr-kubernetes files from it::
+required kuryr-kubernetes files from it:
 
-  [kuryr-kubernetes]$ ./contrib/regenerate_pod_resources_api.sh
+.. code-block:: console
+
+   [kuryr-kubernetes]$ ./contrib/regenerate_pod_resources_api.sh
 
 Alternatively, path to ``api.proto`` file could be specified in
-``KUBERNETES_API_PROTO`` environment variable::
+``KUBERNETES_API_PROTO`` environment variable:
 
-  $ export KUBERNETES_API_PROTO=/path/to/api.proto
+.. code-block:: console
+
+   $ export KUBERNETES_API_PROTO=/path/to/api.proto
 
 Define ``API_VERSION`` environment variable to use specific version of
-``api.proto`` from the Kubernetes GitHub::
+``api.proto`` from the Kubernetes GitHub:
 
-  $ export API_VERSION=v1alpha1
+.. code-block:: console
+
+   $ export API_VERSION=v1alpha1
 
 
 Manual update steps
@@ -71,11 +77,13 @@ Preparing the new api.proto
 
 Copy the ``api.proto`` from K8s sources to ``kuryr_kubernetes/pod_resources/``
 and remove all the lines that contains ``gogoproto`` since this is unwanted
-dependency that is not needed for python bindings::
+dependency that is not needed for python bindings:
 
-  $ sed '/gogoproto/d' \
-        ../kubernetes/pkg/kubelet/apis/podresources/<version>/api.proto \
-        > kuryr_kubernetes/pod_resources/api.proto
+.. code-block:: console
+
+   $ sed '/gogoproto/d' \
+     ../kubernetes/pkg/kubelet/apis/podresources/<version>/api.proto \
+     > kuryr_kubernetes/pod_resources/api.proto
 
 Don't forget to update the file header that should point to the original
 ``api.proto`` and to this reference document::
@@ -88,16 +96,20 @@ Don't forget to update the file header that should point to the original
 Generating the python bindings
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* (Optional) Create the python virtual environment::
+* (Optional) Create the python virtual environment:
 
-    [kuryr-kubernetes]$ python3 -m venv venv
-    [kuryr-kubernetes]$ . ./venv/bin/activate
+.. code-block:: console
+
+   [kuryr-kubernetes]$ python3 -m venv venv
+   [kuryr-kubernetes]$ . ./venv/bin/activate
 
 * To generate python bindings we need a ``protoc`` compiler and the
   ``gRPC plugin`` for it. The most simple way to get them is to install
-  ``grpcio-tools``::
+  ``grpcio-tools``:
 
-    (venv) [kuryr-kubernetes]$ pip install grpcio-tools==1.19
+  .. code-block:: console
+
+     (venv) [kuryr-kubernetes]$ pip install grpcio-tools==1.19
 
   .. note::
 
@@ -109,13 +121,17 @@ Generating the python bindings
      you need update ``requirements.txt`` and ``lower-constraints.txt``
      accordingly.
 
-     To check version of compiler installed with ``grpcio-tools`` use::
+     To check version of compiler installed with ``grpcio-tools`` use:
 
-       (venv) [kuryr-kubernetes]$ python -m grpc_tools.protoc --version
-       libprotoc 3.6.1
+     .. code-block:: console
 
-* Following command will generate ``api_pb2_grpc.py`` and ``api_pb2.py``::
+        (venv) [kuryr-kubernetes]$ python -m grpc_tools.protoc --version
+        libprotoc 3.6.1
 
-    (venv) [kuryr-kubernetes]$ python -m grpc_tools.protoc -I./               \
-                                      --python_out=. --grpc_python_out=.      \
-                                      kuryr_kubernetes/pod_resources/api.proto
+* Following command will generate ``api_pb2_grpc.py`` and ``api_pb2.py``:
+
+  .. code-block:: console
+
+     (venv) [kuryr-kubernetes]$ python -m grpc_tools.protoc -I./               \
+         --python_out=. --grpc_python_out=.      \
+         kuryr_kubernetes/pod_resources/api.proto

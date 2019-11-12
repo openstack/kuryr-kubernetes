@@ -84,67 +84,78 @@ Router:
 Configure Kuryr to support L7 Router and OCP-Route resources
 ------------------------------------------------------------
 
-1. Configure the L7 Router by adding the LB UUID at kuryr.conf::
+1. Configure the L7 Router by adding the LB UUID at kuryr.conf:
 
-        [ingress]
-        l7_router_uuid = 99f580e6-d894-442a-bc5f-4d14b41e10d2
+   .. code-block:: ini
 
+      [ingress]
+      l7_router_uuid = 99f580e6-d894-442a-bc5f-4d14b41e10d2
 
 2. Enable the ocp-route and k8s-endpoint handlers. For that you need to add
    this handlers to the enabled handlers list at kuryr.conf (details on how to
    edit this for containerized deployment can be found at
-   :doc:`./devstack/containerized`)::
+   :doc:`./devstack/containerized`):
 
-        [kubernetes]
-        enabled_handlers=vif,lb,lbaasspec,ocproute,ingresslb
+   .. code-block:: ini
+
+      [kubernetes]
+      enabled_handlers=vif,lb,lbaasspec,ocproute,ingresslb
 
 Note: you need to restart the kuryr controller after applying the above
-detailed steps. For devstack non-containerized deployments::
+detailed steps. For devstack non-containerized deployments:
 
-  sudo systemctl restart devstack@kuryr-kubernetes.service
+.. code-block:: console
 
+   $ sudo systemctl restart devstack@kuryr-kubernetes.service
 
-And for containerized deployments::
+And for containerized deployments:
 
-  kubectl -n kube-system get pod | grep kuryr-controller
-  kubectl -n kube-system delete pod KURYR_CONTROLLER_POD_NAME
+.. code-block:: console
 
+   $ kubectl -n kube-system get pod | grep kuryr-controller
+   $ kubectl -n kube-system delete pod KURYR_CONTROLLER_POD_NAME
 
 For directly enabling both L7 router and OCP-Route handlers when deploying
-with devstack, you just need to add the following at local.conf file::
+with devstack, you just need to add the following at local.conf file:
 
-  KURYR_ENABLE_INGRESS=True
-  KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,ocproute,ingresslb
+.. code-block:: bash
+
+   KURYR_ENABLE_INGRESS=True
+   KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,ocproute,ingresslb
 
 
 Testing OCP-Route functionality
 -------------------------------
 
-1. Create a service::
+1. Create a service:
 
-    $ oc run --image=celebdor/kuryr-demo  kuryr-demo
-    $ oc scale dc/kuryr-demo  --replicas=2
-    $ oc expose dc/kuryr-demo --port 80 --target-port 8080
+   .. code-block:: console
 
+      $ oc run --image=celebdor/kuryr-demo  kuryr-demo
+      $ oc scale dc/kuryr-demo  --replicas=2
+      $ oc expose dc/kuryr-demo --port 80 --target-port 8080
 
-2. Create a Route object pointing to above service (kuryr-demo)::
+2. Create a Route object pointing to above service (kuryr-demo):
 
-    $  cat >> route.yaml << EOF
-    > apiVersion: v1
-    > kind: Route
-    > metadata:
-    >  name: testroute
-    > spec:
-    >  host: www.firstroute.com
-    >  to:
-    >    kind: Service
-    >    name: kuryr-demo
-    > EOF
-    $ oc create -f route.yaml
+   .. code-block:: console
 
+      $  cat >> route.yaml << EOF
+      > apiVersion: v1
+      > kind: Route
+      > metadata:
+      >  name: testroute
+      > spec:
+      >  host: www.firstroute.com
+      >  to:
+      >    kind: Service
+      >    name: kuryr-demo
+      > EOF
+      $ oc create -f route.yaml
 
-3. Curl L7 router's FIP using specified hostname::
+3. Curl L7 router's FIP using specified hostname:
 
-    $  curl  --header 'Host: www.firstroute.com'  172.24.4.3
-       kuryr-demo-1-gzgj2: HELLO, I AM ALIVE!!!
-    $
+   .. code-block:: console
+
+      $  curl  --header 'Host: www.firstroute.com'  172.24.4.3
+         kuryr-demo-1-gzgj2: HELLO, I AM ALIVE!!!
+      $

@@ -54,18 +54,18 @@ provide update exclusion mechanisms to prevent race conditions.
 This can be implemented by adding another *leader-elector* container to each
 of kuryr-controller pods:
 
-.. code:: yaml
+.. code-block:: yaml
 
- - image: gcr.io/google_containers/leader-elector:0.5
-   name: leader-elector
-   args:
-   - "--election=kuryr-controller"
-   - "--http=0.0.0.0:${KURYR_CONTROLLER_HA_PORT:-16401}"
-   - "--election-namespace=kube-system"
-   - "--ttl=5s"
-   ports:
-   - containerPort: ${KURYR_CONTROLLER_HA_PORT:-16401}
-     protocol: TCP
+   - image: gcr.io/google_containers/leader-elector:0.5
+     name: leader-elector
+     args:
+     - "--election=kuryr-controller"
+     - "--http=0.0.0.0:${KURYR_CONTROLLER_HA_PORT:-16401}"
+     - "--election-namespace=kube-system"
+     - "--ttl=5s"
+     ports:
+     - containerPort: ${KURYR_CONTROLLER_HA_PORT:-16401}
+       protocol: TCP
 
 This adds a new container to the pod. This container will do the
 leader-election and expose the simple JSON API on port 16401 by default. This

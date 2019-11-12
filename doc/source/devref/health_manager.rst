@@ -70,8 +70,10 @@ leak.
    disabled. In order to enable, set the following option in kuryr.conf to a
    limit value of memory in MiBs.
 
-    [cni_health_server]
-    max_memory_usage = -1
+   .. code-block:: ini
+
+      [cni_health_server]
+      max_memory_usage = -1
 
 The CNI Health Manager is added as a process to CNI daemon and communicates
 to the other two processes i.e. Watcher and Server with a shared boolean
