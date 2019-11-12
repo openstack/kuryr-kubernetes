@@ -47,9 +47,9 @@ Neutron ports ensuring requested level of isolation.
 Please see below the component view of the integrated system:
 
 .. image:: ../../images/kuryr_k8s_components.png
-    :alt: integration components
-    :align: center
-    :width: 100%
+   :alt: integration components
+   :align: center
+   :width: 100%
 
 
 Design Principles
@@ -138,9 +138,9 @@ sequentially in the order arrival. Events of different Kubernetes objects are
 handled concurrently.
 
 .. image:: ../..//images/controller_pipeline.png
-    :alt: controller pipeline
-    :align: center
-    :width: 100%
+   :alt: controller pipeline
+   :align: center
+   :width: 100%
 
 
 ResourceEventHandler
@@ -271,9 +271,9 @@ expected to be JSON).
 For reference see updated pod creation flow diagram:
 
 .. image:: ../../images/pod_creation_flow_daemon.png
-    :alt: Controller-CNI-daemon interaction
-    :align: center
-    :width: 100%
+   :alt: Controller-CNI-daemon interaction
+   :align: center
+   :width: 100%
 
 
 /addNetwork

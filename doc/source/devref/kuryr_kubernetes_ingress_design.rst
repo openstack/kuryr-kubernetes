@@ -61,9 +61,9 @@ The following scheme describes the SW modules that provides Ingress controller
 capability in Kuryr Kubernetes context:
 
 .. image:: ../../images/kuryr_k8s_ingress_sw_components.svg
-    :alt: Ingress ctrlr SW architecture
-    :align: center
-    :width: 100%
+   :alt: Ingress ctrlr SW architecture
+   :align: center
+   :width: 100%
 
 The Ingress controller functionality will be composed of the following software
 modules:
@@ -87,9 +87,9 @@ The next diagram illustrates creation of Ingress resource in kuryr-kubernetes
 ingress controller SW :
 
 .. image:: ../../images/kuryr_k8s_ingress_ctrl_flow_diagram.svg
-    :alt: Ingress creation flow diagram
-    :align: center
-    :width: 100%
+   :alt: Ingress creation flow diagram
+   :align: center
+   :width: 100%
 
 
 The L7 Router
@@ -119,9 +119,9 @@ FIP.
 The next diagram illustrates data flow from external user to L7 router:
 
 .. image:: ../../images/external_traffic_to_l7_router.svg
-    :alt: external traffic to L7 loadbalancer
-    :align: center
-    :width: 100%
+   :alt: external traffic to L7 loadbalancer
+   :align: center
+   :width: 100%
 
 
 Ingress Handler
@@ -165,9 +165,9 @@ A diagram describing both L7 router and user loadbalancer Neutron LBaaS
 entities is given below:
 
 .. image:: ../../images/l7_routing_and_user_lb_neutron_entities.svg
-    :alt: L7 routing and user LB Neutron LBaaS entities
-    :align: center
-    :width: 100%
+   :alt: L7 routing and user LB Neutron LBaaS entities
+   :align: center
+   :width: 100%
 
 - The blue components are created/released by the L7 router.
 - The green components are created/released by Ingress handler.

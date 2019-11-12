@@ -10,7 +10,8 @@ nested MACVLAN driver rather than VLAN and trunk ports.
 2. Launch a Nova VM with MACVLAN support
 
 .. todo::
-    Add a list of neutron commands, required to launch a such a VM
+
+   Add a list of neutron commands, required to launch a such a VM
 
 3. Log into the VM and set up Kubernetes along with Kuryr using devstack:
     - Since undercloud Neutron will be used by pods, Neutron services should be

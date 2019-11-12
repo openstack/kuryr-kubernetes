@@ -37,7 +37,6 @@ Kubernetes source tree.
    #. Kubernetes released new version of PodResources API and the old one is no
       longer supported. In this case, without update, we'll not be able to use
       PodResources service.
-
    #. ``protobuf`` version in ``lower-constraints.txt`` changed to lower
       version (this is highly unlikely). In this case ``protobuf`` could fail
       to use our python bindings.

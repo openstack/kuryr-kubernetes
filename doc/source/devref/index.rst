@@ -34,20 +34,20 @@ testing infrastructure.
 Design documents
 ----------------
 .. toctree::
-    :maxdepth: 3
+   :maxdepth: 3
 
-    kuryr_kubernetes_design
-    service_support
-    port_manager
-    vif_handler_drivers_design
-    health_manager
-    kuryr_kubernetes_ingress_design
-    kuryr_kubernetes_ocp_route_design
-    high_availability
-    kuryr_kubernetes_versions
-    port_crd_usage
-    network_policy
-    updating_pod_resources_api
+   kuryr_kubernetes_design
+   service_support
+   port_manager
+   vif_handler_drivers_design
+   health_manager
+   kuryr_kubernetes_ingress_design
+   kuryr_kubernetes_ocp_route_design
+   high_availability
+   kuryr_kubernetes_versions
+   port_crd_usage
+   network_policy
+   updating_pod_resources_api
 
 
 Indices and tables

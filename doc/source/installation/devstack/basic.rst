@@ -36,10 +36,10 @@ directory: ::
 
 .. note::
 
-  ``local.conf.sample`` file is configuring Neutron and Kuryr with standard
-  Open vSwitch ML2 networking. In the ``devstack`` directory there are other
-  sample configuration files that enable OpenDaylight or Drangonflow networking.
-  See other pages in this documentation section to learn more.
+   ``local.conf.sample`` file is configuring Neutron and Kuryr with standard
+   Open vSwitch ML2 networking. In the ``devstack`` directory there are other
+   sample configuration files that enable OpenDaylight or Drangonflow
+   networking. See other pages in this documentation section to learn more.
 
 Now edit ``devstack/local.conf`` to set up some initial options:
 

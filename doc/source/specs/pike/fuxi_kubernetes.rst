@@ -70,9 +70,9 @@ such as attach volumes to hosts, etc.. Both volume provisioner and FlexVolume
 driver will consume OpenStack storage services via Fuxi server.
 
 .. image:: ../../../images/fuxi_k8s_components.png
-    :alt: integration components
-    :align: center
-    :width: 100%
+   :alt: integration components
+   :align: center
+   :width: 100%
 
 
 Volume Provisioner

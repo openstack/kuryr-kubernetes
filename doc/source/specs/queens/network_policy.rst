@@ -428,9 +428,9 @@ Execution flow diagram
 See below the network policy attachment to the pod after pod creation:
 
 .. image:: ../../../images/net-policy.svg
-    :alt: Ingress creation flow diagram
-    :align: left
-    :width: 100%
+   :alt: Ingress creation flow diagram
+   :align: left
+   :width: 100%
 
 
 Possible optimization:

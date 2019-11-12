@@ -66,9 +66,9 @@ Route resources.
 The following scheme describes OCP-Route controller SW architecture:
 
 .. image:: ../../images/kuryr_k8s_ocp_route_ctrl_sw.svg
-    :alt: Ingress/OCP-Route controllers SW architecture
-    :align: center
-    :width: 100%
+   :alt: Ingress/OCP-Route controllers SW architecture
+   :align: center
+   :width: 100%
 
 Similar to Kubernetes Ingress, each OCP-Route object being translated to a L7
 policy in L7 router, and the rules on OCP-Route become L7 (URL) mapping rules

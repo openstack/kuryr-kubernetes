@@ -26,24 +26,24 @@ Installation
 This section describes how you can install and configure kuryr-kubernetes
 
 .. toctree::
-    :maxdepth: 2
+   :maxdepth: 2
 
-    manual
-    https_kubernetes
-    ports-pool
-    services
-    ipv6
-    upgrades
-    devstack/index
-    default_configuration
-    trunk_ports
-    network_namespace
-    network_policy
-    testing_connectivity
-    testing_nested_connectivity
-    containerized
-    ocp_route
-    multi_vif_with_npwg_spec
-    sriov
-    testing_udp_services
-    testing_sriov_functional
+   manual
+   https_kubernetes
+   ports-pool
+   services
+   ipv6
+   upgrades
+   devstack/index
+   default_configuration
+   trunk_ports
+   network_namespace
+   network_policy
+   testing_connectivity
+   testing_nested_connectivity
+   containerized
+   ocp_route
+   multi_vif_with_npwg_spec
+   sriov
+   testing_udp_services
+   testing_sriov_functional

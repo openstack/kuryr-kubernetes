@@ -18,12 +18,12 @@ be implemented in the following way:
 .. _LBaaS API: https://wiki.openstack.org/wiki/Neutron/LBaaS/API_2.0
 
 .. figure:: ../../images/lbaas_translation.svg
-  :width: 100%
-  :alt: Graphical depiction of the translation explained above
+   :width: 100%
+   :alt: Graphical depiction of the translation explained above
 
-  In this diagram you can see how the Kubernetes entities in the top left
-  corner are implemented in plain Kubernetes networking (top-right) and in
-  Kuryr's default configuration (bottom)
+   In this diagram you can see how the Kubernetes entities in the top left
+   corner are implemented in plain Kubernetes networking (top-right) and in
+   Kuryr's default configuration (bottom)
 
 If you are paying attention and are familiar with the `LBaaS API`_ you probably
 noticed that we have separate pools for each exposed port in a service. This is

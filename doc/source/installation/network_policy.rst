@@ -26,10 +26,11 @@ After that, enable also the security group drivers for policies::
     pod_security_groups_driver = policy
 
 .. warning::
-  The correct behavior for pods that have no network policy applied is to allow
-  all ingress and egress traffic. If you want that to be enforced, please make
-  sure to create an SG allowing all traffic and add it to
-  ``[neutron_defaults]pod_security_groups`` setting in ``kuryr.conf``::
+
+   The correct behavior for pods that have no network policy applied is to
+   allow all ingress and egress traffic. If you want that to be enforced,
+   please make sure to create an SG allowing all traffic and add it to
+   ``[neutron_defaults]pod_security_groups`` setting in ``kuryr.conf``::
 
     [neutron_defaults]
     pod_security_groups = ALLOW_ALL_SG_ID
@@ -68,10 +69,11 @@ to add the policy, pod_label and namespace handler and drivers with::
     KURYR_SUBNET_DRIVER=namespace
 
 .. note::
-  If the loadbalancer maintains the source IP (such as ovn-octavia driver),
-  there is no need to enforce sg rules at the load balancer level.
-  To disable the enforcement, you need to set the following variable:
-  KURYR_ENFORCE_SG_RULES=False
+
+   If the loadbalancer maintains the source IP (such as ovn-octavia driver),
+   there is no need to enforce sg rules at the load balancer level. To disable
+   the enforcement, you need to set the following variable:
+   KURYR_ENFORCE_SG_RULES=False
 
 
 Testing the network policy support functionality

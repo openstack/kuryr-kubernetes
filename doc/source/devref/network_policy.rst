@@ -69,11 +69,13 @@ ones, for instance service/pod handlers, have been modified to account for the
 side effects/actions of when a Network Policy is being enforced.
 
 .. note::
-    Kuryr supports a network policy that contains:
-     * Ingress and Egress rules
-     * namespace selector and pod selector, defined with match labels or match
-       expressions, mix of namespace and pod selector, ip block
-     * named port
+
+   Kuryr supports a network policy that contains:
+
+   * Ingress and Egress rules
+   * namespace selector and pod selector, defined with match labels or match
+     expressions, mix of namespace and pod selector, ip block
+   * named port
 
 
 New handlers and drivers
@@ -363,18 +365,19 @@ egress rule allowing traffic to everywhere.
       securityGroupName: sg-allow-test-via-ns-selector
 
 .. note::
-    The Service security groups need to be rechecked when a network policy
-    that affects ingress traffic is created, and also everytime
-    a pod or namespace is created.
+
+   The Service security groups need to be rechecked when a network policy
+   that affects ingress traffic is created, and also everytime
+   a pod or namespace is created.
 
 
 Create network policy flow
 ++++++++++++++++++++++++++
 
 .. image:: ../../images/create_network_policy_flow.svg
-    :alt: Network Policy creation flow
-    :align: center
-    :width: 100%
+   :alt: Network Policy creation flow
+   :align: center
+   :width: 100%
 
 
 Create pod flow
@@ -384,9 +387,9 @@ The following diagram only covers the implementation part that affects
 network policy.
 
 .. image:: ../../images/update_network_policy_on_pod_creation.svg
-    :alt: Pod creation flow
-    :align: center
-    :width: 100%
+   :alt: Pod creation flow
+   :align: center
+   :width: 100%
 
 
 Network policy rule definition

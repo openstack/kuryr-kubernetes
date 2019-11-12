@@ -46,9 +46,10 @@ that can be used to Deploy Kuryr on Kubernetes. The script is placed in
   kuryr-controller container. Defaults to no certificate.
 
 .. note::
-  Providing no or incorrect ``ca_certificate_path`` will still create the file
-  with ``Secret`` definition with empty CA certificate file. This file will
-  still be mounted in kuryr-controller ``Deployment`` definition.
+
+   Providing no or incorrect ``ca_certificate_path`` will still create the file
+   with ``Secret`` definition with empty CA certificate file. This file will
+   still be mounted in kuryr-controller ``Deployment`` definition.
 
 If no path to config files is provided, script automatically generates minimal
 configuration. However some of the options should be filled by the user. You
@@ -77,20 +78,22 @@ script. Below is the list of available variables:
 * ``$KURYR_K8S_BINDING_IFACE`` - ``[binding]link_iface`` (default: eth0)
 
 .. note::
-  kuryr-daemon will be started in the CNI container. It is using ``os-vif`` and
-  ``oslo.privsep`` to do pod wiring tasks. By default it'll call ``sudo`` to
-  raise privileges, even though container is priviledged by itself or ``sudo``
-  is missing from container OS (e.g. default CentOS 7). To prevent that make
-  sure to set following options in kuryr.conf used for kuryr-daemon::
+
+   kuryr-daemon will be started in the CNI container. It is using ``os-vif``
+   and ``oslo.privsep`` to do pod wiring tasks. By default it'll call ``sudo``
+   to raise privileges, even though container is priviledged by itself or
+   ``sudo`` is missing from container OS (e.g. default CentOS 7). To prevent
+   that make sure to set following options in kuryr.conf used for
+   kuryr-daemon::
 
     [vif_plug_ovs_privileged]
     helper_command=privsep-helper
     [vif_plug_linux_bridge_privileged]
     helper_command=privsep-helper
 
-  Those options will prevent oslo.privsep from doing that. If rely on
-  aformentioned script to generate config files, those options will be added
-  automatically.
+   Those options will prevent oslo.privsep from doing that. If rely on
+   aformentioned script to generate config files, those options will be added
+   automatically.
 
 In case of using ports pool functionality, we may want to make the
 kuryr-controller not ready until the pools are populated with the existing
@@ -114,13 +117,17 @@ This should generate 5 files in your ``<output_dir>``:
 * cni_ds.yml
 
 .. note::
-  kuryr-cni daemonset mounts /var/run, due to necessity of accessing to several sub directories
-  like openvswitch and auxiliary directory for vhostuser configuration and socket files. Also when
-  neutron-openvswitch-agent works with datapath_type = netdev configuration option, kuryr-kubernetes
-  has to move vhostuser socket to auxiliary directory, that auxiliary directory should be on the same
-  mount point, otherwise connection of this socket will be refused.
-  In case when Open vSwitch keeps vhostuser socket files not in /var/run/openvswitch, openvswitch
-  mount point in cni_ds.yaml and [vhostuser] section in config_map.yml should be changed properly.
+
+   kuryr-cni daemonset mounts /var/run, due to necessity of accessing to
+   several sub directories like openvswitch and auxiliary directory for
+   vhostuser configuration and socket files. Also when
+   neutron-openvswitch-agent works with datapath_type = netdev configuration
+   option, kuryr-kubernetes has to move vhostuser socket to auxiliary
+   directory, that auxiliary directory should be on the same mount point,
+   otherwise connection of this socket will be refused. In case when Open
+   vSwitch keeps vhostuser socket files not in /var/run/openvswitch,
+   openvswitch mount point in cni_ds.yaml and [vhostuser] section in
+   config_map.yml should be changed properly.
 
 
 Deploying Kuryr resources on Kubernetes

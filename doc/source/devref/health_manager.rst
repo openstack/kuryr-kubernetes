@@ -65,9 +65,10 @@ CNI ADD failure is reached, health of CNI components and existence of memory
 leak.
 
 .. note::
-  The CNI Health Manager will be started with the check for memory leak
-  disabled. In order to enable, set the following option in kuryr.conf to a
-  limit value of memory in MiBs.
+
+   The CNI Health Manager will be started with the check for memory leak
+   disabled. In order to enable, set the following option in kuryr.conf to a
+   limit value of memory in MiBs.
 
     [cni_health_server]
     max_memory_usage = -1

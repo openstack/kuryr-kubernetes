@@ -54,9 +54,9 @@ additional interfaces, the Multi-VIF driver can just return.
 Diagram describing VifHandler - Drivers flow is giver below:
 
 .. image:: ../../images/vif_handler_drivers_design.png
-    :alt: vif handler drivers design
-    :align: center
-    :width: 100%
+   :alt: vif handler drivers design
+   :align: center
+   :width: 100%
 
 
 Config Options

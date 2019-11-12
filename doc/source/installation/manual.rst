@@ -172,30 +172,31 @@ Kuryr CNI Daemon, should be installed on every Kubernetes node, so following
 steps need to be repeated.
 
 .. note::
-  You can tweak configuration of some timeouts to match your environment. It's
-  crucial for scalability of the whole deployment. In general the timeout to
-  serve CNI request from kubelet to Kuryr is 180 seconds. After that time
-  kubelet will retry the request. Additionally there are two configuration
-  options::
+
+   You can tweak configuration of some timeouts to match your environment. It's
+   crucial for scalability of the whole deployment. In general the timeout to
+   serve CNI request from kubelet to Kuryr is 180 seconds. After that time
+   kubelet will retry the request. Additionally there are two configuration
+   options::
 
     [cni_daemon]
     vif_annotation_timeout=60
     pyroute2_timeout=10
 
-  ``vif_annotation_timeout`` is time the Kuryr CNI Daemon will wait for Kuryr
-  Controller to create a port in Neutron and add information about it to Pod's
-  metadata. If either Neutron or Kuryr Controller doesn't keep up with high
-  number of requests, it's advised to increase this timeout. Please note that
-  increasing it over 180 seconds will not have any effect as the request will
-  time out anyway and will be retried (which is safe).
+   ``vif_annotation_timeout`` is time the Kuryr CNI Daemon will wait for Kuryr
+   Controller to create a port in Neutron and add information about it to Pod's
+   metadata. If either Neutron or Kuryr Controller doesn't keep up with high
+   number of requests, it's advised to increase this timeout. Please note that
+   increasing it over 180 seconds will not have any effect as the request will
+   time out anyway and will be retried (which is safe).
 
-  ``pyroute2_timeout`` is internal timeout of pyroute2 library, that is
-  responsible for doing modifications to Linux Kernel networking stack (e.g.
-  moving interfaces to Pod's namespaces, adding routes and ports or assigning
-  addresses to interfaces). When serving a lot of ADD/DEL CNI requests on a
-  regular basis it's advised to increase that timeout. Please note that the
-  value denotes *maximum* time to wait for kernel to complete the operations.
-  If operation succeeds earlier, request isn't delayed.
+   ``pyroute2_timeout`` is internal timeout of pyroute2 library, that is
+   responsible for doing modifications to Linux Kernel networking stack (e.g.
+   moving interfaces to Pod's namespaces, adding routes and ports or assigning
+   addresses to interfaces). When serving a lot of ADD/DEL CNI requests on a
+   regular basis it's advised to increase that timeout. Please note that the
+   value denotes *maximum* time to wait for kernel to complete the operations.
+   If operation succeeds earlier, request isn't delayed.
 
 Run kuryr-daemon::
 

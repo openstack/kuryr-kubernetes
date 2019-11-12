@@ -31,12 +31,12 @@ upgrade check`` utility **before upgrading Kuryr-Kubernetes services to T**.
 
 .. note::
 
-    In case of running Kuryr-Kubernetes containerized you can use ``kubectl
-    exec`` to run kuryr-k8s-status
+   In case of running Kuryr-Kubernetes containerized you can use ``kubectl
+   exec`` to run kuryr-k8s-status
 
-    .. code-block:: bash
+   .. code-block:: console
 
-        $ kubectl -n kube-system exec -it <controller-pod-name> kuryr-k8s-status upgrade check
+      $ kubectl -n kube-system exec -it <controller-pod-name> kuryr-k8s-status upgrade check
 
 .. code-block:: bash
 

@@ -126,15 +126,15 @@ the right pod-vif driver set.
 
 .. note::
 
-  Previously, `pools_vif_drivers` configuration option provided similar
-  functionality, but is now deprecated and not recommended.
-  It stored a mapping from pool_driver => pod_vif_driver instead, disallowing
-  the use of a single pool driver as keys for multiple pod_vif_drivers.
+   Previously, `pools_vif_drivers` configuration option provided similar
+   functionality, but is now deprecated and not recommended. It stored a
+   mapping from pool_driver => pod_vif_driver instead, disallowing the use of a
+   single pool driver as keys for multiple pod_vif_drivers.
 
-  .. code-block:: ini
+   .. code-block:: ini
 
-    [vif_pool]
-    pools_vif_drivers=nested:nested-vlan,neutron:neutron-vif
+      [vif_pool]
+      pools_vif_drivers=nested:nested-vlan,neutron:neutron-vif
 
 Note that if no annotation is set on a node, the default pod_vif_driver is
 used.
