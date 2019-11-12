@@ -366,6 +366,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         self.assertEqual([], resp)
         self.kubernetes.get.assert_called_once()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_get_resource_details')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
@@ -374,7 +375,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                 'create_security_group_rule_body')
     def test_parse_network_policy_rules_with_rules(
             self, m_create, m_get_namespaces,
-            m_get_resource_details):
+            m_get_resource_details, m_get_svcs):
         subnet_cidr = '10.10.0.0/24'
         namespace = 'myproject'
         m_get_namespaces.return_value = [get_namespace_obj()]
@@ -432,6 +433,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         self._driver.parse_network_policy_rules(policy, self._sg_id)
         m_create_sg_rule.assert_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_get_resource_details')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
@@ -439,7 +441,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'create_security_group_rule_body')
     def test_parse_network_policy_rules_with_no_ports(
-            self, m_create, m_get_namespaces, m_get_resource_details):
+            self, m_create, m_get_namespaces, m_get_resource_details,
+            m_get_svcs):
         subnet_cidr = '10.10.0.0/24'
         namespace = 'myproject'
         m_get_namespaces.return_value = [get_namespace_obj()]
