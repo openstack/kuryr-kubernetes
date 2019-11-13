@@ -16,8 +16,6 @@
 CLI interface for kuryr status commands.
 """
 
-from __future__ import print_function
-
 import copy
 import sys
 import textwrap

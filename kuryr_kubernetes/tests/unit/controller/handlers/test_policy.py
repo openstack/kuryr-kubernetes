@@ -31,24 +31,22 @@ class TestPolicyHandler(test_base.TestCase):
         self._pod_sg = mock.sentinel.pod_sg
 
         self._policy = {
-            u'apiVersion': u'networking.k8s.io/v1',
-            u'kind': u'NetworkPolicy',
-            u'metadata': {
-                u'name': self._policy_name,
-                u'resourceVersion': u'2259309',
-                u'generation': 1,
-                u'creationTimestamp': u'2018-09-18T14:09:51Z',
-                u'namespace': u'default',
-                u'annotations': {},
-                u'selfLink': self._policy_link,
-                u'uid': self._policy_uid
+            'apiVersion': 'networking.k8s.io/v1',
+            'kind': 'NetworkPolicy',
+            'metadata': {
+                'name': self._policy_name,
+                'resourceVersion': '2259309',
+                'generation': 1,
+                'creationTimestamp': '2018-09-18T14:09:51Z',
+                'namespace': 'default',
+                'annotations': {},
+                'selfLink': self._policy_link,
+                'uid': self._policy_uid
             },
-            u'spec': {
-                u'egress': [{u'ports':
-                             [{u'port': 5978, u'protocol': u'TCP'}]}],
-                u'ingress': [{u'ports':
-                              [{u'port': 6379, u'protocol': u'TCP'}]}],
-                u'policyTypes': [u'Ingress', u'Egress']
+            'spec': {
+                'egress': [{'ports': [{'port': 5978, 'protocol': 'TCP'}]}],
+                'ingress': [{'ports': [{'port': 6379, 'protocol': 'TCP'}]}],
+                'policyTypes': ['Ingress', 'Egress']
             }
         }
 

@@ -132,7 +132,7 @@ class AddHandler(CNIHandlerBase):
             if self._cni.CNI_IFNAME in self._vifs:
                 self.callback_vif = self._vifs[self._cni.CNI_IFNAME]
             else:
-                self.callback_vif = self._vifs.values()[0]
+                self.callback_vif = next(iter(self._vifs.values()))
             LOG.debug("All VIFs are active, exiting. Will return %s",
                       self.callback_vif)
             return True

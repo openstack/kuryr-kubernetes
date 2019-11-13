@@ -49,8 +49,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-copyright = u'2017, Kuryr-Kubernetes Developers'
-author = u'Kuryr-Kubernetes Developers'
+copyright = '2017, Kuryr-Kubernetes Developers'
+author = 'Kuryr-Kubernetes Developers'
 
 # Release notes are version independent.
 # The short X.Y version.
@@ -109,8 +109,8 @@ htmlhelp_basename = 'Kuryr-Kubernetesdoc'
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     ('index', 'Kuryr-KubernetesReleaseNotes.tex',
-     u'Kuryr-Kubernetes Release Notes Documentation',
-     u'Kuryr-Kubernetes Developers', 'manual'),
+     'Kuryr-Kubernetes Release Notes Documentation',
+     'Kuryr-Kubernetes Developers', 'manual'),
 ]
 
 
@@ -120,8 +120,8 @@ latex_documents = [
 # (source start file, name, description, authors, manual section).
 man_pages = [
     ('index', 'kuryr-kubernetesreleasenotes',
-     u'Kuryr-Kubernetes Release Notes Documentation',
-     [u'Kuryr-Kubernetes Developers'], 1)
+     'Kuryr-Kubernetes Release Notes Documentation',
+     ['Kuryr-Kubernetes Developers'], 1)
 ]
 
 
@@ -132,8 +132,8 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     ('index', 'Kuryr-KubernetesReleaseNotes',
-     u'Kuryr-Kubernetes Release Notes Documentation',
-     u'Kuryr-Kubernetes Developers',
+     'Kuryr-Kubernetes Release Notes Documentation',
+     'Kuryr-Kubernetes Developers',
      'Kuryr-KubernetesReleaseNotes',
      'One line description of project.',
      'Miscellaneous'),
