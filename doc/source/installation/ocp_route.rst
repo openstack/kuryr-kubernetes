@@ -84,14 +84,14 @@ Router:
 Configure Kuryr to support L7 Router and OCP-Route resources
 ------------------------------------------------------------
 
-1. Configure the L7 Router by adding the LB UUID at kuryr.conf:
+#. Configure the L7 Router by adding the LB UUID at kuryr.conf:
 
    .. code-block:: ini
 
       [ingress]
       l7_router_uuid = 99f580e6-d894-442a-bc5f-4d14b41e10d2
 
-2. Enable the ocp-route and k8s-endpoint handlers. For that you need to add
+#. Enable the ocp-route and k8s-endpoint handlers. For that you need to add
    this handlers to the enabled handlers list at kuryr.conf (details on how to
    edit this for containerized deployment can be found at
    :doc:`./devstack/containerized`):
@@ -127,7 +127,7 @@ with devstack, you just need to add the following at local.conf file:
 Testing OCP-Route functionality
 -------------------------------
 
-1. Create a service:
+#. Create a service:
 
    .. code-block:: console
 
@@ -135,7 +135,7 @@ Testing OCP-Route functionality
       $ oc scale dc/kuryr-demo  --replicas=2
       $ oc expose dc/kuryr-demo --port 80 --target-port 8080
 
-2. Create a Route object pointing to above service (kuryr-demo):
+#. Create a Route object pointing to above service (kuryr-demo):
 
    .. code-block:: console
 
@@ -152,7 +152,7 @@ Testing OCP-Route functionality
       > EOF
       $ oc create -f route.yaml
 
-3. Curl L7 router's FIP using specified hostname:
+#. Curl L7 router's FIP using specified hostname:
 
    .. code-block:: console
 

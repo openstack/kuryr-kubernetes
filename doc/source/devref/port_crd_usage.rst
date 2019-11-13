@@ -179,9 +179,9 @@ not be completely waterproof in all situations (e.g., if there is another
 entity using the same device owner name). Consequently, by storing the
 information into K8s CRD objects we have the benefit of:
 
-  * Calling K8s API instead of Neutron API
-  * Being sure the recovered ports into the pools were created by
-    kuryr-controller
+* Calling K8s API instead of Neutron API
+* Being sure the recovered ports into the pools were created by
+  kuryr-controller
 
 In addition to these advantages, moving to CRDs will easier the transition for
 kuryr-cni handling the ports pools as kuryr-cni has access to the K8S API but

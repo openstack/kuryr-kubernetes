@@ -31,72 +31,72 @@ and then cover a nested environment where containers are created inside VMs.
 Single Node Test Environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-1. Create a test system.
+#. Create a test system.
 
-It's best to use a throwaway dev system for running DevStack. Your best bet is
-to use either Fedora 25 or the latest Ubuntu LTS (16.04, Xenial).
+   It's best to use a throwaway dev system for running DevStack. Your best bet
+   is to use either Fedora 25 or the latest Ubuntu LTS (16.04, Xenial).
 
-2. Create the ``stack`` user.
+#. Create the ``stack`` user.
 
-.. code-block:: console
+   .. code-block:: console
 
-   $ git clone https://opendev.org/openstack-dev/devstack.git
-   $ sudo ./devstack/tools/create-stack-user.sh
+      $ git clone https://opendev.org/openstack-dev/devstack.git
+      $ sudo ./devstack/tools/create-stack-user.sh
 
-3. Switch to the ``stack`` user and clone DevStack and kuryr-kubernetes.
+#. Switch to the ``stack`` user and clone DevStack and kuryr-kubernetes.
 
-.. code-block:: console
+   .. code-block:: console
 
-   $ sudo su - stack
-   $ git clone https://opendev.org/openstack-dev/devstack.git
-   $ git clone https://opendev.org/openstack/kuryr-kubernetes.git
+      $ sudo su - stack
+      $ git clone https://opendev.org/openstack-dev/devstack.git
+      $ git clone https://opendev.org/openstack/kuryr-kubernetes.git
 
-4. Configure DevStack to use Dragonflow.
+#. Configure DevStack to use Dragonflow.
 
-kuryr-kubernetes comes with a sample DevStack configuration file for Dragonflow
-you can start with. You may change some values for the various variables in
-that file, like password settings or what LBaaS service provider to use.
-Feel free to edit it if you'd like, but it should work as-is.
+   kuryr-kubernetes comes with a sample DevStack configuration file for
+   Dragonflow you can start with. You may change some values for the various
+   variables in that file, like password settings or what LBaaS service
+   provider to use.  Feel free to edit it if you'd like, but it should work
+   as-is.
 
-.. code-block:: console
+   .. code-block:: console
 
-   $ cd devstack
-   $ cp ../kuryr-kubernetes/devstack/local.conf.df.sample local.conf
-
-
-Optionally, the ports pool funcionality can be enabled by following:
-`How to enable ports pool with devstack`_.
-
-5. Run DevStack.
-
-Expect it to take a while. It installs required packages, clones a bunch
-of git repos, and installs everything from these git repos.
-
-.. code-block:: console
-
-   $ ./stack.sh
+      $ cd devstack
+      $ cp ../kuryr-kubernetes/devstack/local.conf.df.sample local.conf
 
 
-Once DevStack completes successfully, you should see output that looks
-something like this:
+   Optionally, the ports pool functionality can be enabled by following:
+   `How to enable ports pool with devstack`_.
 
-.. code-block:: console
+#. Run DevStack.
 
-   This is your host IP address: 192.168.5.10
-   This is your host IPv6 address: ::1
-   Keystone is serving at http://192.168.5.10/identity/
-   The default users are: admin and demo
-   The password: pass
+   Expect it to take a while. It installs required packages, clones a bunch of
+   git repos, and installs everything from these git repos.
 
+   .. code-block:: console
 
-6. Extra configurations.
+      $ ./stack.sh
 
-Create NAT rule that will cause "external" traffic from your instances to get
-rewritten to your network controller's ip address and sent out on the network:
+   Once DevStack completes successfully, you should see output that looks
+   something like this:
 
-.. code-block:: console
+   .. code-block:: console
 
-   $ sudo iptables -t nat -I POSTROUTING 1 -s 172.24.4.1/24 -j MASQUERADE
+      This is your host IP address: 192.168.5.10
+      This is your host IPv6 address: ::1
+      Keystone is serving at http://192.168.5.10/identity/
+      The default users are: admin and demo
+      The password: pass
+
+#. Extra configurations.
+
+   Create NAT rule that will cause "external" traffic from your instances to
+   get rewritten to your network controller's ip address and sent out on the
+   network:
+
+   .. code-block:: console
+
+      $ sudo iptables -t nat -I POSTROUTING 1 -s 172.24.4.1/24 -j MASQUERADE
 
 
 Inspect default Configuration
@@ -140,20 +140,15 @@ use (step 4), in this case:
 
 The main differences with the default dragonflow local.conf sample are that:
 
-    - There is no need to enable the kuryr-kubernetes plugin as this will be
-      installed inside the VM (overcloud).
-
-    - There is no need to enable the kuryr related services as they will also
-      be installed inside the VM: kuryr-kubernetes, kubelet,
-      kubernetes-api, kubernetes-controller-manager, kubernetes-scheduler and
-      kubelet.
-
-    - Nova and Glance components need to be enabled to be able to create the VM
-      where we will install the overcloud.
-
-    - Dragonflow Trunk service plugin need to be enable to ensure Trunk ports
-      support.
-
+- There is no need to enable the kuryr-kubernetes plugin as this will be
+  installed inside the VM (overcloud).
+- There is no need to enable the kuryr related services as they will also be
+  installed inside the VM: kuryr-kubernetes, kubelet, kubernetes-api,
+  kubernetes-controller-manager, kubernetes-scheduler and kubelet.
+- Nova and Glance components need to be enabled to be able to create the VM
+  where we will install the overcloud.
+- Dragonflow Trunk service plugin need to be enable to ensure Trunk ports
+  support.
 
 Once the undercloud deployment has finished, the next steps are related to
 creating the overcloud VM by using a parent port of a Trunk so that containers
@@ -168,15 +163,14 @@ Once the VM is up and running, we can start with the overcloud configuration.
 The steps to perform are the same as without Dragonflow integration, i.e., the
 same steps as for ML2/OVS:
 
-1. Log in into the VM:
+#. Log in into the VM:
 
    .. code-block:: console
 
       $ ssh -i id_rsa_demo centos@FLOATING_IP
 
-2. Deploy devstack following steps 3 and 4 detailed at
+#. Deploy devstack following steps 3 and 4 detailed at
    `How to try out nested-pods locally (VLAN + trunk)`_.
-
 
 
 Testing Nested Network Connectivity

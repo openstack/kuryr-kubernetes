@@ -26,19 +26,19 @@ and then cover a nested environment where containers are created inside VMs.
 Single Node Test Environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-1. Create a test system.
+#. Create a test system.
 
 It's best to use a throwaway dev system for running DevStack. Your best bet is
 to use either CentOS 7 or the latest Ubuntu LTS (16.04, Xenial).
 
-2. Create the ``stack`` user.
+#. Create the ``stack`` user.
 
    .. code-block:: console
 
       $ git clone https://opendev.org/openstack-dev/devstack.git
       $ sudo ./devstack/tools/create-stack-user.sh
 
-3. Switch to the ``stack`` user and clone DevStack and kuryr-kubernetes.
+#. Switch to the ``stack`` user and clone DevStack and kuryr-kubernetes.
 
    .. code-block:: console
 
@@ -46,32 +46,32 @@ to use either CentOS 7 or the latest Ubuntu LTS (16.04, Xenial).
       $ git clone https://opendev.org/openstack-dev/devstack.git
       $ git clone https://opendev.org/openstack/kuryr-kubernetes.git
 
-4. Configure DevStack to use ODL.
+#. Configure DevStack to use ODL.
 
-kuryr-kubernetes comes with a sample DevStack configuration file for ODL you
-can start with. For example, you may want to set some values for the various
-PASSWORD variables in that file, or change the LBaaS service provider to use.
-Feel free to edit it if you'd like, but it should work as-is.
+   kuryr-kubernetes comes with a sample DevStack configuration file for ODL you
+   can start with. For example, you may want to set some values for the various
+   PASSWORD variables in that file, or change the LBaaS service provider to
+   use. Feel free to edit it if you'd like, but it should work as-is.
 
    .. code-block:: console
 
       $ cd devstack
       $ cp ../kuryr-kubernetes/devstack/local.conf.odl.sample local.conf
 
-Optionally, the ports pool funcionality can be enabled by following:
-`How to enable ports pool with devstack`_.
+   Optionally, the ports pool functionality can be enabled by following:
+   `How to enable ports pool with devstack`_.
 
-5. Run DevStack.
+#. Run DevStack.
 
-This is going to take a while. It installs a bunch of packages, clones a bunch
-of git repos, and installs everything from these git repos.
+   This is going to take a while. It installs a bunch of packages, clones a
+   bunch of git repos, and installs everything from these git repos.
 
    .. code-block:: console
 
       $ ./stack.sh
 
-Once DevStack completes successfully, you should see output that looks
-something like this:
+   Once DevStack completes successfully, you should see output that looks
+   something like this:
 
    .. code-block:: console
 
@@ -81,10 +81,10 @@ something like this:
       The default users are: admin and demo
       The password: pass
 
-6. Extra configurations.
+#. Extra configurations.
 
-Devstack does not wire up the public network by default so we must do
-some extra steps for floating IP usage as well as external connectivity:
+   Devstack does not wire up the public network by default so we must do some
+   extra steps for floating IP usage as well as external connectivity:
 
    .. code-block:: console
 
@@ -92,9 +92,9 @@ some extra steps for floating IP usage as well as external connectivity:
       $ sudo ip route add 172.24.4.0/24 dev br-ex
       $ sudo ip addr add 172.24.4.1/24 dev br-ex
 
-Then you can create forwarding and NAT rules that will cause "external"
-traffic from your instances to get rewritten to your network controller's
-ip address and sent out on the network:
+   Then you can create forwarding and NAT rules that will cause "external"
+   traffic from your instances to get rewritten to your network controller's ip
+   address and sent out on the network:
 
    .. code-block:: console
 
@@ -144,18 +144,14 @@ local.conf to use (step 4), in this case:
 
 The main differences with the default odl local.conf sample are that:
 
-    - There is no need to enable the kuryr-kubernetes plugin as this will be
-      installed inside the VM (overcloud).
-
-    - There is no need to enable the kuryr related services as they will also
-      be installed inside the VM: kuryr-kubernetes, kubelet,
-      kubernetes-api, kubernetes-controller-manager, kubernetes-scheduler and
-      kubelet.
-
-    - Nova and Glance components need to be enabled to be able to create the VM
-      where we will install the overcloud.
-
-    - ODL Trunk service plugin need to be enable to ensure Trunk ports support.
+- There is no need to enable the kuryr-kubernetes plugin as this will be
+  installed inside the VM (overcloud).
+- There is no need to enable the kuryr related services as they will also be
+  installed inside the VM: kuryr-kubernetes, kubelet, kubernetes-api,
+  kubernetes-controller-manager, kubernetes-scheduler and kubelet.
+- Nova and Glance components need to be enabled to be able to create the VM
+  where we will install the overcloud.
+- ODL Trunk service plugin need to be enable to ensure Trunk ports support.
 
 Once the undercloud deployment has finished, the next steps are related to
 create the overcloud VM by using a parent port of a Trunk so that containers
@@ -167,16 +163,16 @@ Overcloud deployment
 ++++++++++++++++++++
 
 Once the VM is up and running, we can start with the overcloud configuration.
-The steps to perform are the same as without ODL integration, i.e., the
-same steps as for ML2/OVS:
+The steps to perform are the same as without ODL integration, i.e., the same
+steps as for ML2/OVS:
 
-1. Log in into the VM:
+#. Log in into the VM:
 
    .. code-block:: console
 
       $ ssh -i id_rsa_demo centos@FLOATING_IP
 
-2. Deploy devstack following steps 3 and 4 detailed at
+#. Deploy devstack following steps 3 and 4 detailed at
    `How to try out nested-pods locally (VLAN + trunk)`_.
 
 

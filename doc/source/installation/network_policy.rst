@@ -100,7 +100,7 @@ to add the policy, pod_label and namespace handler and drivers with:
 Testing the network policy support functionality
 ------------------------------------------------
 
-1. Given a yaml file with a network policy, such as:
+#. Given a yaml file with a network policy, such as:
 
    .. code-block:: yaml
 
@@ -133,13 +133,13 @@ Testing the network policy support functionality
           - protocol: TCP
             port: 5978
 
-2. Apply the network policy:
+#. Apply the network policy:
 
    .. code-block:: console
 
       $ kubectl apply -f network_policy.yml
 
-3. Check that the resources has been created:
+#. Check that the resources has been created:
 
    .. code-block:: console
 
@@ -154,7 +154,7 @@ Testing the network policy support functionality
       $ openstack security group list | grep sg-test-network-policy
       | dabdf308-7eed-43ef-a058-af84d1954acb | sg-test-network-policy
 
-4. Check that the rules are in place for the security group:
+#. Check that the rules are in place for the security group:
 
    .. code-block:: console
 
@@ -230,7 +230,7 @@ Testing the network policy support functionality
       | tcp         | 5978:5978  | egress    |
       +-------------+------------+-----------+
 
-5. Create a pod:
+#. Create a pod:
 
    .. code-block:: console
 
@@ -241,7 +241,7 @@ Testing the network policy support functionality
       NAME                    READY     STATUS    RESTARTS   AGE       IP
       demo-5558c7865d-fdkdv   1/1       Running   0          44s       10.0.0.68
 
-6. Get the pod port and check its security group rules:
+#. Get the pod port and check its security group rules:
 
    .. code-block:: console
 
@@ -260,13 +260,13 @@ Testing the network policy support functionality
       | tcp         | 5978:5978  | egress    |
       +-------------+------------+-----------+
 
-7. Try to curl the pod on port 8080 (hint: it won't work!):
+#. Try to curl the pod on port 8080 (hint: it won't work!):
 
    .. code-block:: console
 
       $ curl 10.0.0.68:8080
 
-8. Update network policy to allow ingress 8080 port:
+#. Update network policy to allow ingress 8080 port:
 
    .. code-block:: console
 
@@ -343,19 +343,18 @@ Testing the network policy support functionality
       | tcp         | 5978:5978  | egress    |
       +-------------+------------+-----------+
 
-9. Try to curl the pod ip after patching the network policy:
+#. Try to curl the pod ip after patching the network policy:
 
    .. code-block:: console
 
       $ curl 10.0.0.68:8080
       demo-5558c7865d-fdkdv: HELLO! I AM ALIVE!!!
 
-Note the curl only works from pods (neutron ports) on a namespace that has
-the label `project: default` as stated on the policy namespaceSelector.
+   Note the curl only works from pods (neutron ports) on a namespace that has
+   the label `project: default` as stated on the policy namespaceSelector.
 
-10. We can also create a single pod, without a label and check that there is
-    no connectivity to it, as it does not match the network policy
-    podSelector:
+#. We can also create a single pod, without a label and check that there is no
+   connectivity to it, as it does not match the network policy podSelector:
 
    .. code-block:: console
 
@@ -374,9 +373,9 @@ the label `project: default` as stated on the policy namespaceSelector.
       $ curl demo-pod-IP:8080
       NO REPLY
 
-11. If we add to the pod a label that match a network policy podSelector, in
-    this case 'project: default', the network policy will get applied on the
-    pod, and the traffic will be allowed:
+#. If we add to the pod a label that match a network policy podSelector, in
+   this case 'project: default', the network policy will get applied on the
+   pod, and the traffic will be allowed:
 
    .. code-block:: console
 
@@ -384,7 +383,7 @@ the label `project: default` as stated on the policy namespaceSelector.
       $ curl demo-pod-IP:8080
       demo-pod-XXX: HELLO! I AM ALIVE!!!
 
-12. Confirm the teardown of the resources once the network policy is removed:
+#. Confirm the teardown of the resources once the network policy is removed:
 
    .. code-block:: console
 

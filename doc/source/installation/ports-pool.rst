@@ -93,13 +93,12 @@ pools just by restarting the kuryr-controller (or even before installing it).
 To do that you just need to ensure the ports are created with the right
 device_owner:
 
-    - For neutron pod driver: compute:kuryr (of the value at
-      kuryr.lib.constants.py)
-
-    - For nested-vlan pod driver: trunk:subport or compute:kuryr (or the value
-      at kuryr.lib.constants.py). But in this case they also need to be
-      attached to an active neutron trunk port, i.e., they need to be subports
-      of an existing trunk
+- For neutron pod driver: compute:kuryr (of the value at
+  kuryr.lib.constants.py)
+- For nested-vlan pod driver: trunk:subport or compute:kuryr (or the value at
+  kuryr.lib.constants.py). But in this case they also need to be attached to an
+  active neutron trunk port, i.e., they need to be subports of an existing
+  trunk
 
 
 Subports pools management tool

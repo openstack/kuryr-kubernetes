@@ -425,15 +425,17 @@ The services and pods subnets should be created.
 #. For the external services (type=LoadBalancer) case,
    two methods are supported:
 
-* Pool - external IPs are allocated from pre-defined pool
-* User - user specify the external IP address
+   + Pool - external IPs are allocated from pre-defined pool
+   + User - user specify the external IP address
 
-   In case 'Pool' method should be supported, execute the next steps
+   In case 'Pool' method should be supported, execute the next steps:
 
-   A. Create an external/provider network
-   B. Create subnet/pool range of external CIDR
-   C. Connect external subnet to kuryr-kubernetes router
-   D. Configure external network details in Kuryr.conf as follows:
+   #. Create an external/provider network
+   #. Create subnet/pool range of external CIDR
+   #. Connect external subnet to kuryr-kubernetes router
+   #. Configure external network details in Kuryr.conf as follows:
+
+      .. code-block:: ini
 
          [neutron_defaults]
          external_svc_net= <id of external network>

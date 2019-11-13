@@ -55,16 +55,16 @@ Please see below the component view of the integrated system:
 Design Principles
 -----------------
 
-1. Loose coupling between integration components.
-2. Flexible deployment options to support different project, subnet and
+#. Loose coupling between integration components.
+#. Flexible deployment options to support different project, subnet and
    security groups assignment profiles.
-3. The communication of the pod binding data between Controller and CNI driver
+#. The communication of the pod binding data between Controller and CNI driver
    should rely on existing communication channels, currently added to the pod
    metadata via annotations.
-4. CNI Driver should not depend on Neutron. It gets all required details
+#. CNI Driver should not depend on Neutron. It gets all required details
    from Kubernetes API server (currently through Kubernetes annotations),
    therefore depending on Controller to perform its translation tasks.
-5. Allow different neutron backends to bind Kubernetes pods without code
+#. Allow different neutron backends to bind Kubernetes pods without code
    modification. This means that both Controller and CNI binding mechanism
    should allow loading of the vif management and binding components,
    manifested via configuration. If some vendor requires some extra code, it
