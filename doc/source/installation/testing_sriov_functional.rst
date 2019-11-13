@@ -2,12 +2,9 @@
 Testing SRIOV functionality
 ===========================
 
-Following the steps explained on :ref:`sriov` make sure that you have
-already created and applied a ``NetworkAttachmentDefinition``
-containing a ``sriov`` driverType. Also make sure that
-`sriov-device-plugin <https://docs.google.com/document/d/1Ewe9Of84GkP0b2Q2PC0y9RVZNkN2WeVEagX9m99Nrzc>`_
-is enabled on the nodes.
-
+Following the steps explained on :ref:`sriov` make sure that you have already
+created and applied a ``NetworkAttachmentDefinition`` containing a ``sriov``
+driverType. Also make sure that `sriov-device-plugin`_ is enabled on the nodes.
 ``NetworkAttachmentDefinition`` containing a ``sriov`` driverType might
 look like:
 
@@ -244,3 +241,6 @@ match the ones on the container.  Currently the neutron-sriov-nic-agent does
 not properly detect SR-IOV ports assigned to containers. This means that direct
 ports in neutron would always remain in *DOWN* state. This doesn't affect the
 feature in any way other than cosmetically.
+
+
+.. _sriov-device-plugin: https://docs.google.com/document/d/1Ewe9Of84GkP0b2Q2PC0y9RVZNkN2WeVEagX9m99Nrzc

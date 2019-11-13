@@ -31,10 +31,8 @@ A Kubernetes Service is an abstraction which defines a logical set of Pods and
 a policy by which to access them. Service is a Kubernetes managed API object.
 For Kubernetes-native applications, Kubernetes offers an Endpoints API that is
 updated whenever the set of Pods in a Service changes. For detailed information
-please refer to `Kubernetes service
-<http://kubernetes.io/docs/user-guide/services/>`_ Kubernetes supports services
-with kube-proxy component that runs on each node, `Kube-Proxy
-<http://kubernetes.io/docs/admin/kube-proxy/>`_.
+please refer to `Kubernetes service`_. Kubernetes supports services with
+kube-proxy component that runs on each node, `Kube-Proxy`_.
 
 
 Proposed Solution
@@ -84,3 +82,7 @@ details for service mapping.
 LBaaS Driver is added to manage service translation to the LBaaSv2-like API.
 It abstracts all the details of service translation to Load Balancer.
 LBaaSv2Driver supports this interface by mapping to neutron LBaaSv2 constructs.
+
+
+.. _Kubernetes service: http://kubernetes.io/docs/user-guide/services/
+.. _Kube-Proxy: http://kubernetes.io/docs/admin/kube-proxy/

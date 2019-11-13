@@ -147,16 +147,15 @@ ResourceEventHandler
 ~~~~~~~~~~~~~~~~~~~~
 
 ResourceEventHandler is a convenience base class for the Kubernetes event
-processing.  The specific Handler associates itself with specific Kubernetes
+processing. The specific Handler associates itself with specific Kubernetes
 object kind (through setting OBJECT_KIND) and  is expected to implement at
 least one of the methods of the base class to handle at least one of the
 ADDED/MODIFIED/DELETED events of the Kubernetes object. For details, see
-`k8s-api
-<https://github.com/kubernetes/kubernetes/blob/release-1.4/docs/devel/api-conventions.md#types-kinds>`_.
-Since both ADDED and MODIFIED event types trigger very similar sequence of
-actions, Handler has 'on_present' method that is invoked for both event types.
-The specific Handler implementation should strive to put all the common ADDED
-and MODIFIED event handling logic in this method to avoid code duplication.
+`k8s-api`_.  Since both ADDED and MODIFIED event types trigger very similar
+sequence of actions, Handler has 'on_present' method that is invoked for both
+event types. The specific Handler implementation should strive to put all the
+common ADDED and MODIFIED event handling logic in this method to avoid code
+duplication.
 
 
 Pluggable Handlers
@@ -306,6 +305,9 @@ APIs to perform its tasks and wait on socket for result.
 Kubernetes Documentation
 ------------------------
 
-The `Kubernetes reference documentation
-<https://kubernetes.io/docs/reference/>`_ is a great source for finding more
+The `Kubernetes reference documentation`_ is a great source for finding more
 details about Kubernetes API, CLIs, and tools.
+
+
+.. _k8s-api: https://github.com/kubernetes/kubernetes/blob/release-1.4/docs/devel/api-conventions.md#types-kinds>
+.. _Kubernetes reference documentation: https://kubernetes.io/docs/reference/

@@ -58,11 +58,8 @@ Feel free to edit it if you'd like, but it should work as-is.
       $ cd devstack
       $ cp ../kuryr-kubernetes/devstack/local.conf.odl.sample local.conf
 
-
 Optionally, the ports pool funcionality can be enabled by following:
 `How to enable ports pool with devstack`_.
-
-.. _How to enable ports pool with devstack:  https://docs.openstack.org/kuryr-kubernetes/latest/installation/devstack/ports-pool.html
 
 5. Run DevStack.
 
@@ -113,16 +110,12 @@ In order to check the default configuration, in term of networks, subnets,
 security groups and loadbalancers created upon a successful devstack stacking,
 you can check the `Inspect default Configuration`_.
 
-.. _Inspect default Configuration: https://docs.openstack.org/kuryr-kubernetes/latest/installation/default_configuration.html
-
 
 Testing Network Connectivity
 ++++++++++++++++++++++++++++
 
 Once the environment is ready, we can test that network connectivity works
 among pods. To do that check out `Testing Network Connectivity`_.
-
-.. _Testing Network Connectivity: https://docs.openstack.org/kuryr-kubernetes/latest/installation/testing_connectivity.html
 
 
 Nested Containers Test Environment (VLAN)
@@ -164,13 +157,10 @@ The main differences with the default odl local.conf sample are that:
 
     - ODL Trunk service plugin need to be enable to ensure Trunk ports support.
 
-
 Once the undercloud deployment has finished, the next steps are related to
 create the overcloud VM by using a parent port of a Trunk so that containers
 can be created inside with their own networks. To do that we follow the next
 steps detailed at `Boot VM with a Trunk Port`_.
-
-.. _Boot VM with a Trunk Port: https://docs.openstack.org/kuryr-kubernetes/latest/installation/trunk_ports.html
 
 
 Overcloud deployment
@@ -189,8 +179,6 @@ same steps as for ML2/OVS:
 2. Deploy devstack following steps 3 and 4 detailed at
    `How to try out nested-pods locally (VLAN + trunk)`_.
 
-.. _How to try out nested-pods locally (VLAN + trunk): https://docs.openstack.org/kuryr-kubernetes/latest/installation/devstack/nested-vlan.html
-
 
 Testing Nested Network Connectivity
 +++++++++++++++++++++++++++++++++++
@@ -200,4 +188,10 @@ overcloud VM, scale it to any number of pods and expose the service to check if
 the deployment was successful. To do that check out
 `Testing Nested Network Connectivity`_.
 
+
+.. _How to enable ports pool with devstack:  https://docs.openstack.org/kuryr-kubernetes/latest/installation/devstack/ports-pool.html
+.. _Inspect default Configuration: https://docs.openstack.org/kuryr-kubernetes/latest/installation/default_configuration.html
+.. _Testing Network Connectivity: https://docs.openstack.org/kuryr-kubernetes/latest/installation/testing_connectivity.html
+.. _Boot VM with a Trunk Port: https://docs.openstack.org/kuryr-kubernetes/latest/installation/trunk_ports.html
+.. _How to try out nested-pods locally (VLAN + trunk): https://docs.openstack.org/kuryr-kubernetes/latest/installation/devstack/nested-vlan.html
 .. _Testing Nested Network Connectivity: https://docs.openstack.org/kuryr-kubernetes/latest/installation/testing_nested_connectivity.html

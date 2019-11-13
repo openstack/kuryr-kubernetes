@@ -4,7 +4,7 @@
 How to configure SR-IOV ports
 =============================
 
-Current approach of SR-IOV relies on sriov-device-plugin [2]_. While creating
+Current approach of SR-IOV relies on `sriov-device-plugin`_. While creating
 pods with SR-IOV, sriov-device-plugin should be turned on on all nodes. To use
 a SR-IOV port on a baremetal installation the 3 following steps should be done:
 
@@ -27,13 +27,13 @@ Subnet id <UUID of vlan-sriov-net> will be used later in NetworkAttachmentDefini
    default_physnet_subnets = physnet1:<UUID of vlan-sriov-net>
 
 This mapping is required for ability to find appropriate PF/VF functions at
-binding phase.  physnet1 is just an identifier for subnet <UUID of
-vlan-sriov-net>.  Such kind of transition is necessary to support many-to-many
+binding phase. physnet1 is just an identifier for subnet <UUID of
+vlan-sriov-net>. Such kind of transition is necessary to support many-to-many
 relation.
 
 3. Prepare NetworkAttachmentDefinition object.
 Apply NetworkAttachmentDefinition with "sriov" driverType inside,
-as described in [1]_.
+as described in `NPWG spec`_.
 
 .. code-block:: yaml
 
@@ -79,15 +79,16 @@ They may have different subnetId.
 The resource name *intel.com/sriov*, which used in the above example is the
 default resource name. This name was used in SR-IOV network device plugin in
 version 1 (release-v1 branch). But since latest version the device plugin can
-use any arbitrary name of the resources [3]_. This name should match
-"^\[a-zA-Z0-9\_\]+$" regular expression. To be able to work with arbitrary
-resource names physnet_resource_mappings and device_plugin_resource_prefix in
-[sriov] section of kuryr-controller configuration file should be filled. The
-default value for device_plugin_resource_prefix is intel.com, the same as in
-SR-IOV network device plugin, in case of SR-IOV network device plugin was
-started with value of -resource-prefix option different from intel.com, than
-value should be set to device_plugin_resource_prefix, otherwise
-kuryr-kubernetes will not work with resource.
+use any arbitrary name of the resources (see `SRIOV network device plugin for
+Kubernetes`_). This name should match "^\[a-zA-Z0-9\_\]+$" regular expression.
+To be able to work with arbitrary resource names physnet_resource_mappings and
+device_plugin_resource_prefix in [sriov] section of kuryr-controller
+configuration file should be filled.  The default value for
+device_plugin_resource_prefix is intel.com, the same as in SR-IOV network
+device plugin, in case of SR-IOV network device plugin was started with value
+of -resource-prefix option different from intel.com, than value should be set
+to device_plugin_resource_prefix, otherwise kuryr-kubernetes will not work with
+resource.
 
 Assume we have following SR-IOV network device plugin (defined by -config-file
 option)
@@ -169,9 +170,6 @@ ports with binding:profile information. Due to this it is necessary to make
 actions with privileged user with admin rights.
 
 
-Reference
----------
-
-.. [1] https://docs.openstack.org/kuryr-kubernetes/latest/specs/rocky/npwg_spec_support.html
-.. [2] https://docs.google.com/document/d/1D3dJeUUmta3sMzqw8JtWFoG2rvcJiWitVro9bsfUTEw
-.. [3] https://github.com/intel/sriov-network-device-plugin
+.. _NPWG spec: https://docs.openstack.org/kuryr-kubernetes/latest/specs/rocky/npwg_spec_support.html
+.. _sriov-device-plugin: https://docs.google.com/document/d/1D3dJeUUmta3sMzqw8JtWFoG2rvcJiWitVro9bsfUTEw
+.. _SRIOV network device plugin for Kubernetes: https://github.com/intel/sriov-network-device-plugin

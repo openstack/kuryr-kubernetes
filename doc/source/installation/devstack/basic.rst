@@ -156,11 +156,14 @@ You can verify that this IP is really assigned to Neutron port:
 
 If those steps were successful, then it looks like your DevStack with
 kuryr-kubernetes is working correctly. In case of errors, copy last ~50 lines
-of the logs, paste them into `paste.openstack.org
-<http://paste.openstack.org>`_ and ask other developers for help on `Kuryr's
-IRC channel <chat.freenode.net:6667/openstack-kuryr>`_. More info on how to use
-DevStack can be found in `DevStack Documentation
-<https://docs.openstack.org/devstack/latest/>`_, especially in section `Using
-Systemd in DevStack
-<https://docs.openstack.org/devstack/latest/systemd.html>`_, which explains how
-to use ``systemctl`` to control services and ``journalctl`` to read its logs.
+of the logs, paste them into `paste.openstack.org`_ and ask other developers
+for help on `Kuryr's IRC channel`_. More info on how to use DevStack can be
+found in `DevStack Documentation`_, especially in section `Using Systemd in
+DevStack`_, which explains how to use ``systemctl`` to control services and
+``journalctl`` to read its logs.
+
+
+.. _paste.openstack.org: http://paste.openstack.org
+.. _Kuryr's IRC channel: chat.freenode.net:6667/openstack-kuryr
+.. _DevStack Documentation: https://docs.openstack.org/devstack/latest/
+.. _Using Systemd in DevStack: https://docs.openstack.org/devstack/latest/systemd.html

@@ -44,12 +44,11 @@ Leader election
 ~~~~~~~~~~~~~~~
 
 The idea here is to use leader election mechanism based on Kubernetes
-endpoints. The idea is neatly `explained on Kubernetes blog
-<https://kubernetes.io/blog/2016/01/simple-leader-election-with-kubernetes/>`_.
-Election is based on Endpoint resources, that hold annotation about current
-leader and its leadership lease time. If leader dies, other instances of the
-service are free to take over the record. Kubernetes API mechanisms will
-provide update exclusion mechanisms to prevent race conditions.
+endpoints. The idea is neatly `explained on Kubernetes blog`_. Election is
+based on Endpoint resources, that hold annotation about current leader and its
+leadership lease time. If leader dies, other instances of the service are free
+to take over the record. Kubernetes API mechanisms will provide update
+exclusion mechanisms to prevent race conditions.
 
 This can be implemented by adding another *leader-elector* container to each
 of kuryr-controller pods:
@@ -139,3 +138,6 @@ consistent hash ring to decide which instance will process which resource.
 Potentially this can be extended with support for non-containerized deployments
 by using Tooz and some other tool providing leader-election - like Consul or
 Zookeeper.
+
+
+.. _explained on Kubernetes blog: https://kubernetes.io/blog/2016/01/simple-leader-election-with-kubernetes/

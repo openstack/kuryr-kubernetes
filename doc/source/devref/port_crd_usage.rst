@@ -20,8 +20,7 @@ Purpose
 -------
 
 The purpose of this document is to present Kuryr Kubernetes Port and PortPool
-CRD [1]_ usage, capturing the design decisions currently taken by the Kuryr
-team.
+`CRD`_ usage, capturing the design decisions currently taken by the Kuryr team.
 
 The main purpose of the Port CRD is to keep Neutron resources tracking as part
 of K8s data model. The main idea behind is to try to minimize the amount of
@@ -199,7 +198,4 @@ namespace subnet driver and it could be similarly applied to other SDN
 resources, such as LoadBalancers.
 
 
-References
-==========
-
-.. [1] https://kubernetes.io/docs/concepts/api-extension/custom-resources/#custom-resources
+.. _CRD: https://kubernetes.io/docs/concepts/api-extension/custom-resources/#custom-resources

@@ -26,13 +26,13 @@ is supported by the kuryr integration.
 Overview
 --------
 
-A Kubernetes Ingress [1]_ is used to give services externally-reachable URLs,
+A `Kubernetes Ingress`_ is used to give services externally-reachable URLs,
 load balance traffic, terminate SSL, offer name based virtual
 hosting, and more.
 Each Ingress consists of a name, service identifier, and (optionally)
 security configuration.
 
-A Kubernetes Ingress Controller [2]_ is an entity that watches the apiserver's
+A `Kubernetes Ingress Controller`_ is an entity that watches the apiserver's
 /ingress resources for updates. Its job is to satisfy requests for Ingresses.
 
 
@@ -50,7 +50,7 @@ A L7 router is a logical entity responsible for L7 routing based on L7 rules
 database, when an HTTP packet hits the L7 router, the L7 router uses its
 rules database to determine the endpoint destination (based on the fields
 content in HTTP header, e.g: HOST_NAME).
-Kuryr will use neutron LBaaS L7 policy capability [3]_ to perform
+Kuryr will use neutron LBaaS `L7 policy capability`_ to perform
 the L7 routing task.
 
 
@@ -262,9 +262,6 @@ This section describe in details the following scenarios:
       handler will set its internal state to 'no Ingress is pointing' state.
 
 
-References
-==========
-
-.. [1] https://kubernetes.io/docs/concepts/services-networking/ingress/#what-is-ingress
-.. [2] https://github.com/kubernetes/ingress-nginx/blob/master/README.md
-.. [3] https://wiki.openstack.org/wiki/Neutron/LBaaS/l7
+.. _Kubernetes Ingress: https://kubernetes.io/docs/concepts/services-networking/ingress/#what-is-ingress
+.. _Kubernetes Ingress Controller: https://github.com/kubernetes/ingress-nginx/blob/master/README.md
+.. _L7 policy capability: https://wiki.openstack.org/wiki/Neutron/LBaaS/l7

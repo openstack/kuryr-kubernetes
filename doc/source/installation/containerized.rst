@@ -27,10 +27,9 @@ If you want to run kuryr CNI without the daemon, build the image with:
    $ docker build -t kuryr/cni -f cni.Dockerfile --build-arg CNI_DAEMON=False .
 
 Alternatively, you can remove ``imagePullPolicy: Never`` from kuryr-controller
-Deployment and kuryr-cni DaemonSet definitions to use pre-built `controller
-<https://hub.docker.com/r/kuryr/controller/>`_ and `cni
-<https://hub.docker.com/r/kuryr/cni/>`_ images from the Docker Hub. Those
-definitions will be generated in next step.
+Deployment and kuryr-cni DaemonSet definitions to use pre-built `controller`_
+and `cni`_ images from the Docker Hub. Those definitions will be generated in
+next step.
 
 
 Generating Kuryr resource definitions for Kubernetes
@@ -169,3 +168,7 @@ To see kuryr-controller logs:
 
 NOTE: kuryr-cni has no logs and to debug failures you need to check out kubelet
 logs.
+
+
+.. _controller: https://hub.docker.com/r/kuryr/controller/
+.. _cni: https://hub.docker.com/r/kuryr/cni/

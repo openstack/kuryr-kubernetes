@@ -13,10 +13,6 @@ be implemented in the following way:
   LoadBalancer's VIP.
 * **Endpoints**: The Endpoint object is translated to a LoadBalancer's VIP.
 
-
-.. _services: https://kubernetes.io/docs/concepts/services-networking/service/
-.. _LBaaS API: https://wiki.openstack.org/wiki/Neutron/LBaaS/API_2.0
-
 .. figure:: ../../images/lbaas_translation.svg
    :width: 100%
    :alt: Graphical depiction of the translation explained above
@@ -82,8 +78,6 @@ adds over the Neutron HAProxy agent are:
 
 You can find a good explanation about the involved steps to install Octavia in
 the `Octavia installation docs`_.
-
-.. _Octavia installation docs: https://docs.openstack.org/octavia/latest/contributor/guides/dev-quick-start.html
 
 Simplifying a lot, Octavia works by instantiating a compute resource, i.e. a
 Nova VM, and running HAProxy inside. These single load balancer Nova VMs are
@@ -789,3 +783,8 @@ Troubleshooting
   If you want your current pods to get this change applied, the most
   comfortable way to do that is to delete them and let the Kubernetes
   Deployment create them automatically for you.
+
+
+.. _services: https://kubernetes.io/docs/concepts/services-networking/service/
+.. _LBaaS API: https://wiki.openstack.org/wiki/Neutron/LBaaS/API_2.0
+.. _Octavia installation docs: https://docs.openstack.org/octavia/latest/contributor/guides/dev-quick-start.html

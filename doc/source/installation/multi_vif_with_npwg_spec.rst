@@ -2,8 +2,8 @@
 Configure Pod with Additional Interfaces
 ========================================
 
-To create pods with additional Interfaces follow the Kubernetes Network Custom
-Resource Definition De-facto Standard Version 1 [#]_, the next steps can be
+To create pods with additional Interfaces follow the `Kubernetes Network Custom
+Resource Definition De-facto Standard Version 1`_, the next steps can be
 followed:
 
 1. Create Neutron net/subnets which you want the additional interfaces attach
@@ -91,7 +91,4 @@ defined in step 1.
 You may put a list of network separated with comma to attach Pods to more networks.
 
 
-Reference
----------
-
-.. [#] https://docs.google.com/document/d/1Ny03h6IDVy_e_vmElOqR7UdTPAG_RNydhVE1Kx54kFQ/edit?usp=sharing
+.. _Kubernetes Network Custom Resource Definition De-facto Standard Version 1: https://docs.google.com/document/d/1Ny03h6IDVy_e_vmElOqR7UdTPAG_RNydhVE1Kx54kFQ/edit?usp=sharing

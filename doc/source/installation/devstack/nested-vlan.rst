@@ -16,11 +16,8 @@ for the VM:
       [DEFAULT]
       service_plugins = neutron.services.l3_router.l3_router_plugin.L3RouterPlugin,neutron.services.trunk.plugin.TrunkPlugin
 
-2. Launch a VM with `Neutron trunk port.
-   <https://wiki.openstack.org/wiki/Neutron/TrunkPort>`_. The next steps can be
-   followed: `Boot VM with a Trunk Port`_.
-
-.. _Boot VM with a Trunk Port: https://docs.openstack.org/kuryr-kubernetes/latest/installation/trunk_ports.html
+2. Launch a VM with `Neutron trunk port`_. The next steps can be followed:
+   `Boot VM with a Trunk Port`_.
 
 3. Inside VM, install and setup Kubernetes along with Kuryr using devstack:
     - Since undercloud Neutron will be used by pods, Neutron services should be
@@ -51,8 +48,6 @@ for the VM:
 
         - Optionally, the ports pool funcionality can be enabled by following:
           `How to enable ports pool with devstack`_.
-
-        .. _How to enable ports pool with devstack: https://docs.openstack.org/kuryr-kubernetes/latest/installation/devstack/ports-pool.html
 
         - [OPTIONAL] If you want to enable the subport pools driver and the
           VIF Pool Manager you need to include:
@@ -92,3 +87,8 @@ for the VM:
          $ sudo systemctl restart devstack@kuryr-daemon.service
 
 Now launch pods using kubectl, Undercloud Neutron will serve the networking.
+
+
+.. _Neutron trunk port: https://wiki.openstack.org/wiki/Neutron/TrunkPort
+.. _Boot VM with a Trunk Port: https://docs.openstack.org/kuryr-kubernetes/latest/installation/trunk_ports.html
+.. _How to enable ports pool with devstack: https://docs.openstack.org/kuryr-kubernetes/latest/installation/devstack/ports-pool.html

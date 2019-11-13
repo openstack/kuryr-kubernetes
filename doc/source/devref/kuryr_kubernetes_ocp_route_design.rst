@@ -26,7 +26,7 @@ by kuryr-kubernetes.
 Overview
 --------
 
-OpenShift Origin [1]_ is an open source cloud application development and
+`OpenShift Origin`_ is an open source cloud application development and
 hosting platform that automates the provisioning, management and scaling
 of applications.
 
@@ -35,11 +35,11 @@ application development and multi-tenancy deployment. OpenShift adds developer
 and operations-centric tools on top of Kubernetes to enable rapid application
 development, easy deployment and scaling, and long-term lifecycle maintenance.
 
-An OpenShift Route [2]_ exposes a Service at a host name, like www.example.com,
+The `OpenShift Route`_ exposes a Service at a host name, like www.example.com,
 so that external clients can reach it by name.
 The Route is an Openshift resource that defines the rules you want to apply to
 incoming connections.
-The Openshift Routes concept introduced before Ingress [3]_ was supported by
+The Openshift Routes concept was `introduced before Ingress`_ was supported by
 kubernetes, the Openshift Route matches the functionality of kubernetes Ingress.
 
 
@@ -162,9 +162,6 @@ B. Create Service/Endpoints, create OCP-Route, delete OCP-Route.
       handler will set its internal state to 'no Ingress is pointing' state.
 
 
-References
-==========
-
-.. [1] https://www.openshift.org/
-.. [2] https://docs.openshift.com/enterprise/3.0/architecture/core_concepts/routes.html
-.. [3] https://kubernetes.io/docs/concepts/Services-networking/ingress/
+.. _OpenShift Origin: https://www.openshift.org/
+.. _OpenShift Route: https://docs.openshift.com/enterprise/3.0/architecture/core_concepts/routes.html
+.. _introduced before Ingress: https://kubernetes.io/docs/concepts/Services-networking/ingress/
