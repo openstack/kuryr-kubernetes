@@ -114,7 +114,7 @@ that is expected to be used for SR-IOV ports:
 
    You should see default and eth1 interfaces. eth1 is the SR-IOV VF interface.
 
-   .. code-block::
+   .. code-block:: console
 
       1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN qlen 1000
           link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00

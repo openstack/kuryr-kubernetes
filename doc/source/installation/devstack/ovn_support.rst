@@ -74,7 +74,7 @@ Single Node Test Environment
    Once DevStack completes successfully, you should see output that looks
    something like this:
 
-   .. code-block::
+   .. code-block:: console
 
       This is your host IP address: 192.168.5.10
       This is your host IPv6 address: ::1

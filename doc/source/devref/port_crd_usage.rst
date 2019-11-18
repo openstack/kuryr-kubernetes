@@ -59,7 +59,7 @@ about the Neutron Ports will be stored (or any other SDN).
 Currently, the pods are annotated with the vif information of the port
 assigned to it:
 
-.. code-block::
+.. code-block:: text
 
    "kind": "Pod",
    "metadata": {
