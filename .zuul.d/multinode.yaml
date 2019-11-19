@@ -17,7 +17,7 @@
     parent: kuryr-kubernetes-tempest
     description: |
         Kuryr-Kubernetes tempest multinode job
-    nodeset: openstack-two-node
+    nodeset: openstack-two-node-bionic
     host-vars:
       controller:
         devstack_plugins:
@@ -43,6 +43,7 @@
         devstack_localrc:
           KURYR_FORCE_IMAGE_BUILD: true
           KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
+          USE_PYTHON3: true
     vars:
       devstack_localrc:
           KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
