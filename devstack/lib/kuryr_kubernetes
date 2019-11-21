@@ -59,8 +59,8 @@ function ovs_bind_for_kubelet() {
 
     port_mac=$(openstack port show "$port_id" -c mac_address -f value)
     fixed_ips=$(openstack port show "$port_id" -f value -c fixed_ips)
-    port_ips=($(python -c "print ${fixed_ips}[0]['ip_address']"))
-    port_subnets=($(python -c "print ${fixed_ips}[0]['subnet_id']"))
+    port_ips=($(python3 -c "print(${fixed_ips}[0]['ip_address'])"))
+    port_subnets=($(python3 -c "print(${fixed_ips}[0]['subnet_id'])"))
 
     sudo ovs-vsctl -- --may-exist add-port $OVS_BRIDGE "$ifname" \
         -- set Interface "$ifname" type=internal \
@@ -79,7 +79,7 @@ function ovs_bind_for_kubelet() {
     if [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
         subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}}
         cidrs=$(openstack subnet pool show "${subnetpool_id}" -c prefixes -f value)
-        subnetpool_cidr=$(python -c "print ${cidrs}[0]")
+        subnetpool_cidr=$(python3 -c "print(${cidrs}[0])")
         sudo ip route add "$subnetpool_cidr" via "$pod_subnet_gw" dev "$ifname"
     else
         sudo ip route add "$service_subnet_cidr" via "$pod_subnet_gw" dev "$ifname"
@@ -160,7 +160,7 @@ function stop_container {
 #       cidr - The cidr to get the range for
 #       gateway_position - Whether to reserve at 'beginning' or at 'end'
 function _allocation_range {
-  python - <<EOF "$@"
+  python3 - <<EOF "$@"
 import sys
 
 from netaddr import IPNetwork
@@ -1020,7 +1020,7 @@ function create_load_balancer_member {
 #   Returns: tab separated CIDRs of the two halves.
 function split_subnet {
     # precondition: The passed cidr must be of a prefix <= 30
-    python - <<EOF "$@"
+    python3 - <<EOF "$@"
 import sys
 
 from netaddr import IPNetwork
@@ -1064,7 +1064,7 @@ function openshift_node_set_dns_config {
 nameserver $upstream_dns_ip
 EOF
 
-    python - <<EOF "$@"
+    python3 - <<EOF "$@"
 import os
 import sys
 import tempfile
@@ -1222,7 +1222,7 @@ function run_openshift_registry {
         --tls-key=${OPENSHIFT_DATA_DIR}/master/registry.key \
         -o yaml > $registry_yaml
 
-    python - <<EOF "$registry_yaml" "$registry_ip"
+    python3 - <<EOF "$registry_yaml" "$registry_ip"
 import copy
 import os
 import sys
@@ -1315,7 +1315,7 @@ function _nth_cidr_ip {
 
     cidr="$1"
     position="$2"
-    python - <<EOF "$cidr" "$position"
+    python3 - <<EOF "$cidr" "$position"
 import sys
 from netaddr import IPAddress, IPNetwork
 

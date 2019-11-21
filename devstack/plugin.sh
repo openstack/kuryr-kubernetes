@@ -188,7 +188,7 @@ function install_kuryr_cni {
 }
 
 function _cidr_range {
-  python - <<EOF "$1"
+  python3 - <<EOF "$1"
 import sys
 from netaddr import IPAddress, IPNetwork
 n = IPNetwork(sys.argv[1])
@@ -232,7 +232,7 @@ function create_k8s_api_service {
                              -c cidr -f value)
 
     fixed_ips=$(openstack port show kubelet-"${HOSTNAME}" -c fixed_ips -f value)
-    kubelet_iface_ip=$(python -c "print ${fixed_ips}[0]['ip_address']")
+    kubelet_iface_ip=$(python3 -c "print(${fixed_ips}[0]['ip_address'])")
 
     k8s_api_clusterip=$(_cidr_range "$service_cidr" | cut -f1)
 
@@ -893,7 +893,7 @@ EOF
 
 
 function run_kuryr_kubernetes {
-    local python_bin=$(which python)
+    local python_bin=$(which python3)
 
     if is_service_enabled openshift-master; then
         wait_for "OpenShift API Server" "${KURYR_K8S_API_ROOT}" \
