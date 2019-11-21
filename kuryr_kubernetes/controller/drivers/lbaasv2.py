@@ -761,7 +761,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         for remaining in self._provisioning_timer(timeout, interval):
             try:
                 lbaas.get_load_balancer(loadbalancer.id)
-            except o_exc.ResourceNotFound:
+            except o_exc.NotFoundException:
                 return
 
     def _provisioning_timer(self, timeout,
@@ -808,7 +808,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         lbaas = clients.get_loadbalancer_client()
         try:
             response = lbaas.get_load_balancer(lb_uuid)
-        except o_exc.ResourceNotFound:
+        except o_exc.NotFoundException:
             LOG.debug("Couldn't find loadbalancer with uuid=%s", lb_uuid)
             return None
 
