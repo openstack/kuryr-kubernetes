@@ -68,7 +68,7 @@ class TestK8sClient(test_base.TestCase):
         m_exist.return_value = True
         self.assertRaises(RuntimeError, k8s_client.K8sClient, self.base_url)
 
-    @mock.patch('requests.get')
+    @mock.patch('requests.sessions.Session.get')
     @mock.patch('kuryr_kubernetes.config.CONF')
     def test_bearer_token(self, m_cfg, m_get):
         token_content = (
@@ -104,7 +104,7 @@ class TestK8sClient(test_base.TestCase):
         finally:
             os.unlink(m_cfg.kubernetes.token_file)
 
-    @mock.patch('requests.get')
+    @mock.patch('requests.sessions.Session.get')
     def test_get(self, m_get):
         path = '/test'
         ret = {'test': 'value'}
@@ -119,7 +119,7 @@ class TestK8sClient(test_base.TestCase):
             self.base_url + path,
             cert=(None, None), headers={}, verify=False)
 
-    @mock.patch('requests.get')
+    @mock.patch('requests.sessions.Session.get')
     def test_get_exception(self, m_get):
         path = '/test'
 
@@ -130,7 +130,7 @@ class TestK8sClient(test_base.TestCase):
         self.assertRaises(exc.K8sClientException, self.client.get, path)
 
     @mock.patch('itertools.count')
-    @mock.patch('requests.patch')
+    @mock.patch('requests.sessions.Session.patch')
     def test_annotate(self, m_patch, m_count):
         m_count.return_value = list(range(1, 5))
         path = '/test'
@@ -152,7 +152,7 @@ class TestK8sClient(test_base.TestCase):
                                         cert=(None, None), verify=False)
 
     @mock.patch('itertools.count')
-    @mock.patch('requests.patch')
+    @mock.patch('requests.sessions.Session.patch')
     def test_annotate_exception(self, m_patch, m_count):
         m_count.return_value = list(range(1, 5))
         path = '/test'
@@ -165,7 +165,7 @@ class TestK8sClient(test_base.TestCase):
                           path, {})
 
     @mock.patch('itertools.count')
-    @mock.patch('requests.patch')
+    @mock.patch('requests.sessions.Session.patch')
     def test_annotate_diff_resource_vers_no_conflict(self, m_patch, m_count):
         m_count.return_value = list(range(1, 5))
         path = '/test'
@@ -200,7 +200,7 @@ class TestK8sClient(test_base.TestCase):
                       cert=(None, None), verify=False)])
 
     @mock.patch('itertools.count')
-    @mock.patch('requests.patch')
+    @mock.patch('requests.sessions.Session.patch')
     def test_annotate_diff_resource_vers_no_annotation(self, m_patch, m_count):
         m_count.return_value = list(range(1, 5))
         path = '/test'
@@ -244,7 +244,7 @@ class TestK8sClient(test_base.TestCase):
                       cert=(None, None), verify=False)])
 
     @mock.patch('itertools.count')
-    @mock.patch('requests.patch')
+    @mock.patch('requests.sessions.Session.patch')
     def test_annotate_diff_resource_vers_conflict(self, m_patch, m_count):
         m_count.return_value = list(range(1, 5))
         path = '/test'
@@ -288,7 +288,7 @@ class TestK8sClient(test_base.TestCase):
                       cert=(None, None), verify=False)])
 
     @mock.patch('itertools.count')
-    @mock.patch('requests.patch')
+    @mock.patch('requests.sessions.Session.patch')
     def test_annotate_resource_not_found(self, m_patch, m_count):
         m_count.return_value = list(range(1, 5))
         path = '/test'
@@ -314,7 +314,7 @@ class TestK8sClient(test_base.TestCase):
                                         headers=mock.ANY,
                                         cert=(None, None), verify=False)
 
-    @mock.patch('requests.get')
+    @mock.patch('requests.sessions.Session.get')
     def test_watch(self, m_get):
         path = '/test'
         data = [{'obj': 'obj%s' % i} for i in range(3)]
@@ -337,7 +337,7 @@ class TestK8sClient(test_base.TestCase):
                                  params={'watch': 'true'}, cert=(None, None),
                                  verify=False, timeout=(30, 60))
 
-    @mock.patch('requests.get')
+    @mock.patch('requests.sessions.Session.get')
     def test_watch_restart(self, m_get):
         path = '/test'
         data = [{'object': {'metadata': {'name': 'obj%s' % i,
@@ -364,7 +364,7 @@ class TestK8sClient(test_base.TestCase):
             params={"watch": "true", "resourceVersion": 2}, cert=(None, None),
             verify=False, timeout=(30, 60))
 
-    @mock.patch('requests.get')
+    @mock.patch('requests.sessions.Session.get')
     def test_watch_exception(self, m_get):
         path = '/test'
 
@@ -375,7 +375,7 @@ class TestK8sClient(test_base.TestCase):
         self.assertRaises(exc.K8sClientException, next,
                           self.client.watch(path))
 
-    @mock.patch('requests.post')
+    @mock.patch('requests.sessions.Session.post')
     def test_post(self, m_post):
         path = '/test'
         body = {'test': 'body'}
@@ -391,7 +391,7 @@ class TestK8sClient(test_base.TestCase):
                                        headers=mock.ANY, cert=(None, None),
                                        verify=False)
 
-    @mock.patch('requests.post')
+    @mock.patch('requests.sessions.Session.post')
     def test_post_exception(self, m_post):
         path = '/test'
         body = {'test': 'body'}
@@ -403,7 +403,7 @@ class TestK8sClient(test_base.TestCase):
         self.assertRaises(exc.K8sClientException,
                           self.client.post, path, body)
 
-    @mock.patch('requests.delete')
+    @mock.patch('requests.sessions.Session.delete')
     def test_delete(self, m_delete):
         path = '/test'
         ret = {'test': 'value'}
@@ -418,7 +418,7 @@ class TestK8sClient(test_base.TestCase):
                                          headers=mock.ANY, cert=(None, None),
                                          verify=False)
 
-    @mock.patch('requests.delete')
+    @mock.patch('requests.sessions.Session.delete')
     def test_delete_exception(self, m_delete):
         path = '/test'
 
