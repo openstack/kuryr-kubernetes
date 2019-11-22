@@ -392,6 +392,9 @@ class FakeLBaaSDriver(drv_base.LBaaSDriver):
 
 
 class TestLoadBalancerHandler(test_base.TestCase):
+
+    @mock.patch('kuryr_kubernetes.controller.handlers.lbaas'
+                '.LoadBalancerHandler._cleanup_leftover_lbaas')
     @mock.patch('kuryr_kubernetes.config.CONF')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.ServicePubIpDriver.get_instance')
@@ -402,7 +405,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
     def test_init(self, m_get_drv_lbaas, m_get_drv_project,
-                  m_get_drv_subnets, m_get_drv_service_pub_ip, m_cfg):
+                  m_get_drv_subnets, m_get_drv_service_pub_ip, m_cfg,
+                  m_cleanup_leftover_lbaas):
         m_get_drv_lbaas.return_value = mock.sentinel.drv_lbaas
         m_get_drv_project.return_value = mock.sentinel.drv_project
         m_get_drv_subnets.return_value = mock.sentinel.drv_subnets
@@ -416,6 +420,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
         self.assertEqual(mock.sentinel.drv_lb_ip, handler._drv_service_pub_ip)
         self.assertIsNone(handler._lb_provider)
 
+    @mock.patch('kuryr_kubernetes.controller.handlers.lbaas'
+                '.LoadBalancerHandler._cleanup_leftover_lbaas')
     @mock.patch('kuryr_kubernetes.config.CONF')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.ServicePubIpDriver.get_instance')
@@ -427,7 +433,7 @@ class TestLoadBalancerHandler(test_base.TestCase):
                 '.LBaaSDriver.get_instance')
     def test_init_provider_ovn(self, m_get_drv_lbaas, m_get_drv_project,
                                m_get_drv_subnets, m_get_drv_service_pub_ip,
-                               m_cfg):
+                               m_cfg, m_cleanup_leftover_lbaas):
         m_get_drv_lbaas.return_value = mock.sentinel.drv_lbaas
         m_get_drv_project.return_value = mock.sentinel.drv_project
         m_get_drv_subnets.return_value = mock.sentinel.drv_subnets
@@ -742,6 +748,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
             for member in state.members)
         return observed_targets
 
+    @mock.patch('kuryr_kubernetes.controller.handlers.lbaas'
+                '.LoadBalancerHandler._cleanup_leftover_lbaas')
     @mock.patch('kuryr_kubernetes.controller.handlers.lbaas.'
                 'LoadBalancerHandler._sync_lbaas_sgs')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
@@ -751,7 +759,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
     def test_sync_lbaas_members(self, m_get_drv_lbaas, m_get_drv_project,
-                                m_get_drv_subnets, m_sync_lbaas_sgs):
+                                m_get_drv_subnets, m_sync_lbaas_sgs,
+                                m_cleanup_leftover_lbaas):
         # REVISIT(ivc): test methods separately and verify ensure/release
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
@@ -778,6 +787,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
         self.assertEqual(sorted(expected_targets.items()), observed_targets)
         self.assertEqual(expected_ip, str(state.loadbalancer.ip))
 
+    @mock.patch('kuryr_kubernetes.controller.handlers.lbaas'
+                '.LoadBalancerHandler._cleanup_leftover_lbaas')
     @mock.patch('kuryr_kubernetes.controller.handlers.lbaas.'
                 'LoadBalancerHandler._sync_lbaas_sgs')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
@@ -788,7 +799,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
                 '.LBaaSDriver.get_instance')
     def test_sync_lbaas_members_udp(self, m_get_drv_lbaas,
                                     m_get_drv_project, m_get_drv_subnets,
-                                    m_sync_lbaas_sgs):
+                                    m_sync_lbaas_sgs,
+                                    m_cleanup_leftover_lbaas):
         # REVISIT(ivc): test methods separately and verify ensure/release
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
@@ -815,6 +827,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
         self.assertEqual([], observed_targets)
         self.assertEqual(expected_ip, str(state.loadbalancer.ip))
 
+    @mock.patch('kuryr_kubernetes.controller.handlers.lbaas'
+                '.LoadBalancerHandler._cleanup_leftover_lbaas')
     @mock.patch('kuryr_kubernetes.controller.handlers.lbaas.'
                 'LoadBalancerHandler._sync_lbaas_sgs')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
@@ -825,7 +839,7 @@ class TestLoadBalancerHandler(test_base.TestCase):
                 '.LBaaSDriver.get_instance')
     def test_sync_lbaas_members_svc_listener_port_edit(
             self, m_get_drv_lbaas, m_get_drv_project, m_get_drv_subnets,
-            m_sync_lbaas_sgs):
+            m_sync_lbaas_sgs, m_cleanup_leftover_lbaas):
         # REVISIT(ivc): test methods separately and verify ensure/release
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
@@ -872,6 +886,8 @@ class TestLoadBalancerHandler(test_base.TestCase):
         self.skipTest("skipping until generalised annotation handling is "
                       "implemented")
 
+    @mock.patch('kuryr_kubernetes.controller.handlers.lbaas'
+                '.LoadBalancerHandler._cleanup_leftover_lbaas')
     @mock.patch('kuryr_kubernetes.controller.handlers.lbaas.'
                 'LoadBalancerHandler._sync_lbaas_sgs')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
@@ -882,7 +898,7 @@ class TestLoadBalancerHandler(test_base.TestCase):
                 '.LBaaSDriver.get_instance')
     def test_add_new_members_udp(self, m_get_drv_lbaas,
                                  m_get_drv_project, m_get_drv_subnets,
-                                 m_sync_lbaas_sgs):
+                                 m_sync_lbaas_sgs, m_cleanup_leftover_lbaas):
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
         current_ip = '1.1.1.1'

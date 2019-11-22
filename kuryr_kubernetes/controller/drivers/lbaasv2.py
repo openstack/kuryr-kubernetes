@@ -85,7 +85,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
     def get_loadbalancer_pool_name(self, loadbalancer, namespace, svc_name):
         return "%s/%s/%s" % (loadbalancer.name, namespace, svc_name)
 
-    def _add_tags(self, resource, req):
+    def add_tags(self, resource, req):
         if CONF.neutron_defaults.resource_tags:
             if self._octavia_tags:
                 req['tags'] = CONF.neutron_defaults.resource_tags
@@ -554,7 +554,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         if loadbalancer.provider is not None:
             request['provider'] = loadbalancer.provider
 
-        self._add_tags('loadbalancer', request)
+        self.add_tags('loadbalancer', request)
 
         response = self._post_lb_resource(o_lb.LoadBalancer, request)
 
@@ -597,7 +597,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             'protocol': listener.protocol,
             'protocol_port': listener.port,
         }
-        self._add_tags('listener', request)
+        self.add_tags('listener', request)
         response = self._post_lb_resource(o_lis.Listener, request)
         listener.id = response.id
         return listener
@@ -630,7 +630,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             'protocol': pool.protocol,
             'lb_algorithm': lb_algorithm,
         }
-        self._add_tags('pool', request)
+        self.add_tags('pool', request)
         response = self._post_lb_resource(o_pool.Pool, request)
         pool.id = response.id
         return pool
@@ -666,7 +666,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             'address': str(member.ip),
             'protocol_port': member.port,
         }
-        self._add_tags('member', request)
+        self.add_tags('member', request)
         response = self._post_lb_resource(o_mem.Member, request,
                                           pool_id=member.pool_id)
         member.id = response.id
@@ -870,7 +870,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             'project_id': l7_policy.project_id,
             'redirect_pool_id': l7_policy.redirect_pool_id,
         }
-        self._add_tags('l7policy', request)
+        self.add_tags('l7policy', request)
         response = self._post_lb_resource(o_l7p.L7Policy, request)
         l7_policy.id = response['id']
         return l7_policy
@@ -904,7 +904,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             'type': l7_rule.type,
             'value': l7_rule.value
         }
-        self._add_tags('rule', request)
+        self.add_tags('rule', request)
         response = self._post_lb_resource(o_l7r.L7Rule, request,
                                           l7policy_id=l7_rule.l7policy_id)
         l7_rule.id = response['id']

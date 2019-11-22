@@ -24,9 +24,11 @@ from kuryr_kubernetes.tests.unit.controller.handlers import \
 
 class TestIngressLoadBalancerHandler(t_lbaas.TestLoadBalancerHandler):
 
+    @mock.patch('kuryr_kubernetes.controller.handlers.lbaas'
+                '.LoadBalancerHandler._cleanup_leftover_lbaas')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
-    def test_init(self, m_get_drv_lbaas):
+    def test_init(self, m_get_drv_lbaas, m_cleanup_leftover_lbaas):
         m_get_drv_lbaas.return_value = mock.sentinel.drv_lbaas
 
         handler = h_ing_lbaas.IngressLoadBalancerHandler()
@@ -122,6 +124,8 @@ class TestIngressLoadBalancerHandler(t_lbaas.TestLoadBalancerHandler):
             for member in state.members)
         return observed_targets
 
+    @mock.patch('kuryr_kubernetes.controller.handlers.lbaas'
+                '.LoadBalancerHandler._cleanup_leftover_lbaas')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.PodSubnetsDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
@@ -129,7 +133,8 @@ class TestIngressLoadBalancerHandler(t_lbaas.TestLoadBalancerHandler):
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
     def test__sync_lbaas_route_members(self, m_get_drv_lbaas,
-                                       m_get_drv_project, m_get_drv_subnets):
+                                       m_get_drv_project, m_get_drv_subnets,
+                                       m_cleanup_leftover_lbaas):
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
         current_ip = '1.1.1.1'

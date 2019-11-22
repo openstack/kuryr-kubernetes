@@ -13,6 +13,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import eventlet
+import time
+
 from kuryr.lib._i18n import _
 from oslo_log import log as logging
 
@@ -20,6 +23,7 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes.controller.drivers import base as drv_base
+from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes.objects import lbaas as obj_lbaas
@@ -168,6 +172,7 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                 != 'default'):
             self._lb_provider = (
                 config.CONF.kubernetes.endpoints_driver_octavia_provider)
+        eventlet.spawn(self._cleanup_leftover_lbaas)
 
     def on_present(self, endpoints):
         lbaas_spec = utils.get_lbaas_spec(endpoints)
@@ -628,3 +633,46 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
 
         lbaas_state.loadbalancer = lb
         return changed
+
+    def _cleanup_leftover_lbaas(self):
+        lbaas_client = clients.get_loadbalancer_client()
+        services = []
+        try:
+            services = driver_utils.get_services().get('items')
+        except k_exc.K8sClientException:
+            LOG.debug("Skipping cleanup of leftover lbaas."
+                      "Error retriving Kubernetes services")
+            return
+        services_set = set('{}/{}'.format(
+            service['metadata']['namespace'],
+            service['metadata']['name'])
+            for service in services)
+        lbaas_spec = {}
+        self._drv_lbaas.add_tags('loadbalancer', lbaas_spec)
+        loadbalancers = lbaas_client.load_balancers(**lbaas_spec)
+        for loadbalancer in loadbalancers:
+            lb_obj = obj_lbaas.LBaaSLoadBalancer(**loadbalancer)
+            if lb_obj.name not in services_set:
+                eventlet.spawn(self._ensure_release_lbaas, lb_obj)
+
+    def _ensure_release_lbaas(self, lb_obj):
+        attempts = 0
+        deadline = 0
+        retry = True
+        timeout = config.CONF.kubernetes.watch_retry_timeout
+        while retry:
+            try:
+                if attempts == 1:
+                    deadline = time.time() + timeout
+                if (attempts > 0 and
+                        utils.exponential_sleep(deadline, attempts) == 0):
+                    LOG.error("Failed releasing lbaas '%s': deadline exceeded",
+                              lb_obj.name)
+                    return
+                self._drv_lbaas.release_loadbalancer(lb_obj)
+                retry = False
+            except k_exc.ResourceNotReady:
+                LOG.debug("Attempt (%s) of loadbalancer release %s failed."
+                          " A retry will be triggered.", attempts, lb_obj.name)
+                attempts += 1
+                retry = True
