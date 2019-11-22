@@ -271,7 +271,8 @@ class K8sClient(object):
                             # At this point it's safely passed to handler.
                             m = line_dict.get('object', {}).get('metadata', {})
                             resource_version = m.get('resourceVersion', None)
-            except (requests.ReadTimeout, ssl.SSLError) as e:
+            except (requests.ReadTimeout, requests.ConnectionError,
+                    ssl.SSLError) as e:
                 if isinstance(e, ssl.SSLError) and e.args != ('timed out',):
                     raise
 
