@@ -654,7 +654,8 @@ class NeutronVIFPool(BaseVIFPool):
         # on the available_ports_pools dict. The next call forces it to be on
         # that dict before cleaning it up
         self._trigger_return_to_pool()
-        for pool_key, ports in self._available_ports_pools.items():
+        available_ports_pools = self._available_ports_pools.copy()
+        for pool_key, ports in available_ports_pools.items():
             if self._get_pool_key_net(pool_key) != net_id:
                 continue
             ports_id = []
@@ -1031,7 +1032,8 @@ class NestedVIFPool(BaseVIFPool):
         # on the available_ports_pools dict. The next call forces it to be on
         # that dict before cleaning it up
         self._trigger_return_to_pool()
-        for pool_key, ports in self._available_ports_pools.items():
+        available_ports_pools = self._available_ports_pools.copy()
+        for pool_key, ports in available_ports_pools.items():
             if self._get_pool_key_net(pool_key) != net_id:
                 continue
             trunk_id = self._get_trunk_id(neutron, pool_key)
