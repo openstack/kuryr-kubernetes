@@ -148,7 +148,12 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
             raise exceptions.ResourceNotReady(pod_name)
 
         for ifname, vif in vifs.items():
-            is_default_gateway = (ifname == params.CNI_IFNAME)
+            is_default_gateway = (ifname == k_const.DEFAULT_IFNAME)
+            if is_default_gateway:
+                # NOTE(ygupta): if this is the default interface, we should
+                # use the ifname supplied in the CNI ADD request
+                ifname = params.CNI_IFNAME
+
             fn(vif, self._get_inst(pod), ifname, params.CNI_NETNS,
                 report_health=self.report_drivers_health,
                 is_default_gateway=is_default_gateway,
