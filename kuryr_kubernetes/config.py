@@ -242,6 +242,11 @@ octavia_defaults = [
                        "in case the LB does not maintain the source IP "
                        "of the caller resource"),
                 default=True),
+    cfg.StrOpt('lb_algorithm',
+               help=_("The load-balancer algoritm that distributed traffic "
+                      "to the pool members. The options are: ROUND_ROBIN, "
+                      "LEAST_CONNECTIONS, SOURCE_IP and SOURCE_IP_PORT."),
+               default='ROUND_ROBIN'),
 ]
 
 cache_defaults = [

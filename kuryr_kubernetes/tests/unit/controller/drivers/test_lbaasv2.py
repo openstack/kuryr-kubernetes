@@ -530,6 +530,36 @@ class TestLBaaSv2Driver(test_base.TestCase):
                              getattr(ret, attr))
         self.assertEqual(pool_id, ret.id)
 
+    def test_create_pool_with_different_lb_algorithm(self):
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        lb_algorithm = 'SOURCE_IP_PORT'
+        pool = obj_lbaas.LBaaSPool(
+            name='TEST_NAME', project_id='TEST_PROJECT', protocol='TCP',
+            listener_id='A57B7771-6050-4CA8-A63C-443493EC98AB',
+            loadbalancer_id='00EE9E11-91C2-41CF-8FD4-7970579E5C4C')
+        pool_id = 'D4F35594-27EB-4F4C-930C-31DD40F53B77'
+        req = {
+            'name': pool.name,
+            'project_id': pool.project_id,
+            'listener_id': pool.listener_id,
+            'loadbalancer_id': pool.loadbalancer_id,
+            'protocol': pool.protocol,
+            'lb_algorithm': lb_algorithm}
+        resp = o_pool.Pool(id=pool_id)
+        m_driver._post_lb_resource.return_value = resp
+        CONF.set_override('lb_algorithm', lb_algorithm,
+                          group='octavia_defaults')
+        self.addCleanup(CONF.clear_override, 'lb_algorithm',
+                        group='octavia_defaults')
+
+        ret = cls._create_pool(m_driver, pool)
+        m_driver._post_lb_resource.assert_called_once_with(o_pool.Pool, req)
+        for attr in pool.obj_fields:
+            self.assertEqual(getattr(pool, attr),
+                             getattr(ret, attr))
+        self.assertEqual(pool_id, ret.id)
+
     def test_create_pool_conflict(self):
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
