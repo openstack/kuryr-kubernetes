@@ -196,6 +196,7 @@ class BaseVIFPool(test_base.TestCase):
         m_driver._existing_vifs = {}
         m_driver._available_ports_pools = {}
         m_driver._last_update = {pool_key: {tuple(security_groups): 1}}
+        m_driver._recovered_pools = True
 
         oslo_cfg.CONF.set_override('ports_pool_min',
                                    5,
@@ -210,6 +211,28 @@ class BaseVIFPool(test_base.TestCase):
                            tuple(security_groups))
         m_driver._get_pool_size.assert_called_once()
         m_driver._drv_vif.request_vifs.assert_called_once()
+
+    @ddt.data((neutron_vif.NeutronPodVIFDriver),
+              (nested_vlan_vif.NestedVlanPodVIFDriver))
+    def test__populate_pool_not_ready(self, m_vif_driver):
+        cls = vif_pool.BaseVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+
+        cls_vif_driver = m_vif_driver
+        vif_driver = mock.MagicMock(spec=cls_vif_driver)
+        m_driver._drv_vif = vif_driver
+
+        pod = mock.sentinel.pod
+        project_id = str(uuid.uuid4())
+        subnets = mock.sentinel.subnets
+        security_groups = 'test-sg'
+        pool_key = (mock.sentinel.host_addr, project_id)
+        m_driver._recovered_pools = False
+
+        self.assertRaises(exceptions.ResourceNotReady, cls._populate_pool,
+                          m_driver, pool_key, pod, subnets,
+                          tuple(security_groups))
+        m_driver._drv_vif.request_vifs.assert_not_called()
 
     @mock.patch('time.time', return_value=0)
     def test__populate_pool_no_update(self, m_time):
@@ -226,6 +249,7 @@ class BaseVIFPool(test_base.TestCase):
                                    15,
                                    group='vif_pool')
         m_driver._last_update = {pool_key: {tuple(security_groups): 1}}
+        m_driver._recovered_pools = True
 
         cls._populate_pool(m_driver, pool_key, pod, subnets,
                            tuple(security_groups))
@@ -256,6 +280,7 @@ class BaseVIFPool(test_base.TestCase):
                                    group='vif_pool')
         m_driver._last_update = {pool_key: {tuple(security_groups): 1}}
         m_driver._get_pool_size.return_value = 10
+        m_driver._recovered_pools = True
 
         cls._populate_pool(m_driver, pool_key, pod, subnets,
                            tuple(security_groups))
@@ -933,6 +958,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver._available_ports_pools = {pool_key: {
             tuple(['security_group']): [port_id]}}
         m_driver._existing_vifs = {port_id: mock.sentinel.vif}
+        m_driver._recovered_pools = True
 
         m_driver._get_pool_key_net.return_value = net_id
 
@@ -941,6 +967,21 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver._trigger_return_to_pool.assert_called_once()
         m_driver._get_pool_key_net.assert_called_once()
         neutron.delete_port.assert_called_once_with(port_id)
+
+    def test_delete_network_pools_not_ready(self):
+        cls = vif_pool.NeutronVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        net_id = mock.sentinel.net_id
+        m_driver._recovered_pools = False
+
+        self.assertRaises(exceptions.ResourceNotReady,
+                          cls.delete_network_pools, m_driver, net_id)
+
+        m_driver._trigger_return_to_pool.assert_not_called()
+        m_driver._get_pool_key_net.assert_not_called()
+        neutron.delete_port.assert_not_called()
 
     def test_delete_network_pools_missing_port_id(self):
         cls = vif_pool.NeutronVIFPool
@@ -954,6 +995,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver._available_ports_pools = {pool_key: {
             tuple(['security_group']): [port_id]}}
         m_driver._existing_vifs = {}
+        m_driver._recovered_pools = True
         neutron.delete_port.side_effect = n_exc.PortNotFoundClient
 
         m_driver._get_pool_key_net.return_value = net_id
@@ -1807,6 +1849,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._available_ports_pools = {pool_key: {
             tuple(['security_group']): [port_id]}}
         m_driver._existing_vifs = {port_id: vif}
+        m_driver._recovered_pools = True
 
         m_driver._get_trunk_id.return_value = trunk_id
         m_driver._get_pool_key_net.return_value = net_id
@@ -1821,6 +1864,26 @@ class NestedVIFPool(test_base.TestCase):
                                                                    [port_id])
         m_driver._drv_vif._release_vlan_id.assert_called_once_with(vlan_id)
         neutron.delete_port.assert_called_once_with(port_id)
+
+    def test_delete_network_pools_not_ready(self):
+        cls = vif_pool.NestedVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+        cls_vif_driver = nested_vlan_vif.NestedVlanPodVIFDriver
+        vif_driver = mock.MagicMock(spec=cls_vif_driver)
+        m_driver._drv_vif = vif_driver
+        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+
+        net_id = mock.sentinel.net_id
+        m_driver._recovered_pools = False
+
+        self.assertRaises(exceptions.ResourceNotReady,
+                          cls.delete_network_pools, m_driver, net_id)
+
+        m_driver._trigger_return_to_pool.assert_not_called()
+        m_driver._get_pool_key_net.assert_not_called()
+        m_driver._get_trunk_id.assert_not_called()
+        m_driver._drv_vif._remove_subports.assert_not_called()
+        neutron.delete_port.assert_not_called()
 
     def test_delete_network_pools_exception(self):
         cls = vif_pool.NestedVIFPool
@@ -1841,6 +1904,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._available_ports_pools = {pool_key: {
             tuple(['security_group']): [port_id]}}
         m_driver._existing_vifs = {port_id: vif}
+        m_driver._recovered_pools = True
 
         m_driver._get_trunk_id.return_value = trunk_id
         m_driver._get_pool_key_net.return_value = net_id
@@ -1877,6 +1941,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._available_ports_pools = {pool_key: {
             tuple(['security_group']): [port_id]}}
         m_driver._existing_vifs = {}
+        m_driver._recovered_pools = True
 
         m_driver._get_trunk_id.return_value = trunk_id
         m_driver._get_pool_key_net.return_value = net_id
