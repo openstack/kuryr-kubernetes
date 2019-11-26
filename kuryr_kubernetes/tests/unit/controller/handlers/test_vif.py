@@ -223,14 +223,17 @@ class TestVIFHandler(test_base.TestCase):
         self._set_pod_state.assert_called_once_with(self._pod, self._state)
         self._activate_vif.assert_not_called()
 
+    @mock.patch('oslo_config.cfg.CONF')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
     def test_on_present_create_with_additional_vifs(self, m_get_pod_state,
-                                                    m_host_network):
+                                                    m_host_network, m_conf):
         m_get_pod_state.return_value = None
         m_host_network.return_value = False
+        ifname_prefix = 'baz'
+        m_conf.kubernetes.additional_ifname_prefix = ifname_prefix
         additional_vif = os_obj.vif.VIFBase()
-        self._state.additional_vifs = {'eth1': additional_vif}
+        self._state.additional_vifs = {ifname_prefix+'1': additional_vif}
         self._request_additional_vifs.return_value = [additional_vif]
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
@@ -277,13 +280,17 @@ class TestVIFHandler(test_base.TestCase):
                                                   self._project_id,
                                                   self._security_groups)
 
+    @mock.patch('oslo_config.cfg.CONF')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
     def test_on_deleted_with_additional_vifs(self, m_get_pod_state,
-                                             m_host_network, m_get_services):
+                                             m_host_network, m_get_services,
+                                             m_conf):
         additional_vif = os_obj.vif.VIFBase()
-        self._state.additional_vifs = {'eth1': additional_vif}
+        ifname_prefix = 'bar'
+        m_conf.kubernetes.additional_ifname_prefix = ifname_prefix
+        self._state.additional_vifs = {ifname_prefix+'1': additional_vif}
         m_get_pod_state.return_value = self._state
         m_host_network.return_value = False
         m_get_services.return_value = {"items": []}

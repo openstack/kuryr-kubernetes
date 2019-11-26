@@ -79,7 +79,6 @@ VIF_POOL_SHOW = '/showPool'
 
 DEFAULT_IFNAME = 'eth0'
 
-ADDITIONAL_IFNAME_PREFIX = 'eth'
 K8S_SRIOV_PREFIX = 'intel.com'
 
 K8S_OPERATOR_IN = 'in'
