@@ -129,9 +129,13 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
                         # Get the trunk_id from the error message
                         trunk_id = (
                             str(e).split('trunk')[1].split('.')[0].strip())
-                        neutron.trunk_remove_subports(
-                            trunk_id, {'sub_ports': [
-                                {'port_id': leftover_port['id']}]})
+                        try:
+                            neutron.trunk_remove_subports(
+                                trunk_id, {'sub_ports': [
+                                    {'port_id': leftover_port['id']}]})
+                        except n_exc.NotFound:
+                            LOG.debug("Port %s already removed from trunk %s",
+                                      leftover_port['id'], trunk_id)
                     else:
                         LOG.exception("Unexpected error deleting leftover "
                                       "port %s. Skiping it and continue with "
