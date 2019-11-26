@@ -160,6 +160,7 @@ class BaseVIFPool(base.VIFPoolDriver):
     def __init__(self):
         # Note(ltomasbo) Execute the port recycling periodic actions in a
         # background thread
+        self._recovered_pools = False
         eventlet.spawn(self._return_ports_to_pool)
 
     def set_vif_driver(self, driver):
@@ -215,6 +216,9 @@ class BaseVIFPool(base.VIFPoolDriver):
         # REVISIT(ltomasbo): Drop the subnets parameter and get the information
         # from the pool_key, which will be required when multi-network is
         # supported
+        if not self._recovered_pools:
+            LOG.info("Kuryr-controller not yet ready to populate pools.")
+            raise exceptions.ResourceNotReady(pod)
         now = time.time()
         last_update = 0
         pool_updates = self._last_update.get(pool_key)
@@ -349,10 +353,6 @@ class BaseVIFPool(base.VIFPoolDriver):
         self._existing_vifs = collections.defaultdict()
         self._recyclable_ports = collections.defaultdict()
         self._last_update = collections.defaultdict()
-        # NOTE(ltomasbo): Ensure previously created ports are recovered into
-        # their respective pools
-        self._cleanup_leftover_ports()
-        self._recover_precreated_ports()
 
     def _get_trunks_info(self):
         """Returns information about trunks and their subports.
@@ -593,6 +593,14 @@ class NeutronVIFPool(BaseVIFPool):
             except KeyError:
                 LOG.debug('Port already recycled: %s', port_id)
 
+    def sync_pools(self):
+        super(NeutronVIFPool, self).sync_pools()
+        # NOTE(ltomasbo): Ensure previously created ports are recovered into
+        # their respective pools
+        self._cleanup_leftover_ports()
+        self._recover_precreated_ports()
+        self._recovered_pools = True
+
     def _recover_precreated_ports(self):
         attrs = {'device_owner': kl_const.DEVICE_OWNER}
         tags = config.CONF.neutron_defaults.resource_tags
@@ -642,7 +650,7 @@ class NeutronVIFPool(BaseVIFPool):
         self._create_healthcheck_file()
 
     def delete_network_pools(self, net_id):
-        if not hasattr(self, '_available_ports_pools'):
+        if not self._recovered_pools:
             LOG.info("Kuryr-controller not yet ready to delete network "
                      "pools.")
             raise exceptions.ResourceNotReady(net_id)
@@ -876,6 +884,14 @@ class NestedVIFPool(BaseVIFPool):
         parent_port = neutron.show_port(port_id).get('port')
         return parent_port['fixed_ips'][0]['ip_address']
 
+    def sync_pools(self):
+        super(NestedVIFPool, self).sync_pools()
+        # NOTE(ltomasbo): Ensure previously created ports are recovered into
+        # their respective pools
+        self._recover_precreated_ports()
+        self._recovered_pools = True
+        eventlet.spawn(self._cleanup_leftover_ports)
+
     def _recover_precreated_ports(self):
         self._precreated_ports(action='recover')
         LOG.info("PORTS POOL: pools updated with pre-created ports")
@@ -956,7 +972,7 @@ class NestedVIFPool(BaseVIFPool):
 
     @lockutils.synchronized('return_to_pool_nested')
     def populate_pool(self, trunk_ip, project_id, subnets, security_groups):
-        if not hasattr(self, '_available_ports_pools'):
+        if not self._recovered_pools:
             LOG.info("Kuryr-controller not yet ready to populate pools.")
             raise exceptions.ResourceNotReady(trunk_ip)
         pool_key = self._get_pool_key(trunk_ip, project_id, None, subnets)
@@ -1004,7 +1020,7 @@ class NestedVIFPool(BaseVIFPool):
         self._remove_precreated_ports(trunk_ips)
 
     def delete_network_pools(self, net_id):
-        if not hasattr(self, '_available_ports_pools'):
+        if not self._recovered_pools:
             LOG.info("Kuryr-controller not yet ready to delete network "
                      "pools.")
             raise exceptions.ResourceNotReady(net_id)
