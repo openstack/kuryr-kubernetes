@@ -14,6 +14,7 @@
 #    under the License.
 
 import abc
+import errno
 import six
 
 import os_vif
@@ -91,8 +92,15 @@ def _configure_l3(vif, ifname, netns, is_default_gateway):
                 routes.add(gateway=str(route.gateway),
                            dst=str(route.cidr)).commit()
             if is_default_gateway and hasattr(subnet, 'gateway'):
-                routes.add(gateway=str(subnet.gateway),
-                           dst='default').commit()
+                try:
+                    routes.add(gateway=str(subnet.gateway),
+                               dst='default').commit()
+                except pyroute2.NetlinkError as ex:
+                    if ex.code != errno.EEXIST:
+                        raise
+                    LOG.debug("Default route already exists in pod for vif=%s."
+                              " Did not overwrite with requested gateway=%s",
+                              vif, subnet.gateway)
 
 
 def _need_configure_l3(vif):
