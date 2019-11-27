@@ -360,8 +360,14 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                     # octavia does not require it
                     if (config.CONF.octavia_defaults.member_mode ==
                             k_const.OCTAVIA_L2_MEMBER_MODE):
-                        member_subnet_id = self._get_pod_subnet(target_ref,
-                                                                target_ip)
+                        try:
+                            member_subnet_id = self._get_pod_subnet(target_ref,
+                                                                    target_ip)
+                        except k_exc.K8sResourceNotFound:
+                            LOG.debug("Member namespace has been deleted. No "
+                                      "need to add the members as it is "
+                                      "going to be deleted")
+                            continue
                     else:
                         # We use the service subnet id so that the connectivity
                         # from VIP to pods happens in layer 3 mode, i.e.,
