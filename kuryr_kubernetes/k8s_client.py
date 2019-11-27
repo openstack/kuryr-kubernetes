@@ -16,10 +16,12 @@ import contextlib
 import itertools
 import os
 import ssl
+from urllib import parse
 
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 import requests
+from requests import adapters
 
 from kuryr.lib._i18n import _
 from kuryr_kubernetes import config
@@ -43,6 +45,12 @@ class K8sClient(object):
         token_file = config.CONF.kubernetes.token_file
         self.token = None
         self.cert = (None, None)
+
+        # Setting higher numbers regarding connection pools as we're running
+        # with max of 1000 green threads.
+        self.session = requests.Session()
+        prefix = '%s://' % parse.urlparse(base_url).scheme
+        self.session.mount(prefix, adapters.HTTPAdapter(pool_maxsize=1000))
         if token_file:
             if os.path.exists(token_file):
                 with open(token_file, 'r') as f:
@@ -76,9 +84,9 @@ class K8sClient(object):
             header.update({'Authorization': 'Bearer %s' % self.token})
         if headers:
             header.update(headers)
-        response = requests.get(url, cert=self.cert,
-                                verify=self.verify_server,
-                                headers=header)
+        response = self.session.get(url, cert=self.cert,
+                                    verify=self.verify_server,
+                                    headers=header)
         if response.status_code == requests.codes.not_found:
             raise exc.K8sResourceNotFound(response.text)
         if not response.ok:
@@ -102,9 +110,9 @@ class K8sClient(object):
             path = path + '/' + str(field)
         content_type = 'application/merge-patch+json'
         url, header = self._get_url_and_header(path, content_type)
-        response = requests.patch(url, json={field: data},
-                                  headers=header, cert=self.cert,
-                                  verify=self.verify_server)
+        response = self.session.patch(url, json={field: data},
+                                      headers=header, cert=self.cert,
+                                      verify=self.verify_server)
         if response.ok:
             return response.json().get('status')
         raise exc.K8sClientException(response.text)
@@ -121,9 +129,9 @@ class K8sClient(object):
         LOG.debug("Patch %(path)s: %(data)s", {
             'path': path, 'data': data})
 
-        response = requests.patch(url, data=jsonutils.dumps(data),
-                                  headers=header, cert=self.cert,
-                                  verify=self.verify_server)
+        response = self.session.patch(url, data=jsonutils.dumps(data),
+                                      headers=header, cert=self.cert,
+                                      verify=self.verify_server)
         if response.ok:
             return response.json().get('status')
         raise exc.K8sClientException(response.text)
@@ -138,9 +146,9 @@ class K8sClient(object):
                  'path': '/metadata/annotations/{}'.format(annotation_name),
                  'value': value}]
 
-        response = requests.patch(url, data=jsonutils.dumps(data),
-                                  headers=header, cert=self.cert,
-                                  verify=self.verify_server)
+        response = self.session.patch(url, data=jsonutils.dumps(data),
+                                      headers=header, cert=self.cert,
+                                      verify=self.verify_server)
         if response.ok:
             return response.json().get('status')
         raise exc.K8sClientException(response.text)
@@ -153,9 +161,9 @@ class K8sClient(object):
         data = [{'op': 'remove',
                  'path': '/metadata/annotations/{}'.format(annotation_name)}]
 
-        response = requests.patch(url, data=jsonutils.dumps(data),
-                                  headers=header, cert=self.cert,
-                                  verify=self.verify_server)
+        response = self.session.patch(url, data=jsonutils.dumps(data),
+                                      headers=header, cert=self.cert,
+                                      verify=self.verify_server)
         if response.ok:
             return response.json().get('status')
         raise exc.K8sClientException(response.text)
@@ -167,8 +175,8 @@ class K8sClient(object):
         if self.token:
             header.update({'Authorization': 'Bearer %s' % self.token})
 
-        response = requests.post(url, json=body, cert=self.cert,
-                                 verify=self.verify_server, headers=header)
+        response = self.session.post(url, json=body, cert=self.cert,
+                                     verify=self.verify_server, headers=header)
         if response.ok:
             return response.json()
         raise exc.K8sClientException(response)
@@ -180,8 +188,9 @@ class K8sClient(object):
         if self.token:
             header.update({'Authorization': 'Bearer %s' % self.token})
 
-        response = requests.delete(url, cert=self.cert,
-                                   verify=self.verify_server, headers=header)
+        response = self.session.delete(url, cert=self.cert,
+                                       verify=self.verify_server,
+                                       headers=header)
         if response.ok:
             return response.json()
         else:
@@ -208,9 +217,9 @@ class K8sClient(object):
             if resource_version:
                 metadata['resourceVersion'] = resource_version
             data = jsonutils.dumps({"metadata": metadata}, sort_keys=True)
-            response = requests.patch(url, data=data,
-                                      headers=header, cert=self.cert,
-                                      verify=self.verify_server)
+            response = self.session.patch(url, data=data,
+                                          headers=header, cert=self.cert,
+                                          verify=self.verify_server)
             if response.ok:
                 return response.json()['metadata']['annotations']
             if response.status_code == requests.codes.conflict:
@@ -256,7 +265,7 @@ class K8sClient(object):
                 if resource_version:
                     params['resourceVersion'] = resource_version
                 with contextlib.closing(
-                        requests.get(
+                        self.session.get(
                             url, params=params, stream=True, cert=self.cert,
                             verify=self.verify_server, headers=header,
                             timeout=timeouts)) as response:
