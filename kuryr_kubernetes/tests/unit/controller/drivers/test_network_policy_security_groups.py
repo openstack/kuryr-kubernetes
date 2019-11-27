@@ -304,15 +304,15 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
 
         self._crd_sg_id = mock.sentinel.crd_sg_id
         self._sg_rule_body = {
-            u'security_group_rule': {
-                u'direction': 'ingress',
-                u'protocol': u'tcp',
-                u'description': 'Kuryr-Kubernetes NetPolicy SG rule',
-                u'ethertype': 'IPv4',
-                u'port_range_max': 6379,
-                u'security_group_id': self._crd_sg_id,
-                u'port_range_min': 6379,
-                u'remote_ip_prefix': self._pod_ip}}
+            'security_group_rule': {
+                'direction': 'ingress',
+                'protocol': 'tcp',
+                'description': 'Kuryr-Kubernetes NetPolicy SG rule',
+                'ethertype': 'IPv4',
+                'port_range_max': 6379,
+                'security_group_id': self._crd_sg_id,
+                'port_range_min': 6379,
+                'remote_ip_prefix': self._pod_ip}}
 
         self._new_rule_id = mock.sentinel.id
         self._crd_with_rule = {

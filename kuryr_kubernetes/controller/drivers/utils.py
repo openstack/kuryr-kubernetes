@@ -263,19 +263,19 @@ def create_security_group_rule_body(
     if not protocol:
         protocol = 'TCP'
     security_group_rule_body = {
-        u'security_group_rule': {
-            u'ethertype': ethertype,
-            u'security_group_id': security_group_id,
-            u'description': description,
-            u'direction': direction,
-            u'protocol': protocol.lower(),
-            u'port_range_min': port_range_min,
-            u'port_range_max': port_range_max,
+        'security_group_rule': {
+            'ethertype': ethertype,
+            'security_group_id': security_group_id,
+            'description': description,
+            'direction': direction,
+            'protocol': protocol.lower(),
+            'port_range_min': port_range_min,
+            'port_range_max': port_range_max,
         }
     }
     if cidr:
-        security_group_rule_body[u'security_group_rule'][
-            u'remote_ip_prefix'] = cidr
+        security_group_rule_body['security_group_rule'][
+            'remote_ip_prefix'] = cidr
     if namespace:
         security_group_rule_body['namespace'] = namespace
     if pods:

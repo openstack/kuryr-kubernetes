@@ -22,6 +22,7 @@ from oslo_log import log as logging
 
 from kuryr_kubernetes.cni.binding import base as b_base
 from kuryr_kubernetes.cni.plugins import base as base_cni
+from kuryr_kubernetes.cni import utils
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes import exceptions
 
@@ -69,8 +70,7 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
         # Wait for timeout sec, 1 sec between tries, retry when even one
         # vif is not active.
         @retrying.retry(stop_max_delay=timeout * 1000, wait_fixed=RETRY_DELAY,
-                        retry_on_result=lambda x: any(
-                            map(lambda y: not y.active, x.values())))
+                        retry_on_result=utils.any_vif_inactive)
         def wait_for_active(pod_name):
             return {
                 ifname: base.VersionedObject.obj_from_primitive(vif_obj) for

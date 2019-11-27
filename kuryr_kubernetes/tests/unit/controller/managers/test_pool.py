@@ -13,10 +13,7 @@
 # limitations under the License.
 import mock
 
-try:
-    from BaseHTTPServer import BaseHTTPRequestHandler
-except ImportError:
-    from http.server import BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler
 
 from oslo_serialization import jsonutils
 
@@ -118,7 +115,7 @@ class TestRequestHandler(test_base.TestCase):
     def test_do_POST_populate(self):
         method = 'create'
         path = "http://localhost/populatePool"
-        trunk_ips = [u"10.0.0.6"]
+        trunk_ips = ["10.0.0.6"]
         num_ports = 3
         body = jsonutils.dumps({"trunks": trunk_ips,
                                 "num_ports": num_ports})
@@ -135,7 +132,7 @@ class TestRequestHandler(test_base.TestCase):
     def test_do_POST_populate_exception(self):
         method = 'create'
         path = "http://localhost/populatePool"
-        trunk_ips = [u"10.0.0.6"]
+        trunk_ips = ["10.0.0.6"]
         num_ports = 3
         body = jsonutils.dumps({"trunks": trunk_ips,
                                 "num_ports": num_ports})
@@ -169,7 +166,7 @@ class TestRequestHandler(test_base.TestCase):
     def test_do_POST_free(self):
         method = 'delete'
         path = "http://localhost/freePool"
-        trunk_ips = [u"10.0.0.6"]
+        trunk_ips = ["10.0.0.6"]
         body = jsonutils.dumps({"trunks": trunk_ips})
         headers = {'Content-Type': 'application/json', 'Connection': 'close'}
         headers['Content-Length'] = len(body)
@@ -184,7 +181,7 @@ class TestRequestHandler(test_base.TestCase):
     def test_do_POST_free_exception(self):
         method = 'delete'
         path = "http://localhost/freePool"
-        trunk_ips = [u"10.0.0.6"]
+        trunk_ips = ["10.0.0.6"]
         body = jsonutils.dumps({"trunks": trunk_ips})
         headers = {'Content-Type': 'application/json', 'Connection': 'close'}
         headers['Content-Length'] = len(body)
@@ -213,7 +210,7 @@ class TestRequestHandler(test_base.TestCase):
     def test_do_POST_wrong_action(self):
         method = 'fake'
         path = "http://localhost/fakeMethod"
-        trunk_ips = [u"10.0.0.6"]
+        trunk_ips = ["10.0.0.6"]
         body = jsonutils.dumps({"trunks": trunk_ips})
         headers = {'Content-Type': 'application/json', 'Connection': 'close'}
         headers['Content-Length'] = len(body)
@@ -279,9 +276,9 @@ class TestRequestHandler(test_base.TestCase):
         method = 'show'
         method_resp = "251f748d-2a0d-4143-bce8-2e616f7a6a4a"
         path = "http://localhost/showPool"
-        pool_key = [u"10.0.0.6", u"9d2b45c4efaa478481c30340b49fd4d2",
-                    [u"00efc78c-f11c-414a-bfcd-a82e16dc07d1",
-                     u"fd6b13dc-7230-4cbe-9237-36b4614bc6b5"]]
+        pool_key = ["10.0.0.6", "9d2b45c4efaa478481c30340b49fd4d2",
+                    ["00efc78c-f11c-414a-bfcd-a82e16dc07d1",
+                     "fd6b13dc-7230-4cbe-9237-36b4614bc6b5"]]
         body = jsonutils.dumps({"pool_key": pool_key})
         headers = {'Content-Type': 'application/json', 'Connection': 'close'}
         headers['Content-Length'] = len(body)
@@ -297,9 +294,9 @@ class TestRequestHandler(test_base.TestCase):
         method = 'show'
         method_resp = "251f748d-2a0d-4143-bce8-2e616f7a6a4a"
         path = "http://localhost/showPool"
-        pool_key = [u"10.0.0.6", u"9d2b45c4efaa478481c30340b49fd4d2",
-                    [u"00efc78c-f11c-414a-bfcd-a82e16dc07d1",
-                     u"fd6b13dc-7230-4cbe-9237-36b4614bc6b5"]]
+        pool_key = ["10.0.0.6", "9d2b45c4efaa478481c30340b49fd4d2",
+                    ["00efc78c-f11c-414a-bfcd-a82e16dc07d1",
+                     "fd6b13dc-7230-4cbe-9237-36b4614bc6b5"]]
         body = jsonutils.dumps({"pool_key": pool_key})
         headers = {'Content-Type': 'application/json', 'Connection': 'close'}
         headers['Content-Length'] = len(body)
@@ -315,9 +312,9 @@ class TestRequestHandler(test_base.TestCase):
         method = 'show'
         method_resp = "Empty pool"
         path = "http://localhost/showPool"
-        pool_key = [u"10.0.0.6", u"9d2b45c4efaa478481c30340b49fd4d2",
-                    [u"00efc78c-f11c-414a-bfcd-a82e16dc07d1",
-                     u"fd6b13dc-7230-4cbe-9237-36b4614bc6b5"]]
+        pool_key = ["10.0.0.6", "9d2b45c4efaa478481c30340b49fd4d2",
+                    ["00efc78c-f11c-414a-bfcd-a82e16dc07d1",
+                     "fd6b13dc-7230-4cbe-9237-36b4614bc6b5"]]
         body = jsonutils.dumps({"pool_key": pool_key})
         headers = {'Content-Type': 'application/json', 'Connection': 'close'}
         headers['Content-Length'] = len(body)
@@ -333,7 +330,7 @@ class TestRequestHandler(test_base.TestCase):
         method = 'show'
         method_resp = ""
         path = "http://localhost/showPool"
-        pool_key = [u"10.0.0.6", u"9d2b45c4efaa478481c30340b49fd4d2"]
+        pool_key = ["10.0.0.6", "9d2b45c4efaa478481c30340b49fd4d2"]
         body = jsonutils.dumps({"pool_key": pool_key})
         headers = {'Content-Type': 'application/json', 'Connection': 'close'}
         headers['Content-Length'] = len(body)

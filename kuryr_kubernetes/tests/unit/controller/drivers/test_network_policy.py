@@ -79,14 +79,14 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         self._e_rules = [{'security_group_rule': {'id': ''}}]
 
         self._policy = {
-            'apiVersion': u'networking.k8s.io/v1',
-            'kind': u'NetworkPolicy',
+            'apiVersion': 'networking.k8s.io/v1',
+            'kind': 'NetworkPolicy',
             'metadata': {
                 'name': self._policy_name,
-                'resourceVersion': u'2259309',
+                'resourceVersion': '2259309',
                 'generation': 1,
-                'creationTimestamp': u'2018-09-18T14:09:51Z',
-                'namespace': u'default',
+                'creationTimestamp': '2018-09-18T14:09:51Z',
+                'namespace': 'default',
                 'annotations': {},
                 'selfLink': self._policy_link,
                 'uid': self._policy_uid
@@ -110,7 +110,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
 
         self._crd = {
             'metadata': {'name': mock.sentinel.name,
-                         'namespace': u'default',
+                         'namespace': 'default',
                          'selfLink': mock.sentinel.selfLink},
             'spec': {
                 'egressSgRules': [

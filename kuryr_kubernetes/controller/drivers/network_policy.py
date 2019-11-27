@@ -143,12 +143,12 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             default_cidrs.append(utils.get_subnet_cidr(worker_subnet_id))
         for cidr in default_cidrs:
             default_rule = {
-                u'security_group_rule': {
-                    u'ethertype': 'IPv4',
-                    u'security_group_id': sg_id,
-                    u'direction': 'ingress',
-                    u'description': 'Kuryr-Kubernetes NetPolicy SG rule',
-                    u'remote_ip_prefix': cidr
+                'security_group_rule': {
+                    'ethertype': 'IPv4',
+                    'security_group_id': sg_id,
+                    'direction': 'ingress',
+                    'description': 'Kuryr-Kubernetes NetPolicy SG rule',
+                    'remote_ip_prefix': cidr
                 }}
             driver_utils.create_security_group_rule(default_rule)
 
@@ -436,11 +436,11 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
 
     def _create_default_sg_rule(self, sg_id, direction, sg_rule_body_list):
         default_rule = {
-            u'security_group_rule': {
-                u'ethertype': 'IPv4',
-                u'security_group_id': sg_id,
-                u'direction': direction,
-                u'description': 'Kuryr-Kubernetes NetPolicy SG rule',
+            'security_group_rule': {
+                'ethertype': 'IPv4',
+                'security_group_id': sg_id,
+                'direction': direction,
+                'description': 'Kuryr-Kubernetes NetPolicy SG rule',
             }}
         sg_rule_body_list.append(default_rule)
 

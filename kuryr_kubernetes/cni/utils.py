@@ -27,6 +27,11 @@ def running_under_container_runtime(proc_one_cg_path=PROC_ONE_CGROUP_PATH):
                CONTAINER_RUNTIME_CGROUP_IDS)
 
 
+def any_vif_inactive(vifs):
+    """Return True if there is at least one VIF that's not ACTIVE."""
+    return any(not vif.active for vif in vifs.values())
+
+
 class CNIConfig(dict):
     def __init__(self, cfg):
         super(CNIConfig, self).__init__(cfg)
