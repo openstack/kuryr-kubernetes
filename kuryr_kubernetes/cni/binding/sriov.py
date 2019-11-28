@@ -201,12 +201,12 @@ class VIFSriovDriver(object):
         with open(unbind_path, 'w') as unbind_fd:
             unbind_fd.write(pci)
 
-        owerride = "/sys/bus/pci/devices/{}/driver_override".format(pci)
-        with open(owerride, 'w') as owerride_fd:
-            owerride_fd.write("\00")
+        override = "/sys/bus/pci/devices/{}/driver_override".format(pci)
+        with open(override, 'w') as override_fd:
+            override_fd.write("\00")
 
-        with open(owerride, 'w') as owerride_fd:
-            owerride_fd.write(driver)
+        with open(override, 'w') as override_fd:
+            override_fd.write(driver)
 
         with open(bind_path, 'w') as bind_fd:
             bind_fd.write(pci)
