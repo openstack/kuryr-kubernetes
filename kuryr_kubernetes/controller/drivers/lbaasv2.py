@@ -621,7 +621,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
     def _create_pool(self, pool):
         # TODO(ivc): make lb_algorithm configurable
-        lb_algorithm = 'ROUND_ROBIN'
+        lb_algorithm = CONF.octavia_defaults.lb_algorithm
         request = {
             'name': pool.name,
             'project_id': pool.project_id,
