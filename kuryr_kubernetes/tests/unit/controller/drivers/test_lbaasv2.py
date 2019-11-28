@@ -14,10 +14,10 @@
 #    under the License.
 
 import mock
-import requests
+import munch
 
 from neutronclient.common import exceptions as n_exc
-from openstack import exceptions as o_exc
+from openstack import exceptions as os_exc
 from openstack.load_balancer.v2 import l7_policy as o_l7p
 from openstack.load_balancer.v2 import l7_rule as o_l7r
 from openstack.load_balancer.v2 import listener as o_lis
@@ -25,6 +25,7 @@ from openstack.load_balancer.v2 import load_balancer as o_lb
 from openstack.load_balancer.v2 import member as o_mem
 from openstack.load_balancer.v2 import pool as o_pool
 from oslo_config import cfg
+import requests
 
 from kuryr_kubernetes.controller.drivers import lbaasv2 as d_lbaasv2
 from kuryr_kubernetes import exceptions as k_exc
@@ -155,7 +156,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
                           sg_ids, 'ClusterIP')
 
     def test_cascade_release_loadbalancer(self):
-        self.useFixture(k_fix.MockNeutronClient()).client
+        self.useFixture(k_fix.MockNetworkClient()).client
         lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         lbaas.lbaas_loadbalancer_path = "boo %s"
         cls = d_lbaasv2.LBaaSv2Driver
@@ -216,21 +217,20 @@ class TestLBaaSv2Driver(test_base.TestCase):
         loadbalancer = obj_lbaas.LBaaSLoadBalancer(
             id=loadbalancer_id, name=name, project_id=project_id,
             subnet_id=subnet_id, ip=ip, provider=provider)
-        m_driver._ensure_provisioned.side_effect = o_exc.BadRequestException
+        m_driver._ensure_provisioned.side_effect = os_exc.BadRequestException
 
         resp = cls.ensure_listener(m_driver, loadbalancer,
                                    protocol, port)
         self.assertIsNone(resp)
 
     def test_release_listener(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
         lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
-        neutron.list_security_group_rules.return_value = {
-            'security_group_rules': []}
+        os_net.security_group_rules.return_value = (x for x in [])
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
-        m_driver._get_vip_port.return_value = {
-            'security_groups': [mock.sentinel.sg_id]}
+        m_driver._get_vip_port.return_value = munch.Munch({
+            'security_group_ids': [mock.sentinel.sg_id]})
         loadbalancer = mock.Mock()
         listener = mock.Mock()
 
@@ -340,7 +340,8 @@ class TestLBaaSv2Driver(test_base.TestCase):
         }
         resp = o_lb.LoadBalancer(id=loadbalancer_id, provider='haproxy')
         m_driver._post_lb_resource.return_value = resp
-        m_driver._get_vip_port.return_value = {'id': mock.sentinel.port_id}
+        m_driver._get_vip_port.return_value = munch.Munch(
+            {'id': mock.sentinel.port_id})
 
         ret = cls._create_loadbalancer(m_driver, loadbalancer)
         m_driver._post_lb_resource.assert_called_once_with(o_lb.LoadBalancer,
@@ -368,7 +369,8 @@ class TestLBaaSv2Driver(test_base.TestCase):
         }
         resp = o_lb.LoadBalancer(id=loadbalancer_id, provider='amphora')
         m_driver._post_lb_resource.return_value = resp
-        m_driver._get_vip_port.return_value = {'id': mock.sentinel.port_id}
+        m_driver._get_vip_port.return_value = munch.Munch(
+            {'id': mock.sentinel.port_id})
 
         ret = cls._create_loadbalancer(m_driver, loadbalancer)
         m_driver._post_lb_resource.assert_called_once_with(o_lb.LoadBalancer,
@@ -396,7 +398,8 @@ class TestLBaaSv2Driver(test_base.TestCase):
         }
         resp = o_lb.LoadBalancer(id=loadbalancer_id, provider='haproxy')
         m_driver._post_lb_resource.return_value = resp
-        m_driver._get_vip_port.return_value = {'id': mock.sentinel.port_id}
+        m_driver._get_vip_port.return_value = munch.Munch(
+            {'id': mock.sentinel.port_id})
 
         ret = cls._create_loadbalancer(m_driver, loadbalancer)
         m_driver._post_lb_resource.assert_called_once_with(o_lb.LoadBalancer,
@@ -415,7 +418,8 @@ class TestLBaaSv2Driver(test_base.TestCase):
         resp = iter([o_lb.LoadBalancer(id=loadbalancer_id, provider='haproxy',
                                        provisioning_status='ACTIVE')])
         lbaas.load_balancers.return_value = resp
-        m_driver._get_vip_port.return_value = {'id': mock.sentinel.port_id}
+        m_driver._get_vip_port.return_value = munch.Munch(
+            {'id': mock.sentinel.port_id})
 
         ret = cls._find_loadbalancer(m_driver, loadbalancer)
         lbaas.load_balancers.assert_called_once_with(
@@ -459,7 +463,8 @@ class TestLBaaSv2Driver(test_base.TestCase):
         resp = iter([o_lb.LoadBalancer(id=loadbalancer_id, provider='haproxy',
                                        provisioning_status='ERROR')])
         lbaas.load_balancers.return_value = resp
-        m_driver._get_vip_port.return_value = {'id': mock.sentinel.port_id}
+        m_driver._get_vip_port.return_value = munch.Munch(
+            {'id': mock.sentinel.port_id})
 
         ret = cls._find_loadbalancer(m_driver, loadbalancer)
         lbaas.load_balancers.assert_called_once_with(
@@ -755,11 +760,11 @@ class TestLBaaSv2Driver(test_base.TestCase):
 
     def test_ensure_with_conflict(self):
         self._verify_ensure_with_exception(
-            o_exc.ConflictException(http_status=409))
+            os_exc.ConflictException(http_status=409))
 
     def test_ensure_with_internalservererror(self):
         self._verify_ensure_with_exception(
-            o_exc.HttpException(http_status=500))
+            os_exc.HttpException(http_status=500))
 
     def test_ensure_with_httperrors(self):
         resp = requests.Response()
@@ -837,7 +842,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         m_delete = mock.Mock()
         timer = [mock.sentinel.t0, mock.sentinel.t1]
         m_driver._provisioning_timer.return_value = timer
-        m_delete.side_effect = [o_exc.BadRequestException, None]
+        m_delete.side_effect = [os_exc.BadRequestException, None]
 
         cls._release(m_driver, loadbalancer, obj, m_delete)
 
@@ -853,7 +858,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         m_delete = mock.Mock()
         timer = [mock.sentinel.t0, mock.sentinel.t1]
         m_driver._provisioning_timer.return_value = timer
-        m_delete.side_effect = o_exc.NotFoundException
+        m_delete.side_effect = os_exc.NotFoundException
 
         cls._release(m_driver, loadbalancer, obj, m_delete)
 
@@ -868,7 +873,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         m_delete = mock.Mock()
         timer = [mock.sentinel.t0, mock.sentinel.t1]
         m_driver._provisioning_timer.return_value = timer
-        m_delete.side_effect = o_exc.ConflictException
+        m_delete.side_effect = os_exc.ConflictException
 
         self.assertRaises(k_exc.ResourceNotReady, cls._release, m_driver,
                           loadbalancer, obj, m_delete)
@@ -1032,7 +1037,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         lbaas.get_load_balancer.return_value = resp
 
         requested_uuid = '00EE9E11-91C2-41CF-8FD4-7970579EFFFF'
-        lbaas.get_load_balancer.side_effect = o_exc.ResourceNotFound
+        lbaas.get_load_balancer.side_effect = os_exc.ResourceNotFound
 
         ret = cls.get_lb_by_uuid(m_driver, requested_uuid)
         lbaas.get_load_balancer.assert_called_once()
