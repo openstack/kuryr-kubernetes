@@ -21,6 +21,7 @@ from openstack import connection
 from openstack import exceptions as os_exc
 from openstack.network.v2 import port as os_port
 from openstack.network.v2 import trunk as os_trunk
+from openstack import utils as os_utils
 
 from kuryr_kubernetes import config
 from kuryr_kubernetes import k8s_client
@@ -101,6 +102,49 @@ def _get_trunks(self, payload):
     return (os_trunk.Trunk(**item) for item in response.json()['trunks'])
 
 
+def _add_trunk_subports(self, trunk, subports):
+    """Set sub_ports on trunk
+
+    The original method on openstacksdk doesn't care about any errors. This is
+    a replacement that does.
+    """
+    trunk = self._get_resource(os_trunk.Trunk, trunk)
+    url = os_utils.urljoin('/trunks', trunk.id, 'add_subports')
+    response = self.put(url, json={'sub_ports': subports})
+    os_exc.raise_from_response(response)
+    trunk._body.attributes.update({'sub_ports': subports})
+    return trunk
+
+
+def _delete_trunk_subports(self, trunk, subports):
+    """Remove sub_ports from trunk
+
+    The original method on openstacksdk doesn't care about any errors. This is
+    a replacement that does.
+    """
+    trunk = self._get_resource(os_trunk.Trunk, trunk)
+    url = os_utils.urljoin('/trunks', trunk.id, 'remove_subports')
+    response = self.put(url, json={'sub_ports': subports})
+    os_exc.raise_from_response(response)
+    trunk._body.attributes.update({'sub_ports': subports})
+    return trunk
+
+
+def handle_neutron_errors(method, *args, **kwargs):
+    """Handle errors on openstacksdk router methods"""
+    result = method(*args, **kwargs)
+    if 'NeutronError' in result:
+        error = result['NeutronError']
+        if error['type'] in ('RouterNotFound',
+                             'RouterInterfaceNotFoundForSubnet',
+                             'SubnetNotFound'):
+            raise os_exc.NotFoundException(message=error['message'])
+        else:
+            raise os_exc.SDKException(error['type'] + ": " + error['message'])
+
+    return result
+
+
 def setup_openstacksdk():
     auth_plugin = utils.get_auth_plugin('neutron')
     session = utils.get_keystone_session('neutron', auth_plugin)
@@ -109,6 +153,10 @@ def setup_openstacksdk():
         region_name=getattr(config.CONF.neutron, 'region_name', None))
     conn.network.create_ports = partial(_create_ports, conn.network)
     conn.network.get_trunks = partial(_get_trunks, conn.network)
+    conn.network.add_trunk_subports = partial(_add_trunk_subports,
+                                              conn.network)
+    conn.network.delete_trunk_subports = partial(_delete_trunk_subports,
+                                                 conn.network)
     _clients[_OPENSTACKSDK] = conn
 
 
