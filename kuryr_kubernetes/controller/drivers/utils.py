@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from openstack import exceptions as os_exc
 from oslo_cache import core as cache
 from oslo_config import cfg
 from oslo_log import log
@@ -186,33 +187,36 @@ def replace_encoded_characters(labels):
 
 
 def create_security_group_rule(body):
-    neutron = clients.get_neutron_client()
+    os_net = clients.get_network_client()
+
     sgr = ''
+
     try:
-        sgr = neutron.create_security_group_rule(
-            body=body)
-    except n_exc.Conflict as ex:
+        params = dict(body['security_group_rule'])
+        if 'ethertype' in params:
+            # NOTE(gryf): in openstacksdk, there is ether_type attribute in
+            # the security_group_rule object, in CRD we have 'ethertype'
+            # instead, just like it was returned by the neutron client.
+            params['ether_type'] = params['ethertype']
+            del params['ethertype']
+        sgr = os_net.create_security_group_rule(**params)
+        return sgr.id
+    except os_exc.ConflictException as ex:
         LOG.debug("Failed to create already existing security group "
                   "rule %s", body)
         # Get existent sg rule id from exception message
-        sgr_id = str(ex).split("Rule id is", 1)[1].split()[0][:-1]
-        return sgr_id
-    except n_exc.NeutronClientException:
+        return str(ex).split()[-1][:-1]
+    except os_exc.SDKException:
         LOG.debug("Error creating security group rule")
         raise
-    return sgr["security_group_rule"]["id"]
 
 
 def delete_security_group_rule(security_group_rule_id):
-    neutron = clients.get_neutron_client()
+    os_net = clients.get_network_client()
     try:
         LOG.debug("Deleting sg rule with ID: %s", security_group_rule_id)
-        neutron.delete_security_group_rule(
-            security_group_rule=security_group_rule_id)
-    except n_exc.NotFound:
-        LOG.debug("Error deleting security group rule as it does not "
-                  "exist: %s", security_group_rule_id)
-    except n_exc.NeutronClientException:
+        os_net.delete_security_group_rule(security_group_rule_id)
+    except os_exc.SDKException:
         LOG.debug("Error deleting security group rule: %s",
                   security_group_rule_id)
         raise

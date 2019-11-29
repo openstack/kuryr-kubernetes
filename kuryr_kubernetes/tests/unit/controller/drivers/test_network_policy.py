@@ -13,14 +13,14 @@
 # limitations under the License.
 
 import mock
+import munch
+from openstack import exceptions as os_exc
 
 from kuryr_kubernetes.controller.drivers import network_policy
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
 from kuryr_kubernetes import utils
-
-from neutronclient.common import exceptions as n_exc
 
 
 def get_pod_obj():
@@ -139,7 +139,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                 'securityGroupId': self._sg_id,
                 'securityGroupName': mock.sentinel.sg_name}}
 
-        self.neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        self.neutron = self.useFixture(k_fix.MockNetworkClient()).client
         self.kubernetes = self.useFixture(k_fix.MockK8sClient()).client
         self._driver = network_policy.NetworkPolicyDriver()
 
@@ -237,14 +237,13 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                                              m_add_crd,
                                                              m_get_crd,
                                                              m_add_default):
-        self._driver.neutron.create_security_group.return_value = {
-            'security_group': {'id': mock.sentinel.id,
-                               'security_group_rules': []}}
-        m_utils.get_subnet_cidr.return_value = {
-            'subnet': {'cidr': mock.sentinel.cidr}}
+        self._driver.os_net.create_security_group.return_value = (
+            munch.Munch({'id': mock.sentinel.id,
+                         'security_group_rules': []}))
+        m_utils.get_subnet_cidr.return_value = {'cidr': mock.sentinel.cidr}
         m_parse.return_value = (self._i_rules, self._e_rules)
-        self._driver.neutron.create_security_group_rule.return_value = {
-            'security_group_rule': {'id': mock.sentinel.id}}
+        self._driver.os_net.create_security_group_rule.return_value = (
+            munch.Munch({'id': mock.sentinel.id}))
         self._driver.create_security_group_rules_from_network_policy(
             self._policy, self._project_id)
         m_get_crd.assert_called_once()
@@ -263,15 +262,14 @@ class TestNetworkPolicyDriver(test_base.TestCase):
     def test_create_security_group_rules_with_k8s_exc(self, m_utils, m_parse,
                                                       m_add_crd, m_get_crd,
                                                       m_add_default):
-        self._driver.neutron.create_security_group.return_value = {
-            'security_group': {'id': mock.sentinel.id,
-                               'security_group_rules': []}}
-        m_utils.get_subnet_cidr.return_value = {
-            'subnet': {'cidr': mock.sentinel.cidr}}
+        self._driver.os_net.create_security_group.return_value = (
+            munch.Munch({'id': mock.sentinel.id,
+                         'security_group_rules': []}))
+        m_utils.get_subnet_cidr.return_value = {'cidr': mock.sentinel.cidr}
         m_parse.return_value = (self._i_rules, self._e_rules)
         m_get_crd.side_effect = exceptions.K8sClientException
-        self._driver.neutron.create_security_group_rule.return_value = {
-            'security_group_rule': {'id': mock.sentinel.id}}
+        self._driver.os_net.create_security_group_rule.return_value = (
+            munch.Munch({'id': mock.sentinel.id}))
         self.assertRaises(
             exceptions.K8sClientException,
             self._driver.create_security_group_rules_from_network_policy,
@@ -291,15 +289,14 @@ class TestNetworkPolicyDriver(test_base.TestCase):
     def test_create_security_group_rules_error_add_crd(self, m_utils, m_parse,
                                                        m_add_crd, m_get_crd,
                                                        m_add_default):
-        self._driver.neutron.create_security_group.return_value = {
-            'security_group': {'id': mock.sentinel.id,
-                               'security_group_rules': []}}
-        m_utils.get_subnet_cidr.return_value = {
-            'subnet': {'cidr': mock.sentinel.cidr}}
+        self._driver.os_net.create_security_group.return_value = (
+            munch.Munch({'id': mock.sentinel.id,
+                         'security_group_rules': []}))
+        m_utils.get_subnet_cidr.return_value = {'cidr': mock.sentinel.cidr}
         m_parse.return_value = (self._i_rules, self._e_rules)
         m_add_crd.side_effect = exceptions.K8sClientException
-        self._driver.neutron.create_security_group_rule.return_value = {
-            'security_group_rule': {'id': mock.sentinel.id}}
+        self._driver.os_net.create_security_group_rule.return_value = (
+            munch.Munch({'id': mock.sentinel.id}))
         self.assertRaises(
             exceptions.K8sClientException,
             self._driver.create_security_group_rules_from_network_policy,
@@ -308,10 +305,10 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         m_add_default.assert_called_once()
 
     def test_create_security_group_rules_with_n_exc(self):
-        self._driver.neutron.create_security_group.side_effect = (
-            n_exc.NeutronClientException())
+        self._driver.os_net.create_security_group.side_effect = (
+            os_exc.SDKException())
         self.assertRaises(
-            n_exc.NeutronClientException,
+            os_exc.SDKException,
             self._driver.create_security_group_rules_from_network_policy,
             self._policy, self._project_id)
 
