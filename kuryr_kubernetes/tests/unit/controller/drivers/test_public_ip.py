@@ -13,7 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import mock
-from neutronclient.common import exceptions as n_exc
+import munch
+from openstack import exceptions as os_exc
 
 from kuryr_kubernetes.controller.drivers import public_ip\
     as d_public_ip
@@ -25,45 +26,41 @@ class TestFipPubIpDriver(test_base.TestCase):
     def setUp(self):
         super(TestFipPubIpDriver, self).setUp()
         self.driver = d_public_ip.FipPubIpDriver()
-        self.neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        self.os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
     def test_is_ip_available_none_param(self):
         fip_id = self.driver.is_ip_available(None)
         self.assertIsNone(fip_id)
 
     def test_is_ip_available_ip_not_exist(self):
-        floating_ip = {'floating_ip_address': '1.2.3.4', 'port_id': None,
-                       'id': 'a2a62ea7-e3bf-40df-8c09-aa0c29876a6b'}
-        self.neutron.list_floatingips.return_value = {
-            'floatingips': [floating_ip]}
+        fip = munch.Munch({'floating_ip_address': '1.2.3.4',
+                           'port_id': None,
+                           'id': 'a2a62ea7-e3bf-40df-8c09-aa0c29876a6b'})
+        self.os_net.ips.return_value = (ip for ip in [fip])
 
         fip_ip_addr = '1.1.1.1'
         fip_id = self.driver.is_ip_available(fip_ip_addr)
         self.assertIsNone(fip_id)
 
     def test_is_ip_available_empty_fip_list(self):
-        floating_ip = None
-        self.neutron.list_floatingips.return_value = {
-            'floatingips': [floating_ip]}
+        self.os_net.ips.return_value = (ip for ip in [])
 
         fip_ip_addr = '1.1.1.1'
         fip_id = self.driver.is_ip_available(fip_ip_addr)
         self.assertIsNone(fip_id)
 
     def test_is_ip_available_occupied_fip(self):
-        floating_ip = {'floating_ip_address': '1.2.3.4',
-                       'port_id': 'ec29d641-fec4-4f67-928a-124a76b3a8e6'}
-        self.neutron.list_floatingips.return_value = {
-            'floatingips': [floating_ip]}
+        fip = munch.Munch({'floating_ip_address': '1.2.3.4',
+                           'port_id': 'ec29d641-fec4-4f67-928a-124a76b3a8e6'})
+        self.os_net.ips.return_value = (ip for ip in [fip])
         fip_ip_addr = '1.2.3.4'
         fip_id = self.driver.is_ip_available(fip_ip_addr)
         self.assertIsNone(fip_id)
 
     def test_is_ip_available_ip_exist_and_available(self):
-        floating_ip = {'floating_ip_address': '1.2.3.4', 'port_id': None,
-                       'id': 'a2a62ea7-e3bf-40df-8c09-aa0c29876a6b'}
-        self.neutron.list_floatingips.return_value = {
-            'floatingips': [floating_ip]}
+        fip = munch.Munch({'floating_ip_address': '1.2.3.4', 'port_id': None,
+                           'id': 'a2a62ea7-e3bf-40df-8c09-aa0c29876a6b'})
+        self.os_net.ips.return_value = (ip for ip in [fip])
 
         fip_ip_addr = '1.2.3.4'
         fip_id = self.driver.is_ip_available(fip_ip_addr)
@@ -75,15 +72,14 @@ class TestFipPubIpDriver(test_base.TestCase):
         project_id = mock.sentinel.project_id
         description = mock.sentinel.description
 
-        floating_ip = {'floating_ip_address': '1.2.3.5',
-                       'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'}
-        self.neutron.create_floatingip.return_value = {
-            'floatingip': floating_ip}
+        fip = munch.Munch({'floating_ip_address': '1.2.3.5',
+                           'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
+        self.os_net.create_ip.return_value = fip
 
         fip_id, fip_addr = self.driver.allocate_ip(pub_net_id, project_id,
                                                    pub_subnet_id, description)
-        self.assertEqual(fip_id, floating_ip['id'])
-        self.assertEqual(fip_addr, floating_ip['floating_ip_address'])
+        self.assertEqual(fip_id, fip.id)
+        self.assertEqual(fip_addr, fip.floating_ip_address)
 
     def test_allocate_ip_neutron_exception(self):
         pub_net_id = mock.sentinel.pub_net_id
@@ -91,34 +87,31 @@ class TestFipPubIpDriver(test_base.TestCase):
         project_id = mock.sentinel.project_id
         description = mock.sentinel.description
 
-        cf = self.neutron.create_floatingip
-        cf.side_effect = n_exc.NeutronClientException
+        self.os_net.create_ip.side_effect = os_exc.SDKException
 
-        self.assertRaises(
-            n_exc.NeutronClientException, self.driver.allocate_ip,
-            pub_net_id, project_id, pub_subnet_id, description)
+        self.assertRaises(os_exc.SDKException, self.driver.allocate_ip,
+                          pub_net_id, project_id, pub_subnet_id, description)
 
     def test_free_ip_neutron_exception(self):
         res_id = mock.sentinel.res_id
 
-        df = self.neutron.delete_floatingip
-        df.side_effect = n_exc.NeutronClientException
+        self.os_net.delete_ip.side_effect = os_exc.SDKException
         rc = self.driver.free_ip(res_id)
-        self.assertEqual(rc, False)
+        self.assertIs(rc, False)
 
     def test_free_ip_succeeded(self):
         res_id = mock.sentinel.res_id
 
         rc = self.driver.free_ip(res_id)
-        self.assertEqual(rc, True)
+        self.assertIs(rc, True)
 
     def test_associate_neutron_exception(self):
         res_id = mock.sentinel.res_id
         vip_port_id = mock.sentinel.vip_port_id
 
-        uf = self.neutron.update_floatingip
-        uf.side_effect = n_exc.NeutronClientException
-        self.assertRaises(n_exc.NeutronClientException, self.driver.associate,
+        uf = self.os_net.update_ip
+        uf.side_effect = os_exc.SDKException
+        self.assertRaises(os_exc.SDKException, self.driver.associate,
                           res_id, vip_port_id)
 
     def test_associate_conflict_correct(self):
@@ -127,11 +120,9 @@ class TestFipPubIpDriver(test_base.TestCase):
         vip_port_id = mock.sentinel.vip_port_id
 
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
-        neutron.update_floatingip.side_effect = n_exc.Conflict
-        neutron.show_floatingip.return_value = {
-            'floatingip': {
-                'id': res_id,
-                'port_id': vip_port_id}}
+        neutron.update_ip.side_effect = os_exc.ConflictException
+        neutron.get_ip.return_value = munch.Munch({'id': res_id,
+                                                   'port_id': vip_port_id})
         self.assertIsNone(driver.associate(res_id, vip_port_id))
 
     def test_associate_conflict_incorrect(self):
@@ -139,13 +130,11 @@ class TestFipPubIpDriver(test_base.TestCase):
         res_id = mock.sentinel.res_id
         vip_port_id = mock.sentinel.vip_port_id
 
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
-        neutron.update_floatingip.side_effect = n_exc.Conflict
-        neutron.show_floatingip.return_value = {
-            'floatingip': {
-                'id': res_id,
-                'port_id': 'foo'}}
-        self.assertRaises(n_exc.Conflict, driver.associate, res_id,
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
+        os_net.update_ip.side_effect = os_exc.ConflictException
+        os_net.get_ip.return_value = munch.Munch({'id': res_id,
+                                                  'port_id': 'foo'})
+        self.assertRaises(os_exc.ConflictException, driver.associate, res_id,
                           vip_port_id)
 
     def test_associate_succeeded(self):
@@ -158,9 +147,9 @@ class TestFipPubIpDriver(test_base.TestCase):
     def test_disassociate_neutron_exception(self):
         res_id = mock.sentinel.res_id
 
-        uf = self.neutron.update_floatingip
-        uf.side_effect = n_exc.NeutronClientException
-        self.assertRaises(n_exc.NeutronClientException,
+        uf = self.os_net.update_ip
+        uf.side_effect = os_exc.SDKException
+        self.assertRaises(os_exc.SDKException,
                           self.driver.disassociate, res_id)
 
     def test_disassociate_succeeded(self):

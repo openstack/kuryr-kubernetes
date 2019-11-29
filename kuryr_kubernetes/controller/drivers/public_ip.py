@@ -15,7 +15,7 @@
 import abc
 import six
 
-from neutronclient.common import exceptions as n_exc
+from openstack import exceptions as os_exc
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
@@ -91,17 +91,16 @@ class FipPubIpDriver(BasePubIpDriver):
 
     def is_ip_available(self, ip_addr, port_id_to_be_associated=None):
         if ip_addr:
-            neutron = clients.get_neutron_client()
-            floating_ips_list = neutron.list_floatingips(
-                floating_ip_address=ip_addr)
-            for entry in floating_ips_list['floatingips']:
+            os_net = clients.get_network_client()
+            floating_ips_list = os_net.ips(floating_ip_address=ip_addr)
+            for entry in floating_ips_list:
                 if not entry:
                     continue
-                if (entry['floating_ip_address'] == ip_addr):
-                    if not entry['port_id'] or (
+                if (entry.floating_ip_address == ip_addr):
+                    if not entry.port_id or (
                             port_id_to_be_associated is not None
-                            and entry['port_id'] == port_id_to_be_associated):
-                        return entry['id']
+                            and entry.port_id == port_id_to_be_associated):
+                        return entry.id
             # floating IP not available
             LOG.error("Floating IP=%s not available", ip_addr)
         else:
@@ -110,12 +109,12 @@ class FipPubIpDriver(BasePubIpDriver):
 
     def allocate_ip(self, pub_net_id, project_id, pub_subnet_id=None,
                     description=None, port_id_to_be_associated=None):
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
 
         if port_id_to_be_associated is not None:
-            floating_ips_list = neutron.list_floatingips(
+            floating_ips_list = os_net.ips(
                 port_id=port_id_to_be_associated)
-            for entry in floating_ips_list['floatingips']:
+            for entry in floating_ips_list:
                 if not entry:
                     continue
                 if (entry['floating_ip_address']):
@@ -124,55 +123,53 @@ class FipPubIpDriver(BasePubIpDriver):
                               port_id_to_be_associated)
                     return entry['id'], entry['floating_ip_address']
 
-        request = {'floatingip': {
-            'tenant_id': project_id,
-            'project_id': project_id,
-            'floating_network_id': pub_net_id}}
-
-        if pub_subnet_id is not None:
-            request['floatingip']['subnet_id'] = pub_subnet_id
-        if description is not None:
-            request['floatingip']['description'] = description
-
         try:
-            fip = neutron.create_floatingip(request).get('floatingip')
-        except n_exc.NeutronClientException:
+            fip = os_net.create_ip(floating_network_id=pub_net_id,
+                                   project_id=project_id,
+                                   subnet_id=pub_subnet_id,
+                                   description=description)
+        except os_exc.SDKException:
             LOG.exception("Failed to create floating IP - netid=%s ",
                           pub_net_id)
             raise
-        utils.tag_neutron_resources('networks', [fip['id']])
-        return fip['id'], fip['floating_ip_address']
+        utils.tag_neutron_resources('networks', [fip.id])
+        return fip.id, fip.floating_ip_address
 
     def free_ip(self, res_id):
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
         try:
-            neutron.delete_floatingip(res_id)
-        except n_exc.NeutronClientException:
-            LOG.error("Failed to delete floating_ip_id =%s !",
-                      res_id)
+            os_net.delete_ip(res_id)
+        except os_exc.SDKException:
+            LOG.error("Failed to delete floating_ip_id =%s !", res_id)
             return False
         return True
 
     def _update(self, res_id, vip_port_id):
         response = None
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
         try:
-            response = neutron.update_floatingip(
-                res_id, {'floatingip': {'port_id': vip_port_id, }})
-        except n_exc.Conflict:
+            response = os_net.update_ip(res_id, port_id=vip_port_id)
+        except os_exc.ConflictException:
             LOG.warning("Conflict when assigning floating IP with id %s. "
                         "Checking if it's already assigned correctly.", res_id)
-            fip = neutron.show_floatingip(res_id).get('floatingip')
-            if fip is not None and fip.get('port_id') == vip_port_id:
+            try:
+                fip = os_net.get_ip(res_id)
+            except os_exc.NotFoundException:
+                LOG.exception("Failed to get FIP %s - it doesn't exist.",
+                              res_id)
+                raise
+
+            if fip.port_id == vip_port_id:
                 LOG.debug('FIP %s already assigned to %s', res_id,
                           vip_port_id)
             else:
                 LOG.exception('Failed to assign FIP %s to VIP port %s. It is '
                               'probably already bound', res_id, vip_port_id)
                 raise
-
-        except n_exc.NeutronClientException:
-            LOG.error("Failed to update_floatingip ,floating_ip_id=%s,"
+        except os_exc.SDKException:
+            # NOTE(gryf): the response will be None, since in case of
+            # exception, there will be no value assigned to response variable.
+            LOG.error("Failed to update_ip, floating_ip_id=%s,"
                       "response=%s!", res_id, response)
             raise
 
