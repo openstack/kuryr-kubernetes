@@ -20,6 +20,7 @@ from kuryr.lib import utils
 from openstack import connection
 from openstack import exceptions as os_exc
 from openstack.network.v2 import port as os_port
+from openstack.network.v2 import trunk as os_trunk
 
 from kuryr_kubernetes import config
 from kuryr_kubernetes import k8s_client
@@ -89,6 +90,17 @@ def _create_ports(self, payload):
     return (os_port.Port(**item) for item in response.json()['ports'])
 
 
+def _get_trunks(self, payload):
+    """Return trunks filtered by whatever"""
+    # TODO(gryf): Trunk object have been updated in OpenStackSDK 0.21. After
+    # we bump to this version (or higher), this method can be safely removed,
+    # and its call replaced with:
+    #   os_net.trunks(tags=[...])
+    response = self.get(os_trunk.Trunk.base_path, params=payload)
+    os_exc.raise_from_response(response)
+    return (os_trunk.Trunk(**item) for item in response.json()['trunks'])
+
+
 def setup_openstacksdk():
     auth_plugin = utils.get_auth_plugin('neutron')
     session = utils.get_keystone_session('neutron', auth_plugin)
@@ -96,6 +108,7 @@ def setup_openstacksdk():
         session=session,
         region_name=getattr(config.CONF.neutron, 'region_name', None))
     conn.network.create_ports = partial(_create_ports, conn.network)
+    conn.network.get_trunks = partial(_get_trunks, conn.network)
     _clients[_OPENSTACKSDK] = conn
 
 
