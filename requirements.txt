@@ -9,7 +9,7 @@ pbr!=2.1.0,>=2.0.0 # Apache-2.0
 requests>=2.14.2 # Apache-2.0
 eventlet>=0.22.0 # MIT
 netaddr>=0.7.19 # BSD
-openstacksdk>=0.13.0  # Apache-2.0
+openstacksdk>=0.17.0  # Apache-2.0
 oslo.cache>=1.26.0 # Apache-2.0
 oslo.config>=5.2.0 # Apache-2.0
 oslo.log>=3.36.0 # Apache-2.0
