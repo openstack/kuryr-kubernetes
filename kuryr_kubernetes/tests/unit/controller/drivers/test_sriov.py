@@ -84,7 +84,7 @@ class TestSriovVIFDriver(test_base.TestCase):
         cls = drvs.SriovVIFDriver
         m_driver = mock.Mock(spec=cls)
 
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
         project_id = mock.sentinel.project_id
         fixed_ips = mock.sentinel.fixed_ips
         m_to_fips.return_value = fixed_ips
@@ -98,17 +98,17 @@ class TestSriovVIFDriver(test_base.TestCase):
             'fixed_ips': port_fixed_ips,
             'id': port_id
         }
-        port_request = mock.sentinel.port_request
+        port_request = {'fake_req': mock.sentinel.port_request}
         m_driver._get_port_request.return_value = port_request
         vif = mock.sentinel.vif
         m_to_vif.return_value = vif
-        neutron.create_port.return_value = {'port': port}
+        os_net.create_port.return_value = port
         utils.get_subnet.return_value = subnets
 
         self.assertEqual(vif, cls.request_vif(m_driver, self._pod, project_id,
                                               subnets, security_groups))
 
-        neutron.create_port.assert_called_once_with(port_request)
+        os_net.create_port.assert_called_once_with(**port_request)
 
     @mock.patch('kuryr_kubernetes.os_vif_util.osvif_to_neutron_fixed_ips')
     @mock.patch.object(ovu, 'neutron_to_osvif_vif')
@@ -117,7 +117,7 @@ class TestSriovVIFDriver(test_base.TestCase):
         m_driver = mock.Mock(spec=cls)
 
         m_driver._get_remaining_sriov_vfs.return_value = 0
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
         project_id = mock.sentinel.project_id
         network = mock.sentinel.Network
         subnet_id = str(uuid.uuid4())
@@ -127,7 +127,7 @@ class TestSriovVIFDriver(test_base.TestCase):
         self.assertIsNone(cls.request_vif(m_driver, self._pod, project_id,
                                           subnets, security_groups))
 
-        neutron.create_port.assert_not_called()
+        os_net.create_port.assert_not_called()
 
     def test_get_sriov_num_vf(self):
         cls = drvs.SriovVIFDriver
