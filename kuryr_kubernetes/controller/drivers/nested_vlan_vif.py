@@ -16,7 +16,7 @@ from time import sleep
 from kuryr.lib import constants as kl_const
 from kuryr.lib import exceptions as kl_exc
 from kuryr.lib import segmentation_type_drivers as seg_driver
-from neutronclient.common import exceptions as n_exc
+from openstack import exceptions as os_exc
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
@@ -38,14 +38,14 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
     """Manages ports for nested-containers using VLANs to provide VIFs."""
 
     def request_vif(self, pod, project_id, subnets, security_groups):
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
         parent_port = self._get_parent_port(pod)
         trunk_id = self._get_trunk_id(parent_port)
 
         rq = self._get_port_request(pod, project_id, subnets, security_groups)
-        port = neutron.create_port(rq).get('port')
-        utils.tag_neutron_resources('ports', [port['id']])
-        vlan_id = self._add_subport(trunk_id, port['id'])
+        port = os_net.create_port(**rq)
+        utils.tag_neutron_resources('ports', [port.id])
+        vlan_id = self._add_subport(trunk_id, port.id)
 
         return ovu.neutron_to_osvif_vif_nested_vlan(port, subnets, vlan_id)
 
@@ -59,12 +59,12 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         If not enough vlan ids are available for all the subports to create,
         it creates as much as available vlan ids.
 
-        Note the neutron trunk_add_subports is an atomic operation that will
+        Note the os_net add_trunk_subports is an atomic operation that will
         either attach all or none of the subports. Therefore, if there is a
         vlan id collision, all the created ports will be deleted and the
         exception is raised.
         """
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
         if trunk_ip:
             parent_port = self._get_parent_port_by_host_ip(trunk_ip)
         else:
@@ -81,28 +81,27 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
 
         bulk_port_rq = {'ports': [port_rq] * len(subports_info)}
         try:
-            ports = neutron.create_port(bulk_port_rq).get('ports')
-        except n_exc.NeutronClientException:
+            ports = list(os_net.create_ports(bulk_port_rq))
+        except os_exc.SDKException:
             LOG.exception("Error creating bulk ports: %s", bulk_port_rq)
             raise
-        utils.tag_neutron_resources('ports', [port['id'] for port in ports])
+        utils.tag_neutron_resources('ports', [port.id for port in ports])
 
         for index, port in enumerate(ports):
             subports_info[index]['port_id'] = port['id']
 
         try:
             try:
-                neutron.trunk_add_subports(trunk_id,
-                                           {'sub_ports': subports_info})
-            except n_exc.Conflict:
+                os_net.add_trunk_subports(trunk_id, subports_info)
+            except os_exc.ConflictException:
                 LOG.error("vlan ids already in use on trunk")
                 for port in ports:
-                    neutron.delete_port(port['id'])
+                    os_net.delete_port(port.id)
                 return []
-        except n_exc.NeutronClientException:
+        except os_exc.SDKException:
             LOG.exception("Error happened during subport addition to trunk")
             for port in ports:
-                neutron.delete_port(port['id'])
+                os_net.delete_port(port.id)
             return []
 
         vifs = []
@@ -113,16 +112,12 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         return vifs
 
     def release_vif(self, pod, vif, project_id=None, security_groups=None):
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
         parent_port = self._get_parent_port(pod)
         trunk_id = self._get_trunk_id(parent_port)
         self._remove_subport(trunk_id, vif.id)
         self._release_vlan_id(vif.vlan_id)
-        try:
-            neutron.delete_port(vif.id)
-        except n_exc.PortNotFoundClient:
-            LOG.debug('Unable to release port %s as it no longer exists.',
-                      vif.id)
+        os_net.delete_port(vif.id)
 
     def _get_port_request(self, pod, project_id, subnets, security_groups,
                           unbound=False):
@@ -142,7 +137,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         if security_groups:
             port_req_body['security_groups'] = security_groups
 
-        return {'port': port_req_body}
+        return port_req_body
 
     def _create_subports_info(self, pod, project_id, subnets,
                               security_groups, trunk_id, num_ports,
@@ -151,7 +146,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
 
         in_use_vlan_ids = self._get_in_use_vlan_ids_set(trunk_id)
         port_rq = self._get_port_request(pod, project_id, subnets,
-                                         security_groups, unbound)['port']
+                                         security_groups, unbound)
         for i in range(num_ports):
             try:
                 vlan_id = seg_driver.allocate_segmentation_id(in_use_vlan_ids)
@@ -169,7 +164,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
     def _get_trunk_id(self, port):
         try:
             return port['trunk_details']['trunk_id']
-        except KeyError:
+        except (KeyError, TypeError):
             LOG.error("Neutron port is missing trunk details. "
                       "Please ensure that k8s node port is associated "
                       "with a Neutron vlan trunk")
@@ -186,12 +181,12 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         """
         # TODO(vikasc): Better approach for retrying in case of
         # vlan-id conflict.
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
         retry_count = 1
         while True:
             try:
                 vlan_id = self._get_vlan_id(trunk_id)
-            except n_exc.NeutronClientException:
+            except os_exc.SDKException:
                 LOG.error("Getting VlanID for subport on "
                           "trunk %s failed!!", trunk_id)
                 raise
@@ -199,9 +194,8 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                         'port_id': subport,
                        'segmentation_type': 'vlan'}]
             try:
-                neutron.trunk_add_subports(trunk_id,
-                                           {'sub_ports': subport})
-            except n_exc.Conflict:
+                os_net.add_trunk_subports(trunk_id, subport)
+            except os_exc.ConflictException:
                 if retry_count < DEFAULT_MAX_RETRY_COUNT:
                     LOG.error("vlanid already in use on trunk, "
                               "%s. Retrying...", trunk_id)
@@ -213,21 +207,20 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                         "MAX retry count reached. Failed to add subport")
                     raise
 
-            except n_exc.NeutronClientException:
+            except os_exc.SDKException:
                 LOG.exception("Error happened during subport "
                               "addition to trunk %s", trunk_id)
                 raise
             return vlan_id
 
     def _remove_subports(self, trunk_id, subports_id):
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
         subports_body = []
         for subport_id in set(subports_id):
             subports_body.append({'port_id': subport_id})
         try:
-            neutron.trunk_remove_subports(trunk_id,
-                                          {'sub_ports': subports_body})
-        except n_exc.NeutronClientException:
+            os_net.delete_trunk_subports(trunk_id, subports_body)
+        except os_exc.SDKException:
             LOG.exception("Error happened during subport removal from "
                           "trunk %s", trunk_id)
             raise
@@ -244,9 +237,9 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
 
     def _get_in_use_vlan_ids_set(self, trunk_id):
         vlan_ids = set()
-        neutron = clients.get_neutron_client()
-        trunk = neutron.show_trunk(trunk_id)
-        for port in trunk['trunk']['sub_ports']:
+        os_net = clients.get_network_client()
+        trunk = os_net.get_trunk(trunk_id)
+        for port in trunk.sub_ports:
             vlan_ids.add(port['segmentation_id'])
 
         return vlan_ids
