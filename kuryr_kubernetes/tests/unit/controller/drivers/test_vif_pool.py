@@ -889,7 +889,7 @@ class NeutronVIFPool(test_base.TestCase):
         filtered_ports = [port]
         m_get_ports.return_value = filtered_ports
         vif_plugin = mock.sentinel.plugin
-        m_driver._drv_vif._get_vif_plugin.return_value = vif_plugin
+        port['binding:vif_type'] = vif_plugin
 
         oslo_cfg.CONF.set_override('port_debug',
                                    False,
@@ -915,7 +915,6 @@ class NeutronVIFPool(test_base.TestCase):
 
         m_get_ports.assert_called_once()
         m_get_subnet.assert_called_with(subnet_id)
-        m_driver._drv_vif._get_vif_plugin.assert_called_once_with(port)
         m_to_osvif.assert_called_once_with(vif_plugin, port, subnet)
 
         self.assertEqual(m_driver._existing_vifs[port_id], vif)

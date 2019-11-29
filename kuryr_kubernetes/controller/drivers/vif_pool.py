@@ -595,7 +595,7 @@ class NeutronVIFPool(BaseVIFPool):
             # recovering in the case of multi pools
             if available_subports.get(port['id']):
                 continue
-            vif_plugin = self._drv_vif._get_vif_plugin(port)
+            vif_plugin = port.get('binding:vif_type')
             port_host = port['binding:host_id']
             if not vif_plugin or not port_host:
                 # NOTE(ltomasbo): kuryr-controller is running without the
