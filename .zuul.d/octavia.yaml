@@ -30,11 +30,9 @@
           barbican: https://opendev.org/openstack/barbican
     vars:
       devstack_localrc:
-        OCTAVIA_AMP_IMAGE_FILE: "/tmp/test-only-amphora-x64-haproxy-centos-7.qcow2"
+        OCTAVIA_AMP_IMAGE_FILE: "/tmp/test-only-amphora-x64-haproxy-ubuntu-bionic.qcow2"
         OCTAVIA_AMP_IMAGE_SIZE: 3
-        OCTAVIA_AMP_IMAGE_NAME: "test-only-amphora-x64-haproxy-centos-7"
-        OCTAVIA_AMP_BASE_OS: centos
-        OCTAVIA_AMP_DISTRIBUTION_RELEASE_ID: 7
+        OCTAVIA_AMP_IMAGE_NAME: "test-only-amphora-x64-haproxy-ubuntu-bionic"
       devstack_local_conf:
         post-config:
           $OCTAVIA_CONF:
