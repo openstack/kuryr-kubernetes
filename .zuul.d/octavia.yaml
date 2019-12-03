@@ -61,7 +61,6 @@
     vars:
       devstack_localrc:
         KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
-    voting: false
 
 - job:
     name: kuryr-kubernetes-tempest-containerized-lower-constraints
