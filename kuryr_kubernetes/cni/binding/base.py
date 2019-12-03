@@ -34,6 +34,22 @@ LOG = logging.getLogger(__name__)
 class BaseBindingDriver(object):
     """Interface to attach ports to pods."""
 
+    def _remove_ifaces(self, ipdb, ifnames, netns='host'):
+        """Check if any of `ifnames` exists and remove it.
+
+        :param ipdb: ipdb of the network namespace to check
+        :param ifnames: iterable of interface names to remove
+        :param netns: network namespace name (used for logging)
+        """
+        for ifname in ifnames:
+            if ifname in ipdb.interfaces:
+                LOG.warning('Found hanging interface %(ifname)s inside '
+                            '%(netns)s netns. Most likely it is a leftover '
+                            'from a kuryr-daemon restart. Trying to delete '
+                            'it.', {'ifname': ifname, 'netns': netns})
+                with ipdb.interfaces[ifname] as iface:
+                    iface.remove()
+
     @abc.abstractmethod
     def connect(self, vif, ifname, netns, container_id):
         raise NotImplementedError()

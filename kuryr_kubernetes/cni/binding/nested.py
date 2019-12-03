@@ -15,6 +15,8 @@
 import abc
 import six
 
+from oslo_log import log as logging
+
 from kuryr_kubernetes.cni.binding import base as b_base
 from kuryr_kubernetes import config
 from kuryr_kubernetes.handlers import health
@@ -23,6 +25,8 @@ from kuryr_kubernetes import utils
 VLAN_KIND = 'vlan'
 MACVLAN_KIND = 'macvlan'
 MACVLAN_MODE_BRIDGE = 'bridge'
+
+LOG = logging.getLogger(__name__)
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -36,18 +40,28 @@ class NestedDriver(health.HealthHandler, b_base.BaseBindingDriver):
         raise NotImplementedError()
 
     def connect(self, vif, ifname, netns, container_id):
-        with b_base.get_ipdb() as h_ipdb:
-            # NOTE(vikasc): Ideally 'ifname' should be used here but instead a
-            # temporary name is being used while creating the device for
-            # container in host network namespace. This is because cni expects
-            # only 'eth0' as interface name and if host already has an
-            # interface named 'eth0', device creation will fail with 'already
-            # exists' error.
-            temp_name = vif.vif_name
+        # NOTE(vikasc): Ideally 'ifname' should be used here but instead a
+        # temporary name is being used while creating the device for
+        # container in host network namespace. This is because cni expects
+        # only 'eth0' as interface name and if host already has an
+        # interface named 'eth0', device creation will fail with 'already
+        # exists' error.
+        temp_name = vif.vif_name
 
+        # First let's take a peek into the pod namespace and try to remove any
+        # leftover interface in case we got restarted before CNI returned to
+        # kubelet.
+        with b_base.get_ipdb(netns) as c_ipdb:
+            self._remove_ifaces(c_ipdb, (temp_name, ifname), netns)
+
+        with b_base.get_ipdb() as h_ipdb:
             # TODO(vikasc): evaluate whether we should have stevedore
             #               driver for getting the link device.
             vm_iface_name = config.CONF.binding.link_iface
+
+            # We might also have leftover interface in the host netns, let's
+            # try to remove it too.
+            self._remove_ifaces(h_ipdb, (temp_name,))
 
             args = self._get_iface_create_args(vif)
             with h_ipdb.create(ifname=temp_name,
