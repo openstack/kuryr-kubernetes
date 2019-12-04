@@ -22,7 +22,6 @@
       - openstack/octavia
       - openstack/python-barbicanclient
       - openstack/python-octaviaclient
-    pre-run: playbooks/get_amphora_tarball.yaml
     host-vars:
       controller:
         devstack_plugins:
@@ -30,11 +29,7 @@
           barbican: https://opendev.org/openstack/barbican
     vars:
       devstack_localrc:
-        OCTAVIA_AMP_IMAGE_FILE: "/tmp/test-only-amphora-x64-haproxy-centos-7.qcow2"
         OCTAVIA_AMP_IMAGE_SIZE: 3
-        OCTAVIA_AMP_IMAGE_NAME: "test-only-amphora-x64-haproxy-centos-7"
-        OCTAVIA_AMP_BASE_OS: centos
-        OCTAVIA_AMP_DISTRIBUTION_RELEASE_ID: 7
       devstack_local_conf:
         post-config:
           $OCTAVIA_CONF:
@@ -46,6 +41,10 @@
         o-cw: true
         o-hk: true
         o-hm: true
+      zuul_copy_output:
+        '/var/log/dib-build': logs
+        '/var/log/octavia-amphora.log': logs
+        '/var/log/octavia-tenant-traffic.log': logs
 
 - job:
     name: kuryr-kubernetes-tempest-centos-7
