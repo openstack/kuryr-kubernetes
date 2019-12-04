@@ -319,8 +319,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     cidr=cidr, pods=pods)
                 if sg_rule not in crd_rules:
                     crd_rules.append(sg_rule)
-                if (direction == 'egress' and
-                        CONF.octavia_defaults.enforce_sg_rules):
+                if direction == 'egress':
                     rules = self._create_svc_egress_sg_rule(
                         sg_id, policy_namespace, resource=resource,
                         port=container_port,
@@ -381,8 +380,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     protocol=port.get('protocol'),
                     pods=pods)
                 crd_rules.append(sg_rule)
-            if (direction == 'egress' and
-                    CONF.octavia_defaults.enforce_sg_rules):
+            if direction == 'egress':
                 rules = self._create_svc_egress_sg_rule(
                     sg_id, policy_namespace, port=container_port,
                     protocol=port.get('protocol'))
@@ -405,8 +403,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     cidr=cidr,
                     namespace=ns))
             sg_rule_body_list.append(sg_rule)
-            if (direction == 'egress' and
-                    CONF.octavia_defaults.enforce_sg_rules):
+            if direction == 'egress':
                 rule = self._create_svc_egress_sg_rule(
                     sg_id, policy_namespace, resource=resource,
                     port=port.get('port'), protocol=port.get('protocol'))
@@ -427,8 +424,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     sg_id, direction, port.get('port'),
                     protocol=port.get('protocol')))
             sg_rule_body_list.append(sg_rule)
-            if (direction == 'egress' and
-                    CONF.octavia_defaults.enforce_sg_rules):
+            if direction == 'egress':
                 rule = self._create_svc_egress_sg_rule(
                     sg_id, policy_namespace, port=port.get('port'),
                     protocol=port.get('protocol'))
@@ -554,8 +550,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                         cidr=cidr,
                         namespace=namespace)
                     sg_rule_body_list.append(rule)
-                    if (direction == 'egress' and
-                            CONF.octavia_defaults.enforce_sg_rules):
+                    if direction == 'egress':
                         rule = self._create_svc_egress_sg_rule(
                             sg_id, policy_namespace, resource=resource)
                         sg_rule_body_list.extend(rule)
@@ -564,8 +559,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                         sg_id, direction,
                         port_range_min=1,
                         port_range_max=65535)
-                    if (direction == 'egress' and
-                            CONF.octavia_defaults.enforce_sg_rules):
+                    if direction == 'egress':
                         rule = self._create_svc_egress_sg_rule(
                             sg_id, policy_namespace)
                         sg_rule_body_list.extend(rule)
