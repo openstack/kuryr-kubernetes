@@ -28,6 +28,7 @@ from kuryr_kubernetes import constants as const
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes import os_vif_util as ovu
 from kuryr_kubernetes.tests import base as test_base
+from kuryr_kubernetes.tests import fake
 
 
 # REVISIT(ivc): move to kuryr-lib along with 'os_vif_util'
@@ -177,7 +178,6 @@ class TestOSVIFUtils(test_base.TestCase):
                                              m_get_ovs_hybrid_bridge_name):
         vif_plugin = 'ovs'
         port_id = mock.sentinel.port_id
-        mac_address = mock.sentinel.mac_address
         ovs_bridge = mock.sentinel.ovs_bridge
         port_filter = mock.sentinel.port_filter
         subnets = mock.sentinel.subnets
@@ -187,6 +187,10 @@ class TestOSVIFUtils(test_base.TestCase):
         vif_name = mock.sentinel.vif_name
         hybrid_bridge = mock.sentinel.hybrid_bridge
         vif = mock.sentinel.vif
+        port = fake.get_port_obj(port_id=port_id,
+                                 vif_details={'ovs_hybrid_plug': True,
+                                              'bridge_name': ovs_bridge,
+                                              'port_filter': port_filter})
 
         m_mk_profile.return_value = port_profile
         m_make_vif_network.return_value = network
@@ -194,14 +198,6 @@ class TestOSVIFUtils(test_base.TestCase):
         m_get_vif_name.return_value = vif_name
         m_get_ovs_hybrid_bridge_name.return_value = hybrid_bridge
         m_mk_vif.return_value = vif
-
-        port = {'id': port_id,
-                'mac_address': mac_address,
-                'binding:vif_details': {
-                    'ovs_hybrid_plug': True,
-                    'bridge_name': ovs_bridge,
-                    'port_filter': port_filter},
-                }
 
         self.assertEqual(vif, ovu.neutron_to_osvif_vif_ovs(vif_plugin, port,
                                                            subnets))
@@ -214,9 +210,9 @@ class TestOSVIFUtils(test_base.TestCase):
         self.assertEqual(ovs_bridge, network.bridge)
         m_mk_vif.assert_called_once_with(
             id=port_id,
-            address=mac_address,
+            address=port.mac_address,
             network=network,
-            has_traffic_filtering=port_filter,
+            has_traffic_filtering=port.binding_vif_details['port_filter'],
             preserve_on_delete=False,
             active=port_active,
             port_profile=port_profile,
@@ -236,36 +232,31 @@ class TestOSVIFUtils(test_base.TestCase):
                                              m_is_port_active,
                                              m_get_vif_name):
         vif_plugin = 'ovs'
-        port_id = mock.sentinel.port_id
-        mac_address = mock.sentinel.mac_address
-        ovs_bridge = mock.sentinel.ovs_bridge
+        vif_details = {'ovs_hybrid_plug': False,
+                       'bridge_name': mock.sentinel.ovs_bridge}
+        port = fake.get_port_obj(vif_details=vif_details)
+        port.active = mock.sentinel.port_active
+        port.profile = mock.sentinel.port_profile
+
         subnets = mock.sentinel.subnets
-        port_profile = mock.sentinel.port_profile
         network = mock.sentinel.network
-        port_active = mock.sentinel.port_active
         vif_name = mock.sentinel.vif_name
         vif = mock.sentinel.vif
 
-        m_mk_profile.return_value = port_profile
+        m_mk_profile.return_value = port.profile
         m_make_vif_network.return_value = network
-        m_is_port_active.return_value = port_active
+        m_is_port_active.return_value = port.active
         m_get_vif_name.return_value = vif_name
         m_mk_vif.return_value = vif
 
-        port = {'id': port_id,
-                'mac_address': mac_address,
-                'binding:vif_details': {
-                    'ovs_hybrid_plug': False,
-                    'bridge_name': ovs_bridge},
-                }
-
         self.assertEqual(vif, ovu.neutron_to_osvif_vif_ovs(vif_plugin, port,
                                                            subnets))
-        m_mk_profile.assert_called_once_with(interface_id=port_id)
+        m_mk_profile.assert_called_once_with(interface_id=port.id)
         m_make_vif_network.assert_called_once_with(port, subnets)
         m_is_port_active.assert_called_once_with(port)
         m_get_vif_name.assert_called_once_with(port)
-        self.assertEqual(ovs_bridge, network.bridge)
+        self.assertEqual(network.bridge,
+                         port.binding_vif_details['bridge_name'])
 
     @mock.patch('kuryr_kubernetes.os_vif_util._get_vif_name')
     @mock.patch('kuryr_kubernetes.os_vif_util._is_port_active')
@@ -283,17 +274,14 @@ class TestOSVIFUtils(test_base.TestCase):
         vif_name = mock.sentinel.vif_name
         vif = mock.sentinel.vif
         vlan_id = mock.sentinel.vlan_id
+        port = fake.get_port_obj(port_id=port_id,
+                                 vif_details={'port_filter': port_filter})
+        port.mac_address = mac_address
 
         m_make_vif_network.return_value = network
         m_is_port_active.return_value = port_active
         m_get_vif_name.return_value = vif_name
         m_mk_vif.return_value = vif
-
-        port = {'id': port_id,
-                'mac_address': mac_address,
-                'binding:vif_details': {
-                    'port_filter': port_filter},
-                }
 
         self.assertEqual(vif, ovu.neutron_to_osvif_vif_nested_vlan(port,
                          subnets, vlan_id))
@@ -358,8 +346,7 @@ class TestOSVIFUtils(test_base.TestCase):
 
     def test_neutron_to_osvif_vif_ovs_no_bridge(self):
         vif_plugin = 'ovs'
-        port = munch.Munch({'id': str(uuid.uuid4()),
-                            'binding_vif_details': {}})
+        port = fake.get_port_obj(port_id=str(uuid.uuid4()))
         subnets = {}
 
         self.assertRaises(o_cfg.RequiredOptError,
@@ -367,31 +354,30 @@ class TestOSVIFUtils(test_base.TestCase):
                           vif_plugin, port, subnets)
 
     def test_get_ovs_hybrid_bridge_name(self):
-        port_id = str(uuid.uuid4())
-        port = {'id': port_id}
+        port = fake.get_port_obj(port_id=str(uuid.uuid4()))
 
-        self.assertEqual("qbr" + port_id[:11],
+        self.assertEqual("qbr" + port.id[:11],
                          ovu._get_ovs_hybrid_bridge_name(port))
 
     def test_is_port_active(self):
-        port = {'status': 'ACTIVE'}
+        port = fake.get_port_obj(port_id=str(uuid.uuid4()))
+        port.status = 'ACTIVE'
 
         self.assertTrue(ovu._is_port_active(port))
 
     def test_is_port_inactive(self):
-        port = {'status': 'DOWN'}
+        port = fake.get_port_obj(port_id=str(uuid.uuid4()))
 
         self.assertFalse(ovu._is_port_active(port))
 
     @mock.patch('kuryr.lib.binding.drivers.utils.get_veth_pair_names')
     def test_get_vif_name(self, m_get_veth_pair_names):
-        port_id = mock.sentinel.port_id
         vif_name = mock.sentinel.vif_name
-        port = {'id': port_id}
+        port = fake.get_port_obj(port_id=str(uuid.uuid4()))
         m_get_veth_pair_names.return_value = (vif_name, mock.sentinel.any)
 
         self.assertEqual(vif_name, ovu._get_vif_name(port))
-        m_get_veth_pair_names.assert_called_once_with(port_id)
+        m_get_veth_pair_names.assert_called_once_with(port.id)
 
     @mock.patch('kuryr_kubernetes.os_vif_util._make_vif_subnets')
     @mock.patch('os_vif.objects.subnet.SubnetList')
@@ -476,22 +462,6 @@ class TestOSVIFUtils(test_base.TestCase):
 
         self.assertRaises(k_exc.IntegrityError, ovu._make_vif_subnet,
                           subnets, subnet_id)
-
-    def test_osvif_to_neutron_network_ids(self):
-        id_a = mock.sentinel.id_a
-        id_b = mock.sentinel.id_b
-        net1 = mock.Mock()
-        net1.id = id_a
-        net2 = mock.Mock()
-        net2.id = id_b
-        net3 = mock.Mock()
-        net3.id = id_a
-        subnets = {1: net1, 2: net2, 3: net3}
-
-        ret = ovu.osvif_to_neutron_network_ids(subnets)
-        self.assertEqual(2, len(ret))
-        self.assertIn(id_a, ret)
-        self.assertIn(id_b, ret)
 
     def test_osvif_to_neutron_fixed_ips(self):
         ip11 = '1.1.1.1'

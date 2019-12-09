@@ -32,6 +32,7 @@ from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.objects import vif
 from kuryr_kubernetes import os_vif_util as ovu
 from kuryr_kubernetes.tests import base as test_base
+from kuryr_kubernetes.tests import fake
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
 
 
@@ -67,8 +68,8 @@ def get_pod_name(pod):
     return "%(namespace)s/%(name)s" % pod['metadata']
 
 
-def get_port_obj(port_id=None, device_owner=None, ip_address=None):
-    port_obj = munch.Munch({
+def get_neutron_port(port_id=None, device_owner=None, ip_address=None):
+    port_obj = {
         'allowed_address_pairs': [],
         'extra_dhcp_opts': [],
         'device_owner': 'compute:kuryr',
@@ -76,17 +77,14 @@ def get_port_obj(port_id=None, device_owner=None, ip_address=None):
         'port_security_enabled': True,
         'binding:profile': {},
         'fixed_ips': [
-            munch.Munch({
-                'subnet_id': 'e1942bb1-5f51-4646-9885-365b66215592',
-                'ip_address': '10.10.0.5'}),
-            munch.Munch({
-                'subnet_id': '4894baaf-df06-4a54-9885-9cd99d1cc245',
-                'ip_address': 'fd35:7db5:e3fc:0:f816:3eff:fe80:d421'})],
+            {'subnet_id': 'e1942bb1-5f51-4646-9885-365b66215592',
+             'ip_address': '10.10.0.5'},
+            {'subnet_id': '4894baaf-df06-4a54-9885-9cd99d1cc245',
+             'ip_address': 'fd35:7db5:e3fc:0:f816:3eff:fe80:d421'}],
         'id': '07cfe856-11cc-43d9-9200-ff4dc02d3620',
         'security_groups': ['cfb3dfc4-7a43-4ba1-b92d-b8b2650d7f88'],
-        'binding:vif_details': munch.Munch({
-            'port_filter': True,
-            'ovs_hybrid_plug': False}),
+        'binding:vif_details': {'port_filter': True,
+                                'ovs_hybrid_plug': False},
         'binding:vif_type': 'ovs',
         'mac_address': 'fa:16:3e:80:d4:21',
         'project_id': 'b6e8fb2bde594673923afc19cf168f3a',
@@ -100,14 +98,14 @@ def get_port_obj(port_id=None, device_owner=None, ip_address=None):
         'network_id': 'ba44f957-c467-412b-b985-ae720514bc46',
         'tenant_id': 'b6e8fb2bde594673923afc19cf168f3a',
         'created_at': '2017-06-09T13:23:24Z',
-        'binding:vnic_type': 'normal'})
+        'binding:vnic_type': 'normal'}
 
     if ip_address:
-        port_obj.fixed_ips[0].ip_address = ip_address
+        port_obj['fixed_ips'][0].ip_address = ip_address
     if port_id:
-        port_obj.id = port_id
+        port_obj['id'] = port_id
     if device_owner:
-        port_obj.device_owner = device_owner
+        port_obj['device_owner'] = device_owner
 
     return port_obj
 
@@ -373,7 +371,7 @@ class BaseVIFPool(test_base.TestCase):
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         port_id = str(uuid.uuid4())
-        port = get_port_obj(port_id=port_id)
+        port = get_neutron_port(port_id=port_id)
         net_id = port['network_id']
         tags = 'clusterTest'
         port['tags'] = [tags]
@@ -398,7 +396,7 @@ class BaseVIFPool(test_base.TestCase):
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         port_id = str(uuid.uuid4())
-        port = get_port_obj(port_id=port_id)
+        port = get_neutron_port(port_id=port_id)
         tags = 'clusterTest'
         port['tags'] = [tags]
         m_get_ports.return_value = [port]
@@ -421,7 +419,7 @@ class BaseVIFPool(test_base.TestCase):
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         port_id = str(uuid.uuid4())
-        port = get_port_obj(port_id=port_id)
+        port = get_neutron_port(port_id=port_id)
         net_id = port['network_id']
         tags = 'clusterTest'
         port['tags'] = [tags]
@@ -447,7 +445,7 @@ class BaseVIFPool(test_base.TestCase):
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         port_id = str(uuid.uuid4())
-        port = get_port_obj(port_id=port_id)
+        port = get_neutron_port(port_id=port_id)
         net_id = port['network_id']
         tags = 'clusterTest'
         m_get_ports.return_value = [port]
@@ -471,7 +469,7 @@ class BaseVIFPool(test_base.TestCase):
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         port_id = str(uuid.uuid4())
-        port = get_port_obj(port_id=port_id)
+        port = get_neutron_port(port_id=port_id)
         m_get_ports.return_value = [port]
 
         cls._cleanup_leftover_ports(m_driver)
@@ -486,13 +484,13 @@ class BaseVIFPool(test_base.TestCase):
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         port_id = str(uuid.uuid4())
-        port = get_port_obj(port_id=port_id)
+        port = get_neutron_port(port_id=port_id)
         port['binding:host_id'] = None
         m_get_ports.return_value = [port]
 
         cls._cleanup_leftover_ports(m_driver)
         os_net.networks.assert_not_called()
-        os_net.delete_port.assert_called_once_with(port.id)
+        os_net.delete_port.assert_called_once_with(port['id'])
 
 
 @ddt.ddt
@@ -887,7 +885,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver._available_ports_pools = {}
 
         port_id = str(uuid.uuid4())
-        port = get_port_obj(port_id=port_id)
+        port = get_neutron_port(port_id=port_id)
         filtered_ports = [port]
         m_get_ports.return_value = filtered_ports
         vif_plugin = mock.sentinel.plugin
@@ -1449,7 +1447,7 @@ class NestedVIFPool(test_base.TestCase):
         port_id = str(uuid.uuid4())
         ip_address = mock.sentinel.ip_address
 
-        port_obj = get_port_obj(ip_address=ip_address)
+        port_obj = fake.get_port_obj(ip_address=ip_address)
         os_net.get_port.return_value = port_obj
 
         self.assertEqual(ip_address, cls._get_parent_port_ip(m_driver,
@@ -1462,7 +1460,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
 
         port_id = str(uuid.uuid4())
-        trunk_port = get_port_obj(port_id=port_id)
+        trunk_port = get_neutron_port(port_id=port_id)
         trunk_id = str(uuid.uuid4())
         trunk_details = {
             'trunk_id': trunk_id,
@@ -1473,8 +1471,8 @@ class NestedVIFPool(test_base.TestCase):
         trunk_port['trunk_details'] = trunk_details
 
         subport_id = str(uuid.uuid4())
-        subport = get_port_obj(port_id=subport_id,
-                               device_owner='trunk:subport')
+        subport = get_neutron_port(port_id=subport_id,
+                                   device_owner='trunk:subport')
         m_get_ports.return_value = [trunk_port, subport]
         m_driver._get_in_use_ports.return_value = []
         subnet = mock.sentinel.subnet
@@ -1512,8 +1510,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
 
         port_id = str(uuid.uuid4())
-        port = get_port_obj(port_id=port_id)
-        port = get_port_obj(port_id=port_id, device_owner='compute:nova')
+        port = get_neutron_port(port_id=port_id, device_owner='compute:nova')
         m_get_ports.return_value = [port]
         m_driver._get_in_use_ports.return_value = []
 
@@ -1540,7 +1537,7 @@ class NestedVIFPool(test_base.TestCase):
         port_id = str(uuid.uuid4())
         trunk_id = str(uuid.uuid4())
         trunk_obj = self._get_trunk_obj(port_id=trunk_id, subport_id=port_id)
-        port = get_port_obj(port_id=port_id, device_owner='trunk:subport')
+        port = get_neutron_port(port_id=port_id, device_owner='trunk:subport')
 
         p_ports = self._get_parent_ports([trunk_obj])
         a_subports = {port_id: port}
@@ -1586,10 +1583,10 @@ class NestedVIFPool(test_base.TestCase):
         port_id = str(uuid.uuid4())
         trunk_id = str(uuid.uuid4())
         trunk_obj = self._get_trunk_obj(port_id=trunk_id, subport_id=port_id)
-        port = get_port_obj(port_id=port_id, device_owner='trunk:subport')
+        port = get_neutron_port(port_id=port_id, device_owner='trunk:subport')
         port_to_delete_id = str(uuid.uuid4())
-        port_to_delete = get_port_obj(port_id=port_to_delete_id,
-                                      device_owner='trunk:subport')
+        port_to_delete = get_neutron_port(port_id=port_to_delete_id,
+                                          device_owner='trunk:subport')
 
         p_ports = self._get_parent_ports([trunk_obj])
         a_subports = {port_id: port, port_to_delete_id: port_to_delete}
@@ -1633,7 +1630,7 @@ class NestedVIFPool(test_base.TestCase):
         port_id = str(uuid.uuid4())
         trunk_id = str(uuid.uuid4())
         trunk_obj = self._get_trunk_obj(port_id=trunk_id, subport_id=port_id)
-        port = get_port_obj(port_id=port_id, device_owner='trunk:subport')
+        port = get_neutron_port(port_id=port_id, device_owner='trunk:subport')
 
         p_ports = self._get_parent_ports([trunk_obj])
         a_subports = {port_id: port}
@@ -1692,8 +1689,10 @@ class NestedVIFPool(test_base.TestCase):
                                          subport_id=port_id2,
                                          trunk_id=str(uuid.uuid4()))
 
-        port1 = get_port_obj(port_id=port_id1, device_owner='trunk:subport')
-        port2 = get_port_obj(port_id=port_id2, device_owner='trunk:subport')
+        port1 = get_neutron_port(port_id=port_id1,
+                                 device_owner='trunk:subport')
+        port2 = get_neutron_port(port_id=port_id2,
+                                 device_owner='trunk:subport')
 
         p_ports = self._get_parent_ports([trunk_obj1, trunk_obj2])
         a_subports = {port_id1: port1, port_id2: port2}
@@ -1741,8 +1740,10 @@ class NestedVIFPool(test_base.TestCase):
         trunk_obj['sub_ports'].append({'port_id': port_id2,
                                        'segmentation_type': 'vlan',
                                        'segmentation_id': 101})
-        port1 = get_port_obj(port_id=port_id1, device_owner='trunk:subport')
-        port2 = get_port_obj(port_id=port_id2, device_owner='trunk:subport')
+        port1 = get_neutron_port(port_id=port_id1,
+                                 device_owner='trunk:subport')
+        port2 = get_neutron_port(port_id=port_id2,
+                                 device_owner='trunk:subport')
 
         p_ports = self._get_parent_ports([trunk_obj])
         a_subports = {port_id1: port1, port_id2: port2}
@@ -1817,11 +1818,12 @@ class NestedVIFPool(test_base.TestCase):
                                    group='kubernetes')
 
         port_id = str(uuid.uuid4())
-        port = get_port_obj(port_id=port_id, device_owner='trunk:subport')
+        port = fake.get_port_obj(port_id=port_id,
+                                 device_owner='trunk:subport')
 
         p_ports = {}
         a_subports = {}
-        subnet_id = port['fixed_ips'][0]['subnet_id']
+        subnet_id = port.fixed_ips[0]['subnet_id']
         subnet = mock.sentinel.subnet
         subnets = {subnet_id: {subnet_id: subnet}}
         m_driver._get_trunks_info.return_value = (p_ports, a_subports,

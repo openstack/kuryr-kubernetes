@@ -15,9 +15,12 @@
 
 import uuid
 
+from openstack.network.v2 import port as os_port
 from os_vif import objects as osv_objects
 from os_vif.objects import vif as osv_vif
 from oslo_serialization import jsonutils
+
+from kuryr_kubernetes import constants
 
 
 def _fake_vif(cls=osv_vif.VIFOpenVSwitch):
@@ -83,3 +86,56 @@ def _fake_vifs_string(dictionary=None):
         return jsonutils.dumps(dictionary)
     else:
         return jsonutils.dumps(_fake_vifs_dict())
+
+
+def get_port_obj(port_id='07cfe856-11cc-43d9-9200-ff4dc02d3620',
+                 device_owner='compute:kuryr', ip_address=None,
+                 vif_details=None):
+
+    fixed_ips = [{'subnet_id': 'e1942bb1-5f51-4646-9885-365b66215592',
+                  'ip_address': '10.10.0.5'},
+                 {'subnet_id': '4894baaf-df06-4a54-9885-9cd99d1cc245',
+                  'ip_address': 'fd35:7db5:e3fc:0:f816:3eff:fe80:d421'}]
+    if ip_address:
+        fixed_ips[0]['ip_address'] = ip_address
+    security_group_ids = ['cfb3dfc4-7a43-4ba1-b92d-b8b2650d7f88']
+
+    if not vif_details:
+        vif_details = {'port_filter': True, 'ovs_hybrid_plug': False}
+
+    port_data = {'allowed_address_pairs': [],
+                 'binding_host_id': 'kuryr-devstack',
+                 'binding_profile': {},
+                 'binding_vif_details': vif_details,
+                 'binding_vif_type': 'ovs',
+                 'binding_vnic_type': 'normal',
+                 'created_at': '2017-06-09T13:23:24Z',
+                 'data_plane_status': None,
+                 'description': '',
+                 'device_id': '',
+                 'device_owner': device_owner,
+                 'dns_assignment': None,
+                 'dns_domain': None,
+                 'dns_name': None,
+                 'extra_dhcp_opts': [],
+                 'fixed_ips': fixed_ips,
+                 'id': port_id,
+                 'ip_address': None,
+                 'is_admin_state_up': True,
+                 'is_port_security_enabled': True,
+                 'location': None,
+                 'mac_address': 'fa:16:3e:80:d4:21',
+                 'name': constants.KURYR_PORT_NAME,
+                 'network_id': 'ba44f957-c467-412b-b985-ae720514bc46',
+                 'option_name': None,
+                 'option_value': None,
+                 'project_id': 'b6e8fb2bde594673923afc19cf168f3a',
+                 'qos_policy_id': None,
+                 'revision_number': 9,
+                 'security_group_ids': security_group_ids,
+                 'status': u'DOWN',
+                 'subnet_id': None,
+                 'tags': [],
+                 'trunk_details': None,
+                 'updated_at': u'2019-12-04T15:06:09Z'}
+    return os_port.Port(**port_data)

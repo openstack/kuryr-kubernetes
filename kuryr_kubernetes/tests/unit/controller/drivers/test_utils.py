@@ -34,3 +34,32 @@ class TestUtils(test_base.TestCase):
         self.assertIsNone(resp)
         kubernetes.get.assert_called_once_with('{}/namespaces/{}'.format(
             constants.K8S_API_BASE, namespace_name))
+
+    def test_get_network_id(self):
+        id_a = mock.sentinel.id_a
+        net1 = mock.Mock()
+        net1.id = id_a
+        net2 = mock.Mock()
+        net2.id = id_a
+        subnets = {1: net1, 2: net2}
+
+        ret = utils.get_network_id(subnets)
+
+        self.assertEqual(ret, id_a)
+
+    def test_get_network_id_invalid(self):
+        id_a = mock.sentinel.id_a
+        id_b = mock.sentinel.id_b
+        net1 = mock.Mock()
+        net1.id = id_a
+        net2 = mock.Mock()
+        net2.id = id_b
+        net3 = mock.Mock()
+        net3.id = id_a
+        subnets = {1: net1, 2: net2, 3: net3}
+
+        self.assertRaises(exceptions.IntegrityError, utils.get_network_id,
+                          subnets)
+
+    def test_get_network_id_empty(self):
+        self.assertRaises(exceptions.IntegrityError, utils.get_network_id, {})
