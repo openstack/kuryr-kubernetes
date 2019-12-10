@@ -17,6 +17,7 @@ import ddt
 import mock
 import uuid
 
+import munch
 from neutronclient.common import exceptions as n_exc
 from oslo_config import cfg as oslo_cfg
 from oslo_serialization import jsonutils
@@ -122,7 +123,11 @@ class BaseVIFPool(test_base.TestCase):
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
         net_id = str(uuid.uuid4())
-        network = ovu.neutron_to_osvif_network({'id': net_id})
+        _net = munch.Munch({'id': net_id,
+                            'name': None,
+                            'mtu': None,
+                            'provider_network_type': None})
+        network = ovu.neutron_to_osvif_network(_net)
         subnets = {subnet_id: network}
         security_groups = [mock.sentinel.security_groups]
         vif = mock.sentinel.vif
@@ -150,7 +155,11 @@ class BaseVIFPool(test_base.TestCase):
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
         net_id = str(uuid.uuid4())
-        network = ovu.neutron_to_osvif_network({'id': net_id})
+        _net = munch.Munch({'id': net_id,
+                            'name': None,
+                            'mtu': None,
+                            'provider_network_type': None})
+        network = ovu.neutron_to_osvif_network(_net)
         subnets = {subnet_id: network}
         security_groups = [mock.sentinel.security_groups]
         m_driver._get_port_from_pool.side_effect = (
@@ -297,7 +306,11 @@ class BaseVIFPool(test_base.TestCase):
         project_id = mock.sentinel.project_id
         security_groups = [mock.sentinel.security_groups]
         net_id = str(uuid.uuid4())
-        network = ovu.neutron_to_osvif_network({'id': net_id})
+        _net = munch.Munch({'id': net_id,
+                            'name': None,
+                            'mtu': None,
+                            'provider_network_type': None})
+        network = ovu.neutron_to_osvif_network(_net)
         vif = osv_vif.VIFOpenVSwitch(id='0fa0e837-d34e-4580-a6c4-04f5f607d93e',
                                      network=network)
 
@@ -903,7 +916,11 @@ class NeutronVIFPool(test_base.TestCase):
 
         subnet_id = port['fixed_ips'][0]['subnet_id']
         net_id = str(uuid.uuid4())
-        network = ovu.neutron_to_osvif_network({'id': net_id})
+        _net = munch.Munch({'id': net_id,
+                            'name': None,
+                            'mtu': None,
+                            'provider_network_type': None})
+        network = ovu.neutron_to_osvif_network(_net)
         subnet = {subnet_id: network}
         m_get_subnet.return_value = network
         vif = mock.sentinel.vif
@@ -1568,7 +1585,11 @@ class NestedVIFPool(test_base.TestCase):
         a_subports = {port_id: port}
         subnet_id = port['fixed_ips'][0]['subnet_id']
         net_id = str(uuid.uuid4())
-        network = ovu.neutron_to_osvif_network({'id': net_id})
+        _net = munch.Munch({'id': net_id,
+                            'name': None,
+                            'mtu': None,
+                            'provider_network_type': None})
+        network = ovu.neutron_to_osvif_network(_net)
         subnets = {subnet_id: {subnet_id: network}}
         m_driver._get_trunks_info.return_value = (p_ports, a_subports,
                                                   subnets)
@@ -1613,7 +1634,11 @@ class NestedVIFPool(test_base.TestCase):
         a_subports = {port_id: port, port_to_delete_id: port_to_delete}
         subnet_id = port['fixed_ips'][0]['subnet_id']
         net_id = str(uuid.uuid4())
-        network = ovu.neutron_to_osvif_network({'id': net_id})
+        _net = munch.Munch({'id': net_id,
+                            'name': None,
+                            'mtu': None,
+                            'provider_network_type': None})
+        network = ovu.neutron_to_osvif_network(_net)
         subnets = {subnet_id: {subnet_id: network}}
         m_driver._get_trunks_info.return_value = (p_ports, a_subports,
                                                   subnets)
@@ -1653,7 +1678,11 @@ class NestedVIFPool(test_base.TestCase):
         a_subports = {port_id: port}
         subnet_id = port['fixed_ips'][0]['subnet_id']
         net_id = str(uuid.uuid4())
-        network = ovu.neutron_to_osvif_network({'id': net_id})
+        _net = munch.Munch({'id': net_id,
+                            'name': None,
+                            'mtu': None,
+                            'provider_network_type': None})
+        network = ovu.neutron_to_osvif_network(_net)
         subnets = {subnet_id: {subnet_id: network}}
         m_driver._get_trunks_info.return_value = (p_ports, a_subports,
                                                   subnets)
@@ -1708,7 +1737,11 @@ class NestedVIFPool(test_base.TestCase):
         a_subports = {port_id1: port1, port_id2: port2}
         subnet_id = port1['fixed_ips'][0]['subnet_id']
         net_id = str(uuid.uuid4())
-        network = ovu.neutron_to_osvif_network({'id': net_id})
+        _net = munch.Munch({'id': net_id,
+                            'name': None,
+                            'mtu': None,
+                            'provider_network_type': None})
+        network = ovu.neutron_to_osvif_network(_net)
         subnets = {subnet_id: {subnet_id: network}}
 
         m_driver._get_trunks_info.return_value = (p_ports, a_subports,
@@ -1752,7 +1785,11 @@ class NestedVIFPool(test_base.TestCase):
         a_subports = {port_id1: port1, port_id2: port2}
         subnet_id = port1['fixed_ips'][0]['subnet_id']
         net_id = str(uuid.uuid4())
-        network = ovu.neutron_to_osvif_network({'id': net_id})
+        _net = munch.Munch({'id': net_id,
+                            'name': None,
+                            'mtu': None,
+                            'provider_network_type': None})
+        network = ovu.neutron_to_osvif_network(_net)
         subnets = {subnet_id: {subnet_id: network}}
 
         m_driver._get_trunks_info.return_value = (p_ports, a_subports,

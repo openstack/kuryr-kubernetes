@@ -36,45 +36,43 @@ _VIF_TRANSLATOR_NAMESPACE = "kuryr_kubernetes.vif_translators"
 _VIF_MANAGERS = {}
 
 
-def neutron_to_osvif_network(neutron_network):
+def neutron_to_osvif_network(os_network):
     """Converts Neutron network to os-vif Subnet.
 
-    :param neutron_network: dict containing network information as returned by
-                            neutron client's 'show_network'
+    :param os_network: openstack.network.v2.netwrork.Network object.
     :return: an os-vif Network object
     """
 
-    obj = osv_network.Network(id=neutron_network['id'])
+    obj = osv_network.Network(id=os_network.id)
 
-    if neutron_network.get('name') is not None:
-        obj.label = neutron_network['name']
+    if os_network.name is not None:
+        obj.label = os_network.name
 
-    if neutron_network.get('mtu') is not None:
-        obj.mtu = neutron_network['mtu']
+    if os_network.mtu is not None:
+        obj.mtu = os_network.mtu
 
     # Vlan information will be used later in Sriov binding driver
-    if neutron_network.get('provider:network_type') == 'vlan':
+    if os_network.provider_network_type == 'vlan':
         obj.should_provide_vlan = True
-        obj.vlan = neutron_network['provider:segmentation_id']
+        obj.vlan = os_network.provider_segmentation_id
 
     return obj
 
 
-def neutron_to_osvif_subnet(neutron_subnet):
+def neutron_to_osvif_subnet(os_subnet):
     """Converts Neutron subnet to os-vif Subnet.
 
-    :param neutron_subnet: dict containing subnet information as returned by
-                           neutron client's 'show_subnet'
+    :param os_subnet: openstack.network.v2.subnet.Subnet object
     :return: an os-vif Subnet object
     """
 
     obj = osv_subnet.Subnet(
-        cidr=neutron_subnet['cidr'],
-        dns=neutron_subnet['dns_nameservers'],
-        routes=_neutron_to_osvif_routes(neutron_subnet['host_routes']))
+        cidr=os_subnet.cidr,
+        dns=os_subnet.dns_nameservers,
+        routes=_neutron_to_osvif_routes(os_subnet.host_routes))
 
-    if neutron_subnet.get('gateway_ip') is not None:
-        obj.gateway = neutron_subnet['gateway_ip']
+    if os_subnet.gateway_ip is not None:
+        obj.gateway = os_subnet.gateway_ip
 
     return obj
 
@@ -87,6 +85,8 @@ def _neutron_to_osvif_routes(neutron_routes):
     :return: an os-vif RouteList object
     """
 
+    # NOTE(gryf): Nested attributes for OpenStackSDK objects are simple types,
+    # like dicts and lists, that's why neutron_routes is a list of dicts.
     obj_list = [osv_route.Route(cidr=route['destination'],
                                 gateway=route['nexthop'])
                 for route in neutron_routes]
