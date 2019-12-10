@@ -143,10 +143,8 @@ function generate_containerized_kuryr_resources {
     iniset "$KURYR_CONFIG" kubernetes controller_ha_port ${KURYR_CONTROLLER_HA_PORT}
 
     # NOTE(dulek): In the container the CA bundle will be mounted in a standard
-    # directory, so we need to modify that.
+    # directory
     iniset "$KURYR_CONFIG" neutron cafile /etc/ssl/certs/kuryr-ca-bundle.crt
-    iniset "$KURYR_CONFIG" kubernetes token_file /var/run/secrets/kubernetes.io/serviceaccount/token
-    iniset "$KURYR_CONFIG" kubernetes ssl_ca_crt_file /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 
     # Generate kuryr resources in k8s formats.
     local output_dir="${DATA_DIR}/kuryr-kubernetes"
@@ -1073,6 +1071,8 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
                 KURYR_K8S_API_ROOT="https://${k8s_api_clusterip}:${KURYR_K8S_API_LB_PORT}"
             fi
             iniset "$KURYR_CONFIG" kubernetes api_root ${KURYR_K8S_API_ROOT}
+            iniset "$KURYR_CONFIG" kubernetes ssl_ca_crt_file '""'
+            iniset "$KURYR_CONFIG" kubernetes token_file '""'
         else
             iniset "$KURYR_CONFIG" kubernetes api_root '""'
         fi

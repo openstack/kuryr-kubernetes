@@ -1,0 +1,11 @@
+---
+upgrade:
+  - |
+    In order to prioritize running kuryr-kubernetes services as pods on the
+    Kubernetes cluster they are supposed to serve, default values of
+    ``[kubernetes]ssl_ca_crt_file`` and ``[kubernetes]token_file`` are now
+    set to where Kubernetes pods are having those files mounted
+    (``/var/run/secrets/kubernetes.io/serviceaccount/ca.crt`` and
+    ``/var/run/secrets/kubernetes.io/serviceaccount/token``). This means that
+    if you want to run Kuryr services standalone through unauthenticated
+    K8s endpoint you need to set both of them to ``""`` in ``kuryr.conf``.

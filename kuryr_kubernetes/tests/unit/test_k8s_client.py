@@ -26,9 +26,15 @@ from kuryr_kubernetes.tests import base as test_base
 
 
 class TestK8sClient(test_base.TestCase):
-    def setUp(self):
+    @mock.patch('kuryr_kubernetes.config.CONF')
+    def setUp(self, m_cfg):
         super(TestK8sClient, self).setUp()
         self.base_url = 'http://127.0.0.1:12345'
+        m_cfg.kubernetes.ssl_client_crt_file = None
+        m_cfg.kubernetes.ssl_client_key_file = None
+        m_cfg.kubernetes.ssl_ca_crt_file = None
+        m_cfg.kubernetes.token_file = None
+        m_cfg.kubernetes.ssl_verify_server_crt = False
         self.client = k8s_client.K8sClient(self.base_url)
         default_cert = (None, None)
         default_token = None
