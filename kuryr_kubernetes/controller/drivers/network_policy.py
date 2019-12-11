@@ -15,9 +15,9 @@
 import ipaddress
 import netaddr
 
-from oslo_log import log as logging
-
 from neutronclient.common import exceptions as n_exc
+from openstack import exceptions as os_exc
+from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
@@ -195,7 +195,8 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
 
             # Add default rules to allow traffic from host and svc subnet
             self._add_default_np_rules(sg_id)
-        except (n_exc.NeutronClientException, exceptions.ResourceNotReady):
+        except (n_exc.NeutronClientException, exceptions.ResourceNotReady,
+                os_exc.ResourceNotFound):
             LOG.exception("Error creating security group for network policy "
                           " %s", policy['metadata']['name'])
             # If there's any issue creating sg rules, remove them

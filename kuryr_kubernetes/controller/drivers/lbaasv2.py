@@ -20,7 +20,7 @@ import time
 import requests
 
 from neutronclient.common import exceptions as n_exc
-from openstack import exceptions as o_exc
+from openstack import exceptions as os_exc
 from openstack.load_balancer.v2 import l7_policy as o_l7p
 from openstack.load_balancer.v2 import l7_rule as o_l7r
 from openstack.load_balancer.v2 import listener as o_lis
@@ -378,18 +378,24 @@ class LBaaSv2Driver(base.LBaaSDriver):
             # support
             worker_subnet_id = CONF.pod_vif_nested.worker_nodes_subnet
             if worker_subnet_id:
-                worker_subnet_cidr = utils.get_subnet_cidr(worker_subnet_id)
-                neutron.create_security_group_rule({
-                    'security_group_rule': {
-                        'direction': 'ingress',
-                        'port_range_min': listener.port,
-                        'port_range_max': listener.port,
-                        'protocol': listener.protocol,
-                        'security_group_id': sg_id,
-                        'remote_ip_prefix': worker_subnet_cidr,
-                        'description': listener.name,
-                    },
-                })
+                try:
+                    worker_subnet_cidr = utils.get_subnet_cidr(
+                        worker_subnet_id)
+                    neutron.create_security_group_rule({
+                        'security_group_rule': {
+                            'direction': 'ingress',
+                            'port_range_min': listener.port,
+                            'port_range_max': listener.port,
+                            'protocol': listener.protocol,
+                            'security_group_id': sg_id,
+                            'remote_ip_prefix': worker_subnet_cidr,
+                            'description': listener.name,
+                        },
+                    })
+                except os_exc.ResourceNotFound:
+                    LOG.exception('Failed when creating security group rule '
+                                  'due to nonexistent worker_subnet_id: %s',
+                                  worker_subnet_id)
         except n_exc.NeutronClientException as ex:
             if ex.status_code != requests.codes.conflict:
                 LOG.exception('Failed when creating security group rule '
@@ -695,7 +701,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             result = create(obj)
             LOG.debug("Created %(obj)s", {'obj': result})
             return result
-        except o_exc.HttpException as e:
+        except os_exc.HttpException as e:
             if e.status_code not in okay_codes:
                 raise
         except requests.exceptions.HTTPError as e:
@@ -728,9 +734,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 try:
                     delete(*args, **kwargs)
                     return
-                except (o_exc.ConflictException, o_exc.BadRequestException):
+                except (os_exc.ConflictException, os_exc.BadRequestException):
                     self._wait_for_provisioning(loadbalancer, remaining)
-            except o_exc.NotFoundException:
+            except os_exc.NotFoundException:
                 return
 
         raise k_exc.ResourceNotReady(obj)
@@ -761,7 +767,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         for remaining in self._provisioning_timer(timeout, interval):
             try:
                 lbaas.get_load_balancer(loadbalancer.id)
-            except o_exc.NotFoundException:
+            except os_exc.NotFoundException:
                 return
 
     def _provisioning_timer(self, timeout,
@@ -808,7 +814,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         lbaas = clients.get_loadbalancer_client()
         try:
             response = lbaas.get_load_balancer(lb_uuid)
-        except o_exc.NotFoundException:
+        except os_exc.NotFoundException:
             LOG.debug("Couldn't find loadbalancer with uuid=%s", lb_uuid)
             return None
 
@@ -935,7 +941,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             lbaas.update_l7_rule(
                 l7_rule.id, l7_rule.l7policy_id,
                 value=new_value)
-        except o_exc.SDKException:
+        except os_exc.SDKException:
             LOG.exception("Failed to update l7_rule- id=%s ", l7_rule.id)
             raise
 
