@@ -110,7 +110,7 @@ resources:
                 stackname="__change_number__"
                 change_number=${stackname#*_}
                 echo "Finding latest ref for change ${change_number}"
-                ref=$(curl -s "https://review.openstack.org/changes/${change_number}?o=CURRENT_REVISION" | tail -n +2 | jq -r '.revisions[].ref')
+                ref=$(curl -s "https://review.opendev.org/changes/${change_number}?o=CURRENT_REVISION" | tail -n +2 | jq -r '.revisions[].ref')
                 echo "Fetching ref ${ref}"
                 git fetch https://opendev.org/openstack/kuryr-kubernetes "${ref}" && git checkout FETCH_HEAD
             }
