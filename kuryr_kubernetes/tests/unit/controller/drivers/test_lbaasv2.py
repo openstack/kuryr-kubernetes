@@ -44,7 +44,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         lbaas.get_api_major_version.return_value = (2, 5)
         d = d_lbaasv2.LBaaSv2Driver()
         req = {}
-        d._add_tags('loadbalancer', req)
+        d.add_tags('loadbalancer', req)
         self.assertEqual({'tags': ['foo']}, req)
 
     def test_add_tags_no_tag(self):
@@ -52,7 +52,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         lbaas.get_api_major_version.return_value = (2, 5)
         d = d_lbaasv2.LBaaSv2Driver()
         req = {}
-        d._add_tags('loadbalancer', req)
+        d.add_tags('loadbalancer', req)
         self.assertEqual({}, req)
 
     def test_add_tags_no_support(self):
@@ -64,7 +64,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         d = d_lbaasv2.LBaaSv2Driver()
         for res in ('loadbalancer', 'listener', 'pool', 'l7policy'):
             req = {}
-            d._add_tags(res, req)
+            d.add_tags(res, req)
             self.assertEqual({'description': 'foo'}, req,
                              'No description added to resource %s' % res)
 
@@ -77,7 +77,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         d = d_lbaasv2.LBaaSv2Driver()
         for res in ('member', 'rule'):
             req = {}
-            d._add_tags(res, req)
+            d.add_tags(res, req)
             self.assertEqual({}, req, 'Unnecessary description added to '
                                       'resource %s' % res)
 

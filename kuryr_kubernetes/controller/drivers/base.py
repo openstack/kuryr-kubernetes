@@ -725,6 +725,11 @@ class LBaaSDriver(DriverBase):
         """
         raise NotImplementedError()
 
+    @abc.abstractmethod
+    def add_tags(self, resource, req):
+        """Add tags to a request if the resource supports it"""
+        raise NotImplementedError()
+
 
 @six.add_metaclass(abc.ABCMeta)
 class VIFPoolDriver(PodVIFDriver):
