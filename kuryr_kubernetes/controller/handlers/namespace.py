@@ -125,8 +125,8 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         # create CRD resource for the network
         try:
             net_crd = self._add_kuryrnet_crd(ns_name, net_crd_spec)
-            self._set_net_crd(namespace, net_crd)
             self._drv_sg.create_namespace_sg_rules(namespace)
+            self._set_net_crd(namespace, net_crd)
         except (exceptions.K8sClientException,
                 exceptions.K8sResourceNotFound):
             LOG.exception("Kuryrnet CRD creation failed. Rolling back "
@@ -134,7 +134,12 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
             self._drv_subnets.rollback_network_resources(net_crd_spec, ns_name)
             if net_crd_sg.get('sgId'):
                 self._drv_sg.delete_sg(net_crd_sg['sgId'])
-            self._del_kuryrnet_crd(net_crd_name)
+            try:
+                self._del_kuryrnet_crd(net_crd_name)
+            except exceptions.K8sClientException:
+                LOG.exception("Error when trying to rollback the KuryrNet CRD "
+                              "object %s", net_crd_name)
+            raise exceptions.ResourceNotReady(namespace)
 
     def on_deleted(self, namespace, net_crd=None):
         LOG.debug("Deleting namespace: %s", namespace)
