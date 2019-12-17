@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from neutronclient.common import exceptions as n_exc
+from openstack import exceptions as o_exc
 from oslo_cache import core as cache
 from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
@@ -116,7 +118,12 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
                         raise oslo_cfg.RequiredOptError(
                             'pod_security_groups',
                             oslo_cfg.OptGroup('neutron_defaults'))
-                self._drv_vif_pool.update_vif_sgs(pod, pod_sgs)
+                try:
+                    self._drv_vif_pool.update_vif_sgs(pod, pod_sgs)
+                except (n_exc.NotFound, o_exc.NotFoundException):
+                    LOG.debug("Fail to update pod sgs."
+                              " Retrying policy deletion.")
+                    raise exceptions.ResourceNotReady(policy)
 
             # ensure ports at the pool don't have the NP sg associated
             net_id = self._get_policy_net_id(policy)
