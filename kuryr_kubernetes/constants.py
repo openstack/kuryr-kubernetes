@@ -87,3 +87,4 @@ K8S_OPERATOR_DOES_NOT_EXIST = 'doesnotexist'
 K8S_OPERATOR_EXISTS = 'exists'
 
 USERSPACE_DRIVERS = ['vfio-pci', 'uio', 'uio_pci_generic', 'igb_uio']
+MELLANOX_DRIVERS = ['mlx4_core', 'mlx5_core']

@@ -195,24 +195,25 @@ class VIFSriovDriver(object):
             old_driver_path = '/sys/bus/pci/devices/{}/driver'.format(pci)
             old_driver_link = os.readlink(old_driver_path)
             old_driver = os.path.basename(old_driver_link)
-        unbind_path = '/sys/bus/pci/drivers/{}/unbind'.format(old_driver)
-        bind_path = '/sys/bus/pci/drivers/{}/bind'.format(driver)
+        if old_driver not in constants.MELLANOX_DRIVERS:
+            unbind_path = '/sys/bus/pci/drivers/{}/unbind'.format(old_driver)
+            bind_path = '/sys/bus/pci/drivers/{}/bind'.format(driver)
 
-        with open(unbind_path, 'w') as unbind_fd:
-            unbind_fd.write(pci)
+            with open(unbind_path, 'w') as unbind_fd:
+                unbind_fd.write(pci)
 
-        override = "/sys/bus/pci/devices/{}/driver_override".format(pci)
-        with open(override, 'w') as override_fd:
-            override_fd.write("\00")
+            override = "/sys/bus/pci/devices/{}/driver_override".format(pci)
+            with open(override, 'w') as override_fd:
+                override_fd.write("\00")
 
-        with open(override, 'w') as override_fd:
-            override_fd.write(driver)
+            with open(override, 'w') as override_fd:
+                override_fd.write(driver)
 
-        with open(bind_path, 'w') as bind_fd:
-            bind_fd.write(pci)
+            with open(bind_path, 'w') as bind_fd:
+                bind_fd.write(pci)
 
-        LOG.info("Device %s was binded on driver %s. Old driver is %s", pci,
-                 driver, old_driver)
+            LOG.info("Device %s was binded on driver %s. Old driver is %s",
+                     pci, driver, old_driver)
         return old_driver
 
     def _annotate_device(self, pod_link, pci, old_driver, new_driver, port_id):
