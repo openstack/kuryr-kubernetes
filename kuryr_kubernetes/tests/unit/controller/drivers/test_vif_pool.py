@@ -1369,8 +1369,7 @@ class NestedVIFPool(test_base.TestCase):
         neutron.update_port.assert_not_called()
         neutron.delete_port.assert_called_once_with(port_id)
         m_driver._get_trunk_id.assert_called_once()
-        m_driver._drv_vif._remove_subport.assert_called_once_with(neutron,
-                                                                  trunk_id,
+        m_driver._drv_vif._remove_subport.assert_called_once_with(trunk_id,
                                                                   port_id)
 
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports_by_attrs')
@@ -1440,8 +1439,7 @@ class NestedVIFPool(test_base.TestCase):
 
         neutron.update_port.assert_not_called()
         m_driver._get_trunk_id.assert_called_once()
-        m_driver._drv_vif._remove_subport.assert_called_once_with(neutron,
-                                                                  trunk_id,
+        m_driver._drv_vif._remove_subport.assert_called_once_with(trunk_id,
                                                                   port_id)
         neutron.delete_port.assert_called_once_with(port_id)
 
@@ -1475,8 +1473,7 @@ class NestedVIFPool(test_base.TestCase):
 
         neutron.update_port.assert_not_called()
         m_driver._get_trunk_id.assert_called_once()
-        m_driver._drv_vif._remove_subport.assert_called_once_with(neutron,
-                                                                  trunk_id,
+        m_driver._drv_vif._remove_subport.assert_called_once_with(trunk_id,
                                                                   port_id)
         neutron.delete_port.assert_not_called()
 
@@ -1895,9 +1892,8 @@ class NestedVIFPool(test_base.TestCase):
 
         m_driver._trigger_return_to_pool.assert_called_once()
         m_driver._get_pool_key_net.assert_called_once()
-        m_driver._get_trunk_id.assert_called_once_with(neutron, pool_key)
-        m_driver._drv_vif._remove_subports.assert_called_once_with(neutron,
-                                                                   trunk_id,
+        m_driver._get_trunk_id.assert_called_once_with(pool_key)
+        m_driver._drv_vif._remove_subports.assert_called_once_with(trunk_id,
                                                                    [port_id])
         m_driver._drv_vif._release_vlan_id.assert_called_once_with(vlan_id)
         neutron.delete_port.assert_called_once_with(port_id)
@@ -1952,9 +1948,8 @@ class NestedVIFPool(test_base.TestCase):
 
         m_driver._trigger_return_to_pool.assert_called_once()
         m_driver._get_pool_key_net.assert_called_once()
-        m_driver._get_trunk_id.assert_called_once_with(neutron, pool_key)
-        m_driver._drv_vif._remove_subports.assert_called_once_with(neutron,
-                                                                   trunk_id,
+        m_driver._get_trunk_id.assert_called_once_with(pool_key)
+        m_driver._drv_vif._remove_subports.assert_called_once_with(trunk_id,
                                                                    [port_id])
         m_driver._drv_vif._release_vlan_id.assert_not_called()
         neutron.delete_port.assert_not_called()
@@ -1988,9 +1983,8 @@ class NestedVIFPool(test_base.TestCase):
 
         m_driver._trigger_return_to_pool.assert_called_once()
         m_driver._get_pool_key_net.assert_called_once()
-        m_driver._get_trunk_id.assert_called_once_with(neutron, pool_key)
-        m_driver._drv_vif._remove_subports.assert_called_once_with(neutron,
-                                                                   trunk_id,
+        m_driver._get_trunk_id.assert_called_once_with(pool_key)
+        m_driver._drv_vif._remove_subports.assert_called_once_with(trunk_id,
                                                                    [port_id])
         m_driver._drv_vif._release_vlan_id.assert_not_called()
         neutron.delete_port.assert_called_once_with(port_id)

@@ -59,14 +59,12 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         self.assertEqual(vif, cls.request_vif(m_driver, pod, project_id,
                                               subnets, security_groups))
 
-        m_driver._get_parent_port.assert_called_once_with(neutron, pod)
+        m_driver._get_parent_port.assert_called_once_with(pod)
         m_driver._get_trunk_id.assert_called_once_with(parent_port)
         m_driver._get_port_request.assert_called_once_with(
             pod, project_id, subnets, security_groups)
         neutron.create_port.assert_called_once_with(port_request)
-        m_driver._add_subport.assert_called_once_with(neutron,
-                                                      trunk_id,
-                                                      port_id)
+        m_driver._add_subport.assert_called_once_with(trunk_id, port_id)
         m_to_vif.assert_called_once_with(port, subnets, vlan_id)
 
     @mock.patch(
@@ -106,7 +104,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         self.assertEqual([vif, vif], cls.request_vifs(
             m_driver, pod, project_id, subnets, security_groups, num_ports))
 
-        m_driver._get_parent_port.assert_called_once_with(neutron, pod)
+        m_driver._get_parent_port.assert_called_once_with(pod)
         m_driver._get_trunk_id.assert_called_once_with(parent_port)
         m_driver._create_subports_info.assert_called_once_with(
             pod, project_id, subnets, security_groups, trunk_id, num_ports,
@@ -123,7 +121,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
     def test_request_vifs_no_vlans(self):
         cls = nested_vlan_vif.NestedVlanPodVIFDriver
         m_driver = mock.Mock(spec=cls)
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        self.useFixture(k_fix.MockNeutronClient()).client
 
         pod = mock.sentinel.pod
         project_id = mock.sentinel.project_id
@@ -145,7 +143,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
                                               subnets, security_groups,
                                               num_ports))
 
-        m_driver._get_parent_port.assert_called_once_with(neutron, pod)
+        m_driver._get_parent_port.assert_called_once_with(pod)
         m_driver._get_trunk_id.assert_called_once_with(parent_port)
         m_driver._create_subports_info.assert_called_once_with(
             pod, project_id, subnets, security_groups,
@@ -184,7 +182,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
             n_exc.NeutronClientException, cls.request_vifs,
             m_driver, pod, project_id, subnets, security_groups, num_ports)
 
-        m_driver._get_parent_port.assert_called_once_with(neutron, pod)
+        m_driver._get_parent_port.assert_called_once_with(pod)
         m_driver._get_trunk_id.assert_called_once_with(parent_port)
         m_driver._create_subports_info.assert_called_once_with(
             pod, project_id, subnets, security_groups,
@@ -225,7 +223,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         self.assertEqual([], cls.request_vifs(m_driver, pod, project_id,
                          subnets, security_groups, num_ports))
 
-        m_driver._get_parent_port.assert_called_once_with(neutron, pod)
+        m_driver._get_parent_port.assert_called_once_with(pod)
         m_driver._get_trunk_id.assert_called_once_with(parent_port)
         m_driver._create_subports_info.assert_called_once_with(
             pod, project_id, subnets, security_groups,
@@ -269,7 +267,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         self.assertEqual([], cls.request_vifs(m_driver, pod, project_id,
                          subnets, security_groups, num_ports))
 
-        m_driver._get_parent_port.assert_called_once_with(neutron, pod)
+        m_driver._get_parent_port.assert_called_once_with(pod)
         m_driver._get_trunk_id.assert_called_once_with(parent_port)
         m_driver._create_subports_info.assert_called_once_with(
             pod, project_id, subnets, security_groups,
@@ -293,10 +291,9 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
 
         cls.release_vif(m_driver, pod, vif)
 
-        m_driver._get_parent_port.assert_called_once_with(neutron, pod)
+        m_driver._get_parent_port.assert_called_once_with(pod)
         m_driver._get_trunk_id.assert_called_once_with(parent_port)
-        m_driver._remove_subport.assert_called_once_with(
-            neutron, trunk_id, vif.id)
+        m_driver._remove_subport.assert_called_once_with(trunk_id, vif.id)
         neutron.delete_port.assert_called_once_with(vif.id)
 
     def test_release_vif_not_found(self):
@@ -317,10 +314,9 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
 
         cls.release_vif(m_driver, pod, vif)
 
-        m_driver._get_parent_port.assert_called_once_with(neutron, pod)
+        m_driver._get_parent_port.assert_called_once_with(pod)
         m_driver._get_trunk_id.assert_called_once_with(parent_port)
-        m_driver._remove_subport.assert_called_once_with(
-            neutron, trunk_id, vif.id)
+        m_driver._remove_subport.assert_called_once_with(trunk_id, vif.id)
         neutron.delete_port.assert_called_once_with(vif.id)
 
     def _test_get_port_request(self, m_to_fips, security_groups,
@@ -523,8 +519,8 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
                          'port_id': subport,
                          'segmentation_type': 'vlan'}]
         nested_vlan_vif.DEFAULT_MAX_RETRY_COUNT = 1
-        self.assertEqual(vlan_id, cls._add_subport(m_driver,
-                         neutron, trunk_id, subport))
+        self.assertEqual(vlan_id, cls._add_subport(m_driver, trunk_id,
+                                                   subport))
         m_driver._get_vlan_id.assert_called_once_with(trunk_id)
         neutron.trunk_add_subports.assert_called_once_with(
             trunk_id, {'sub_ports': subport_dict})
@@ -532,14 +528,13 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
     def test_add_subport_get_vlanid_failure(self):
         cls = nested_vlan_vif.NestedVlanPodVIFDriver
         m_driver = mock.Mock(spec=cls)
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        self.useFixture(k_fix.MockNeutronClient()).client
         trunk_id = mock.sentinel.trunk_id
         subport = mock.sentinel.subport
         m_driver._get_vlan_id.side_effect = n_exc.NeutronClientException
         nested_vlan_vif.DEFAULT_MAX_RETRY_COUNT = 1
-        self.assertRaises(
-            n_exc.NeutronClientException, cls._add_subport,
-            m_driver, neutron, trunk_id, subport)
+        self.assertRaises(n_exc.NeutronClientException, cls._add_subport,
+                          m_driver, trunk_id, subport)
 
         m_driver._get_vlan_id.assert_called_once_with(trunk_id)
 
@@ -557,7 +552,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         neutron.trunk_add_subports.side_effect = n_exc.Conflict
         nested_vlan_vif.DEFAULT_MAX_RETRY_COUNT = 1
         self.assertRaises(n_exc.Conflict, cls._add_subport, m_driver,
-                          neutron, trunk_id, subport)
+                          trunk_id, subport)
 
         neutron.trunk_add_subports.assert_called_once_with(
             trunk_id, {'sub_ports': subport_dict})
@@ -569,7 +564,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         trunk_id = mock.sentinel.trunk_id
         subport_id = mock.sentinel.subport_id
         subportid_dict = [{'port_id': subport_id}]
-        cls._remove_subports(m_driver, neutron, trunk_id, [subport_id])
+        cls._remove_subports(m_driver, trunk_id, [subport_id])
 
         neutron.trunk_remove_subports.assert_called_once_with(
             trunk_id, {'sub_ports': subportid_dict})
@@ -581,8 +576,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         trunk_id = mock.sentinel.trunk_id
         subport_id = mock.sentinel.subport_id
         subportid_dict = [{'port_id': subport_id}]
-        cls._remove_subports(m_driver, neutron, trunk_id, [subport_id,
-                                                           subport_id])
+        cls._remove_subports(m_driver, trunk_id, [subport_id, subport_id])
 
         neutron.trunk_remove_subports.assert_called_once_with(
             trunk_id, {'sub_ports': subportid_dict})
