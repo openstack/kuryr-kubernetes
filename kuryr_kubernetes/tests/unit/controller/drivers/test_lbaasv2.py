@@ -34,33 +34,57 @@ from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
 
 CONF = cfg.CONF
 
+OCTAVIA_VERSIONS = {
+    'regionOne': {
+        'public': {
+            'load-balancer': [
+                {
+                    'status': 'SUPPORTED',
+                    'version': '2.0',
+                    'raw_status': u'SUPPORTED',
+                },
+                {
+                    'status': 'SUPPORTED',
+                    'version': '2.1',
+                    'raw_status': u'SUPPORTED',
+                },
+                {
+                    'status': 'CURRENT',
+                    'version': '2.2',
+                    'raw_status': u'CURRENT',
+                },
+            ],
+        },
+    },
+}
+
 
 class TestLBaaSv2Driver(test_base.TestCase):
-    def test_add_tags(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.lbaasv2.LBaaSv2Driver.'
+                'get_octavia_version', return_value=(2, 5))
+    def test_add_tags(self, _m_get):
         CONF.set_override('resource_tags', ['foo'], group='neutron_defaults')
         self.addCleanup(CONF.clear_override, 'resource_tags',
                         group='neutron_defaults')
-        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
-        lbaas.get_api_major_version.return_value = (2, 5)
         d = d_lbaasv2.LBaaSv2Driver()
         req = {}
         d._add_tags('loadbalancer', req)
         self.assertEqual({'tags': ['foo']}, req)
 
-    def test_add_tags_no_tag(self):
-        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
-        lbaas.get_api_major_version.return_value = (2, 5)
+    @mock.patch('kuryr_kubernetes.controller.drivers.lbaasv2.LBaaSv2Driver.'
+                'get_octavia_version', return_value=(2, 5))
+    def test_add_tags_no_tag(self, _m_get):
         d = d_lbaasv2.LBaaSv2Driver()
         req = {}
         d._add_tags('loadbalancer', req)
         self.assertEqual({}, req)
 
-    def test_add_tags_no_support(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.lbaasv2.LBaaSv2Driver.'
+                'get_octavia_version', return_value=(2, 4))
+    def test_add_tags_no_support(self, _m_get):
         CONF.set_override('resource_tags', ['foo'], group='neutron_defaults')
         self.addCleanup(CONF.clear_override, 'resource_tags',
                         group='neutron_defaults')
-        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
-        lbaas.get_api_major_version.return_value = (2, 4)
         d = d_lbaasv2.LBaaSv2Driver()
         for res in ('loadbalancer', 'listener', 'pool', 'l7policy'):
             req = {}
@@ -68,18 +92,25 @@ class TestLBaaSv2Driver(test_base.TestCase):
             self.assertEqual({'description': 'foo'}, req,
                              'No description added to resource %s' % res)
 
-    def test_add_tags_no_support_resource_no_description(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.lbaasv2.LBaaSv2Driver.'
+                'get_octavia_version', return_value=(2, 4))
+    def test_add_tags_no_support_resource_no_description(self, _m_get):
         CONF.set_override('resource_tags', ['foo'], group='neutron_defaults')
         self.addCleanup(CONF.clear_override, 'resource_tags',
                         group='neutron_defaults')
-        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
-        lbaas.get_api_major_version.return_value = (2, 4)
         d = d_lbaasv2.LBaaSv2Driver()
         for res in ('member', 'rule'):
             req = {}
             d._add_tags(res, req)
             self.assertEqual({}, req, 'Unnecessary description added to '
                                       'resource %s' % res)
+
+    def test_get_octavia_version(self):
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        lbaas.get_all_version_data.return_value = OCTAVIA_VERSIONS
+        self.assertEqual((2, 2),
+                         d_lbaasv2.LBaaSv2Driver.get_octavia_version(
+                             d_lbaasv2.LBaaSv2Driver()))
 
     def test_ensure_loadbalancer(self):
         neutron = self.useFixture(k_fix.MockNeutronClient()).client
