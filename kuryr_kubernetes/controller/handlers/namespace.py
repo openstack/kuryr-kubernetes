@@ -29,8 +29,12 @@ from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes import utils
 
 from neutronclient.common import exceptions as n_exc
+from openstack import exceptions as os_exc
 
 LOG = logging.getLogger(__name__)
+
+DEFAULT_CLEANUP_INTERVAL = 60
+DEFAULT_CLEANUP_RETRIES = 10
 
 namespace_handler_caching_opts = [
     oslo_cfg.BoolOpt('caching', default=True),
@@ -305,7 +309,7 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
 
     def _cleanup_namespace_leftovers(self):
         k8s = clients.get_kubernetes_client()
-        while True:
+        for i in range(DEFAULT_CLEANUP_RETRIES):
             retry = False
             try:
                 net_crds = k8s.get(constants.K8S_API_CRD_KURYRNETS)
@@ -337,8 +341,42 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
                                   "will be triggered.", ns_name)
                         retry = True
                         continue
+
             if not retry:
                 break
-
             # Leave time between retries to help Neutron to complete actions
-            time.sleep(60)
+            time.sleep(DEFAULT_CLEANUP_INTERVAL)
+
+        # NOTE(ltomasbo): to ensure we don't miss created network resources
+        # without associated kuryrnet objects, we do a second search
+        os_net = clients.get_network_client()
+        tags = oslo_cfg.CONF.neutron_defaults.resource_tags
+        if not tags:
+            return
+
+        for i in range(DEFAULT_CLEANUP_RETRIES):
+            retry = False
+            subnets = os_net.subnets(tags=tags)
+            namespaces = k8s.get(constants.K8S_API_NAMESPACES)
+            ns_nets = ['ns/' + ns['metadata']['name'] + '-subnet'
+                       for ns in namespaces.get('items')]
+            for subnet in subnets:
+                # NOTE(ltomasbo): subnet name is ns/NAMESPACE_NAME-subnet
+                if subnet.name not in ns_nets:
+                    if (subnet.subnet_pool_id !=
+                            oslo_cfg.CONF.namespace_subnet.pod_subnet_pool):
+                        # Not a kuryr generated network
+                        continue
+                    try:
+                        self._drv_subnets._delete_namespace_network_resources(
+                            subnet.id, subnet.network_id)
+                    except (os_exc.SDKException, exceptions.ResourceNotReady):
+                        LOG.debug("Cleanup of network namespace resources %s "
+                                  "failed. A retry will be triggered.",
+                                  subnet.network_id)
+                        retry = True
+                        continue
+            if not retry:
+                break
+            # Leave time between retries to help Neutron to complete actions
+            time.sleep(DEFAULT_CLEANUP_INTERVAL)
