@@ -436,8 +436,8 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
             if port:
                 spec_ports[port.name] = pool.id
 
-        current_targets = {(a['ip'], p['port'],
-                            spec_ports.get(p.get('name')))
+        current_targets = {(a['ip'], a.get('targetRef', {}).get('name', ''),
+                            p['port'], spec_ports.get(p.get('name')))
                            for s in endpoints['subsets']
                            for a in s['addresses']
                            for p in s['ports']
@@ -445,7 +445,14 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
 
         removed_ids = set()
         for member in lbaas_state.members:
-            if ((str(member.ip), member.port, member.pool_id) in
+            try:
+                member_name = member.name
+                # NOTE: The member name is compose of:
+                # NAMESPACE_NAME/POD_NAME:PROTOCOL_PORT
+                pod_name = member_name.split('/')[1].split(':')[0]
+            except AttributeError:
+                pod_name = ""
+            if ((str(member.ip), pod_name, member.port, member.pool_id) in
                     current_targets):
                 continue
             self._drv_lbaas.release_member(lbaas_state.loadbalancer,
