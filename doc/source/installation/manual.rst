@@ -70,6 +70,49 @@ Edit ``kuryr.conf``:
    If you use tokens to authenticate use ``[kubernetes]token_file`` to specify
    a file having it.
 
+.. note::
+
+   If your Kubernetes cluster has RBAC enabled, make sure the Kuryr user has
+   access to required resources:
+
+   .. code-block:: yaml
+
+      rules:
+      - apiGroups:
+        - ""
+        verbs: ["*"]
+        resources:
+          - endpoints
+          - pods
+          - nodes
+          - services
+          - services/status
+          - namespaces
+      - apiGroups:
+          - openstack.org
+        verbs: ["*"]
+        resources:
+          - kuryrnets
+          - kuryrnetpolicies
+          - kuryrloadbalancers
+      - apiGroups: ["networking.k8s.io"]
+        resources:
+        - networkpolicies
+        verbs:
+        - get
+        - list
+        - watch
+        - update
+        - patch
+      - apiGroups: ["k8s.cni.cncf.io"]
+        resources:
+        - network-attachment-definitions
+        verbs:
+        - get
+
+   You can generate ``ServiceAccount`` definition with correct ``ClusterRole``
+   using instructions on :ref:`containerized-generate` page.
+
 Note that the service_subnet and the pod_subnet *should be routable* and that
 the pods should allow service subnet access.
 
