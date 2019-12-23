@@ -32,16 +32,12 @@ class BaseBridgeDriver(health.HealthHandler, b_base.BaseBindingDriver):
     def connect(self, vif, ifname, netns, container_id):
         host_ifname = vif.vif_name
 
+        # NOTE(dulek): Check if we already run connect for this iface and if
+        #              there's a leftover host-side vif. If so we need to
+        #              remove it, its peer should get deleted automatically by
+        #              the kernel.
         with b_base.get_ipdb() as h_ipdb:
-            if host_ifname in h_ipdb.interfaces:
-                # NOTE(dulek): This most likely means that we already run
-                #              connect for this iface and there's a leftover
-                #              host-side vif. Let's remove it, its peer should
-                #              get deleted automatically by the kernel.
-                LOG.debug('Found leftover host vif %s. Removing it before '
-                          'connecting.', host_ifname)
-                with h_ipdb.interfaces[host_ifname] as h_iface:
-                    h_iface.remove()
+            self._remove_ifaces(h_ipdb, (host_ifname,))
 
         if vif.network.mtu:
             interface_mtu = vif.network.mtu
