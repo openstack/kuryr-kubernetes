@@ -40,7 +40,7 @@ Jinja2==2.10
 jmespath==0.9.3
 jsonpatch==1.21
 jsonpointer==2.0
-keystoneauth1==3.10.0
+keystoneauth1==3.16.0
 kombu==4.1.0
 kuryr-lib==0.5.0
 linecache2==1.0.0
@@ -56,15 +56,15 @@ netaddr==0.7.19
 netifaces==0.10.6
 neutron-lib==1.13.0
 openstackdocstheme==1.20.0
-openstacksdk==0.17.0
+openstacksdk==0.36.0
 os-client-config==1.29.0
-os-service-types==1.2.0
+os-service-types==1.7.0
 os-testr==1.0.0
 os-vif==1.7.0
 osc-lib==1.10.0
 oslo.cache==1.26.0
 oslo.concurrency==3.26.0
-oslo.config==5.2.0
+oslo.config==6.1.0
 oslo.context==2.20.0
 oslo.db==4.35.0
 oslo.i18n==3.20.0
@@ -106,7 +106,7 @@ pytz==2018.3
 PyYAML==3.12
 reno==2.5.0
 repoze.lru==0.7
-requests==2.14.2
+requests==2.18.0
 requestsexceptions==1.4.0
 retrying==1.2.3
 rfc3986==1.1.0
