@@ -87,13 +87,14 @@ k8s_opts = [
                       "connect to HTTPS K8S_API")),
     cfg.StrOpt('ssl_ca_crt_file',
                help=_("Absolute path to ca cert file to "
-                      "connect to HTTPS K8S_API")),
+                      "connect to HTTPS K8S_API"),
+               default='/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'),
     cfg.BoolOpt('ssl_verify_server_crt',
                 help=_("HTTPS K8S_API server identity verification"),
                 default=False),
     cfg.StrOpt('token_file',
                help=_("The token to talk to the k8s API"),
-               default=''),
+               default='/var/run/secrets/kubernetes.io/serviceaccount/token'),
     cfg.StrOpt('pod_project_driver',
                help=_("The driver to determine OpenStack "
                       "project for pod ports"),

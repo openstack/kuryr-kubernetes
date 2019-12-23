@@ -39,6 +39,9 @@ Edit ``kuryr.conf``:
 
    [kubernetes]
    api_root = http://{ip_of_kubernetes_apiserver}:8080
+   ssl_client_crt_file = {path-to-kuryr-k8s-user-cert-file}
+   ssl_client_key_file = {path-to-kuryr-k8s-user-key-file}
+   ssl_ca_crt_file = {path-to-k8s-api-ca-cert-file}
 
    [neutron]
    auth_url = http://127.0.0.1:35357/v3/
@@ -55,6 +58,17 @@ Edit ``kuryr.conf``:
    pod_subnet = {id_of_subnet_for_pods}
    project = {id_of_project}
    service_subnet = {id_of_subnet_for_k8s_services}
+
+.. note::
+
+   If you want Kuryr to connect to Kubernetes through an unauthenticated
+   endpoint make sure to set ``[kubernetes]ssl_ca_crt_file`` and
+   ``[kubernetes]token_file`` to ``""`` as they default to the locations where
+   Kubernetes puts those files for pods. Also don't set
+   ``[kubernetes]ssl_client_crt_file`` and ``[kubernetes]ssl_client_key_file``.
+
+   If you use tokens to authenticate use ``[kubernetes]token_file`` to specify
+   a file having it.
 
 Note that the service_subnet and the pod_subnet *should be routable* and that
 the pods should allow service subnet access.

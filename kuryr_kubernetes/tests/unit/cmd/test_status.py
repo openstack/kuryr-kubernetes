@@ -24,7 +24,9 @@ from kuryr_kubernetes.tests import base as test_base
 
 
 class TestStatusCmd(test_base.TestCase):
-    def setUp(self):
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    @mock.patch('kuryr_kubernetes.clients.setup_kubernetes_client')
+    def setUp(self, m_client_setup, m_client_get):
         super(TestStatusCmd, self).setUp()
         self.cmd = status.UpgradeCommands()
 
