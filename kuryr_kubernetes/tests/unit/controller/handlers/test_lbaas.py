@@ -654,7 +654,7 @@ class TestLoadBalancerHandler(test_base.TestCase):
         self.assertEqual(subnet_id, observed_subnet_id)
 
     def _generate_lbaas_state(self, vip, targets, project_id, subnet_id):
-        name = 'DUMMY_NAME'
+        name = 'namespace/DUMMY_NAME'
         drv = FakeLBaaSDriver()
         lb = drv.ensure_loadbalancer(
             name, project_id, subnet_id, vip, None, 'ClusterIP')
