@@ -971,7 +971,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         lbaas = utils.get_lbaas_state(endpoint)
         if not lbaas:
-            return
+            LOG.debug('Endpoint not yet annotated with lbaas state.')
+            raise k_exc.ResourceNotReady(svc_name)
 
         lbaas_obj = lbaas.loadbalancer
         lbaas_obj.security_groups = sgs
