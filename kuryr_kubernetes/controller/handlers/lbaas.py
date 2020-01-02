@@ -653,19 +653,18 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         try:
             services = driver_utils.get_services().get('items')
         except k_exc.K8sClientException:
-            LOG.debug("Skipping cleanup of leftover lbaas."
+            LOG.debug("Skipping cleanup of leftover lbaas. "
                       "Error retriving Kubernetes services")
             return
-        services_set = set('{}/{}'.format(
-            service['metadata']['namespace'],
-            service['metadata']['name'])
-            for service in services)
+        services_cluster_ip = set(service['spec']['clusterIP']
+                                  for service in services
+                                  if service['spec'].get('clusterIP'))
         lbaas_spec = {}
         self._drv_lbaas.add_tags('loadbalancer', lbaas_spec)
         loadbalancers = lbaas_client.load_balancers(**lbaas_spec)
         for loadbalancer in loadbalancers:
-            lb_obj = obj_lbaas.LBaaSLoadBalancer(**loadbalancer)
-            if lb_obj.name not in services_set:
+            if loadbalancer.vip_address not in services_cluster_ip:
+                lb_obj = obj_lbaas.LBaaSLoadBalancer(**loadbalancer)
                 eventlet.spawn(self._ensure_release_lbaas, lb_obj)
 
     def _ensure_release_lbaas(self, lb_obj):
