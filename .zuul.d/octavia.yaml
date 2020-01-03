@@ -88,9 +88,9 @@
     vars:
       devstack_localrc:
         DOCKER_CGROUP_DRIVER: "systemd"
+        KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace,pod_label,policy,kuryrnetpolicy
+        KURYR_SG_DRIVER: policy
         KURYR_SUBNET_DRIVER: namespace
-        KURYR_SG_DRIVER: namespace
-        KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace
       devstack_services:
         kubernetes-api: false
         kubernetes-controller-manager: false
@@ -126,7 +126,6 @@
         KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace,pod_label,policy,kuryrnetpolicy
         KURYR_SG_DRIVER: policy
         KURYR_SUBNET_DRIVER: namespace
-    voting: false
 
 - job:
     name: kuryr-kubernetes-tempest-containerized-openshift
@@ -154,7 +153,7 @@
    vars:
      devstack_localrc:
        KURYR_ENABLE_INGRESS: true
-       KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace,ocproute,ingresslb
+       KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace,pod_label,policy,kuryrnetpolicy,ocproute,ingresslb
    voting: false
 
 - job:

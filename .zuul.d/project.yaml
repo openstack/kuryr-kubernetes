@@ -17,23 +17,25 @@
     check:
       jobs:
         - kuryr-kubernetes-tempest
-        - kuryr-kubernetes-tempest-openshift
+        - kuryr-kubernetes-tempest-containerized-openshift
         - kuryr-kubernetes-tempest-containerized
         - kuryr-kubernetes-tempest-containerized-lower-constraints
         - kuryr-kubernetes-tempest-containerized-ovn
+        - kuryr-kubernetes-tempest-containerized-network-policy
         - kuryr-kubernetes-tempest-multinode-containerized
     gate:
       jobs:
         - kuryr-kubernetes-tempest
         - kuryr-kubernetes-tempest-containerized
+        - kuryr-kubernetes-tempest-containerized-ovn
+        - kuryr-kubernetes-tempest-containerized-network-policy
     experimental:
       jobs:
-        - kuryr-kubernetes-tempest-containerized-openshift
         - kuryr-kubernetes-tempest-containerized-l2
         - kuryr-kubernetes-tempest-containerized-pools-namespace
-        - kuryr-kubernetes-tempest-containerized-network-policy
         - kuryr-kubernetes-tempest-containerized-openshift-serial
         - kuryr-kubernetes-tempest-ovn
+        - kuryr-kubernetes-tempest-openshift
         - kuryr-kubernetes-tempest-openshift-ingress
         - kuryr-kubernetes-tempest-openshift-multi-vif
         - kuryr-kubernetes-tempest-multinode-ha
