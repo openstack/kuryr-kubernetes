@@ -153,7 +153,7 @@ class KuryrK8sService(six.with_metaclass(KuryrK8sServiceMeta,
         # Just make sure my watcher is running.
         if not self.watcher.is_running():
             LOG.warning('Controller %s is the leader, but has watcher '
-                        'stopped. Restarting it.')
+                        'stopped. Restarting it.', self.node_name)
             self.watcher.start()
 
     def wait(self):
