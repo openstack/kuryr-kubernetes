@@ -30,6 +30,7 @@ from openstack.load_balancer.v2 import pool as o_pool
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import timeutils
+from oslo_utils import versionutils
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
@@ -64,20 +65,43 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         self._octavia_tags = False
         # Check if Octavia API supports tagging.
-        lbaas = clients.get_loadbalancer_client()
-        v = lbaas.get_api_major_version()
+        # TODO(dulek): *Maybe* this can be replaced with
+        #         lbaas.get_api_major_version(version=_OCTAVIA_TAGGING_VERSION)
+        #         if bug https://storyboard.openstack.org/#!/story/2007040 gets
+        #         fixed one day.
+        v = self.get_octavia_version()
         if v >= _OCTAVIA_TAGGING_VERSION:
             LOG.info('Octavia supports resource tags.')
             self._octavia_tags = True
         else:
-            if v is None:
-                v_str = 'unknown'
-            else:
-                v_str = '%d.%d' % v
+            v_str = '%d.%d' % v
             LOG.warning('[neutron_defaults]resource_tags is set, but Octavia '
                         'API %s does not support resource tagging. Kuryr '
                         'will put requested tags in the description field of '
                         'Octavia resources.', v_str)
+
+    def get_octavia_version(self):
+        lbaas = clients.get_loadbalancer_client()
+        region_name = getattr(CONF.neutron, 'region_name', None)
+
+        regions = lbaas.get_all_version_data()
+        # If region was specified take it, otherwise just take first as default
+        endpoints = regions.get(region_name, list(regions.values())[0])
+        # Take the first endpoint
+        services = list(endpoints.values())[0]
+        # Try load-balancer service, if not take the first
+        versions = services.get('load-balancer', list(services.values())[0])
+        # Lookup the latest version. For safety, we won't look for
+        # version['status'] == 'CURRENT' and assume it's the maximum. Also we
+        # won't assume this dict is sorted.
+        max_ver = 0, 0
+        for version in versions:
+            v_tuple = versionutils.convert_version_to_tuple(version['version'])
+            if v_tuple > max_ver:
+                max_ver = v_tuple
+
+        LOG.debug("Detected Octavia version %d.%d", *max_ver)
+        return max_ver
 
     def get_service_loadbalancer_name(self, namespace, svc_name):
         return "%s/%s" % (namespace, svc_name)
