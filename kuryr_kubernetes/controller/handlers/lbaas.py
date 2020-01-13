@@ -541,17 +541,19 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         for port_spec in lbaas_spec_ports:
             protocol = port_spec.protocol
             port = port_spec.port
+            name = "%s:%s" % (lbaas_state.loadbalancer.name, protocol)
+            listener = [l for l in lbaas_state.listeners
+                        if l.port == port and l.protocol == protocol]
+            if listener:
+                continue
             # FIXME (maysams): Due to a bug in Octavia, which does
             # not allows listeners with same port but different
             # protocols to co-exist, we need to skip the creation of
             # listeners that have the same port as an existing one.
-            name = "%s:%s" % (lbaas_state.loadbalancer.name, protocol)
-            listener = self._get_listener_with_same_port(lbaas_state, port)
-            if listener:
-                if listener.protocol != protocol:
-                    LOG.warning("Skipping listener creation for %s "
-                                "as another one already exists with port %r",
-                                name, port)
+            listener = [l for l in lbaas_state.listeners if l.port == port]
+            if listener and not self._drv_lbaas.double_listeners_supported():
+                LOG.warning("Skipping listener creation for %s as another one"
+                            " already exists with port %s", name, port)
                 continue
             listener = self._drv_lbaas.ensure_listener(
                 loadbalancer=lbaas_state.loadbalancer,
@@ -562,12 +564,6 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                 lbaas_state.listeners.append(listener)
                 changed = True
         return changed
-
-    def _get_listener_with_same_port(self, lbaas_state, port):
-        for listener in lbaas_state.listeners:
-            if listener.port == port:
-                return listener
-        return None
 
     def _remove_unused_listeners(self, endpoints, lbaas_state, lbaas_spec):
         current_listeners = {p.listener_id for p in lbaas_state.pools}
