@@ -376,12 +376,12 @@ def _parse_rules_on_delete_namespace(rule_list, direction, ns_name):
         LOG.debug('Parsing %(dir)s Rule %(r)s', {'dir': direction,
                                                  'r': rule})
         rule_namespace = rule.get('namespace', None)
-        remote_ip_prefixes = rule.get('remote_ip_prefixes', [])
+        remote_ip_prefixes = rule.get('remote_ip_prefixes', {})
         if rule_namespace and rule_namespace == ns_name:
             matched = True
             driver_utils.delete_security_group_rule(
                 rule['security_group_rule']['id'])
-        for remote_ip, namespace in remote_ip_prefixes:
+        for remote_ip, namespace in list(remote_ip_prefixes.items()):
             if namespace == ns_name:
                 matched = True
                 remote_ip_prefixes.pop(remote_ip)
@@ -401,7 +401,7 @@ def _parse_rules_on_delete_pod(rule_list, direction, pod_ip):
                                                  'r': rule})
         remote_ip_prefix = rule['security_group_rule'].get(
             'remote_ip_prefix')
-        remote_ip_prefixes = rule.get('remote_ip_prefixes', [])
+        remote_ip_prefixes = rule.get('remote_ip_prefixes', {})
         if remote_ip_prefix and remote_ip_prefix == pod_ip:
             matched = True
             driver_utils.delete_security_group_rule(
