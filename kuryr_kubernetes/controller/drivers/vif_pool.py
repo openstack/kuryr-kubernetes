@@ -302,7 +302,7 @@ class BaseVIFPool(base.VIFPoolDriver):
 
     def remove_sg_from_pools(self, sg_id, net_id):
         neutron = clients.get_neutron_client()
-        for pool_key, pool_ports in self._available_ports_pools.items():
+        for pool_key, pool_ports in list(self._available_ports_pools.items()):
             if self._get_pool_key_net(pool_key) != net_id:
                 continue
             for sg_key, ports in pool_ports.items():
@@ -554,7 +554,7 @@ class NeutronVIFPool(BaseVIFPool):
                     sg_current[port['id']] = tuple(sorted(
                         port['security_groups']))
 
-        for port_id, pool_key in self._recyclable_ports.copy().items():
+        for port_id, pool_key in list(self._recyclable_ports.items()):
             if (not oslo_cfg.CONF.vif_pool.ports_pool_max or
                 self._get_pool_size(pool_key) <
                     oslo_cfg.CONF.vif_pool.ports_pool_max):
@@ -661,8 +661,7 @@ class NeutronVIFPool(BaseVIFPool):
         # on the available_ports_pools dict. The next call forces it to be on
         # that dict before cleaning it up
         self._trigger_return_to_pool()
-        available_ports_pools = self._available_ports_pools.copy()
-        for pool_key, ports in available_ports_pools.items():
+        for pool_key, ports in list(self._available_ports_pools.items()):
             if self._get_pool_key_net(pool_key) != net_id:
                 continue
             ports_id = []
@@ -825,7 +824,7 @@ class NestedVIFPool(BaseVIFPool):
                     sg_current[subport['id']] = tuple(sorted(
                         subport['security_groups']))
 
-        for port_id, pool_key in self._recyclable_ports.copy().items():
+        for port_id, pool_key in list(self._recyclable_ports.items()):
             if (not oslo_cfg.CONF.vif_pool.ports_pool_max or
                 self._get_pool_size(pool_key) <
                     oslo_cfg.CONF.vif_pool.ports_pool_max):
@@ -1031,8 +1030,7 @@ class NestedVIFPool(BaseVIFPool):
         # on the available_ports_pools dict. The next call forces it to be on
         # that dict before cleaning it up
         self._trigger_return_to_pool()
-        available_ports_pools = self._available_ports_pools.copy()
-        for pool_key, ports in available_ports_pools.items():
+        for pool_key, ports in list(self._available_ports_pools.items()):
             if self._get_pool_key_net(pool_key) != net_id:
                 continue
             trunk_id = self._get_trunk_id(neutron, pool_key)
