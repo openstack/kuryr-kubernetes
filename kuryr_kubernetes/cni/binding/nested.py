@@ -13,9 +13,11 @@
 #    under the License.
 
 import abc
+import errno
 import six
 
 from oslo_log import log as logging
+import pyroute2
 
 from kuryr_kubernetes.cni.binding import base as b_base
 from kuryr_kubernetes import config
@@ -54,20 +56,41 @@ class NestedDriver(health.HealthHandler, b_base.BaseBindingDriver):
         with b_base.get_ipdb(netns) as c_ipdb:
             self._remove_ifaces(c_ipdb, (temp_name, ifname), netns)
 
+        # We might also have leftover interface in the host netns, let's try to
+        # remove it too. This is outside of the main host's IPDB context
+        # manager to make sure removal is commited before starting next
+        # transaction.
         with b_base.get_ipdb() as h_ipdb:
-            # TODO(vikasc): evaluate whether we should have stevedore
-            #               driver for getting the link device.
-            vm_iface_name = config.CONF.binding.link_iface
-
-            # We might also have leftover interface in the host netns, let's
-            # try to remove it too.
             self._remove_ifaces(h_ipdb, (temp_name,))
 
-            args = self._get_iface_create_args(vif)
-            with h_ipdb.create(ifname=temp_name,
-                               link=h_ipdb.interfaces[vm_iface_name],
-                               **args) as iface:
-                iface.net_ns_fd = utils.convert_netns(netns)
+        try:
+            with b_base.get_ipdb() as h_ipdb:
+                # TODO(vikasc): evaluate whether we should have stevedore
+                #               driver for getting the link device.
+                vm_iface_name = config.CONF.binding.link_iface
+
+                args = self._get_iface_create_args(vif)
+                with h_ipdb.create(ifname=temp_name,
+                                   link=h_ipdb.interfaces[vm_iface_name],
+                                   **args) as iface:
+                    iface.net_ns_fd = utils.convert_netns(netns)
+        except pyroute2.NetlinkError as e:
+            if e.code == errno.EEXIST:
+                # NOTE(dulek): This is related to bug 1854928. It's super-rare,
+                #              so aim of this piece is to gater any info useful
+                #              for determining when it happens.
+                LOG.exception('Creation of pod interface failed, most likely '
+                              'due to duplicated VLAN id. This will probably '
+                              'cause kuryr-daemon to crashloop. Trying to '
+                              'gather debugging information.')
+
+                with b_base.get_ipdb() as h_ipdb:
+                    LOG.error('List of host interfaces: %s', h_ipdb.interfaces)
+
+                with b_base.get_ipdb(netns) as c_ipdb:
+                    LOG.error('List of pod namespace interfaces: %s',
+                              c_ipdb.interfaces)
+            raise
 
         with b_base.get_ipdb(netns) as c_ipdb:
             with c_ipdb.interfaces[temp_name] as iface:
