@@ -1,0 +1,9 @@
+---
+features:
+  - |
+    Added support for Octavia VIP access control list. This new Octavia API
+    allows users to limit incomming traffic to a set of allowed CIDRs. Kuryr
+    uses this to enforce Network Policies on services, changing the security
+    group associated to the Load Balancer through this new API instead of
+    directly. Thanks to it, Kuryr no longer needs admin priviledges to
+    restrict the access to the loadbalancers VIPs some details.

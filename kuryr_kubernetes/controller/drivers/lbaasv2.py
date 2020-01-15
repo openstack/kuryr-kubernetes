@@ -55,6 +55,7 @@ _L7_POLICY_ACT_REDIRECT_TO_POOL = 'REDIRECT_TO_POOL'
 _LB_STS_POLL_FAST_INTERVAL = 1
 _LB_STS_POLL_SLOW_INTERVAL = 3
 _OCTAVIA_TAGGING_VERSION = 2, 5
+_OCTAVIA_ACL_VERSION = 2, 12
 
 
 class LBaaSv2Driver(base.LBaaSDriver):
@@ -64,12 +65,16 @@ class LBaaSv2Driver(base.LBaaSDriver):
         super(LBaaSv2Driver, self).__init__()
 
         self._octavia_tags = False
+        self._octavia_acls = False
         # Check if Octavia API supports tagging.
         # TODO(dulek): *Maybe* this can be replaced with
         #         lbaas.get_api_major_version(version=_OCTAVIA_TAGGING_VERSION)
         #         if bug https://storyboard.openstack.org/#!/story/2007040 gets
         #         fixed one day.
         v = self.get_octavia_version()
+        if v >= _OCTAVIA_ACL_VERSION:
+            self._octavia_acls = True
+            LOG.info('Octavia supports ACLs for Amphora provider.')
         if v >= _OCTAVIA_TAGGING_VERSION:
             LOG.info('Octavia supports resource tags.')
             self._octavia_tags = True
@@ -194,8 +199,58 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 LOG.exception('Failed when creating security group rule '
                               'for listener %s.', listener.name)
 
+    def _create_listeners_acls(self, loadbalancer, port, target_port,
+                               protocol, lb_sg, new_sgs, listener_id):
+        all_pod_rules = []
+        add_default_rules = False
+        neutron = clients.get_neutron_client()
+
+        if new_sgs:
+            sgs = new_sgs
+        else:
+            sgs = loadbalancer.security_groups
+
+        # Check if Network Policy allows listener on the pods
+        for sg in sgs:
+            if sg != lb_sg:
+                if sg in config.CONF.neutron_defaults.pod_security_groups:
+                    # If default sg is set, this means there is no NP
+                    # associated to the service, thus falling back to the
+                    # default listener rules
+                    add_default_rules = True
+                    break
+                rules = neutron.list_security_group_rules(
+                    security_group_id=sg)
+                for rule in rules['security_group_rules']:
+                    # NOTE(ltomasbo): NP sg can only have rules with
+                    # or without remote_ip_prefix. Rules with remote_group_id
+                    # are not possible, therefore only applying the ones
+                    # with or without remote_ip_prefix.
+                    if rule.get('remote_group_id'):
+                        continue
+                    if (rule['protocol'] == protocol.lower() and
+                            rule['direction'] == 'ingress'):
+                        # If listener port not in allowed range, skip
+                        min_port = rule.get('port_range_min')
+                        max_port = rule.get('port_range_max')
+                        if (min_port and target_port not in range(min_port,
+                                                                  max_port+1)):
+                            continue
+                        if rule.get('remote_ip_prefix'):
+                            all_pod_rules.append(rule['remote_ip_prefix'])
+                        else:
+                            add_default_rules = True
+
+        if add_default_rules:
+            # update the listener without allowed-cidr
+            self._update_listener_acls(loadbalancer, listener_id, None)
+        else:
+            self._update_listener_acls(loadbalancer, listener_id,
+                                       all_pod_rules)
+
     def _apply_members_security_groups(self, loadbalancer, port, target_port,
-                                       protocol, sg_rule_name, new_sgs=None):
+                                       protocol, sg_rule_name, listener_id,
+                                       new_sgs=None):
         LOG.debug("Applying members security groups.")
         neutron = clients.get_neutron_client()
         lb_sg = None
@@ -214,6 +269,11 @@ class LBaaSv2Driver(base.LBaaSDriver):
         # has been triggered and the LBaaS SG was not created yet.
         # This update is skiped, until the LBaaS members are created.
         if not lb_sg:
+            return
+
+        if self._octavia_acls:
+            self._create_listeners_acls(loadbalancer, port, target_port,
+                                        protocol, lb_sg, new_sgs, listener_id)
             return
 
         lbaas_sg_rules = neutron.list_security_group_rules(
@@ -529,8 +589,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
         if network_policy and listener_port:
             protocol = pool.protocol
             sg_rule_name = pool.name
+            listener_id = pool.listener_id
             self._apply_members_security_groups(loadbalancer, listener_port,
-                                                port, protocol, sg_rule_name)
+                                                port, protocol, sg_rule_name,
+                                                listener_id)
         return result
 
     def release_member(self, loadbalancer, member):
@@ -631,6 +693,32 @@ class LBaaSv2Driver(base.LBaaSDriver):
         response = self._post_lb_resource(o_lis.Listener, request)
         listener.id = response.id
         return listener
+
+    def _update_listener_acls(self, loadbalancer, listener_id, allowed_cidrs):
+        admin_state_up = True
+        if allowed_cidrs is None:
+            # World accessible, no restriction on the listeners
+            pass
+        elif len(allowed_cidrs) == 0:
+            # Prevent any traffic as no CIDR is allowed
+            admin_state_up = False
+
+        request = {
+            'allowed_cidrs': allowed_cidrs,
+            'admin_state_up': admin_state_up,
+        }
+
+        # Wait for the loadbalancer to be ACTIVE
+        self._wait_for_provisioning(loadbalancer, _ACTIVATION_TIMEOUT,
+                                    _LB_STS_POLL_FAST_INTERVAL)
+
+        lbaas = clients.get_loadbalancer_client()
+        response = lbaas.put(o_lis.Listener.base_path + '/' + listener_id,
+                             json={o_lis.Listener.resource_key: request})
+        if not response.ok:
+            LOG.error('Error when updating %s: %s',
+                      o_lis.Listener.resource_key, response.text)
+            raise k_exc.ResourceNotReady(listener_id)
 
     def _find_listener(self, listener):
         lbaas = clients.get_loadbalancer_client()
@@ -1003,12 +1091,19 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         utils.set_lbaas_state(endpoint, lbaas)
 
+        lsnr_ids = {(l.protocol, l.port): l.id for l in lbaas.listeners}
+
         for port in svc_ports:
             port_protocol = port['protocol']
             lbaas_port = port['port']
             target_port = port['targetPort']
             sg_rule_name = "%s:%s:%s" % (lbaas_name, port_protocol, lbaas_port)
-
+            listener_id = lsnr_ids.get((port_protocol, target_port))
+            if listener_id is None:
+                LOG.warning("There is no listener associated to the protocol "
+                            "%s and port %s. Skipping", port_protocol,
+                            lbaas_port)
+                continue
             self._apply_members_security_groups(lbaas_obj, lbaas_port,
                                                 target_port, port_protocol,
-                                                sg_rule_name, sgs)
+                                                sg_rule_name, listener_id, sgs)
