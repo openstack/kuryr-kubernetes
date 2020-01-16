@@ -305,7 +305,7 @@ class BaseVIFPool(base.VIFPoolDriver):
         for pool_key, pool_ports in list(self._available_ports_pools.items()):
             if self._get_pool_key_net(pool_key) != net_id:
                 continue
-            for sg_key, ports in pool_ports.items():
+            for sg_key, ports in list(pool_ports.items()):
                 if sg_id not in sg_key:
                     continue
                 # remove the pool associated to that SG
@@ -478,7 +478,7 @@ class NeutronVIFPool(BaseVIFPool):
             pool_updates = self._last_update.get(pool_key, {})
             if not pool_updates:
                 # No pools update info. Selecting a random one
-                for sg_group, ports in pool_ports.items():
+                for sg_group, ports in list(pool_ports.items()):
                     if len(ports) > 0:
                         port_id = pool_ports[sg_group].pop()
                         break
@@ -486,7 +486,7 @@ class NeutronVIFPool(BaseVIFPool):
                     raise exceptions.ResourceNotReady(pod)
             else:
                 min_date = -1
-                for sg_group, date in pool_updates.items():
+                for sg_group, date in list(pool_updates.items()):
                     if pool_ports.get(sg_group):
                         if min_date == -1 or date < min_date:
                             min_date = date
@@ -749,7 +749,7 @@ class NestedVIFPool(BaseVIFPool):
             pool_updates = self._last_update.get(pool_key, {})
             if not pool_updates:
                 # No pools update info. Selecting a random one
-                for sg_group, ports in pool_ports.items():
+                for sg_group, ports in list(pool_ports.items()):
                     if len(ports) > 0:
                         port_id = pool_ports[sg_group].pop()
                         break
@@ -757,7 +757,7 @@ class NestedVIFPool(BaseVIFPool):
                     raise exceptions.ResourceNotReady(pod)
             else:
                 min_date = -1
-                for sg_group, date in pool_updates.items():
+                for sg_group, date in list(pool_updates.items()):
                     if pool_ports.get(sg_group):
                         if min_date == -1 or date < min_date:
                             min_date = date
