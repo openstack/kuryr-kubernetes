@@ -599,7 +599,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
         network_policy = (
             'policy' in CONF.kubernetes.enabled_handlers and
             CONF.kubernetes.service_security_groups_driver == 'policy')
-        if network_policy and listener_port:
+        if (network_policy and CONF.octavia_defaults.enforce_sg_rules and
+                listener_port):
             protocol = pool.protocol
             sg_rule_name = pool.name
             listener_id = pool.listener_id
