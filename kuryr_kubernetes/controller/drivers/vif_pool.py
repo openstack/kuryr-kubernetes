@@ -310,7 +310,13 @@ class BaseVIFPool(base.VIFPoolDriver):
                 if sg_id not in sg_key:
                     continue
                 # remove the pool associated to that SG
-                del self._available_ports_pools[pool_key][sg_key]
+                try:
+                    del self._available_ports_pools[pool_key][sg_key]
+                except KeyError:
+                    LOG.debug("SG already removed from the pool. Ports "
+                              "already re-used, no need to change their "
+                              "associated SGs.")
+                    continue
                 for port_id in ports:
                     # remove all SGs from the port to be reused
                     neutron.update_port(
