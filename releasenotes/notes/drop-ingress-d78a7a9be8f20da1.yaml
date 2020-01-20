@@ -1,0 +1,9 @@
+---
+deprecations:
+  - |
+    Support for OpenShift's Routes (Ingress) gets removed as is not mantained
+    nor tested, and openshift route pods can be used instead.
+  - |
+    Support for namespace isolation is now deprecated and will be removed on
+    the first occasion as the same effect can now be achieved using Network
+    Policies support.
