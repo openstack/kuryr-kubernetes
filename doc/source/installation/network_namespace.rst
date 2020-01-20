@@ -32,17 +32,6 @@ the next steps are needed:
       [kubernetes]
       pod_subnets_driver = namespace
 
-   In addition, to ensure that pods and services at one given namespace
-   cannot reach (or be reached by) the ones at another namespace, except the
-   pods at the default namespace that can reach (and be reached by) any pod at
-   a different namespace, the next security group driver needs to be set too:
-
-   .. code-block:: ini
-
-      [kubernetes]
-      pod_security_groups_driver = namespace
-      service_security_groups_driver = namespace
-
 #. Select (and create if needed) the subnet pool from where the new subnets
    will get their CIDR (e.g., the default on devstack deployment is
    shared-default-subnetpool-v4):
@@ -64,16 +53,6 @@ the next steps are needed:
    requirements between pod, service and public subnets, as in the case for
    the default subnet driver.
 
-#. Select (and create if needed) the security groups to be attached to the
-   pods at the default namespace and to the others, enabling the cross access
-   between them:
-
-   .. code-block:: ini
-
-      [namespace_sg]
-      sg_allow_from_namespaces = SG_ID_1 # Makes SG_ID_1 allow traffic from the sg sg_allow_from_default
-      sg_allow_from_default = SG_ID_2 # Makes SG_ID_2 allow traffic from the sg sg_allow_from_namespaces
-
 Note you need to restart the kuryr controller after applying the above
 detailed steps. For devstack non-containerized deployments:
 
@@ -94,7 +73,6 @@ to add the namespace handler and state the namespace subnet driver with:
 .. code-block:: console
 
    KURYR_SUBNET_DRIVER=namespace
-   KURYR_SG_DRIVER=namespace
    KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,namespace
 
 .. note::
@@ -172,10 +150,6 @@ Testing the network per namespace functionality
       $ kubectl exec -n test1 -it demo-5995548848-lmmjc /bin/sh
       test-1-pod$ curl 10.0.0.141
       demo-5995548848-lmmjc: HELLO! I AM ALIVE!!!
-
-      $ kubectl exec -n test2 -it demo-5135352253-dfghd /bin/sh
-      test-2-pod$ curl 10.0.0.141
-      ## No response
 
 #. And finally, to remove the namespace and all its resources, including
    openstack networks, kuryrnet CRD, svc, pods, you just need to do:

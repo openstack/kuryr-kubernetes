@@ -38,15 +38,6 @@ class DefaultPodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
 
         return sg_list[:]
 
-    def create_namespace_sg(self, namespace, project_id, crd_spec):
-        LOG.debug("Security group driver does not create SGs for the "
-                  "namespaces.")
-        return {}
-
-    def delete_sg(self, sg_id):
-        LOG.debug("Security group driver does not implement deleting "
-                  "SGs.")
-
     def create_sg_rules(self, pod):
         LOG.debug("Security group driver does not create SG rules for "
                   "the pods.")
