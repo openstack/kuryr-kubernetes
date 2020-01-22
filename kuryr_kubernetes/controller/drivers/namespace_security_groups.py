@@ -14,6 +14,7 @@
 #    under the License.
 
 from kuryr.lib._i18n import _
+from openstack import exceptions as os_exc
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -23,8 +24,6 @@ from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes.controller.drivers import utils
 from kuryr_kubernetes import exceptions
-
-from neutronclient.common import exceptions as n_exc
 
 LOG = logging.getLogger(__name__)
 
@@ -93,7 +92,7 @@ class NamespacePodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
             return [cfg.CONF.namespace_sg.sg_allow_from_default]
 
     def create_namespace_sg(self, namespace, project_id, crd_spec):
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
 
         sg_name = "ns/" + namespace + "-sg"
         # create the associated SG for the namespace
@@ -101,35 +100,24 @@ class NamespacePodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
             # default namespace is different from the rest
             # Default allows traffic from everywhere
             # The rest can be accessed from the default one
-            sg = neutron.create_security_group(
-                {
-                    "security_group": {
-                        "name": sg_name,
-                        "project_id": project_id
-                    }
-                }).get('security_group')
-            utils.tag_neutron_resources('security-groups', [sg['id']])
-            neutron.create_security_group_rule(
-                {
-                    "security_group_rule": {
-                        "direction": "ingress",
-                        "remote_ip_prefix": crd_spec['subnetCIDR'],
-                        "security_group_id": sg['id']
-                    }
-                })
-        except n_exc.NeutronClientException:
+            sg = os_net.create_security_group(name=sg_name,
+                                              project_id=project_id)
+            utils.tag_neutron_resources('security-groups', [sg.id])
+            os_net.create_security_group_rule(
+                direction="ingress",
+                remote_ip_prefix=crd_spec['subnetCIDR'],
+                security_group_id=sg.id)
+        except os_exc.SDKException:
             LOG.exception("Error creating security group for the namespace "
                           "%s", namespace)
             raise
-        return {'sgId': sg['id']}
+        return {'sgId': sg.id}
 
     def delete_sg(self, sg_id):
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
         try:
-            neutron.delete_security_group(sg_id)
-        except n_exc.NotFound:
-            LOG.debug("Security Group not found: %s", sg_id)
-        except n_exc.NeutronClientException:
+            os_net.delete_security_group(sg_id)
+        except os_exc.SDKException:
             LOG.exception("Error deleting security group %s.", sg_id)
             raise
 

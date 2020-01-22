@@ -19,8 +19,8 @@ from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import namespace_security_groups
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
-
-from neutronclient.common import exceptions as n_exc
+import munch
+from openstack import exceptions as os_exc
 
 
 def get_pod_obj():
@@ -221,20 +221,18 @@ class TestNamespacePodSecurityGroupsDriver(test_base.TestCase):
 
         namespace = 'test'
         project_id = mock.sentinel.project_id
-        sg = {'id': mock.sentinel.sg}
+        sg = munch.Munch({'id': mock.sentinel.sg})
         subnet_cidr = mock.sentinel.subnet_cidr
-        crd_spec = {
-            'subnetCIDR': subnet_cidr
-        }
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
-        neutron.create_security_group.return_value = {'security_group': sg}
+        crd_spec = {'subnetCIDR': subnet_cidr}
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
+        os_net.create_security_group.return_value = sg
 
         create_sg_resp = cls.create_namespace_sg(m_driver, namespace,
                                                  project_id, crd_spec)
 
         self.assertEqual(create_sg_resp, {'sgId': sg['id']})
-        neutron.create_security_group.assert_called_once()
-        neutron.create_security_group_rule.assert_called_once()
+        os_net.create_security_group.assert_called_once()
+        os_net.create_security_group_rule.assert_called_once()
 
     def test_create_namespace_sg_exception(self):
         cls = namespace_security_groups.NamespacePodSecurityGroupsDriver
@@ -246,47 +244,32 @@ class TestNamespacePodSecurityGroupsDriver(test_base.TestCase):
         crd_spec = {
             'subnetCIDR': subnet_cidr
         }
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
-        neutron.create_security_group.side_effect = (
-            n_exc.NeutronClientException)
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
+        os_net.create_security_group.side_effect = os_exc.SDKException
 
-        self.assertRaises(n_exc.NeutronClientException,
-                          cls.create_namespace_sg, m_driver,
-                          namespace, project_id, crd_spec)
+        self.assertRaises(os_exc.SDKException, cls.create_namespace_sg,
+                          m_driver, namespace, project_id, crd_spec)
 
-        neutron.create_security_group.assert_called_once()
-        neutron.create_security_group_rule.assert_not_called()
+        os_net.create_security_group.assert_called_once()
+        os_net.create_security_group_rule.assert_not_called()
 
     def test_delete_sg(self):
         cls = namespace_security_groups.NamespacePodSecurityGroupsDriver
         m_driver = mock.MagicMock(spec=cls)
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         sg_id = mock.sentinel.sg_id
 
         cls.delete_sg(m_driver, sg_id)
-        neutron.delete_security_group.assert_called_once_with(sg_id)
+        os_net.delete_security_group.assert_called_once_with(sg_id)
 
     def test_delete_sg_exception(self):
         cls = namespace_security_groups.NamespacePodSecurityGroupsDriver
         m_driver = mock.MagicMock(spec=cls)
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         sg_id = mock.sentinel.sg_id
-        neutron.delete_security_group.side_effect = (
-            n_exc.NeutronClientException)
+        os_net.delete_security_group.side_effect = os_exc.SDKException
 
-        self.assertRaises(n_exc.NeutronClientException, cls.delete_sg,
-                          m_driver, sg_id)
-        neutron.delete_security_group.assert_called_once_with(sg_id)
-
-    def test_delete_sg_not_found(self):
-        cls = namespace_security_groups.NamespacePodSecurityGroupsDriver
-        m_driver = mock.MagicMock(spec=cls)
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
-
-        sg_id = mock.sentinel.sg_id
-        neutron.delete_security_group.side_effect = n_exc.NotFound
-
-        cls.delete_sg(m_driver, sg_id)
-        neutron.delete_security_group.assert_called_once_with(sg_id)
+        self.assertRaises(os_exc.SDKException, cls.delete_sg, m_driver, sg_id)
+        os_net.delete_security_group.assert_called_once_with(sg_id)
