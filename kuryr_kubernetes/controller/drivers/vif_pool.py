@@ -856,10 +856,9 @@ class NestedVIFPool(BaseVIFPool):
                     pool_key, {}).setdefault(
                         sg_current.get(port_id), []).append(port_id)
             else:
-                trunk_id = self._get_trunk_id(neutron, pool_key)
+                trunk_id = self._get_trunk_id(pool_key)
                 try:
-                    self._drv_vif._remove_subport(neutron, trunk_id,
-                                                  port_id)
+                    self._drv_vif._remove_subport(trunk_id, port_id)
                     self._drv_vif._release_vlan_id(
                         self._existing_vifs[port_id].vlan_id)
                     del self._existing_vifs[port_id]
@@ -877,11 +876,10 @@ class NestedVIFPool(BaseVIFPool):
             except KeyError:
                 LOG.debug('Port already recycled: %s', port_id)
 
-    def _get_trunk_id(self, neutron, pool_key):
+    def _get_trunk_id(self, pool_key):
         trunk_id = self._known_trunk_ids.get(pool_key, None)
         if not trunk_id:
-            p_port = self._drv_vif._get_parent_port_by_host_ip(
-                neutron, pool_key[0])
+            p_port = self._drv_vif._get_parent_port_by_host_ip(pool_key[0])
             trunk_id = self._drv_vif._get_trunk_id(p_port)
             self._known_trunk_ids[pool_key] = trunk_id
         return trunk_id
@@ -971,7 +969,7 @@ class NestedVIFPool(BaseVIFPool):
 
                     elif action == 'free':
                         try:
-                            self._drv_vif._remove_subport(neutron, trunk_id,
+                            self._drv_vif._remove_subport(trunk_id,
                                                           kuryr_subport['id'])
                             neutron.delete_port(kuryr_subport['id'])
                             self._drv_vif._release_vlan_id(
@@ -1056,11 +1054,11 @@ class NestedVIFPool(BaseVIFPool):
         for pool_key, ports in list(self._available_ports_pools.items()):
             if self._get_pool_key_net(pool_key) != net_id:
                 continue
-            trunk_id = self._get_trunk_id(neutron, pool_key)
+            trunk_id = self._get_trunk_id(pool_key)
             ports_id = [p_id for sg_ports in ports.values()
                         for p_id in sg_ports]
             try:
-                self._drv_vif._remove_subports(neutron, trunk_id, ports_id)
+                self._drv_vif._remove_subports(trunk_id, ports_id)
             except n_exc.NeutronClientException:
                 LOG.exception('Error removing subports from trunk: %s',
                               trunk_id)
