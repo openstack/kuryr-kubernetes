@@ -21,22 +21,14 @@ from oslo_versionedobjects import fixture
 # they come with a corresponding version bump in the affected
 # objects
 object_data = {
-    'LBaaSL7Policy':
-    '1.0-3ac4fcd50a555f433a78c67cb6a4cd52',
-    'LBaaSL7Rule': '1.0-276d9d678e1a8fc4b53fdbf3b2ac39ec',
     'LBaaSListener': '1.0-a9e2d5c73687f5edc66fdb2f48650e15',
     'LBaaSLoadBalancer': '1.3-8bc0a9bdbd160da67572aa38784378d1',
     'LBaaSMember': '1.0-a770c6884c27d6d8c21186b27d0e2ccb',
     'LBaaSPool': '1.1-6e77370d7632a902445444249eb77b01',
     'LBaaSPortSpec': '1.1-1b307f34630617086c7af70f2cb8b215',
     'LBaaSPubIp': '1.0-83992edec2c60fb4ab8998ea42a4ff74',
-    'LBaaSRouteNotifEntry': '1.0-dd2f2be956f68814b1f47cb13483a885',
-    'LBaaSRouteNotifier': '1.0-f0bfd8e772434abe7557930d7e0180c1',
-    'LBaaSRouteState': '1.0-bdf561462a2d337c0e0ae8cb10e9ff20',
     'LBaaSServiceSpec': '1.0-d430ecd443f2b1999196bfe531e56f7e',
     'LBaaSState': '1.0-a0ff7dce2d3f6ce1ffab4ff95a344361',
-    'RouteSpec': '1.0-2f02b2e24b1ca2b94c2bbdb718bfc020',
-    'RouteState': '1.0-2475dbeb6ebedabe2a1e235f9bc6b614',
 }
 
 

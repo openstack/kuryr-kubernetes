@@ -20,8 +20,6 @@ import time
 import requests
 
 from openstack import exceptions as os_exc
-from openstack.load_balancer.v2 import l7_policy as o_l7p
-from openstack.load_balancer.v2 import l7_rule as o_l7r
 from openstack.load_balancer.v2 import listener as o_lis
 from openstack.load_balancer.v2 import load_balancer as o_lb
 from openstack.load_balancer.v2 import member as o_mem
@@ -43,7 +41,6 @@ CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
 _ACTIVATION_TIMEOUT = CONF.neutron_defaults.lbaas_activation_timeout
-_L7_POLICY_ACT_REDIRECT_TO_POOL = 'REDIRECT_TO_POOL'
 # NOTE(yboaron):Prior to sending create request to Octavia, LBaaS driver
 # verifies that LB is in a stable state by polling LB's provisioning_status
 # using backoff timer.
@@ -899,152 +896,6 @@ class LBaaSv2Driver(base.LBaaSDriver):
                           loadbalancer.name)
 
         return None
-
-    def get_lb_by_uuid(self, lb_uuid):
-        lbaas = clients.get_loadbalancer_client()
-        try:
-            response = lbaas.get_load_balancer(lb_uuid)
-        except os_exc.NotFoundException:
-            LOG.debug("Couldn't find loadbalancer with uuid=%s", lb_uuid)
-            return None
-
-        return obj_lbaas.LBaaSLoadBalancer(
-            id=response.id,
-            port_id=response.vip_port_id,
-            name=response.name,
-            project_id=response.project_id,
-            subnet_id=response.vip_subnet_id,
-            ip=response.vip_address,
-            security_groups=None,
-            provider=response.provider)
-
-    def get_pool_by_name(self, pool_name, project_id):
-        lbaas = clients.get_loadbalancer_client()
-
-        # NOTE(yboaron): pool_name should be constructed using
-        # get_loadbalancer_pool_name function, which means that pool's name
-        # is unique
-
-        pools = lbaas.pools(project_id=project_id)
-        for entry in pools:
-            if not entry:
-                continue
-            if entry.name == pool_name:
-                listener_id = (entry.listeners[0].id if
-                               entry.listeners else None)
-                return obj_lbaas.LBaaSPool(
-                    name=entry.name, project_id=entry.project_id,
-                    loadbalancer_id=entry.loadbalancers[0].id,
-                    listener_id=listener_id,
-                    protocol=entry.protocol, id=entry.id)
-        return None
-
-    def ensure_l7_policy(self, namespace, route_name,
-                         loadbalancer, pool,
-                         listener_id):
-        name = namespace + route_name
-        l7_policy = obj_lbaas.LBaaSL7Policy(name=name,
-                                            project_id=pool.project_id,
-                                            listener_id=listener_id,
-                                            redirect_pool_id=pool.id)
-
-        return self._ensure_provisioned(
-            loadbalancer, l7_policy, self._create_l7_policy,
-            self._find_l7_policy)
-
-    def release_l7_policy(self, loadbalancer, l7_policy):
-        lbaas = clients.get_loadbalancer_client()
-        self._release(
-            loadbalancer, l7_policy, lbaas.delete_l7_policy,
-            l7_policy.id)
-
-    def _create_l7_policy(self, l7_policy):
-        request = {
-            'action': _L7_POLICY_ACT_REDIRECT_TO_POOL,
-            'listener_id': l7_policy.listener_id,
-            'name': l7_policy.name,
-            'project_id': l7_policy.project_id,
-            'redirect_pool_id': l7_policy.redirect_pool_id,
-        }
-        self.add_tags('l7policy', request)
-        response = self._post_lb_resource(o_l7p.L7Policy, request)
-        l7_policy.id = response['id']
-        return l7_policy
-
-    def _find_l7_policy(self, l7_policy):
-        lbaas = clients.get_loadbalancer_client()
-        response = lbaas.l7_policies(
-            name=l7_policy.name,
-            project_id=l7_policy.project_id,
-            redirect_pool_id=l7_policy.redirect_pool_id,
-            listener_id=l7_policy.listener_id)
-        try:
-            l7_policy.id = next(response).id
-        except (KeyError, StopIteration):
-            return None
-        return l7_policy
-
-    def ensure_l7_rule(self, loadbalancer, l7_policy, compare_type,
-                       type, value):
-
-        l7_rule = obj_lbaas.LBaaSL7Rule(
-            compare_type=compare_type, l7policy_id=l7_policy.id,
-            type=type, value=value)
-        return self._ensure_provisioned(
-            loadbalancer, l7_rule, self._create_l7_rule,
-            self._find_l7_rule)
-
-    def _create_l7_rule(self, l7_rule):
-        request = {
-            'compare_type': l7_rule.compare_type,
-            'type': l7_rule.type,
-            'value': l7_rule.value
-        }
-        self.add_tags('rule', request)
-        response = self._post_lb_resource(o_l7r.L7Rule, request,
-                                          l7policy_id=l7_rule.l7policy_id)
-        l7_rule.id = response['id']
-        return l7_rule
-
-    def _find_l7_rule(self, l7_rule):
-        lbaas = clients.get_loadbalancer_client()
-        response = lbaas.l7_rules(
-            l7_rule.l7policy_id,
-            type=l7_rule.type,
-            value=l7_rule.value,
-            compare_type=l7_rule.compare_type)
-        try:
-            l7_rule.id = next(response).id
-        except (KeyError, StopIteration):
-            return None
-        return l7_rule
-
-    def release_l7_rule(self, loadbalancer, l7_rule):
-        lbaas = clients.get_loadbalancer_client()
-        self._release(
-            loadbalancer, l7_rule, lbaas.delete_l7_rule,
-            l7_rule.id, l7_rule.l7policy_id)
-
-    def update_l7_rule(self, l7_rule, new_value):
-        lbaas = clients.get_loadbalancer_client()
-        try:
-            lbaas.update_l7_rule(
-                l7_rule.id, l7_rule.l7policy_id,
-                value=new_value)
-        except os_exc.SDKException:
-            LOG.exception("Failed to update l7_rule- id=%s ", l7_rule.id)
-            raise
-
-    def is_pool_used_by_other_l7policies(self, l7policy, pool):
-        lbaas = clients.get_loadbalancer_client()
-        l7policy_list = lbaas.l7_policies(project_id=l7policy.project_id)
-        for entry in l7policy_list:
-            if not entry:
-                continue
-            if (entry.redirect_pool_id == pool.id and
-                    entry.id != l7policy.id):
-                return True
-        return False
 
     def update_lbaas_sg(self, service, sgs):
         LOG.debug('Setting SG for LBaaS VIP port')
