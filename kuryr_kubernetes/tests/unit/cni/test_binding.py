@@ -179,7 +179,7 @@ class TestNestedVlanDriver(TestDriverMixin, test_base.TestCase):
     def test_connect(self):
         self._test_connect()
 
-        self.assertEqual(1, self.h_ipdb_exit.call_count)
+        self.assertEqual(2, self.h_ipdb_exit.call_count)
         self.assertEqual(3, self.c_ipdb_exit.call_count)
 
         self.assertEqual(self.ifname, self.m_h_iface.ifname)
@@ -201,7 +201,7 @@ class TestNestedMacvlanDriver(TestDriverMixin, test_base.TestCase):
     def test_connect(self):
         self._test_connect()
 
-        self.assertEqual(1, self.h_ipdb_exit.call_count)
+        self.assertEqual(2, self.h_ipdb_exit.call_count)
         self.assertEqual(3, self.c_ipdb_exit.call_count)
 
         self.assertEqual(self.ifname, self.m_h_iface.ifname)
