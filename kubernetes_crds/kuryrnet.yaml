@@ -1,40 +1,47 @@
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: kuryrnets.openstack.org
 spec:
   group: openstack.org
-  version: v1
   scope: Cluster
   names:
     plural: kuryrnets
     singular: kuryrnet
     kind: KuryrNet
-  additionalPrinterColumns:
-    - name: SUBNET-CIDR
-      type: string
-      description: The subnet CIDR allocated to the namespace
-      JSONPath: .spec.subnetCIDR
-    - name: Age
-      type: date
-      JSONPath: .metadata.creationTimestamp
-  validation:
-    openAPIV3Schema:
-      properties:
-        spec:
-          required:
-          - netId
-          - routerId
-          - subnetCIDR
-          - subnetId
-          properties:
-            netId:
-              type: string
-            populated:
-              type: boolean
-            routerId:
-              type: string
-            subnetCIDR:
-              type: string
-            subnetId:
-              type: string
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    additionalPrinterColumns:
+      - name: SUBNET-CIDR
+        type: string
+        description: The subnet CIDR allocated to the namespace
+        jsonPath: .spec.subnetCIDR
+      - name: Age
+        type: date
+        jsonPath: .metadata.creationTimestamp
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            required:
+            - netId
+            - routerId
+            - subnetCIDR
+            - subnetId
+            properties:
+              netId:
+                type: string
+              populated:
+                type: boolean
+              routerId:
+                type: string
+              sgId:
+                type: string
+              subnetCIDR:
+                type: string
+              subnetId:
+                type: string
