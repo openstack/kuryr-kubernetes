@@ -42,7 +42,6 @@
         q-dhcp: false
         q-meta: false
         q-trunk: true
-    voting: false
 
 - job:
     name: kuryr-kubernetes-tempest-containerized-ovn
