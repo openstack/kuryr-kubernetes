@@ -215,7 +215,7 @@ def neutron_to_osvif_vif_ovs(vif_plugin, neutron_port, subnets):
     :param subnets: subnet mapping as returned by PodSubnetsDriver.get_subnets
     :return: os-vif VIF object
     """
-
+    # TODO(gryf): check where it is used and what exactly is neutron_port now.
     profile = osv_vif.VIFPortProfileOpenVSwitch(
         interface_id=neutron_port['id'])
 
@@ -265,6 +265,7 @@ def neutron_to_osvif_vif_nested_vlan(neutron_port, subnets, vlan_id):
     :param vlan_id: VLAN id associated to the VIF object for the pod
     :return: kuryr-k8s native VIF object for VLAN nested
     """
+    # TODO(gryf): same as above
     details = neutron_port.get('binding:vif_details', {})
 
     return k_vif.VIFVlanNested(
@@ -287,6 +288,7 @@ def neutron_to_osvif_vif_nested_macvlan(neutron_port, subnets):
     :param subnets: subnet mapping as returned by PodSubnetsDriver.get_subnets
     :return: kuryr-k8s native VIF object for MACVLAN nested
     """
+    # TODO(gryf): same as above
     details = neutron_port.get('binding:vif_details', {})
 
     return k_vif.VIFMacvlanNested(
@@ -309,6 +311,7 @@ def neutron_to_osvif_vif_sriov(vif_plugin, neutron_port, subnets):
     :param subnets: subnet mapping as returned by PodSubnetsDriver.get_subnets
     :return: osv_vif VIFSriov object
     """
+    # TODO(gryf): same as above
 
     details = neutron_port.get('binding:vif_details', {})
     network = _make_vif_network(neutron_port, subnets)
@@ -338,6 +341,7 @@ def neutron_to_osvif_vif(vif_translator, neutron_port, subnets):
     :param subnets: subnet mapping as returned by PodSubnetsDriver.get_subnets
     :return: os-vif VIF object
     """
+    # TODO(gryf): same as above
 
     try:
         mgr = _VIF_MANAGERS[vif_translator]

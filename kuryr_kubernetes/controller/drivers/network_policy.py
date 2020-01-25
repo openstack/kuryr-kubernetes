@@ -15,7 +15,6 @@
 import ipaddress
 import netaddr
 
-from neutronclient.common import exceptions as n_exc
 from openstack import exceptions as os_exc
 from oslo_log import log as logging
 
@@ -36,7 +35,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
     """Provide security groups actions based on K8s Network Policies"""
 
     def __init__(self):
-        self.neutron = clients.get_neutron_client()
+        self.os_net = clients.get_network_client()
         self.kubernetes = clients.get_kubernetes_client()
 
     def ensure_network_policy(self, policy, project_id):
@@ -99,10 +98,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                               existing_sg_rules if rule not in
                               current_sg_rules]
         for sg_rule in sg_rules_to_delete:
-            try:
-                driver_utils.delete_security_group_rule(sgr_ids[sg_rule])
-            except n_exc.NotFound:
-                LOG.debug('Trying to delete non existing sg_rule %s', sg_rule)
+            driver_utils.delete_security_group_rule(sgr_ids[sg_rule])
         # Create new rules that weren't already on the security group
         sg_rules_to_add = [rule for rule in current_sg_rules if rule not in
                            existing_sg_rules]
@@ -161,30 +157,24 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         """
         sg_name = ("sg-" + policy['metadata']['namespace'] + "-" +
                    policy['metadata']['name'])
-        security_group_body = {
-            "security_group":
-                {
-                    "name": sg_name,
-                    "project_id": project_id,
-                    "description": "Kuryr-Kubernetes NetPolicy SG"
-                }
-        }
+        desc = "Kuryr-Kubernetes NetPolicy SG"
         sg = None
         try:
             # Create initial security group
-            sg = self.neutron.create_security_group(body=security_group_body)
-            sg_id = sg['security_group']['id']
-            driver_utils.tag_neutron_resources('security-groups', [sg_id])
+            sg = self.os_net.create_security_group(name=sg_name,
+                                                   project_id=project_id,
+                                                   description=desc)
+            driver_utils.tag_neutron_resources('security-groups', [sg.id])
             # NOTE(dulek): Neutron populates every new SG with two rules
             #              allowing egress on IPv4 and IPv6. This collides with
             #              how network policies are supposed to work, because
             #              initially even egress traffic should be blocked.
             #              To work around this we will delete those two SG
             #              rules just after creation.
-            for sgr in sg['security_group']['security_group_rules']:
-                self.neutron.delete_security_group_rule(sgr['id'])
+            for sgr in sg.security_group_rules:
+                self.os_net.delete_security_group_rule(sgr['id'])
 
-            i_rules, e_rules = self.parse_network_policy_rules(policy, sg_id)
+            i_rules, e_rules = self.parse_network_policy_rules(policy, sg.id)
             for i_rule in i_rules:
                 sgr_id = driver_utils.create_security_group_rule(i_rule)
                 i_rule['security_group_rule']['id'] = sgr_id
@@ -194,24 +184,24 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 e_rule['security_group_rule']['id'] = sgr_id
 
             # Add default rules to allow traffic from host and svc subnet
-            self._add_default_np_rules(sg_id)
-        except (n_exc.NeutronClientException, exceptions.ResourceNotReady,
-                os_exc.ResourceNotFound):
+            self._add_default_np_rules(sg.id)
+        except (os_exc.SDKException, exceptions.ResourceNotReady):
             LOG.exception("Error creating security group for network policy "
                           " %s", policy['metadata']['name'])
             # If there's any issue creating sg rules, remove them
             if sg:
-                self.neutron.delete_security_group(sg['security_group']['id'])
+                self.os_net.delete_security_group(sg.id)
             raise
+
         try:
-            self._add_kuryrnetpolicy_crd(policy, project_id,
-                                         sg['security_group']['id'], i_rules,
+            self._add_kuryrnetpolicy_crd(policy, project_id, sg.id, i_rules,
                                          e_rules)
         except exceptions.K8sClientException:
             LOG.exception("Rolling back security groups")
             # Same with CRD creation
-            self.neutron.delete_security_group(sg['security_group']['id'])
+            self.os_net.delete_security_group(sg.id)
             raise
+
         try:
             crd = self.get_kuryrnetpolicy_crd(policy)
             self.kubernetes.annotate(policy['metadata']['selfLink'],
@@ -647,16 +637,14 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
 
     def delete_np_sg(self, sg_id):
         try:
-            self.neutron.delete_security_group(sg_id)
-        except n_exc.NotFound:
-            LOG.debug("Security Group not found: %s", sg_id)
-        except n_exc.Conflict:
+            self.os_net.delete_security_group(sg_id)
+        except os_exc.ConflictException:
             LOG.debug("Security Group already in use: %s", sg_id)
             # raising ResourceNotReady to retry this action in case ports
             # associated to affected pods are not updated on time, i.e.,
             # they are still using the security group to be removed
             raise exceptions.ResourceNotReady(sg_id)
-        except n_exc.NeutronClientException:
+        except os_exc.SDKException:
             LOG.exception("Error deleting security group %s.", sg_id)
             raise
 
