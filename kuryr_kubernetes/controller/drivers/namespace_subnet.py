@@ -23,7 +23,7 @@ from kuryr_kubernetes.controller.drivers import utils as c_utils
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes import utils
 
-from neutronclient.common import exceptions as n_exc
+from openstack import exceptions as os_exc
 
 LOG = logging.getLogger(__name__)
 
@@ -90,63 +90,65 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
         self._delete_namespace_network_resources(subnet_id, net_id)
 
     def _delete_namespace_network_resources(self, subnet_id, net_id):
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
         if subnet_id:
             router_id = oslo_cfg.CONF.namespace_subnet.pod_router
             try:
-                neutron.remove_interface_router(router_id,
-                                                {"subnet_id": subnet_id})
-            except n_exc.NotFound:
-                LOG.debug("Subnet %(subnet)s not attached to router "
-                          "%(router)s", {'subnet': subnet_id,
-                                         'router': router_id})
-            except n_exc.NeutronClientException:
+                clients.handle_neutron_errors(
+                    os_net.remove_interface_from_router, router_id,
+                    subnet_id=subnet_id)
+            except os_exc.NotFoundException as e:
+                # Nothing to worry about, either router or subnet is no more,
+                # or subnet is already detached.
+                LOG.debug(e.message)
+                pass
+            except os_exc.SDKException:
                 LOG.exception("Error deleting subnet %(subnet)s from router "
-                              "%(router)s.", {'subnet': subnet_id, 'router':
-                                              router_id})
+                              "%(router)s.",
+                              {'subnet': subnet_id, 'router': router_id})
                 raise
 
         try:
-            neutron.delete_network(net_id)
-        except n_exc.NotFound:
-            LOG.debug("Neutron Network not found: %s", net_id)
-        except n_exc.NetworkInUseClient:
+            os_net.delete_network(net_id)
+        except os_exc.ConflictException:
+
             LOG.exception("One or more ports in use on the network %s. "
                           "Deleting leftovers ports before retrying", net_id)
-            leftover_ports = c_utils.get_ports_by_attrs(status='DOWN',
-                                                        network_id=net_id)
+            leftover_ports = os_net.ports(status='DOWN', network_id=net_id)
             for leftover_port in leftover_ports:
                 try:
-                    neutron.delete_port(leftover_port['id'])
-                except n_exc.PortNotFoundClient:
-                    LOG.debug("Port already deleted.")
-                except n_exc.NeutronClientException as e:
+                    # NOTE(gryf): there is unlikely, that we get an exception
+                    # like PortNotFound or something, since openstacksdk
+                    # doesn't raise an exception if port doesn't exists nor
+                    # return any information.
+                    os_net.delete_port(leftover_port.id)
+                except os_exc.SDKException as e:
                     if "currently a subport for trunk" in str(e):
                         LOG.warning("Port %s is in DOWN status but still "
                                     "associated to a trunk. This should not "
                                     "happen. Trying to delete it from the "
-                                    "trunk.", leftover_port['id'])
+                                    "trunk.", leftover_port.id)
                         # Get the trunk_id from the error message
                         trunk_id = (
                             str(e).split('trunk')[1].split('.')[0].strip())
                         try:
-                            neutron.trunk_remove_subports(
-                                trunk_id, {'sub_ports': [
-                                    {'port_id': leftover_port['id']}]})
-                        except n_exc.NotFound:
+                            os_net.delete_trunk_subports(
+                                trunk_id, [{'port_id': leftover_port.id}])
+                        except os_exc.NotFoundException:
                             LOG.debug("Port %s already removed from trunk %s",
                                       leftover_port['id'], trunk_id)
                     else:
                         LOG.exception("Unexpected error deleting leftover "
                                       "port %s. Skiping it and continue with "
-                                      "the other rest.", leftover_port['id'])
+                                      "the other rest.", leftover_port.id)
+
             raise exceptions.ResourceNotReady(net_id)
-        except n_exc.NeutronClientException:
+        except os_exc.SDKException:
             LOG.exception("Error deleting network %s.", net_id)
             raise
 
     def create_namespace_network(self, namespace, project_id):
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
 
         router_id = oslo_cfg.CONF.namespace_subnet.pod_router
         subnet_pool_id = oslo_cfg.CONF.namespace_subnet.pod_subnet_pool
@@ -155,29 +157,20 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
         network_name = "ns/" + namespace + "-net"
         subnet_name = "ns/" + namespace + "-subnet"
         try:
-            neutron_net = neutron.create_network(
-                {
-                    "network": {
-                        "name": network_name,
-                        "project_id": project_id
-                    }
-                }).get('network')
-            c_utils.tag_neutron_resources('networks', [neutron_net['id']])
+            neutron_net = os_net.create_network(name=network_name,
+                                                project_id=project_id)
+            c_utils.tag_neutron_resources('networks', [neutron_net.id])
 
             # create a subnet within that network
             try:
-                neutron_subnet = neutron.create_subnet(
-                    {
-                        "subnet": {
-                            "network_id": neutron_net['id'],
-                            "ip_version": 4,
-                            "name": subnet_name,
-                            "enable_dhcp": False,
-                            "subnetpool_id": subnet_pool_id,
-                            "project_id": project_id
-                        }
-                    }).get('subnet')
-            except n_exc.Conflict:
+                neutron_subnet = (os_net
+                                  .create_subnet(network_id=neutron_net.id,
+                                                 ip_version=4,
+                                                 name=subnet_name,
+                                                 enable_dhcp=False,
+                                                 subnetpool_id=subnet_pool_id,
+                                                 project_id=project_id))
+            except os_exc.ConflictException:
                 LOG.debug("Max number of retries on neutron side achieved, "
                           "raising ResourceNotReady to retry subnet creation "
                           "for %s", subnet_name)
@@ -185,45 +178,52 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
             c_utils.tag_neutron_resources('subnets', [neutron_subnet['id']])
 
             # connect the subnet to the router
-            neutron.add_interface_router(router_id,
-                                         {"subnet_id": neutron_subnet['id']})
-        except n_exc.NeutronClientException:
+            clients.handle_neutron_errors(os_net.add_interface_to_router,
+                                          router_id,
+                                          subnet_id=neutron_subnet.id)
+        except os_exc.SDKException:
             LOG.exception("Error creating neutron resources for the namespace "
                           "%s", namespace)
             raise
-        return {'netId': neutron_net['id'],
+        return {'netId': neutron_net.id,
                 'routerId': router_id,
-                'subnetId': neutron_subnet['id'],
-                'subnetCIDR': neutron_subnet['cidr']}
+                'subnetId': neutron_subnet.id,
+                'subnetCIDR': neutron_subnet.cidr}
 
     def rollback_network_resources(self, net_crd_spec, namespace):
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
         try:
-            neutron.remove_interface_router(net_crd_spec['routerId'],
-                                            {'subnet_id':
-                                             net_crd_spec['subnetId']})
-            neutron.delete_network(net_crd_spec['netId'])
-        except n_exc.NeutronClientException:
+            try:
+                clients.handle_neutron_errors(
+                    os_net.remove_interface_from_router,
+                    net_crd_spec['routerId'],
+                    subnet_id=net_crd_spec['subnetId'])
+            except os_exc.NotFoundException:
+                # Nothing to worry about, either router or subnet is no more,
+                # or subnet is already detached.
+                pass
+            os_net.delete_network(net_crd_spec['netId'])
+        except os_exc.SDKException:
             LOG.exception("Failed to clean up network resources associated to "
                           "%(net_id)s, created for the namespace: "
                           "%(namespace)s." % {'net_id': net_crd_spec['netId'],
                                               'namespace': namespace})
 
     def cleanup_namespace_networks(self, namespace):
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
         net_name = 'ns/' + namespace + '-net'
-        filters = {'name': net_name}
         tags = oslo_cfg.CONF.neutron_defaults.resource_tags
         if tags:
-            filters['tags'] = tags
-        networks = neutron.list_networks(**filters)['networks']
-        if networks:
-            for net in networks:
-                net_id = net['id']
-                subnets = net.get('subnets')
-                subnet_id = None
-                if subnets:
-                    # NOTE(ltomasbo): Each network created by kuryr only has
-                    # one subnet
-                    subnet_id = subnets[0]
-                self._delete_namespace_network_resources(subnet_id, net_id)
+            networks = os_net.networks(name=net_name, tags=tags)
+        else:
+            networks = os_net.networks(name=net_name)
+
+        for net in networks:
+            net_id = net.id
+            subnets = net.subnet_ids
+            subnet_id = None
+            if subnets:
+                # NOTE(ltomasbo): Each network created by kuryr only has
+                # one subnet
+                subnet_id = subnets[0]
+            self._delete_namespace_network_resources(subnet_id, net_id)
