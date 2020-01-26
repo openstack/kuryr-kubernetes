@@ -23,7 +23,6 @@ from six.moves.urllib import parse
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
 from kuryr_kubernetes import exceptions as k_exc
-from kuryr_kubernetes import os_vif_util as ovu
 from kuryr_kubernetes import utils
 
 from neutronclient.common import exceptions as n_exc
@@ -51,7 +50,7 @@ cache.configure_cache_region(CONF, pod_ip_cache_region)
 
 
 def get_network_id(subnets):
-    ids = ovu.osvif_to_neutron_network_ids(subnets)
+    ids = list(set(net.id for net in subnets.values()))
 
     if len(ids) != 1:
         raise k_exc.IntegrityError(

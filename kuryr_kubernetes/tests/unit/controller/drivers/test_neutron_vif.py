@@ -326,22 +326,6 @@ class NeutronPodVIFDriver(test_base.TestCase):
 
         self.assertEqual(vif_plugin, cls._get_vif_plugin(m_driver, port))
 
-    @mock.patch('kuryr_kubernetes.os_vif_util.osvif_to_neutron_network_ids')
-    def test_get_network_id(self, m_to_net_ids):
-        subnets = mock.sentinel.subnets
-        network_id = mock.sentinel.network_id
-        m_to_net_ids.return_value = [network_id]
-
-        self.assertEqual(network_id, utils.get_network_id(subnets))
-        m_to_net_ids.assert_called_once_with(subnets)
-
-    @mock.patch('kuryr_kubernetes.os_vif_util.osvif_to_neutron_network_ids')
-    def test_get_network_id_invalid(self, m_to_net_ids):
-        subnets = mock.sentinel.subnets
-        m_to_net_ids.return_value = []
-
-        self.assertRaises(k_exc.IntegrityError, utils.get_network_id, subnets)
-
     def test_get_port_name(self):
         pod_name = mock.sentinel.pod_name
         port_name = 'default/' + str(pod_name)
