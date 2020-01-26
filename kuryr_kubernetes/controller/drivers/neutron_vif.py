@@ -13,9 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from keystoneauth1 import exceptions as key_exc
 from kuryr.lib import constants as kl_const
-from neutronclient.common import exceptions as n_exc
+from openstack import exceptions as os_exc
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
@@ -34,39 +33,38 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
     """Manages normal Neutron ports to provide VIFs for Kubernetes Pods."""
 
     def request_vif(self, pod, project_id, subnets, security_groups):
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
 
         rq = self._get_port_request(pod, project_id, subnets, security_groups)
-        port = neutron.create_port(rq).get('port')
-        utils.tag_neutron_resources('ports', [port['id']])
-        vif_plugin = self._get_vif_plugin(port)
+        port = os_net.create_port(**rq)
+        utils.tag_neutron_resources('ports', [port.id])
 
-        return ovu.neutron_to_osvif_vif(vif_plugin, port, subnets)
+        return ovu.neutron_to_osvif_vif(port.binding_vif_type, port, subnets)
 
     def request_vifs(self, pod, project_id, subnets, security_groups,
                      num_ports):
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
 
         rq = self._get_port_request(pod, project_id, subnets, security_groups,
                                     unbound=True)
 
         bulk_port_rq = {'ports': [rq] * num_ports}
         try:
-            ports = neutron.create_port(bulk_port_rq).get('ports')
-        except n_exc.NeutronClientException:
+            ports = list(os_net.create_ports(bulk_port_rq))
+        except os_exc.SDKException:
             LOG.exception("Error creating bulk ports: %s", bulk_port_rq)
             raise
-        utils.tag_neutron_resources('ports', [port['id'] for port in ports])
+        utils.tag_neutron_resources('ports', [port.id for port in ports])
 
-        vif_plugin = self._get_vif_plugin(ports[0])
+        vif_plugin = ports[0].binding_vif_type
 
         # NOTE(ltomasbo): Due to the bug (1696051) on neutron bulk port
         # creation request returning the port objects without binding
         # information, an additional port show is performed to get the binding
         # information
         if vif_plugin == 'unbound':
-            port_info = neutron.show_port(ports[0]['id']).get('port')
-            vif_plugin = self._get_vif_plugin(port_info)
+            port_info = os_net.get_port(ports[0].id)
+            vif_plugin = port_info.binding_vif_type
 
         vifs = []
         for port in ports:
@@ -75,22 +73,16 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
         return vifs
 
     def release_vif(self, pod, vif, project_id=None, security_groups=None):
-        neutron = clients.get_neutron_client()
-
-        try:
-            neutron.delete_port(vif.id)
-        except n_exc.PortNotFoundClient:
-            LOG.debug('Unable to release port %s as it no longer exists.',
-                      vif.id)
+        clients.get_network_client().delete_port(vif.id)
 
     def activate_vif(self, pod, vif):
         if vif.active:
             return
 
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
         try:
-            port = neutron.show_port(vif.id).get('port')
-        except (key_exc.ConnectionError, n_exc.ConnectionFailed):
+            port = os_net.get_port(vif.id)
+        except os_exc.SDKException:
             LOG.debug("Unable to obtain port information, retrying.")
             raise k_exc.ResourceNotReady(vif)
 
@@ -100,18 +92,12 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
         vif.active = True
 
     def update_vif_sgs(self, pod, security_groups):
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
         pod_state = utils.get_pod_state(pod)
         if pod_state:
             # NOTE(ltomasbo): It just updates the default_vif security group
             port_id = pod_state.vifs[constants.DEFAULT_IFNAME].id
-            neutron.update_port(port_id,
-                                {
-                                    "port": {
-                                        'security_groups': list(
-                                            security_groups)
-                                    }
-                                })
+            os_net.update_port(port_id, security_groups=list(security_groups))
 
     def _get_port_request(self, pod, project_id, subnets, security_groups,
                           unbound=False):
@@ -120,7 +106,7 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
                          'fixed_ips': ovu.osvif_to_neutron_fixed_ips(subnets),
                          'device_owner': kl_const.DEVICE_OWNER,
                          'admin_state_up': True,
-                         'binding:host_id': utils.get_host_id(pod)}
+                         'binding_host_id': utils.get_host_id(pod)}
 
         # if unbound argument is set to true, it means the port requested
         # should not be bound and not associated to the pod. Thus the port dict
@@ -137,7 +123,4 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
         if security_groups:
             port_req_body['security_groups'] = security_groups
 
-        return {'port': port_req_body}
-
-    def _get_vif_plugin(self, port):
-        return port.get('binding:vif_type')
+        return port_req_body

@@ -239,18 +239,9 @@ def neutron_to_osvif_vif_ovs(vif_plugin, os_port, subnets):
     :param subnets: subnet mapping as returned by PodSubnetsDriver.get_subnets
     :return: os-vif VIF object
     """
-    try:
-        # TODO(gryf): get rid of the except part after neutron_vif plugin is
-        # migrated to the openstacksdk.
-        port_id = os_port.id
-        mac_address = os_port.mac_address
-        details = os_port.binding_vif_details or {}
-    except AttributeError:
-        port_id = os_port['id']
-        mac_address = os_port['mac_address']
-        details = os_port.get('binding:vif_details', {})
-    profile = osv_vif.VIFPortProfileOpenVSwitch(interface_id=port_id)
+    profile = osv_vif.VIFPortProfileOpenVSwitch(interface_id=os_port.id)
 
+    details = os_port.binding_vif_details or {}
     ovs_bridge = details.get('bridge_name',
                              config.CONF.neutron_defaults.ovs_bridge)
     if not ovs_bridge:
@@ -261,8 +252,8 @@ def neutron_to_osvif_vif_ovs(vif_plugin, os_port, subnets):
 
     if details.get('ovs_hybrid_plug'):
         vif = osv_vif.VIFBridge(
-            id=port_id,
-            address=mac_address,
+            id=os_port.id,
+            address=os_port.mac_address,
             network=network,
             has_traffic_filtering=details.get('port_filter', False),
             preserve_on_delete=False,
@@ -273,8 +264,8 @@ def neutron_to_osvif_vif_ovs(vif_plugin, os_port, subnets):
             bridge_name=_get_ovs_hybrid_bridge_name(os_port))
     else:
         vif = osv_vif.VIFOpenVSwitch(
-            id=port_id,
-            address=mac_address,
+            id=os_port.id,
+            address=os_port.mac_address,
             network=network,
             has_traffic_filtering=details.get('port_filter', False),
             preserve_on_delete=False,
