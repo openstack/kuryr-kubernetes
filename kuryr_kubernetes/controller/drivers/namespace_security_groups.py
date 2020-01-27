@@ -102,7 +102,7 @@ class NamespacePodSecurityGroupsDriver(base.PodSecurityGroupsDriver):
             # The rest can be accessed from the default one
             sg = os_net.create_security_group(name=sg_name,
                                               project_id=project_id)
-            utils.tag_neutron_resources('security-groups', [sg.id])
+            utils.tag_neutron_resources([sg])
             os_net.create_security_group_rule(
                 direction="ingress",
                 remote_ip_prefix=crd_spec['subnetCIDR'],

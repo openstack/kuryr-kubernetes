@@ -56,7 +56,7 @@ class SriovVIFDriver(neutron_vif.NeutronPodVIFDriver):
                                     subnets, security_groups)
 
         port = os_net.create_port(**rq)
-        c_utils.tag_neutron_resources('ports', [port['id']])
+        c_utils.tag_neutron_resources([port])
         vif = ovu.neutron_to_osvif_vif(vif_plugin, port, subnets)
         vif.physnet = physnet
         vif.pod_name = pod_name

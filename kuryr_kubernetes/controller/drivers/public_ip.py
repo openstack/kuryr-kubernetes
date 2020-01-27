@@ -132,7 +132,7 @@ class FipPubIpDriver(BasePubIpDriver):
             LOG.exception("Failed to create floating IP - netid=%s ",
                           pub_net_id)
             raise
-        utils.tag_neutron_resources('networks', [fip.id])
+        utils.tag_neutron_resources([fip])
         return fip.id, fip.floating_ip_address
 
     def free_ip(self, res_id):

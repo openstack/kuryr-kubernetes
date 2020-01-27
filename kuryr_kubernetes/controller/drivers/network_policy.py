@@ -164,7 +164,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             sg = self.os_net.create_security_group(name=sg_name,
                                                    project_id=project_id,
                                                    description=desc)
-            driver_utils.tag_neutron_resources('security-groups', [sg.id])
+            driver_utils.tag_neutron_resources([sg])
             # NOTE(dulek): Neutron populates every new SG with two rules
             #              allowing egress on IPv4 and IPv6. This collides with
             #              how network policies are supposed to work, because

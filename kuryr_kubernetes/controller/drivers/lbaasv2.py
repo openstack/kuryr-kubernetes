@@ -180,7 +180,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         if not sg_id:
             sg = os_net.create_security_group(
                 name=loadbalancer.name, project_id=loadbalancer.project_id)
-            c_utils.tag_neutron_resources('security-groups', [sg.id])
+            c_utils.tag_neutron_resources([sg])
             loadbalancer.security_groups.append(sg.id)
             vip_port = self._get_vip_port(loadbalancer)
             os_net.update_port(vip_port.id, security_groups=[sg.id])
@@ -393,7 +393,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             if not sg_id:
                 sg = os_net.create_security_group(
                     name=loadbalancer.name, project_id=loadbalancer.project_id)
-                c_utils.tag_neutron_resources('security-groups', [sg.id])
+                c_utils.tag_neutron_resources([sg])
                 loadbalancer.security_groups.append(sg.id)
                 vip_port = self._get_vip_port(loadbalancer)
                 os_net.update_port(

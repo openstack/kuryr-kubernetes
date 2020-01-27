@@ -409,17 +409,22 @@ def get_namespace_subnet_cidr(namespace):
     return net_crd['spec']['subnetCIDR']
 
 
-def tag_neutron_resources(resource, res_ids):
+def tag_neutron_resources(resources):
+    """Set tags to the provided resources.
+
+    param resources: list of openstacksdk objects to tag.
+    """
     tags = CONF.neutron_defaults.resource_tags
-    if tags:
-        neutron = clients.get_neutron_client()
-        for res_id in res_ids:
-            try:
-                neutron.replace_tag(resource, res_id, body={"tags": tags})
-            except n_exc.NeutronClientException:
-                LOG.warning("Failed to tag %s %s with %s. Ignoring, but this "
-                            "is still unexpected.", resource, res_id, tags,
-                            exc_info=True)
+    if not tags:
+        return
+
+    os_net = clients.get_network_client()
+    for res in resources:
+        try:
+            os_net.set_tags(res, tags=tags)
+        except n_exc.NeutronClientException:
+            LOG.warning("Failed to tag %s with %s. Ignoring, but this is "
+                        "still unexpected.", res, tags, exc_info=True)
 
 
 def get_services(namespace=None):

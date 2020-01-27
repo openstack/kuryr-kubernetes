@@ -159,7 +159,7 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
         try:
             neutron_net = os_net.create_network(name=network_name,
                                                 project_id=project_id)
-            c_utils.tag_neutron_resources('networks', [neutron_net.id])
+            c_utils.tag_neutron_resources([neutron_net])
 
             # create a subnet within that network
             try:
@@ -175,7 +175,7 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
                           "raising ResourceNotReady to retry subnet creation "
                           "for %s", subnet_name)
                 raise exceptions.ResourceNotReady(subnet_name)
-            c_utils.tag_neutron_resources('subnets', [neutron_subnet['id']])
+            c_utils.tag_neutron_resources([neutron_subnet])
 
             # connect the subnet to the router
             clients.handle_neutron_errors(os_net.add_interface_to_router,
