@@ -15,16 +15,17 @@
 import threading
 
 from neutronclient.common import exceptions as n_exc
+from oslo_config import cfg
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config as kuryr_config
 from kuryr_kubernetes.controller.drivers import nested_vif
-from kuryr_kubernetes.controller.drivers import utils
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes import os_vif_util as ovu
 
 LOG = logging.getLogger(__name__)
+CONF = cfg.CONF
 
 
 class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
@@ -44,7 +45,7 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
 
             if not container_port:
                 container_port = neutron.create_port(req).get('port')
-            utils.tag_neutron_resources('ports', [container_port['id']])
+            _tag_neutron_resources('ports', [container_port['id']])
 
             container_mac = container_port['mac_address']
             container_ips = frozenset(entry['ip_address'] for entry in
@@ -176,3 +177,16 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                 raise
 
         return attempts
+
+
+def _tag_neutron_resources(resource, res_ids):
+    tags = CONF.neutron_defaults.resource_tags
+    if tags:
+        neutron = clients.get_neutron_client()
+        for res_id in res_ids:
+            try:
+                neutron.replace_tag(resource, res_id, body={"tags": tags})
+            except n_exc.NeutronClientException:
+                LOG.warning("Failed to tag %s %s with %s. Ignoring, but this "
+                            "is still unexpected.", resource, res_id, tags,
+                            exc_info=True)
