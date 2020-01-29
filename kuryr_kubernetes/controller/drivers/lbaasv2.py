@@ -837,6 +837,11 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 LOG.debug("Provisioning complete for %(lb)s", {
                     'lb': loadbalancer})
                 return
+            elif status == 'ERROR':
+                LOG.debug("Releasing loadbalancer %s with error status",
+                          loadbalancer.id)
+                self.release_loadbalancer(loadbalancer)
+                break
             else:
                 LOG.debug("Provisioning status %(status)s for %(lb)s, "
                           "%(rem).3gs remaining until timeout",
