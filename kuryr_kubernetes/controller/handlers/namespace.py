@@ -15,6 +15,7 @@
 import eventlet
 import time
 
+from openstack import exceptions as os_exc
 from oslo_cache import core as cache
 from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
@@ -28,8 +29,6 @@ from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes import utils
 
-from neutronclient.common import exceptions as n_exc
-from openstack import exceptions as os_exc
 
 LOG = logging.getLogger(__name__)
 
@@ -115,7 +114,7 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         try:
             net_crd_sg = self._drv_sg.create_namespace_sg(ns_name, project_id,
                                                           net_crd_spec)
-        except n_exc.NeutronClientException:
+        except os_exc.SDKException:
             LOG.exception("Error creating security group for the namespace. "
                           "Rolling back created network resources.")
             self._drv_subnets.rollback_network_resources(net_crd_spec, ns_name)

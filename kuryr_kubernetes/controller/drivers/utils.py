@@ -25,7 +25,6 @@ from kuryr_kubernetes import constants
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes import utils
 
-from neutronclient.common import exceptions as n_exc
 
 OPERATORS_WITH_VALUES = [constants.K8S_OPERATOR_IN,
                          constants.K8S_OPERATOR_NOT_IN]
@@ -422,7 +421,7 @@ def tag_neutron_resources(resources):
     for res in resources:
         try:
             os_net.set_tags(res, tags=tags)
-        except n_exc.NeutronClientException:
+        except os_exc.SDKException:
             LOG.warning("Failed to tag %s with %s. Ignoring, but this is "
                         "still unexpected.", res, tags, exc_info=True)
 
