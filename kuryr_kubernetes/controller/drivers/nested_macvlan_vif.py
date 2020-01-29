@@ -45,7 +45,7 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
 
             if not container_port:
                 container_port = neutron.create_port(req).get('port')
-            _tag_neutron_resources('ports', [container_port['id']])
+            _tag_neutron_port(container_port['id'])
 
             container_mac = container_port['mac_address']
             container_ips = frozenset(entry['ip_address'] for entry in
@@ -179,14 +179,15 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         return attempts
 
 
-def _tag_neutron_resources(resource, res_ids):
+def _tag_neutron_port(res_id):
     tags = CONF.neutron_defaults.resource_tags
-    if tags:
-        neutron = clients.get_neutron_client()
-        for res_id in res_ids:
-            try:
-                neutron.replace_tag(resource, res_id, body={"tags": tags})
-            except n_exc.NeutronClientException:
-                LOG.warning("Failed to tag %s %s with %s. Ignoring, but this "
-                            "is still unexpected.", resource, res_id, tags,
-                            exc_info=True)
+
+    if not tags:
+        return
+
+    neutron = clients.get_neutron_client()
+    try:
+        neutron.replace_tag('ports', res_id, body={"tags": tags})
+    except n_exc.NeutronClientException:
+        LOG.warning("Failed to tag port %s with %s. Ignoring, but this is "
+                    "still unexpected.", res_id, tags, exc_info=True)
