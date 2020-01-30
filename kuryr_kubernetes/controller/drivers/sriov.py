@@ -133,7 +133,7 @@ class SriovVIFDriver(neutron_vif.NeutronPodVIFDriver):
                 amount_value = requests[sriov_resource_name]
                 total_amount += int(amount_value)
             except KeyError:
-                    continue
+                continue
 
         return total_amount
 
@@ -159,7 +159,7 @@ class SriovVIFDriver(neutron_vif.NeutronPodVIFDriver):
                 if driver in constants.USERSPACE_DRIVERS:
                     break
             except KeyError:
-                    continue
+                continue
 
     def _get_port_request(self, pod, project_id, subnets, security_groups):
         port_req_body = {
@@ -177,4 +177,4 @@ class SriovVIFDriver(neutron_vif.NeutronPodVIFDriver):
         if security_groups:
             port_req_body['security_groups'] = security_groups
 
-        return {'port': port_req_body}
+        return port_req_body
