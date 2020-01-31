@@ -13,13 +13,18 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import mock
+import os
 import uuid
 
+
 from os_vif import objects as osv_objects
+from os_vif.objects import fields as osv_fields
 from oslo_config import cfg
+from oslo_utils import uuidutils
 
 from kuryr_kubernetes.cni.binding import base
 from kuryr_kubernetes.cni.binding import sriov
+from kuryr_kubernetes.cni.binding import vhostuser
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes import objects
@@ -402,3 +407,92 @@ class TestSriovDriver(TestDriverMixin, test_base.TestCase):
         cls._return_device_driver(m_driver, self.vif)
         m_driver._bind_device.assert_called_once_with(pci, old_driver,
                                                       new_driver)
+
+
+class TestVHostUserDriver(TestDriverMixin, test_base.TestCase):
+    def setUp(self):
+        super(TestVHostUserDriver, self).setUp()
+        self.vu_mount_point = '/var/run/cni'
+        self.vu_ovs_path = '/var/run/openvswitch'
+        CONF.set_override('mount_point', self.vu_mount_point,
+                          group='vhostuser')
+        CONF.set_override('ovs_vhu_path', self.vu_ovs_path,
+                          group='vhostuser')
+        self.vif = fake._fake_vif(osv_objects.vif.VIFVHostUser)
+        self.vif.path = self.vu_mount_point
+        self.vif.address = '64:0f:2b:5f:0c:1c'
+        self.port_name = vhostuser._get_vhostuser_port_name(self.vif)
+        self.cont_id = uuidutils.generate_uuid()
+
+    @mock.patch('kuryr_kubernetes.cni.binding.base._need_configure_l3')
+    @mock.patch('kuryr_kubernetes.cni.plugins.k8s_cni_registry.'
+                'K8sCNIRegistryPlugin.report_drivers_health')
+    @mock.patch('os.rename')
+    @mock.patch('os.path.exists', mock.Mock(return_value=True))
+    @mock.patch('kuryr_kubernetes.cni.binding.vhostuser.VIFVHostUserDriver.'
+                '_write_config')
+    @mock.patch('kuryr_kubernetes.cni.binding.vhostuser._check_sock_file')
+    @mock.patch('os_vif.plug')
+    def test_connect_client(self, m_vif_plug, m_check_sock, m_write_conf,
+                            m_os_rename, m_report, m_need_l3):
+        m_need_l3.return_value = False
+        self.vif.mode = osv_fields.VIFVHostUserMode.CLIENT
+        m_check_sock.return_value = True
+        base.connect(self.vif, self.instance_info, self.ifname, self.netns,
+                     m_report, container_id=self.cont_id)
+        vu_dst_socket = os.path.join(self.vu_mount_point, self.port_name)
+        vu_src_socket = os.path.join(self.vu_ovs_path, self.port_name)
+
+        m_vif_plug.assert_called_once_with(self.vif, self.instance_info)
+        m_os_rename.assert_called_once_with(vu_src_socket, vu_dst_socket)
+        m_write_conf.assert_called_once_with(self.cont_id, self.ifname,
+                                             self.port_name, self.vif)
+        m_report.assert_called_once()
+
+    @mock.patch('kuryr_kubernetes.cni.binding.base._need_configure_l3')
+    @mock.patch('kuryr_kubernetes.cni.plugins.k8s_cni_registry.'
+                'K8sCNIRegistryPlugin.report_drivers_health')
+    @mock.patch('kuryr_kubernetes.cni.binding.vhostuser.VIFVHostUserDriver.'
+                '_write_config')
+    @mock.patch('os_vif.plug')
+    def test_connect_server(self, m_vif_plug, m_write_conf,
+                            m_report, m_need_l3):
+        m_need_l3.return_value = False
+        self.vif.mode = osv_fields.VIFVHostUserMode.SERVER
+        base.connect(self.vif, self.instance_info, self.ifname, self.netns,
+                     m_report, container_id=self.cont_id)
+        m_vif_plug.assert_called_once_with(self.vif, self.instance_info)
+        m_write_conf.assert_called_once_with(self.cont_id, self.ifname,
+                                             self.port_name, self.vif)
+        m_report.assert_called_once()
+
+    @mock.patch('kuryr_kubernetes.cni.plugins.k8s_cni_registry.'
+                'K8sCNIRegistryPlugin.report_drivers_health')
+    @mock.patch('kuryr_kubernetes.cni.binding.vhostuser._check_sock_file',
+                mock.Mock(return_value=False))
+    @mock.patch('kuryr_kubernetes.cni.binding.vhostuser.VIFVHostUserDriver.'
+                '_write_config', mock.Mock())
+    @mock.patch('os_vif.plug')
+    def test_connect_nosocket(self, m_vif_plug, m_report):
+        self.vif.mode = osv_fields.VIFVHostUserMode.CLIENT
+        self.assertRaises(exceptions.CNIError, base.connect, self.vif,
+                          self.instance_info, self.ifname, self.netns,
+                          m_report, container_id=self.cont_id)
+
+    @mock.patch('kuryr_kubernetes.cni.plugins.k8s_cni_registry.'
+                'K8sCNIRegistryPlugin.report_drivers_health')
+    @mock.patch('kuryr_kubernetes.cni.binding.vhostuser._get_vhu_sock')
+    @mock.patch('os.remove')
+    @mock.patch('os.path.exists', mock.Mock(return_value=True))
+    @mock.patch('os_vif.unplug')
+    def test_disconnect(self, m_os_unplug, m_os_remove, m_get_vhu_sock,
+                        m_report):
+        m_get_vhu_sock.return_value = self.port_name
+        base.disconnect(self.vif, self.instance_info, self.ifname, self.netns,
+                        m_report, container_id=self.cont_id)
+        conf_file_path = '{}/{}-{}'.format(self.vu_mount_point,
+                                           self.cont_id, self.ifname)
+        vhu_sock_path = '{}/{}'.format(self.vu_mount_point,
+                                       self.port_name)
+        os_remove_calls = [mock.call(vhu_sock_path), mock.call(conf_file_path)]
+        m_os_remove.assert_has_calls(os_remove_calls)
