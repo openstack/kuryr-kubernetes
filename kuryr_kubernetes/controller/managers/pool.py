@@ -18,8 +18,7 @@ import threading
 from six.moves.BaseHTTPServer import BaseHTTPRequestHandler
 from six.moves.socketserver import ThreadingUnixStreamServer
 
-from neutronclient.common import exceptions as n_exc
-
+from openstack import exceptions as os_exc
 from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
@@ -165,11 +164,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             try:
                 drv_vif_pool.force_populate_pool(
                     trunk_ip, project_id, subnets, security_groups, num_ports)
-            except n_exc.Conflict:
+            except os_exc.ConflictException:
                 LOG.error("VLAN Id conflict (already in use) at trunk %s",
                           trunk_ip)
                 raise
-            except n_exc.NeutronClientException:
+            except os_exc.SDKException:
                 LOG.exception("Error happened during subports addition at "
                               "trunk: %s", trunk_ip)
                 raise
