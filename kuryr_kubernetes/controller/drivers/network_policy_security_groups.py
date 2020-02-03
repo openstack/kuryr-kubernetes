@@ -192,7 +192,8 @@ def _create_sg_rule_on_text_port(sg_id, direction, port, rule_selected_pods,
                 pods=pods)
         sgr_id = driver_utils.create_security_group_rule(sg_rule)
         sg_rule['security_group_rule']['id'] = sgr_id
-        crd_rules.append(sg_rule)
+        if sg_rule not in crd_rules:
+            crd_rules.append(sg_rule)
     return matched
 
 
@@ -222,12 +223,14 @@ def _create_sg_rules(crd, pod, pod_selector, rule_block,
                         sg_rule = _create_sg_rule(
                             sg_id, direction, cidr=pod_ip, port=port,
                             namespace=namespace)
-                        crd_rules.append(sg_rule)
+                        if sg_rule not in crd_rules:
+                            crd_rules.append(sg_rule)
             else:
                 matched = True
                 sg_rule = _create_sg_rule(
                     sg_id, direction, cidr=pod_ip, namespace=namespace)
-                crd_rules.append(sg_rule)
+                if sg_rule not in crd_rules:
+                    crd_rules.append(sg_rule)
     else:
         # NOTE (maysams) When a policy with namespaceSelector and text port
         # is applied the port on the pods needs to be retrieved.
@@ -296,9 +299,11 @@ def _parse_selectors_on_namespace(crd, direction, pod_selector,
                                 LOG.debug("Skipping SG rule creation for pod "
                                           "%s due to no IP assigned", pod_name)
                                 continue
-                            crd_rules.append(_create_sg_rule(
+                            sg_rule = _create_sg_rule(
                                 sg_id, direction, pod_ip, port=port,
-                                namespace=ns_name))
+                                namespace=ns_name)
+                            if sg_rule not in crd_rules:
+                                crd_rules.append(sg_rule)
             else:
                 for pod in pods:
                     pod_ip = driver_utils.get_pod_ip(pod)
@@ -308,9 +313,11 @@ def _parse_selectors_on_namespace(crd, direction, pod_selector,
                                   " to no IP assigned", pod_name)
                         continue
                     matched = True
-                    crd_rules.append(_create_sg_rule(
+                    sg_rule = _create_sg_rule(
                         sg_id, direction, pod_ip,
-                        namespace=ns_name))
+                        namespace=ns_name)
+                    if sg_rule not in crd_rules:
+                        crd_rules.append(sg_rule)
         else:
             ns_pods = driver_utils.get_pods(ns_selector)
             ns_cidr = driver_utils.get_namespace_subnet_cidr(namespace)
@@ -323,14 +330,18 @@ def _parse_selectors_on_namespace(crd, direction, pod_selector,
                                 crd_rules, matched, crd))
                     else:
                         matched = True
-                        crd_rules.append(_create_sg_rule(
+                        sg_rule = _create_sg_rule(
                             sg_id, direction, ns_cidr,
-                            port=port, namespace=ns_name))
+                            port=port, namespace=ns_name)
+                        if sg_rule not in crd_rules:
+                            crd_rules.append(sg_rule)
             else:
                 matched = True
-                crd_rules.append(_create_sg_rule(
+                sg_rule = _create_sg_rule(
                     sg_id, direction, ns_cidr,
-                    namespace=ns_name))
+                    namespace=ns_name)
+                if sg_rule not in crd_rules:
+                    crd_rules.append(sg_rule)
     return matched, crd_rules
 
 
