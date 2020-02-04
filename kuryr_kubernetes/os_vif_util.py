@@ -349,6 +349,35 @@ def neutron_to_osvif_vif_sriov(vif_plugin, os_port, subnets):
     return vif
 
 
+def neutron_to_osvif_vif_dpdk(os_port, subnets, pod):
+    """Converts Neutron port to VIF object for nested dpdk containers.
+
+    :param os_port: dict containing port information as returned by
+                    neutron client's 'show_port'
+    :param subnets: subnet mapping as returned by PodSubnetsDriver.get_subnets
+    :param pod: pod object received by k8s and containing profile details
+    :return: os-vif VIF object
+    """
+
+    details = os_port.get('binding:vif_details', {})
+    profile = osv_vif.VIFPortProfileK8sDPDK(
+        l3_setup=False,
+        selflink=pod['metadata']['selfLink'])
+
+    return k_vif.VIFDPDKNested(
+        id=os_port['id'],
+        port_profile=profile,
+        address=os_port['mac_address'],
+        network=_make_vif_network(os_port, subnets),
+        has_traffic_filtering=details.get('port_filter', False),
+        preserve_on_delete=False,
+        active=_is_port_active(os_port),
+        plugin=const.K8S_OS_VIF_NOOP_PLUGIN,
+        pci_address="",
+        dev_driver="",
+        vif_name=_get_vif_name(os_port))
+
+
 def neutron_to_osvif_vif(vif_translator, os_port, subnets):
     """Converts Neutron port to os-vif VIF object.
 

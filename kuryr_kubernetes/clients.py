@@ -58,6 +58,10 @@ def get_pod_resources_client():
     return _clients[_POD_RESOURCES_CLIENT]
 
 
+def get_compute_client():
+    return _clients[_OPENSTACKSDK].compute
+
+
 def setup_clients():
     setup_neutron_client()
     setup_kubernetes_client()

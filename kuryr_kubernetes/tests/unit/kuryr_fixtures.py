@@ -49,3 +49,11 @@ class MockNetworkClient(fixtures.Fixture):
         self.useFixture(fixtures.MockPatch(
             'kuryr_kubernetes.clients.get_network_client',
             lambda: self.client))
+
+
+class MockComputeClient(fixtures.Fixture):
+    def _setUp(self):
+        self.client = mock.Mock()
+        self.useFixture(fixtures.MockPatch(
+            'kuryr_kubernetes.clients.get_compute_client',
+            lambda: self.client))
