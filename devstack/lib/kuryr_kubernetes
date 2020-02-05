@@ -43,10 +43,6 @@ function ovs_bind_for_kubelet() {
     # Need to enable Amphorae subnet access to the kubelet iface for API
     # access
     openstack port set "$port_id" --security-group service_pod_access
-    if [[ "$KURYR_SG_DRIVER" == "namespace" ]]; then
-        openstack port set "$port_id" --security-group allow_from_namespace
-        openstack port set "$port_id" --security-group allow_from_default
-    fi
 
     ifname="kubelet${port_id}"
     ifname="${ifname:0:14}"

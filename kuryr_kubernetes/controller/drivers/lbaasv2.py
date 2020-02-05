@@ -365,110 +365,6 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 not rule.get('remote_ip_prefix') and
                 'network-policy' not in rule.get('description'))
 
-    def _remove_default_octavia_rules(self, sg_id, listener):
-        os_net = clients.get_network_client()
-        for remaining in self._provisioning_timer(
-                _ACTIVATION_TIMEOUT, _LB_STS_POLL_SLOW_INTERVAL):
-            listener_rules = os_net.security_group_rules(
-                security_group_id=sg_id,
-                protocol=listener.protocol,
-                port_range_min=listener.port,
-                port_range_max=listener.port,
-                direction='ingress')
-            for rule in listener_rules:
-                if not (rule.remote_group_id or rule.remote_ip_prefix):
-                    # remove default sg rules
-                    os_net.delete_security_group_rule(rule.id)
-                    return
-
-    def _extend_lb_security_group_rules(self, loadbalancer, listener):
-        os_net = clients.get_network_client()
-
-        if CONF.octavia_defaults.sg_mode == 'create':
-            sg_id = self._find_listeners_sg(loadbalancer)
-            # if an SG for the loadbalancer has not being created, create one
-            if not sg_id:
-                sg = os_net.create_security_group(
-                    name=loadbalancer.name, project_id=loadbalancer.project_id)
-                c_utils.tag_neutron_resources([sg])
-                loadbalancer.security_groups.append(sg.id)
-                vip_port = self._get_vip_port(loadbalancer)
-                os_net.update_port(
-                    vip_port.id,
-                    security_groups=loadbalancer.security_groups)
-        else:
-            sg_id = self._get_vip_port(loadbalancer).security_group_ids[0]
-            # wait until octavia adds default sg rules
-            self._remove_default_octavia_rules(sg_id, listener)
-
-        for sg in loadbalancer.security_groups:
-            if sg != sg_id:
-                try:
-                    os_net.create_security_group_rule(
-                        direction='ingress',
-                        port_range_min=listener.port,
-                        port_range_max=listener.port,
-                        protocol=listener.protocol,
-                        security_group_id=sg_id,
-                        remote_group_id=sg,
-                        description=listener.name)
-                except os_exc.ConflictException:
-                    pass
-                except os_exc.SDKException:
-                    LOG.exception('Failed when creating security group '
-                                  'rule for listener %s.', listener.name)
-
-        # ensure routes have access to the services
-        service_subnet_cidr = utils.get_subnet_cidr(loadbalancer.subnet_id)
-        try:
-            # add access from service subnet
-            os_net.create_security_group_rule(
-                direction='ingress',
-                port_range_min=listener.port,
-                port_range_max=listener.port,
-                protocol=listener.protocol,
-                security_group_id=sg_id,
-                remote_ip_prefix=service_subnet_cidr,
-                description=listener.name)
-
-            # add access from worker node VM subnet for non-native route
-            # support
-            worker_subnet_id = CONF.pod_vif_nested.worker_nodes_subnet
-            if worker_subnet_id:
-                try:
-                    worker_subnet_cidr = utils.get_subnet_cidr(
-                        worker_subnet_id)
-                    os_net.create_security_group_rule(
-                        direction='ingress',
-                        port_range_min=listener.port,
-                        port_range_max=listener.port,
-                        protocol=listener.protocol,
-                        security_group_id=sg_id,
-                        remote_ip_prefix=worker_subnet_cidr,
-                        description=listener.name)
-                except os_exc.ResourceNotFound:
-                    LOG.exception('Failed when creating security group rule '
-                                  'due to nonexistent worker_subnet_id: %s',
-                                  worker_subnet_id)
-        except os_exc.ConflictException:
-            pass
-        except os_exc.SDKException:
-            LOG.exception('Failed when creating security group rule to '
-                          'enable routes for listener %s.', listener.name)
-
-    def _ensure_security_group_rules(self, loadbalancer, listener,
-                                     service_type):
-        namespace_isolation = (
-            'namespace' in CONF.kubernetes.enabled_handlers and
-            CONF.kubernetes.service_security_groups_driver == 'namespace')
-        create_sg = CONF.octavia_defaults.sg_mode == 'create'
-
-        if create_sg:
-            self._create_lb_security_group_rule(loadbalancer, listener)
-        if (namespace_isolation and service_type == 'ClusterIP' and
-                CONF.octavia_defaults.enforce_sg_rules):
-            self._extend_lb_security_group_rules(loadbalancer, listener)
-
     def ensure_listener(self, loadbalancer, protocol, port,
                         service_type='ClusterIP'):
         name = "%s:%s:%s" % (loadbalancer.name, protocol, port)
@@ -486,7 +382,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
                      "protocol %(prot)s is not supported", {'prot': protocol})
             return None
 
-        self._ensure_security_group_rules(loadbalancer, result, service_type)
+        if CONF.octavia_defaults.sg_mode == 'create':
+            self._create_lb_security_group_rule(loadbalancer, result)
 
         return result
 

@@ -388,47 +388,7 @@ function configure_neutron_defaults {
         iniset "$KURYR_CONFIG" namespace_subnet pod_subnet_pool "$subnetpool_id"
         iniset "$KURYR_CONFIG" namespace_subnet pod_router "$router_id"
     fi
-    if [ "$KURYR_SG_DRIVER" == "namespace" ]; then
-        local allow_namespace_sg_id
-        local allow_default_sg_id
-        allow_namespace_sg_id=$(openstack --os-cloud devstack-admin \
-            --os-region "$REGION_NAME" \
-            security group create --project "$project_id" \
-            allow_from_namespace -f value -c id)
-        allow_default_sg_id=$(openstack --os-cloud devstack-admin \
-            --os-region "$REGION_NAME" \
-            security group create --project "$project_id" \
-            allow_from_default -f value -c id)
-
-        for prot in icmp tcp udp ;
-          do
-            openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
-              security group rule create --project "$project_id" \
-              --description "allow traffic from default namespace" \
-              --remote-group "$allow_namespace_sg_id" --ethertype IPv4 --protocol "$prot" \
-              "$allow_default_sg_id"
-
-            if [ "$prot" != "icmp" ] ; then
-              openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
-              security group rule create --project "$project_id" \
-              --description "allow traffic from namespaces at default namespace" \
-              --remote-group "$allow_default_sg_id" --ethertype IPv4 --protocol "$prot" \
-              "$allow_namespace_sg_id"
-            fi
-          done
-
-        # NOTE(ltomasbo): Some tempest test are using FIP and depends on icmp
-        # traffic being allowed to the pods. To enable these tests we permit
-        # icmp traffic from everywhere on the default namespace. Note tcp
-        # traffic will be dropped, just icmp is permitted.
-        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
-            security group rule create --project "$project_id" \
-            --description "allow imcp traffic from everywhere to default namespace" \
-            --ethertype IPv4 --protocol icmp "$allow_namespace_sg_id"
-
-        iniset "$KURYR_CONFIG" namespace_sg sg_allow_from_namespaces "$allow_namespace_sg_id"
-        iniset "$KURYR_CONFIG" namespace_sg sg_allow_from_default "$allow_default_sg_id"
-    elif [[ "$KURYR_SG_DRIVER" == "policy" ]]; then
+    if [[ "$KURYR_SG_DRIVER" == "policy" ]]; then
         # NOTE(dulek): Using the default DevStack's SG is not enough to match
         # the NP specification. We need to open ingress to everywhere, so we
         # create allow-all group.
@@ -449,7 +409,7 @@ function configure_neutron_defaults {
     fi
     iniset "$KURYR_CONFIG" neutron_defaults pod_security_groups "$sg_ids"
 
-    if [[ "$KURYR_SG_DRIVER" == "namespace" || "$KURYR_SG_DRIVER" == "policy" ]]; then
+    if [[ "$KURYR_SG_DRIVER" == "policy" ]]; then
         # NOTE(ltomasbo): As more security groups and rules are created, there
         # is a need to increase the quota for it
          openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
@@ -945,9 +905,6 @@ function update_tempest_conf_file {
     fi
     if [[ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes containerized True
-    fi
-    if [[ "$KURYR_SG_DRIVER" == "namespace" ]] && [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
-        iniset $TEMPEST_CONFIG kuryr_kubernetes namespace_enabled True
     fi
     if [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes subnet_per_namespace True

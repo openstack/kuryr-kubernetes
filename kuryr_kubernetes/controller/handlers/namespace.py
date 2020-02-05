@@ -111,20 +111,6 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         LOG.debug("Creating network resources for namespace: %s", ns_name)
         net_crd_spec = self._drv_subnets.create_namespace_network(ns_name,
                                                                   project_id)
-        try:
-            net_crd_sg = self._drv_sg.create_namespace_sg(ns_name, project_id,
-                                                          net_crd_spec)
-        except os_exc.SDKException:
-            LOG.exception("Error creating security group for the namespace. "
-                          "Rolling back created network resources.")
-            self._drv_subnets.rollback_network_resources(net_crd_spec, ns_name)
-            raise
-        if net_crd_sg:
-            net_crd_spec.update(net_crd_sg)
-        else:
-            LOG.debug("No SG created for the namespace. Namespace isolation "
-                      "will not be enforced.")
-
         # create CRD resource for the network
         try:
             net_crd = self._add_kuryrnet_crd(ns_name, net_crd_spec)
@@ -135,8 +121,6 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
             LOG.exception("Kuryrnet CRD creation failed. Rolling back "
                           "resources created for the namespace.")
             self._drv_subnets.rollback_network_resources(net_crd_spec, ns_name)
-            if net_crd_sg.get('sgId'):
-                self._drv_sg.delete_sg(net_crd_sg['sgId'])
             try:
                 self._del_kuryrnet_crd(net_crd_name)
             except exceptions.K8sClientException:
@@ -174,12 +158,6 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
             # associated to the namespace/subnet, ensuring next retry will be
             # successful
             raise
-        sg_id = net_crd['spec'].get('sgId')
-        if sg_id:
-            self._drv_sg.delete_sg(sg_id)
-        else:
-            LOG.debug("There is no security group associated with the "
-                      "namespace to be deleted")
         self._del_kuryrnet_crd(net_crd_name)
         crd_selectors = self._drv_sg.delete_namespace_sg_rules(namespace)
 

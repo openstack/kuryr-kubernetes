@@ -574,15 +574,6 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
         crd_selectors.extend(self.create_namespace_sg_rules(namespace))
         return crd_selectors
 
-    def create_namespace_sg(self, namespace, project_id, crd_spec):
-        LOG.debug("Security group driver does not create SGs for the "
-                  "namespaces.")
-        return {}
-
-    def delete_sg(self, sg_id):
-        LOG.debug("Security group driver does not implement deleting "
-                  "SGs.")
-
 
 class NetworkPolicyServiceSecurityGroupsDriver(
         base.ServiceSecurityGroupsDriver):
