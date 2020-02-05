@@ -43,7 +43,6 @@ _kuryr_k8s_opts = [
     ('cni_health_server', cni_health.cni_health_server_opts),
     ('namespace_subnet', namespace_subnet.namespace_subnet_driver_opts),
     ('namespace_sg', namespace_security_groups.namespace_sg_driver_opts),
-    ('ingress', config.ingress),
     ('sriov', config.sriov_opts),
     ('namespace_handler_caching', namespace.namespace_handler_caching_opts),
     ('np_handler_caching', policy.np_handler_caching_opts),

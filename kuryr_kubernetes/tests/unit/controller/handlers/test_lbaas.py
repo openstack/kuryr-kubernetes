@@ -356,40 +356,6 @@ class FakeLBaaSDriver(drv_base.LBaaSDriver):
     def get_loadbalancer_pool_name(self, lb_name, namespace, svc_name):
         return "%s/%s/%s" % (lb_name, namespace, svc_name)
 
-    def ensure_l7_policy(self, namespace, route_name,
-                         loadbalancer, pool,
-                         listener_id):
-        pass
-
-    def release_l7_policy(self, loadbalancer, l7_policy):
-        pass
-
-    def ensure_l7_rule(self, loadbalancer, l7_policy, compare_type,
-                       type, value):
-        pass
-
-    def release_l7_rule(self, loadbalancer, l7_rule):
-        pass
-
-    def update_l7_rule(self, l7_rule, new_value):
-        pass
-
-    def ensure_pool_attached_to_lb(self, loadbalancer, namespace,
-                                   svc_name, protocol):
-        return obj_lbaas.LBaaSPool(id=str(uuid.uuid4()),
-                                   loadbalancer_id=loadbalancer.id,
-                                   project_id=loadbalancer.project_id,
-                                   protocol=protocol)
-
-    def get_pool_by_name(self, pool_name, project_id):
-        pass
-
-    def get_lb_by_uuid(self, vip):
-        pass
-
-    def is_pool_used_by_other_l7policies(l7policy, pool):
-        pass
-
 
 class TestLoadBalancerHandler(test_base.TestCase):
 
