@@ -58,7 +58,7 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
 
         m_driver._get_port_request.assert_called_once_with(
             pod, project_id, subnets, security_groups)
-        neutron.create_port.assert_called_once_with(port_request)
+        neutron.create_port.assert_called_once_with({'port': port_request})
         m_driver._get_parent_port.assert_called_once_with(pod)
         m_driver._try_update_port.assert_called_once()
         m_to_vif.assert_called_once_with(container_port['port'], subnets)
@@ -83,7 +83,7 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
                           m_driver, pod, project_id, subnets, security_groups)
         m_driver._get_port_request.assert_called_once_with(
             pod, project_id, subnets, security_groups)
-        neutron.create_port.assert_called_once_with(port_request)
+        neutron.create_port.assert_called_once_with({'port': port_request})
         m_driver._try_update_port.assert_not_called()
         m_to_vif.assert_not_called()
 

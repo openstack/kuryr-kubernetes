@@ -44,7 +44,7 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
             vm_port = self._get_parent_port(pod)
 
             if not container_port:
-                container_port = neutron.create_port(req).get('port')
+                container_port = neutron.create_port({'port': req}).get('port')
             _tag_neutron_port(container_port['id'])
 
             container_mac = container_port['mac_address']
