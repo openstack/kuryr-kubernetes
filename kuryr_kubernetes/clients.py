@@ -14,6 +14,7 @@
 #    under the License.
 
 from functools import partial
+import ipaddress
 import os
 
 from kuryr.lib import utils
@@ -80,6 +81,9 @@ def setup_kubernetes_client():
         #              K8s Pods.
         host = os.environ['KUBERNETES_SERVICE_HOST']
         port = os.environ['KUBERNETES_SERVICE_PORT_HTTPS']
+        addr = ipaddress.ip_address(host)
+        if addr.version == 6:
+            host = '[%s]' % host
         api_root = "https://%s:%s" % (host, port)
     _clients[_KUBERNETES_CLIENT] = k8s_client.K8sClient(api_root)
 

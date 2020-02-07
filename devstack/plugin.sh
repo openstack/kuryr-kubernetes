@@ -280,7 +280,15 @@ function configure_neutron_defaults {
 
     # If a subnetpool is not passed, we get the one created in devstack's
     # Neutron module
-    subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}}
+    KURYR_IPV6=$(trueorfalse False KURYR_IPV6)
+    if [ "$KURYR_IPV6" == "False" ]; then
+      export KURYR_ETHERTYPE=IPv4
+      subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}}
+    else
+      export KURYR_ETHERTYPE=IPv6
+      subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V6_ID}}
+    fi
+
     router=${KURYR_NEUTRON_DEFAULT_ROUTER:-$Q_ROUTER_NAME}
     if [ "$router" != "$Q_ROUTER_NAME" ]; then
         openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
@@ -330,14 +338,14 @@ function configure_neutron_defaults {
     openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
         security group rule create --project "$project_id" \
         --description "k8s service subnet allowed" \
-        --remote-ip "$service_cidr" --ethertype IPv4 --protocol tcp \
+        --remote-ip "$service_cidr" --ethertype "$KURYR_ETHERTYPE" --protocol tcp \
         "$service_pod_access_sg_id"
     # Since Octavia supports also UDP load balancing, we need to allow
     # also udp traffic
     openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
         security group rule create --project "$project_id" \
         --description "k8s service subnet UDP allowed" \
-        --remote-ip "$service_cidr" --ethertype IPv4 --protocol udp \
+        --remote-ip "$service_cidr" --ethertype "$KURYR_ETHERTYPE" --protocol udp \
         "$service_pod_access_sg_id"
 
     if [[ "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L3" ]]; then
@@ -365,14 +373,14 @@ function configure_neutron_defaults {
         openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
             security group rule create --project "$project_id" \
             --description "k8s pod subnet allowed from k8s-pod-subnet" \
-            --remote-ip "$pod_cidr" --ethertype IPv4 --protocol tcp \
+            --remote-ip "$pod_cidr" --ethertype "$KURYR_ETHERTYPE" --protocol tcp \
             "$octavia_pod_access_sg_id"
         # Since Octavia supports also UDP load balancing, we need to allow
         # also udp traffic
         openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
             security group rule create --project "$project_id" \
             --description "k8s pod subnet allowed from k8s-pod-subnet" \
-            --remote-ip "$pod_cidr" --ethertype IPv4 --protocol udp \
+            --remote-ip "$pod_cidr" --ethertype "$KURYR_ETHERTYPE" --protocol udp \
             "$octavia_pod_access_sg_id"
         if [ -n "$sg_ids" ]; then
             sg_ids+=",${octavia_pod_access_sg_id}"
@@ -399,7 +407,7 @@ function configure_neutron_defaults {
         openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
           security group rule create --project "$project_id" \
           --description "allow all ingress traffic" \
-          --ethertype IPv4 --ingress --protocol any \
+          --ethertype "$KURYR_ETHERTYPE" --ingress --protocol any \
           "$allow_all_sg_id"
         if [ -n "$sg_ids" ]; then
             sg_ids+=",${allow_all_sg_id}"
@@ -894,7 +902,7 @@ function configure_overcloud_vm_k8s_svc_sg {
         awk '{if ($2=="default") print $1}')
     openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
         security group rule create --project "$project_id" \
-        --dst-port "$dst_port" "$security_group"
+        --dst-port "$dst_port" --ethertype "$KURYR_ETHERTYPE" "$security_group"
     openstack port set "$KURYR_OVERCLOUD_VM_PORT" --security-group service_pod_access
 }
 
@@ -932,6 +940,9 @@ function update_tempest_conf_file {
     fi
     if [[ "$KURYR_CONFIGMAP_MODIFIABLE" == "True" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes configmap_modifiable True
+    fi
+    if [[ "$KURYR_IPV6" == "True" ]]; then
+        iniset $TEMPEST_CONFIG kuryr_kubernetes ipv6 True
     fi
     iniset $TEMPEST_CONFIG kuryr_kubernetes validate_crd True
 }
