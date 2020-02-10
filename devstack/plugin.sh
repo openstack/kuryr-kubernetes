@@ -759,16 +759,7 @@ function run_k8s_kubelet {
     fi
 
     wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
-    if [[ "$USE_SYSTEMD" = "True" ]]; then
-        # If systemd is being used, proceed as normal
-        run_process kubelet "$command" root root
-    else
-        # If screen is being used, there is a possibility that the devstack
-        # environment is on a stable branch. Older versions of run_process have
-        # a different signature. Sudo is used as a workaround that works in
-        # both older and newer versions of devstack.
-        run_process kubelet "sudo $command"
-    fi
+    run_process kubelet "$command" root root
 }
 
 function run_coredns {
