@@ -13,16 +13,16 @@ the next steps are needed:
    .. code-block:: ini
 
       [kubernetes]
-      enabled_handlers=vif,lb,lbaasspec,namespace
+      enabled_handlers=vif,lb,lbaasspec,namespace,kuryrnetwork
 
    Note that if you also want to enable prepopulation of ports pools upon new
-   namespace creation, you need to add the kuryrnet handler (more details on
-   :doc:`./ports-pool`):
+   namespace creation, you need to also add the kuryrnetwork_population
+   handler (more details on :doc:`./ports-pool`):
 
    .. code-block:: ini
 
       [kubernetes]
-      enabled_handlers=vif,lb,lbaasspec,namespace,kuryrnet
+      enabled_handlers=vif,lb,lbaasspec,namespace,kuryrnetwork,kuryrnetwork_population
 
 #. Enable the namespace subnet driver by modifying the default
    pod_subnet_driver option at kuryr.conf:
@@ -73,7 +73,7 @@ to add the namespace handler and state the namespace subnet driver with:
 .. code-block:: console
 
    KURYR_SUBNET_DRIVER=namespace
-   KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,namespace
+   KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,namespace,kuryrnetwork
 
 .. note::
 
@@ -103,7 +103,7 @@ Testing the network per namespace functionality
       test2       Active        5s
       ...         ...           ...
 
-      $ kubectl get kuryrnets
+      $ kubectl get kuryrnetworks -A
       NAME      AGE
       ns-test1  1m
       ns-test2  1m
@@ -152,7 +152,8 @@ Testing the network per namespace functionality
       demo-5995548848-lmmjc: HELLO! I AM ALIVE!!!
 
 #. And finally, to remove the namespace and all its resources, including
-   openstack networks, kuryrnet CRD, svc, pods, you just need to do:
+   openstack networks, kuryrnetwork CRD, svc, pods, you just need to
+   do:
 
    .. code-block:: console
 

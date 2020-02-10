@@ -221,18 +221,6 @@ def delete_security_group_rule(security_group_rule_id):
         raise
 
 
-def patch_kuryrnet_crd(crd, populated=True):
-    kubernetes = clients.get_kubernetes_client()
-    crd_name = crd['metadata']['name']
-    LOG.debug('Patching KuryrNet CRD %s' % crd_name)
-    try:
-        kubernetes.patch_crd('spec', crd['metadata']['selfLink'],
-                             {'populated': populated})
-    except k_exc.K8sClientException:
-        LOG.exception('Error updating kuryrnet CRD %s', crd_name)
-        raise
-
-
 def patch_kuryrnetworkpolicy_crd(crd, i_rules, e_rules, pod_selector,
                                  np_spec=None):
     kubernetes = clients.get_kubernetes_client()
@@ -394,19 +382,22 @@ def match_selector(selector, labels):
 def get_namespace_subnet_cidr(namespace):
     kubernetes = clients.get_kubernetes_client()
     try:
-        ns_annotations = namespace['metadata']['annotations']
-        ns_name = ns_annotations[constants.K8S_ANNOTATION_NET_CRD]
-    except KeyError:
-        LOG.exception('Namespace handler must be enabled to support '
-                      'Network Policies with namespaceSelector')
+        net_crd_path = (f"{constants.K8S_API_CRD_NAMESPACES}/"
+                        f"{namespace['metadata']['name']}/kuryrnetworks/"
+                        f"{namespace['metadata']['name']}")
+        net_crd = kubernetes.get(net_crd_path)
+    except k_exc.K8sResourceNotFound:
+        LOG.exception('Namespace not yet ready')
         raise k_exc.ResourceNotReady(namespace)
-    try:
-        net_crd = kubernetes.get('{}/kuryrnets/{}'.format(
-            constants.K8S_API_CRD, ns_name))
     except k_exc.K8sClientException:
         LOG.exception("Kubernetes Client Exception.")
         raise
-    return net_crd['spec']['subnetCIDR']
+    try:
+        subnet_cidr = net_crd['status']['subnetCIDR']
+    except KeyError:
+        LOG.exception('Namespace not yet ready')
+        raise k_exc.ResourceNotReady(namespace)
+    return subnet_cidr
 
 
 def tag_neutron_resources(resources):

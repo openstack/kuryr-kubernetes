@@ -54,40 +54,30 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
     def _get_namespace_subnet_id(self, namespace):
         kubernetes = clients.get_kubernetes_client()
         try:
-            ns = kubernetes.get('%s/namespaces/%s' % (constants.K8S_API_BASE,
-                                                      namespace))
+            net_crd_path = (f"{constants.K8S_API_CRD_NAMESPACES}/"
+                            f"{namespace}/kuryrnetworks/{namespace}")
+            net_crd = kubernetes.get(net_crd_path)
         except exceptions.K8sResourceNotFound:
-            LOG.warning("Namespace %s not found", namespace)
-            raise
+            LOG.debug("Kuryrnetwork resource not yet created, retrying...")
+            raise exceptions.ResourceNotReady(namespace)
         except exceptions.K8sClientException:
             LOG.exception("Kubernetes Client Exception.")
-            raise exceptions.ResourceNotReady(namespace)
+            raise
 
         try:
-            annotations = ns['metadata']['annotations']
-            net_crd_name = annotations[constants.K8S_ANNOTATION_NET_CRD]
+            subnet_id = net_crd['status']['subnetId']
         except KeyError:
-            LOG.debug("Namespace missing CRD annotations for selecting "
-                      "the corresponding subnet.")
+            LOG.debug("Subnet for namespace %s not yet created, retrying.",
+                      namespace)
             raise exceptions.ResourceNotReady(namespace)
-
-        try:
-            net_crd = kubernetes.get('%s/kuryrnets/%s' % (
-                constants.K8S_API_CRD, net_crd_name))
-        except exceptions.K8sResourceNotFound:
-            LOG.debug("Kuryrnet resource not yet created, retrying...")
-            raise exceptions.ResourceNotReady(net_crd_name)
-        except exceptions.K8sClientException:
-            LOG.exception("Kubernetes Client Exception.")
-            raise
-
-        return net_crd['spec']['subnetId']
+        return subnet_id
 
     def delete_namespace_subnet(self, net_crd):
-        subnet_id = net_crd['spec']['subnetId']
-        net_id = net_crd['spec']['netId']
+        subnet_id = net_crd['status'].get('subnetId')
+        net_id = net_crd['status'].get('netId')
 
-        self._delete_namespace_network_resources(subnet_id, net_id)
+        if net_id:
+            self._delete_namespace_network_resources(subnet_id, net_id)
 
     def _delete_namespace_network_resources(self, subnet_id, net_id):
         os_net = clients.get_network_client()
@@ -147,83 +137,77 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
             LOG.exception("Error deleting network %s.", net_id)
             raise
 
-    def create_namespace_network(self, namespace, project_id):
+    def create_network(self, ns_name, project_id):
         os_net = clients.get_network_client()
-
-        router_id = oslo_cfg.CONF.namespace_subnet.pod_router
-        subnet_pool_id = oslo_cfg.CONF.namespace_subnet.pod_subnet_pool
-
-        # create network with namespace as name
-        network_name = "ns/" + namespace + "-net"
-        subnet_name = "ns/" + namespace + "-subnet"
-        try:
-            neutron_net = os_net.create_network(name=network_name,
-                                                project_id=project_id)
-            c_utils.tag_neutron_resources([neutron_net])
-
-            # create a subnet within that network
-            try:
-                neutron_subnet = (os_net
-                                  .create_subnet(network_id=neutron_net.id,
-                                                 ip_version=4,
-                                                 name=subnet_name,
-                                                 enable_dhcp=False,
-                                                 subnetpool_id=subnet_pool_id,
-                                                 project_id=project_id))
-            except os_exc.ConflictException:
-                LOG.debug("Max number of retries on neutron side achieved, "
-                          "raising ResourceNotReady to retry subnet creation "
-                          "for %s", subnet_name)
-                raise exceptions.ResourceNotReady(subnet_name)
-            c_utils.tag_neutron_resources([neutron_subnet])
-
-            # connect the subnet to the router
-            clients.handle_neutron_errors(os_net.add_interface_to_router,
-                                          router_id,
-                                          subnet_id=neutron_subnet.id)
-        except os_exc.SDKException:
-            LOG.exception("Error creating neutron resources for the namespace "
-                          "%s", namespace)
-            raise
-        return {'netId': neutron_net.id,
-                'routerId': router_id,
-                'subnetId': neutron_subnet.id,
-                'subnetCIDR': neutron_subnet.cidr}
-
-    def rollback_network_resources(self, net_crd_spec, namespace):
-        os_net = clients.get_network_client()
-        try:
-            try:
-                clients.handle_neutron_errors(
-                    os_net.remove_interface_from_router,
-                    net_crd_spec['routerId'],
-                    subnet_id=net_crd_spec['subnetId'])
-            except os_exc.NotFoundException:
-                # Nothing to worry about, either router or subnet is no more,
-                # or subnet is already detached.
-                pass
-            os_net.delete_network(net_crd_spec['netId'])
-        except os_exc.SDKException:
-            LOG.exception("Failed to clean up network resources associated to "
-                          "%(net_id)s, created for the namespace: "
-                          "%(namespace)s." % {'net_id': net_crd_spec['netId'],
-                                              'namespace': namespace})
-
-    def cleanup_namespace_networks(self, namespace):
-        os_net = clients.get_network_client()
-        net_name = 'ns/' + namespace + '-net'
+        net_name = 'ns/' + ns_name + '-net'
         tags = oslo_cfg.CONF.neutron_defaults.resource_tags
         if tags:
             networks = os_net.networks(name=net_name, tags=tags)
         else:
             networks = os_net.networks(name=net_name)
 
-        for net in networks:
-            net_id = net.id
-            subnets = net.subnet_ids
-            subnet_id = None
-            if subnets:
-                # NOTE(ltomasbo): Each network created by kuryr only has
-                # one subnet
-                subnet_id = subnets[0]
-            self._delete_namespace_network_resources(subnet_id, net_id)
+        try:
+            # NOTE(ltomasbo): only one network must exists
+            return next(networks).id
+        except StopIteration:
+            LOG.debug('Network does not exist. Creating.')
+
+        # create network with namespace as name
+        try:
+            neutron_net = os_net.create_network(name=net_name,
+                                                project_id=project_id)
+            c_utils.tag_neutron_resources([neutron_net])
+        except os_exc.SDKException:
+            LOG.exception("Error creating neutron resources for the namespace "
+                          "%s", ns_name)
+            raise
+        return neutron_net.id
+
+    def create_subnet(self, ns_name, project_id, net_id):
+        os_net = clients.get_network_client()
+        subnet_name = "ns/" + ns_name + "-subnet"
+        tags = oslo_cfg.CONF.neutron_defaults.resource_tags
+        if tags:
+            subnets = os_net.subnets(name=subnet_name, tags=tags)
+        else:
+            subnets = os_net.subnets(name=subnet_name)
+
+        try:
+            # NOTE(ltomasbo): only one subnet must exists
+            subnet = next(subnets)
+            return subnet.id, subnet.cidr
+        except StopIteration:
+            LOG.debug('Subnet does not exist. Creating.')
+
+        # create subnet with namespace as name
+        subnet_pool_id = oslo_cfg.CONF.namespace_subnet.pod_subnet_pool
+        try:
+            neutron_subnet = (os_net
+                              .create_subnet(network_id=net_id,
+                                             ip_version=4,
+                                             name=subnet_name,
+                                             enable_dhcp=False,
+                                             subnetpool_id=subnet_pool_id,
+                                             project_id=project_id))
+        except os_exc.ConflictException:
+            LOG.debug("Max number of retries on neutron side achieved, "
+                      "raising ResourceNotReady to retry subnet creation "
+                      "for %s", subnet_name)
+            raise exceptions.ResourceNotReady(subnet_name)
+        c_utils.tag_neutron_resources([neutron_subnet])
+
+        return neutron_subnet.id, neutron_subnet.cidr
+
+    def add_subnet_to_router(self, subnet_id):
+        os_net = clients.get_network_client()
+        router_id = oslo_cfg.CONF.namespace_subnet.pod_router
+        try:
+            # connect the subnet to the router
+            os_net.add_interface_to_router(router_id, subnet_id=subnet_id)
+        except os_exc.BadRequestException:
+            LOG.debug("Subnet %s already connected to the router", subnet_id)
+        except os_exc.SDKException:
+            LOG.exception("Error attaching the subnet %s to the router",
+                          subnet_id)
+            raise
+        return router_id

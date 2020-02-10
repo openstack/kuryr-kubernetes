@@ -584,12 +584,12 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         status_data = {"loadBalancer": {
             "ingress": [{"ip": lb_ip_address.format()}]}}
         k8s = clients.get_kubernetes_client()
-        svc_link = self._get_service_link(endpoints)
+        svc_status_link = self._get_service_link(endpoints) + '/status'
         try:
-            k8s.patch("status", svc_link, status_data)
+            k8s.patch("status", svc_status_link, status_data)
         except k_exc.K8sClientException:
             # REVISIT(ivc): only raise ResourceNotReady for NotFound
-            raise k_exc.ResourceNotReady(svc_link)
+            raise k_exc.ResourceNotReady(svc_status_link)
 
     def _get_service_link(self, endpoints):
         ep_link = endpoints['metadata']['selfLink']
