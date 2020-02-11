@@ -21,7 +21,7 @@ Now kuryr-kubernetes doesn't support vhostuser port creation on bare-metal
 installation, but OpenStack can be configured to work with vhost-user ports.
 In case of vhost-user port in bare-metal installation there is no device, DPDK
 applications use unix domain socket created by Open vSwitch daemon, it's control
-plain socket. Kuryr-kubernetes has to move this vhost-user socket file to path
+plane socket. Kuryr-kubernetes has to move this vhost-user socket file to a path
 available for pod.
 
 Proposed solution
@@ -34,15 +34,15 @@ well as ports with ovs_hybrid_plug where linux bridge is used. No new pod vif
 driver will be introduced.
 
 From user point of view there is no difference in pod definition. It's the same
-as with tap based. To request vhost-user port as a main port no need to do
-something special.
+as with tap-based. To request vhost-user port as a main port there is no need to
+do anything special.
 
-When vhost-user port is additional interface it can be defined with Network
+When vhost-user port is an additional interface - it can be defined with Network
 Attachment Definition [6]_.
 
-The type of port will be determined by neutron-openvswitch-agent configuration
-file by datapath_type option [2]_, whether the veth is plugged to the OVS bridge
-or vhostuser. That's why datapath is not featured in pod's definition,
+The type of port will be determined by a datapath_type option [2]_ of a
+neutron-openvswitch-agent config file, whether the veth is plugged to the OVS
+bridge or vhostuser. That's why datapath is not featured in pod's definition,
 kuryr-kubernetes will rely on pod's vif type.
 
 Open vSwitch supports DPDK ports only in special bridges with type netdev,
@@ -62,7 +62,7 @@ yaml file like that:
          mountPath: /var/run/vhostuser
         ...
      volumes:
-       - name: openvswitch
+       - name: vhostuser
          hostPath:
            path: /var/run/vhostuser
            type: Directory
@@ -78,7 +78,7 @@ mountPath is defined in kuryr.conf on the minion host
 
 Single mount point will be provided for several pods
 (CONF.vhostuser.mount_point). It's the place where vhost-user socket file will
-be moved from ovs_vhu_path. ovs_vhu_path it's a path where Open vSwitch stores
+be moved from ovs_vhu_path. ovs_vhu_path is a path where Open vSwitch stores
 vhost-user socket by default in case when Open vSwitch creates socket.
 mount_point and ovs_vhu_path should be on the same point of mount,
 otherwise EXDEV (Cross-device link) will be raised and
@@ -108,8 +108,8 @@ command will help to get it inside container.
 
 .. code-block:: bash
 
-  CONTAINER_ID=`sed -ne '/hostname/p' /proc/1/task/1/mountinfo |\
-                awk -F '/' '{print $4}'`
+  CONTAINER_ID=`egrep -o '[a-f0-9]{64}/hostname' /proc/self/mountinfo |\
+                cut -c 1-64`
 
 Kuryr-kubernetes can produce multiple ports per one pod, following command can
 be used to list all available ports.
