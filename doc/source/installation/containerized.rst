@@ -31,6 +31,7 @@ Deployment and kuryr-cni DaemonSet definitions to use pre-built `controller`_
 and `cni`_ images from the Docker Hub. Those definitions will be generated in
 next step.
 
+.. _containerized-generate:
 
 Generating Kuryr resource definitions for Kubernetes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
