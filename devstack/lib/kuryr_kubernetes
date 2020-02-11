@@ -421,16 +421,11 @@ rules:
   verbs: ["*"]
   resources:
     - endpoints
-    - ingress
     - pods
     - nodes
     - services
     - services/status
     - namespaces
-- apiGroups: ["route.openshift.io"]
-  resources:
-  - routes
-  verbs: ["*"]
 - apiGroups:
     - openstack.org
   verbs: ["*"]
