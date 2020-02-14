@@ -102,17 +102,11 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
                 # or subnet is already detached.
                 LOG.debug(e.message)
                 pass
-            except os_exc.SDKException as e:
-                # FIXME(maysams): Rely only on the NotFoundException handling
-                #                 when the bug fixed at 704998 is merged.
-                if "could not be found" in str(e.message):
-                    LOG.debug(e.message)
-                else:
-                    LOG.exception(
-                        "Error deleting subnet %(subnet)s from router "
-                        "%(router)s.", {'subnet': subnet_id, 'router':
-                                        router_id})
-                    raise
+            except os_exc.SDKException:
+                LOG.exception("Error deleting subnet %(subnet)s from router "
+                              "%(router)s.",
+                              {'subnet': subnet_id, 'router': router_id})
+                raise
 
         try:
             os_net.delete_network(net_id)
