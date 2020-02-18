@@ -84,12 +84,21 @@ function ovs_bind_for_kubelet() {
     if [ -n "$port_number" ]; then
         # if openstack-INPUT chain doesn't exist we create it in INPUT (for
         # local development envs since openstack-INPUT is usually only in gates)
-        sudo iptables -I openstack-INPUT 1 \
-            -p tcp -s 0.0.0.0/0 -d 0.0.0.0/0 --dport $port_number -j ACCEPT || \
-        sudo iptables -I INPUT 1 \
-            -p tcp -m conntrack --ctstate NEW \
-            -m tcp --dport "$port_number" \
-            -m comment --comment "kuryr-devstack: Access to OpenShift API" -j ACCEPT
+        if [ "$KURYR_IPV6" == "False" ]; then
+          sudo iptables -I openstack-INPUT 1 \
+              -p tcp -s 0.0.0.0/0 -d 0.0.0.0/0 --dport $port_number -j ACCEPT || \
+          sudo iptables -I INPUT 1 \
+              -p tcp -m conntrack --ctstate NEW \
+              -m tcp --dport "$port_number" \
+              -m comment --comment "kuryr-devstack: Access to OpenShift API" -j ACCEPT
+        else
+          sudo ip6tables -I openstack-INPUT 1 \
+              -p tcp -s ::/0 -d ::/0 --dport $port_number -j ACCEPT || \
+          sudo ip6tables -I INPUT 1 \
+              -p tcp -m conntrack --ctstate NEW \
+              -m tcp --dport "$port_number" \
+              -m comment --comment "kuryr-devstack: Access to OpenShift API" -j ACCEPT
+        fi
     fi
 }
 
@@ -196,6 +205,7 @@ function create_k8s_icmp_sg_rules {
                               security group rule create \
                               --project "$project_id" \
                               --protocol icmp \
+                              --ethertype "$KURYR_ETHERTYPE" \
                               --"$direction" "$sg_id")
     die_if_not_set $LINENO icmp_sg_rules \
         "Failure creating icmp sg ${direction} rule for ${sg_id}"
@@ -212,7 +222,6 @@ function create_k8s_icmp_sg_rules {
 #      split_allocation - Whether to allocate on all the subnet or only the
 #                         latter half
 function create_k8s_subnet {
-    # REVISIT(apuimedo): add support for IPv6
     local project_id=$1
     local net_name="$2"
     local subnet_name="$3"
@@ -224,7 +233,13 @@ function create_k8s_subnet {
 
     split_allocation="${6:-False}"
 
-    subnet_params+="--ip-version 4 "
+    if [ "$KURYR_IPV6" == "False" ]; then
+      subnet_params+="--ip-version 4 "
+    else
+      # NOTE(dulek): K8s API won't accept subnets bigger than 20 bits.
+      #              And 20 will totally be fine for us.
+      subnet_params+="--ip-version 6 --prefix-length 108 "
+    fi
     subnet_params+="--no-dhcp --gateway none "
     subnet_params+="--subnet-pool $subnetpool_id "
 
