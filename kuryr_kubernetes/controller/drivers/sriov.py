@@ -140,8 +140,8 @@ class SriovVIFDriver(neutron_vif.NeutronPodVIFDriver):
     def _reduce_remaining_sriov_vfs(self, pod, physnet):
         """Reduces number of available vfs for request"""
 
-        driver = self._get_driver_by_res(physnet)
         sriov_resource_name = self._physnet_resname_mapping.get(physnet, None)
+        driver = self._get_driver_by_res(sriov_resource_name)
         if not sriov_resource_name:
             LOG.error("No mapping for physnet {} in {}".format(
                 physnet, self._physnet_resname_mapping))
