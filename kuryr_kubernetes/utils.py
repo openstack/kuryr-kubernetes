@@ -201,6 +201,17 @@ def get_subnet_cidr(subnet_id):
     return subnet_obj.cidr
 
 
+@MEMOIZE
+def get_subnetpool_version(subnetpool_id):
+    os_net = clients.get_network_client()
+    try:
+        subnetpool_obj = os_net.get_subnet_pool(subnetpool_id)
+    except os_exc.ResourceNotFound:
+        LOG.exception("Subnetpool %s not found!", subnetpool_id)
+        raise
+    return subnetpool_obj.ip_version
+
+
 def extract_pod_annotation(annotation):
     obj = objects.base.VersionedObject.obj_from_primitive(annotation)
     # FIXME(dulek): This is code to maintain compatibility with Queens. We can
