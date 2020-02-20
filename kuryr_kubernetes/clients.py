@@ -83,9 +83,13 @@ def setup_kubernetes_client():
         #              K8s Pods.
         host = os.environ['KUBERNETES_SERVICE_HOST']
         port = os.environ['KUBERNETES_SERVICE_PORT_HTTPS']
-        addr = ipaddress.ip_address(host)
-        if addr.version == 6:
-            host = '[%s]' % host
+        try:
+            addr = ipaddress.ip_address(host)
+            if addr.version == 6:
+                host = '[%s]' % host
+        except ValueError:
+            # It's not an IP addres but a hostname, it's fine, move along.
+            pass
         api_root = "https://%s:%s" % (host, port)
     _clients[_KUBERNETES_CLIENT] = k8s_client.K8sClient(api_root)
 
