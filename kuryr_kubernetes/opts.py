@@ -16,7 +16,6 @@ from oslo_log import _options
 from kuryr.lib import opts as lib_opts
 from kuryr_kubernetes.cni import health as cni_health
 from kuryr_kubernetes import config
-from kuryr_kubernetes.controller.drivers import namespace_security_groups
 from kuryr_kubernetes.controller.drivers import namespace_subnet
 from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes.controller.drivers import vif_pool
@@ -42,7 +41,6 @@ _kuryr_k8s_opts = [
     ('health_server', health.health_server_opts),
     ('cni_health_server', cni_health.cni_health_server_opts),
     ('namespace_subnet', namespace_subnet.namespace_subnet_driver_opts),
-    ('namespace_sg', namespace_security_groups.namespace_sg_driver_opts),
     ('sriov', config.sriov_opts),
     ('namespace_handler_caching', namespace.namespace_handler_caching_opts),
     ('np_handler_caching', policy.np_handler_caching_opts),
