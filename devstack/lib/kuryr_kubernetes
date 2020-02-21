@@ -73,7 +73,11 @@ function ovs_bind_for_kubelet() {
         sudo ip addr add "${port_ips[$i]}/${prefix}" dev "$ifname"
     done
     if [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
-        subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}}
+        if [ "$KURYR_IPV6" == "False" ]; then
+            subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}}
+        else
+            subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V6_ID}}
+        fi
         cidrs=$(openstack subnet pool show "${subnetpool_id}" -c prefixes -f value)
         subnetpool_cidr=$(python3 -c "print(${cidrs}[0])")
         sudo ip route add "$subnetpool_cidr" via "$pod_subnet_gw" dev "$ifname"
