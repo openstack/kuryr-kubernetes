@@ -136,10 +136,11 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
         if driver in constants.USERSPACE_DRIVERS:
             LOG.info("PCI device %s will be rebinded to userspace network "
                      "driver %s", pci, driver)
-            self._set_vf_mac(pf, vf_index, vif.address)
-            if vif.network.should_provide_vlan:
-                vlan_id = vif.network.vlan
-                self._set_vf_vlan(pf, vf_index, vlan_id)
+            if vf_index and pf:
+                self._set_vf_mac(pf, vf_index, vif.address)
+                if vif.network.should_provide_vlan:
+                    vlan_id = vif.network.vlan
+                    self._set_vf_vlan(pf, vf_index, vlan_id)
             old_driver = self._bind_device(pci, driver)
             self._annotate_device(pod_link, pci, old_driver, driver, port_id)
         else:
@@ -152,9 +153,10 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
 
     def _move_to_netns(self, pci, ifname, netns, vif, vf_name, vf_index, pf,
                        pci_info):
-        if vif.network.should_provide_vlan:
-            vlan_id = vif.network.vlan
-            self._set_vf_vlan(pf, vf_index, vlan_id)
+        if vf_index and pf:
+            if vif.network.should_provide_vlan:
+                vlan_id = vif.network.vlan
+                self._set_vf_vlan(pf, vf_index, vlan_id)
 
         self._set_vf_mac(pf, vf_index, vif.address)
 
@@ -180,6 +182,13 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
             vf_name = vf_names[0]
 
         pfysfn_path = '/sys/bus/pci/devices/{}/physfn/net/'.format(pci)
+        # If physical function is not specified in VF's directory then
+        # this VF belongs to current VM node
+        if not os.path.exists(pfysfn_path):
+            LOG.info("Current device %s is a virtual function which is "
+                     "passed into VM. Getting it's pci info", vf_name)
+            pci_info = self._get_vf_pci_info(pci, vf_name)
+            return vf_name, None, None, pci_info
         pf_names = os.listdir(pfysfn_path)
         pf_name = pf_names[0]
 
@@ -193,6 +202,25 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
                 pci_info = self._get_pci_info(pf_name, vf_index)
                 return vf_name, vf_index, pf_name, pci_info
         return None, None, None, None
+
+    def _get_vf_pci_info(self, pci, vf_name):
+        vendor_path = '/sys/bus/pci/devices/{}/vendor'.format(pci)
+        with open(vendor_path) as vendor_file:
+            # vendor_full contains a hex value (e.g. 0x8086)
+            vendor_full = vendor_file.read()
+            vendor = vendor_full.split('x')[1].strip()
+
+        device_path = '/sys/bus/pci/devices/{}/device'.format(pci)
+        LOG.info("Full path to device which is being processed",
+                 device_path)
+        with open(device_path) as device_file:
+            # device_full contains a hex value (e.g. 0x1520)
+            device_full = device_file.read()
+            device = device_full.split('x')[1].strip()
+        pci_vendor_info = '{}:{}'.format(vendor, device)
+
+        return {'pci_slot': pci,
+                'pci_vendor_info': pci_vendor_info}
 
     def _bind_device(self, pci, driver, old_driver=None):
         if not old_driver:
