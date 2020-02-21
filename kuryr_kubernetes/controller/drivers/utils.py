@@ -349,7 +349,7 @@ def match_expressions(expressions, labels):
                 label_value = labels.get(str(exp['key']), None)
                 if exp_op == constants.K8S_OPERATOR_IN:
                     if label_value is None or label_value not in exp_values:
-                            return False
+                        return False
                 elif exp_op == constants.K8S_OPERATOR_NOT_IN:
                     if label_value in exp_values:
                         return False
@@ -373,7 +373,7 @@ def match_labels(crd_labels, labels):
     for crd_key, crd_value in crd_labels.items():
         label_value = labels.get(crd_key, None)
         if not label_value or crd_value != label_value:
-                return False
+            return False
     return True
 
 
