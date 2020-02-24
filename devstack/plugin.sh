@@ -11,6 +11,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+# Save trace setting
+XTRACE=$(set +o | grep xtrace)
+set -o xtrace
+
 function container_runtime {
     if [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
         sudo podman "$@"
@@ -1165,3 +1169,6 @@ if [[ "$1" == "unstack" ]]; then
 
     cleanup_kuryr_devstack_iptables
 fi
+
+# Restore xtrace
+$XTRACE
