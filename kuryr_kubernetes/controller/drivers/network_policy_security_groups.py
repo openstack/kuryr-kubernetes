@@ -319,7 +319,7 @@ def _parse_selectors_on_namespace(crd, direction, pod_selector,
                     if sg_rule not in crd_rules:
                         crd_rules.append(sg_rule)
         else:
-            ns_pods = driver_utils.get_pods(ns_selector)
+            ns_pods = driver_utils.get_pods(ns_selector)['items']
             ns_cidr = driver_utils.get_namespace_subnet_cidr(namespace)
             if 'ports' in rule_block:
                 for port in rule_block['ports']:
