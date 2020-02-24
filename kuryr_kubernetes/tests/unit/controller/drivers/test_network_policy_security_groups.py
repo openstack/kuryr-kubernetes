@@ -573,6 +573,8 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
         m_delete_sg_rule.assert_not_called()
         m_patch_kuryrnetworkpolicy_crd.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'get_pods')
     @mock.patch('kuryr_kubernetes.controller.drivers.'
                 'network_policy_security_groups._create_sg_rule')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
@@ -580,7 +582,7 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'get_namespace_subnet_cidr')
     def test__parse_rules(self, m_get_ns_subnet_cidr, m_match_selector,
-                          m_create_sg_rule):
+                          m_create_sg_rule, m_get_pods):
         crd = get_crd_obj_no_match()
         policy = crd['spec']['networkpolicy_spec']
         i_rule = policy.get('ingress')[0]
