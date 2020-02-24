@@ -1,0 +1,9 @@
+---
+deprecations:
+  - |
+    Configuration sections ``[namespace_handler_caching]``,  ``[np_handler_caching]``
+    and ``[vif_handler_caching]`` have been deprecated due to simplifying quota usage
+    calculation for readiness checks. Instead of counting Neutron objects
+    (ports, sg, subnets, and networks), the quota_details extension is used,
+    which includes used, limit and reserved counts per resource.
+    In this way, caching becomes unnecessary.

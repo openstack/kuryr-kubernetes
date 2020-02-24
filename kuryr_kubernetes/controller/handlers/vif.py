@@ -15,7 +15,6 @@
 
 from neutronclient.common import exceptions as n_exc
 from openstack import exceptions as os_exc
-from oslo_cache import core as cache
 from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
@@ -30,22 +29,6 @@ from kuryr_kubernetes import objects
 from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
-
-
-vif_handler_caching_opts = [
-    oslo_cfg.BoolOpt('caching', default=True),
-    oslo_cfg.IntOpt('cache_time', default=120),
-]
-
-oslo_cfg.CONF.register_opts(vif_handler_caching_opts,
-                            "vif_handler_caching")
-
-cache.configure(oslo_cfg.CONF)
-vif_handler_cache_region = cache.create_region()
-MEMOIZE = cache.get_memoization_decorator(
-    oslo_cfg.CONF, vif_handler_cache_region, "vif_handler_caching")
-
-cache.configure_cache_region(oslo_cfg.CONF, vif_handler_cache_region)
 
 
 class VIFHandler(k8s_base.ResourceEventHandler):
@@ -212,11 +195,9 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             services = driver_utils.get_services()
             self._update_services(services, crd_pod_selectors, project_id)
 
-    @MEMOIZE
     def is_ready(self, quota):
-        os_net = clients.get_network_client()
         if utils.has_limit(quota.ports):
-            return utils.is_available('ports', quota.ports, os_net.ports)
+            return utils.is_available('ports', quota.ports)
         return True
 
     @staticmethod

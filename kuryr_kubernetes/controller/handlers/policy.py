@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from openstack import exceptions as os_exc
-from oslo_cache import core as cache
 from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 
@@ -26,21 +25,6 @@ from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
-
-np_handler_caching_opts = [
-    oslo_cfg.BoolOpt('caching', default=True),
-    oslo_cfg.IntOpt('cache_time', default=120),
-]
-
-oslo_cfg.CONF.register_opts(np_handler_caching_opts,
-                            "np_handler_caching")
-
-cache.configure(oslo_cfg.CONF)
-np_handler_cache_region = cache.create_region()
-MEMOIZE = cache.get_memoization_decorator(
-    oslo_cfg.CONF, np_handler_cache_region, "np_handler_caching")
-
-cache.configure_cache_region(oslo_cfg.CONF, np_handler_cache_region)
 
 
 class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
@@ -147,12 +131,9 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
             return False
         return self._check_quota(quota)
 
-    @MEMOIZE
     def _check_quota(self, quota):
-        os_net = clients.get_network_client()
         if utils.has_limit(quota.security_groups):
-            return utils.is_available('security_groups', quota.security_groups,
-                                      os_net.security_groups)
+            return utils.is_available('security_groups', quota.security_groups)
         return True
 
     def _is_service_affected(self, service, affected_pods):

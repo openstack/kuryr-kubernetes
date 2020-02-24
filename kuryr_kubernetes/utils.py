@@ -217,12 +217,11 @@ def extract_pod_annotation(annotation):
 
 def has_limit(quota):
     NO_LIMIT = -1
-    return quota != NO_LIMIT
+    return quota['limit'] != NO_LIMIT
 
 
-def is_available(resource, resource_quota, network_func):
-    qnt_resources = len(list(network_func()))
-    availability = resource_quota - qnt_resources
+def is_available(resource, resource_quota):
+    availability = resource_quota['limit'] - resource_quota['used']
     if availability <= 0:
         LOG.error("Quota exceeded for resource: %s", resource)
         return False
