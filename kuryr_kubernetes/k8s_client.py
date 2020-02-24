@@ -293,6 +293,21 @@ class K8sClient(object):
         # If after 3 iterations there's still conflict, just raise.
         self._raise_from_response(response)
 
+    def get_loadbalancer_crd(self, obj):
+        name = obj['metadata']['name']
+        namespace = obj['metadata']['namespace']
+
+        try:
+            crd = self.get('{}/{}/kuryrloadbalancers/{}'.format(
+                constants.K8S_API_CRD_NAMESPACES, namespace,
+                name))
+        except exc.K8sResourceNotFound:
+            return None
+        except exc.K8sClientException:
+            LOG.exception("Kubernetes Client Exception.")
+            raise
+        return crd
+
     def annotate(self, path, annotations, resource_version=None):
         """Pushes a resource annotation to the K8s API resource
 

@@ -27,7 +27,6 @@ from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes import exceptions as k_exc
-from kuryr_kubernetes.objects import lbaas as obj_lbaas
 from kuryr_kubernetes import utils
 
 CONF = cfg.CONF
@@ -112,7 +111,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         return "%s/%s" % (namespace, svc_name)
 
     def get_loadbalancer_pool_name(self, loadbalancer, namespace, svc_name):
-        return "%s/%s/%s" % (loadbalancer.name, namespace, svc_name)
+        return "%s/%s/%s" % (loadbalancer['name'], namespace, svc_name)
 
     def add_tags(self, resource, req):
         if CONF.neutron_defaults.resource_tags:
@@ -126,9 +125,14 @@ class LBaaSv2Driver(base.LBaaSDriver):
     def ensure_loadbalancer(self, name, project_id, subnet_id, ip,
                             security_groups_ids=None, service_type=None,
                             provider=None):
-        request = obj_lbaas.LBaaSLoadBalancer(
-            name=name, project_id=project_id, subnet_id=subnet_id, ip=ip,
-            security_groups=security_groups_ids, provider=provider)
+        request = {
+            'name': name,
+            'project_id': project_id,
+            'subnet_id': subnet_id,
+            'ip': ip,
+            'security_groups': security_groups_ids,
+            'provider': provider
+        }
         response = self._ensure(self._create_loadbalancer,
                                 self._find_loadbalancer, request)
         if not response:
@@ -146,9 +150,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
             loadbalancer,
             loadbalancer,
             lbaas.delete_load_balancer,
-            loadbalancer.id,
+            loadbalancer['id'],
             cascade=True)
-
         self._wait_for_deletion(loadbalancer, _ACTIVATION_TIMEOUT)
 
     def _create_listeners_acls(self, loadbalancer, port, target_port,
@@ -160,7 +163,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         if new_sgs:
             sgs = new_sgs
         else:
-            sgs = loadbalancer.security_groups
+            sgs = loadbalancer['security_groups']
 
         # Check if Network Policy allows listener on the pods
         for sg in sgs:
@@ -210,7 +213,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             if vip_port:
                 lb_sg = vip_port.security_group_ids[0]
         else:
-            LOG.debug("Skipping sg update for lb %s", loadbalancer.name)
+            LOG.debug("Skipping sg update for lb %s", loadbalancer['name'])
             return
 
         # NOTE (maysams) It might happen that the update of LBaaS SG
@@ -225,14 +228,14 @@ class LBaaSv2Driver(base.LBaaSDriver):
             return
 
         lbaas_sg_rules = os_net.security_group_rules(
-                security_group_id=lb_sg, project_id=loadbalancer.project_id)
+                security_group_id=lb_sg, project_id=loadbalancer['project_id'])
         all_pod_rules = []
         add_default_rules = False
 
         if new_sgs:
             sgs = new_sgs
         else:
-            sgs = loadbalancer.security_groups
+            sgs = loadbalancer['security_groups']
 
         sg_rule_ethertype = k_const.IPv4
         if utils.get_service_subnet_version() == k_const.IP_VERSION_6:
@@ -325,12 +328,14 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
     def ensure_listener(self, loadbalancer, protocol, port,
                         service_type='ClusterIP'):
-        name = "%s:%s:%s" % (loadbalancer.name, protocol, port)
-        listener = obj_lbaas.LBaaSListener(name=name,
-                                           project_id=loadbalancer.project_id,
-                                           loadbalancer_id=loadbalancer.id,
-                                           protocol=protocol,
-                                           port=port)
+        name = "%s:%s:%s" % (loadbalancer['name'], protocol, port)
+        listener = {
+            'name': name,
+            'project_id': loadbalancer['project_id'],
+            'loadbalancer_id': loadbalancer['id'],
+            'protocol': protocol,
+            'port': port
+        }
         try:
             result = self._ensure_provisioned(
                 loadbalancer, listener, self._create_listener,
@@ -348,7 +353,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             os_net = clients.get_network_client()
             vip_port = self._get_vip_port(loadbalancer)
             os_net.update_port(vip_port.id, security_groups=[])
-            loadbalancer.security_groups = []
+            loadbalancer['security_groups'] = []
 
         return result
 
@@ -357,7 +362,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         lbaas = clients.get_loadbalancer_client()
         self._release(loadbalancer, listener,
                       lbaas.delete_listener,
-                      listener.id)
+                      listener['id'])
 
         # NOTE(maysams): since lbs created with ovn-octavia provider
         # does not have a sg in place, only need to delete sg rules
@@ -367,19 +372,22 @@ class LBaaSv2Driver(base.LBaaSDriver):
             sg_id = self._get_vip_port(loadbalancer).security_group_ids[0]
             if sg_id:
                 rules = os_net.security_group_rules(security_group_id=sg_id,
-                                                    description=listener.name)
+                                                    description=listener[
+                                                        'name'])
                 try:
                     os_net.delete_security_group_rule(next(rules).id)
                 except StopIteration:
                     LOG.warning('Cannot find SG rule for %s (%s) listener.',
-                                listener.id, listener.name)
+                                listener['id'], listener['name'])
 
     def ensure_pool(self, loadbalancer, listener):
-        pool = obj_lbaas.LBaaSPool(name=listener.name,
-                                   project_id=loadbalancer.project_id,
-                                   loadbalancer_id=loadbalancer.id,
-                                   listener_id=listener.id,
-                                   protocol=listener.protocol)
+        pool = {
+            'name': listener['name'],
+            'project_id': loadbalancer['project_id'],
+            'loadbalancer_id': loadbalancer['id'],
+            'listener_id': listener['id'],
+            'protocol': listener['protocol']
+        }
         return self._ensure_provisioned(loadbalancer, pool,
                                         self._create_pool,
                                         self._find_pool)
@@ -388,30 +396,34 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                    svc_name, protocol):
         name = self.get_loadbalancer_pool_name(loadbalancer,
                                                namespace, svc_name)
-        pool = obj_lbaas.LBaaSPool(name=name,
-                                   project_id=loadbalancer.project_id,
-                                   loadbalancer_id=loadbalancer.id,
-                                   listener_id=None,
-                                   protocol=protocol)
+        pool = {
+            'name': name,
+            'project_id': loadbalancer['project_id'],
+            'loadbalancer_id': loadbalancer['id'],
+            'listener_id': None,
+            'protocol': protocol
+        }
         return self._ensure_provisioned(loadbalancer, pool,
                                         self._create_pool,
                                         self._find_pool_by_name)
 
     def release_pool(self, loadbalancer, pool):
         lbaas = clients.get_loadbalancer_client()
-        self._release(loadbalancer, pool, lbaas.delete_pool, pool.id)
+        self._release(loadbalancer, pool, lbaas.delete_pool, pool['id'])
 
     def ensure_member(self, loadbalancer, pool,
                       subnet_id, ip, port, target_ref_namespace,
                       target_ref_name, listener_port=None):
         name = ("%s/%s" % (target_ref_namespace, target_ref_name))
         name += ":%s" % port
-        member = obj_lbaas.LBaaSMember(name=name,
-                                       project_id=loadbalancer.project_id,
-                                       pool_id=pool.id,
-                                       subnet_id=subnet_id,
-                                       ip=ip,
-                                       port=port)
+        member = {
+            'name': name,
+            'project_id': loadbalancer['project_id'],
+            'pool_id': pool['id'],
+            'subnet_id': subnet_id,
+            'ip': ip,
+            'port': port
+        }
         result = self._ensure_provisioned(loadbalancer, member,
                                           self._create_member,
                                           self._find_member)
@@ -421,9 +433,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
             CONF.kubernetes.service_security_groups_driver == 'policy')
         if (network_policy and CONF.octavia_defaults.enforce_sg_rules and
                 listener_port):
-            protocol = pool.protocol
-            sg_rule_name = pool.name
-            listener_id = pool.listener_id
+            protocol = pool['protocol']
+            sg_rule_name = pool['name']
+            listener_id = pool['listener_id']
             self._apply_members_security_groups(loadbalancer, listener_port,
                                                 port, protocol, sg_rule_name,
                                                 listener_id)
@@ -431,14 +443,14 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
     def release_member(self, loadbalancer, member):
         lbaas = clients.get_loadbalancer_client()
-        self._release(loadbalancer, member, lbaas.delete_member, member.id,
-                      member.pool_id)
+        self._release(loadbalancer, member, lbaas.delete_member, member['id'],
+                      member['pool_id'])
 
     def _get_vip_port(self, loadbalancer):
         os_net = clients.get_network_client()
         try:
-            fixed_ips = ['subnet_id=%s' % str(loadbalancer.subnet_id),
-                         'ip_address=%s' % str(loadbalancer.ip)]
+            fixed_ips = ['subnet_id=%s' % str(loadbalancer['subnet_id']),
+                         'ip_address=%s' % str(loadbalancer['ip'])]
             ports = os_net.ports(fixed_ips=fixed_ips)
         except os_exc.SDKException:
             LOG.error("Port with fixed ips %s not found!", fixed_ips)
@@ -451,43 +463,43 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
     def _create_loadbalancer(self, loadbalancer):
         request = {
-            'name': loadbalancer.name,
-            'project_id': loadbalancer.project_id,
-            'vip_address': str(loadbalancer.ip),
-            'vip_subnet_id': loadbalancer.subnet_id,
+            'name': loadbalancer['name'],
+            'project_id': loadbalancer['project_id'],
+            'vip_address': str(loadbalancer['ip']),
+            'vip_subnet_id': loadbalancer['subnet_id'],
         }
 
-        if loadbalancer.provider is not None:
-            request['provider'] = loadbalancer.provider
+        if loadbalancer['provider'] is not None:
+            request['provider'] = loadbalancer['provider']
 
         self.add_tags('loadbalancer', request)
 
         lbaas = clients.get_loadbalancer_client()
         response = lbaas.create_load_balancer(**request)
-        loadbalancer.id = response.id
-        loadbalancer.port_id = self._get_vip_port(loadbalancer).id
-        if (loadbalancer.provider is not None and
-                loadbalancer.provider != response.provider):
+        loadbalancer['id'] = response.id
+        loadbalancer['port_id'] = self._get_vip_port(loadbalancer).id
+        if (loadbalancer['provider'] is not None and
+                loadbalancer['provider'] != response.provider):
             LOG.error("Request provider(%s) != Response provider(%s)",
-                      loadbalancer.provider, response.provider)
+                      loadbalancer['provider'], response.provider)
             return None
-        loadbalancer.provider = response.provider
+        loadbalancer['provider'] = response.provider
         return loadbalancer
 
     def _find_loadbalancer(self, loadbalancer):
         lbaas = clients.get_loadbalancer_client()
         response = lbaas.load_balancers(
-            name=loadbalancer.name,
-            project_id=loadbalancer.project_id,
-            vip_address=str(loadbalancer.ip),
-            vip_subnet_id=loadbalancer.subnet_id,
-            provider=loadbalancer.provider)
+            name=loadbalancer['name'],
+            project_id=loadbalancer['project_id'],
+            vip_address=str(loadbalancer['ip']),
+            vip_subnet_id=loadbalancer['subnet_id'],
+            provider=loadbalancer['provider'])
 
         try:
             os_lb = next(response)  # openstacksdk returns a generator
-            loadbalancer.id = os_lb.id
-            loadbalancer.port_id = self._get_vip_port(loadbalancer).id
-            loadbalancer.provider = os_lb.provider
+            loadbalancer['id'] = os_lb.id
+            loadbalancer['port_id'] = self._get_vip_port(loadbalancer).id
+            loadbalancer['provider'] = os_lb.provider
             if os_lb.provisioning_status == 'ERROR':
                 self.release_loadbalancer(loadbalancer)
                 return None
@@ -498,16 +510,16 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
     def _create_listener(self, listener):
         request = {
-            'name': listener.name,
-            'project_id': listener.project_id,
-            'loadbalancer_id': listener.loadbalancer_id,
-            'protocol': listener.protocol,
-            'protocol_port': listener.port,
+            'name': listener['name'],
+            'project_id': listener['project_id'],
+            'loadbalancer_id': listener['loadbalancer_id'],
+            'protocol': listener['protocol'],
+            'protocol_port': listener['port'],
         }
         self.add_tags('listener', request)
         lbaas = clients.get_loadbalancer_client()
         response = lbaas.create_listener(**request)
-        listener.id = response.id
+        listener['id'] = response.id
         return listener
 
     def _update_listener_acls(self, loadbalancer, listener_id, allowed_cidrs):
@@ -538,15 +550,15 @@ class LBaaSv2Driver(base.LBaaSDriver):
     def _find_listener(self, listener, loadbalancer):
         lbaas = clients.get_loadbalancer_client()
         response = lbaas.listeners(
-            name=listener.name,
-            project_id=listener.project_id,
-            load_balancer_id=listener.loadbalancer_id,
-            protocol=listener.protocol,
-            protocol_port=listener.port)
+            name=listener['name'],
+            project_id=listener['project_id'],
+            load_balancer_id=listener['loadbalancer_id'],
+            protocol=listener['protocol'],
+            protocol_port=listener['port'])
 
         try:
             os_listener = next(response)
-            listener.id = os_listener.id
+            listener['id'] = os_listener.id
             if os_listener.provisioning_status == 'ERROR':
                 LOG.debug("Releasing listener %s", os_listener.id)
                 self.release_listener(loadbalancer, listener)
@@ -560,34 +572,34 @@ class LBaaSv2Driver(base.LBaaSDriver):
         # TODO(ivc): make lb_algorithm configurable
         lb_algorithm = CONF.octavia_defaults.lb_algorithm
         request = {
-            'name': pool.name,
-            'project_id': pool.project_id,
-            'listener_id': pool.listener_id,
-            'loadbalancer_id': pool.loadbalancer_id,
-            'protocol': pool.protocol,
+            'name': pool['name'],
+            'project_id': pool['project_id'],
+            'listener_id': pool['listener_id'],
+            'loadbalancer_id': pool['loadbalancer_id'],
+            'protocol': pool['protocol'],
             'lb_algorithm': lb_algorithm,
         }
         self.add_tags('pool', request)
         lbaas = clients.get_loadbalancer_client()
         response = lbaas.create_pool(**request)
-        pool.id = response.id
+        pool['id'] = response.id
         return pool
 
     def _find_pool(self, pool, loadbalancer, by_listener=True):
         lbaas = clients.get_loadbalancer_client()
         response = lbaas.pools(
-            name=pool.name,
-            project_id=pool.project_id,
-            loadbalancer_id=pool.loadbalancer_id,
-            protocol=pool.protocol)
-
+            name=pool['name'],
+            project_id=pool['project_id'],
+            loadbalancer_id=pool['loadbalancer_id'],
+            protocol=pool['protocol'])
+        # TODO(scavnic) check response
         try:
             if by_listener:
-                pools = [p for p in response if pool.listener_id
+                pools = [p for p in response if pool['listener_id']
                          in {listener['id'] for listener in p.listeners}]
             else:
                 pools = [p for p in response if pool.name == p.name]
-            pool.id = pools[0].id
+            pool['id'] = pools[0].id
             if pools[0].provisioning_status == 'ERROR':
                 LOG.debug("Releasing pool %s", pool.id)
                 self.release_pool(loadbalancer, pool)
@@ -601,31 +613,31 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
     def _create_member(self, member):
         request = {
-            'name': member.name,
-            'project_id': member.project_id,
-            'subnet_id': member.subnet_id,
-            'address': str(member.ip),
-            'protocol_port': member.port,
+            'name': member['name'],
+            'project_id': member['project_id'],
+            'subnet_id': member['subnet_id'],
+            'address': str(member['ip']),
+            'protocol_port': member['port'],
         }
         self.add_tags('member', request)
         lbaas = clients.get_loadbalancer_client()
-        response = lbaas.create_member(member.pool_id, **request)
-        member.id = response.id
+        response = lbaas.create_member(member['pool_id'], **request)
+        member['id'] = response.id
         return member
 
     def _find_member(self, member, loadbalancer):
         lbaas = clients.get_loadbalancer_client()
         response = lbaas.members(
-            member.pool_id,
-            name=member.name,
-            project_id=member.project_id,
-            subnet_id=member.subnet_id,
-            address=member.ip,
-            protocol_port=member.port)
+            member['pool_id'],
+            name=member['name'],
+            project_id=member['project_id'],
+            subnet_id=member['subnet_id'],
+            address=member['ip'],
+            protocol_port=member['port'])
 
         try:
             os_members = next(response)
-            member.id = os_members.id
+            member['id'] = os_members.id
             if os_members.provisioning_status == 'ERROR':
                 LOG.debug("Releasing Member %s", os_members.id)
                 self.release_member(loadbalancer, member)
@@ -683,7 +695,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         lbaas = clients.get_loadbalancer_client()
 
         for remaining in self._provisioning_timer(timeout, interval):
-            response = lbaas.get_load_balancer(loadbalancer.id)
+            response = lbaas.get_load_balancer(loadbalancer['id'])
             status = response.provisioning_status
             if status == 'ACTIVE':
                 LOG.debug("Provisioning complete for %(lb)s", {
@@ -691,7 +703,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 return
             elif status == 'ERROR':
                 LOG.debug("Releasing loadbalancer %s with error status",
-                          loadbalancer.id)
+                          loadbalancer['id'])
                 self.release_loadbalancer(loadbalancer)
                 break
             else:
@@ -708,7 +720,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         for remaining in self._provisioning_timer(timeout, interval):
             try:
-                lbaas.get_load_balancer(loadbalancer.id)
+                lbaas.get_load_balancer(loadbalancer['id'])
             except os_exc.NotFoundException:
                 return
 
@@ -753,7 +765,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         utils.set_lbaas_state(endpoint, lbaas)
 
-        lsnr_ids = {(listener.protocol, listener.port): listener.id
+        lsnr_ids = {(listener['protocol'], listener['port']): listener['id']
                     for listener in lbaas.listeners}
 
         for port in svc_ports:

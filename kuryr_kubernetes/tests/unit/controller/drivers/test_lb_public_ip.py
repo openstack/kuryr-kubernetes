@@ -53,10 +53,11 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         spec_type = 'LoadBalancer'
         spec_lb_ip = '1.2.3.4'
 
-        expected_resp = (obj_lbaas
-                         .LBaaSPubIp(ip_id=fip.id,
-                                     ip_addr=fip.floating_ip_address,
-                                     alloc_method='user'))
+        expected_resp = {
+            'ip_id': fip.id,
+            'ip_addr': fip.floating_ip_address,
+            'alloc_method': 'user'
+        }
 
         result = cls.acquire_service_pub_ip_info(m_driver, spec_type,
                                                  spec_lb_ip,  project_id)
@@ -134,9 +135,11 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         spec_type = 'LoadBalancer'
         spec_lb_ip = None
 
-        expected_resp = obj_lbaas.LBaaSPubIp(ip_id=fip.id,
-                                             ip_addr=fip.floating_ip_address,
-                                             alloc_method='pool')
+        expected_resp = {
+            'ip_id': fip.id,
+            'ip_addr': fip.floating_ip_address,
+            'alloc_method': 'pool'
+        }
 
         result = cls.acquire_service_pub_ip_info(m_driver, spec_type,
                                                  spec_lb_ip,  project_id)
@@ -161,9 +164,11 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         spec_type = 'LoadBalancer'
         spec_lb_ip = None
 
-        expected_resp = obj_lbaas.LBaaSPubIp(ip_id=fip.id,
-                                             ip_addr=fip.floating_ip_address,
-                                             alloc_method='pool')
+        expected_resp = {
+            'ip_id': fip.id,
+            'ip_addr': fip.floating_ip_address,
+            'alloc_method': 'pool'
+        }
 
         result = cls.acquire_service_pub_ip_info(m_driver, spec_type,
                                                  spec_lb_ip,  project_id)
@@ -184,10 +189,11 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         fip = munch.Munch({'floating_ip_address': '1.2.3.5',
                            'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
 
-        service_pub_ip_info = (obj_lbaas
-                               .LBaaSPubIp(ip_id=fip.id,
-                                           ip_addr=fip.floating_ip_address,
-                                           alloc_method='kk'))
+        service_pub_ip_info = {
+            'ip_id': fip.id,
+            'ip_addr': fip.floating_ip_address,
+            'alloc_method': 'kk'
+        }
 
         rc = cls.release_pub_ip(m_driver, service_pub_ip_info)
         self.assertIs(rc, True)
@@ -199,10 +205,12 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         fip = munch.Munch({'floating_ip_address': '1.2.3.5',
                            'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
 
-        service_pub_ip_info = (obj_lbaas
-                               .LBaaSPubIp(ip_id=fip.id,
-                                           ip_addr=fip.floating_ip_address,
-                                           alloc_method='user'))
+        service_pub_ip_info = {
+            'ip_id': fip.id,
+            'ip_addr': fip.floating_ip_address,
+            'alloc_method': 'user'
+        }
+
         rc = cls.release_pub_ip(m_driver, service_pub_ip_info)
         self.assertIs(rc, True)
 
@@ -216,10 +224,11 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         fip = munch.Munch({'floating_ip_address': '1.2.3.5',
                            'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
 
-        service_pub_ip_info = (obj_lbaas
-                               .LBaaSPubIp(ip_id=fip.id,
-                                           ip_addr=fip.floating_ip_address,
-                                           alloc_method='pool'))
+        service_pub_ip_info = {
+            'ip_id': fip.id,
+            'ip_addr': fip.floating_ip_address,
+            'alloc_method': 'pool'
+        }
         rc = cls.release_pub_ip(m_driver, service_pub_ip_info)
         self.assertIs(rc, False)
 
@@ -232,10 +241,11 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         fip = munch.Munch({'floating_ip_address': '1.2.3.5',
                            'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
 
-        service_pub_ip_info = (obj_lbaas
-                               .LBaaSPubIp(ip_id=fip.id,
-                                           ip_addr=fip.floating_ip_address,
-                                           alloc_method='pool'))
+        service_pub_ip_info = {
+            'ip_id': fip.id,
+            'ip_addr': fip.floating_ip_address,
+            'alloc_method': 'pool'
+        }
         rc = cls.release_pub_ip(m_driver, service_pub_ip_info)
         self.assertIs(rc, True)
 
@@ -265,6 +275,11 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
                                .LBaaSPubIp(ip_id=0,
                                            ip_addr=fip.floating_ip_address,
                                            alloc_method='pool'))
+        service_pub_ip_info = {
+            'ip_id': 0,
+            'ip_addr': fip.floating_ip_address,
+            'alloc_method': 'pool'
+        }
 
         vip_port_id = 'ec29d641-fec4-4f67-928a-124a76b3a777'
 
@@ -281,10 +296,12 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
 
         fip = munch.Munch({'floating_ip_address': '1.2.3.5',
                            'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
-        service_pub_ip_info = (obj_lbaas
-                               .LBaaSPubIp(ip_id=fip.id,
-                                           ip_addr=fip.floating_ip_address,
-                                           alloc_method='pool'))
+
+        service_pub_ip_info = {
+            'ip_id': fip.id,
+            'ip_addr': fip.floating_ip_address,
+            'alloc_method': 'pool'
+        }
         vip_port_id = 'ec29d641-fec4-4f67-928a-124a76b3a777'
 
         self.assertRaises(os_exc.SDKException, cls.associate_pub_ip,
@@ -308,10 +325,11 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         os_net.update_floatingip.return_value = None
         fip = munch.Munch({'floating_ip_address': '1.2.3.5',
                            'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
-        service_pub_ip_info = (obj_lbaas
-                               .LBaaSPubIp(ip_id=0,
-                                           ip_addr=fip.floating_ip_address,
-                                           alloc_method='pool'))
+        service_pub_ip_info = {
+            'ip_id': 0,
+            'ip_addr': fip.floating_ip_address,
+            'alloc_method': 'pool'
+        }
 
         result = cls.disassociate_pub_ip(m_driver, service_pub_ip_info)
 
@@ -325,10 +343,12 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         os_net.update_ip.side_effect = os_exc.SDKException
         fip = munch.Munch({'floating_ip_address': '1.2.3.5',
                            'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
-        service_pub_ip_info = (obj_lbaas
-                               .LBaaSPubIp(ip_id=fip.id,
-                                           ip_addr=fip.floating_ip_address,
-                                           alloc_method='pool'))
+
+        service_pub_ip_info = {
+            'ip_id': fip.id,
+            'ip_addr': fip.floating_ip_address,
+            'alloc_method': 'pool'
+        }
 
         self.assertRaises(os_exc.SDKException, cls.disassociate_pub_ip,
                           m_driver, service_pub_ip_info)

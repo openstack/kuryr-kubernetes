@@ -66,6 +66,8 @@ K8S_ANNOTATION_NEUTRON_PORT = 'neutron_id'
 
 POD_FINALIZER = KURYR_FQDN + '/pod-finalizer'
 KURYRNETWORK_FINALIZER = 'kuryrnetwork.finalizers.kuryr.openstack.org'
+KURYRLB_FINALIZER = 'kuryr.openstack.org/kuryrloadbalancer-finalizers'
+SERVICE_FINALIZER = 'kuryr.openstack.org/service-finalizer'
 
 KURYRPORT_FINALIZER = KURYR_FQDN + '/kuryrport-finalizer'
 KURYRPORT_LABEL = KURYR_FQDN + '/nodeName'

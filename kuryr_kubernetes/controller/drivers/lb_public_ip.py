@@ -15,7 +15,6 @@
 from kuryr_kubernetes import config
 from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes.controller.drivers import public_ip
-from kuryr_kubernetes.objects import lbaas as obj_lbaas
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -50,10 +49,11 @@ class FloatingIpServicePubIPDriver(base.ServicePubIpDriver):
             res_id = self._drv_pub_ip.is_ip_available(user_specified_ip,
                                                       port_id_to_be_associated)
             if res_id:
-                service_pub_ip_info = (obj_lbaas.LBaaSPubIp(
-                                       ip_id=res_id,
-                                       ip_addr=str(user_specified_ip),
-                                       alloc_method='user'))
+                service_pub_ip_info = {
+                    'ip_id': res_id,
+                    'ip_addr': str(user_specified_ip),
+                    'alloc_method': 'user'
+                }
 
                 return service_pub_ip_info
             else:
@@ -78,32 +78,34 @@ class FloatingIpServicePubIPDriver(base.ServicePubIpDriver):
             LOG.exception("Failed to allocate public IP - net_id:%s",
                           public_network_id)
             return None
-        service_pub_ip_info = obj_lbaas.LBaaSPubIp(ip_id=res_id,
-                                                   ip_addr=alloc_ip_addr,
-                                                   alloc_method='pool')
+        service_pub_ip_info = {
+            'ip_id': res_id,
+            'ip_addr': alloc_ip_addr,
+            'alloc_method': 'pool'
+        }
 
         return service_pub_ip_info
 
     def release_pub_ip(self, service_pub_ip_info):
         if not service_pub_ip_info:
             return True
-        if service_pub_ip_info.alloc_method == 'pool':
-            retcode = self._drv_pub_ip.free_ip(service_pub_ip_info.ip_id)
+        if service_pub_ip_info['alloc_method'] == 'pool':
+            retcode = self._drv_pub_ip.free_ip(service_pub_ip_info['ip_id'])
             if not retcode:
                 LOG.error("Failed to delete public_ip_id =%s !",
-                          service_pub_ip_info.ip_id)
+                          service_pub_ip_info['ip_id'])
                 return False
         return True
 
     def associate_pub_ip(self, service_pub_ip_info, vip_port_id):
         if (not service_pub_ip_info or
                 not vip_port_id or
-                not service_pub_ip_info.ip_id):
+                not service_pub_ip_info['ip_id']):
             return
         self._drv_pub_ip.associate(
-            service_pub_ip_info.ip_id, vip_port_id)
+            service_pub_ip_info['ip_id'], vip_port_id)
 
     def disassociate_pub_ip(self, service_pub_ip_info):
-        if not service_pub_ip_info or not service_pub_ip_info.ip_id:
+        if not service_pub_ip_info or not service_pub_ip_info['ip_id']:
             return
-        self._drv_pub_ip.disassociate(service_pub_ip_info.ip_id)
+        self._drv_pub_ip.disassociate(service_pub_ip_info['ip_id'])
