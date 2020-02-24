@@ -21,6 +21,7 @@ from oslo_config import cfg
 from kuryr_kubernetes.cni.binding import base
 from kuryr_kubernetes.cni.binding import sriov
 from kuryr_kubernetes import constants as k_const
+from kuryr_kubernetes import exceptions
 from kuryr_kubernetes import objects
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests import fake
@@ -60,6 +61,7 @@ class TestDriverMixin(test_base.TestCase):
                 'bridge': mock.Mock(
                     __enter__=mock.Mock(return_value=self.m_bridge_iface),
                     __exit__=mock.Mock(return_value=None),
+                    mtu=1,
                 ),
                 'c_interface': mock.Mock(
                     __enter__=mock.Mock(return_value=self.m_c_iface),
@@ -187,6 +189,10 @@ class TestNestedVlanDriver(TestDriverMixin, test_base.TestCase):
         self.assertEqual(str(self.vif.address), self.m_h_iface.address)
         self.m_h_iface.up.assert_called_once_with()
 
+    def test_connect_mtu_mismatch(self):
+        self.vif.network.mtu = 2
+        self.assertRaises(exceptions.CNIBindingFailure, self._test_connect)
+
     def test_disconnect(self):
         self._test_disconnect()
 
@@ -208,6 +214,10 @@ class TestNestedMacvlanDriver(TestDriverMixin, test_base.TestCase):
         self.assertEqual(1, self.m_h_iface.mtu)
         self.assertEqual(str(self.vif.address), self.m_h_iface.address)
         self.m_h_iface.up.assert_called_once_with()
+
+    def test_connect_mtu_mismatch(self):
+        self.vif.network.mtu = 2
+        self.assertRaises(exceptions.CNIBindingFailure, self._test_connect)
 
     def test_disconnect(self):
         self._test_disconnect()

@@ -76,3 +76,9 @@ class MultiPodDriverPoolConfigurationNotSupported(Exception):
     2. One of the pod drivers is not supported
     3. One of the pod drivers is not supported by its selected pool driver
     """
+
+
+class CNIBindingFailure(Exception):
+    """Exception indicates a binding/unbinding VIF failure in CNI"""
+    def __init__(self, message):
+        super(CNIBindingFailure, self).__init__(message)
