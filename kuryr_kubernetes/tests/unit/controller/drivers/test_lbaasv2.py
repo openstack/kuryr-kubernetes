@@ -16,7 +16,6 @@
 import mock
 import munch
 
-from neutronclient.common import exceptions as n_exc
 from openstack import exceptions as os_exc
 from openstack.load_balancer.v2 import listener as o_lis
 from openstack.load_balancer.v2 import load_balancer as o_lb
@@ -110,7 +109,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
                          d_lbaasv2.LBaaSv2Driver.get_octavia_version(None))
 
     def test_ensure_loadbalancer(self):
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         expected_resp = obj_lbaas.LBaaSLoadBalancer(
@@ -123,7 +122,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         lb_name = 'just_a_name'
 
         m_driver._ensure.return_value = expected_resp
-        neutron.update_port = mock.Mock()
+        os_net.update_port = mock.Mock()
         resp = cls.ensure_loadbalancer(m_driver, lb_name, project_id,
                                        subnet_id, ip, sg_ids, 'ClusterIP')
         m_driver._ensure.assert_called_once_with(mock.ANY,
@@ -135,7 +134,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         self.assertEqual(subnet_id, req.subnet_id)
         self.assertEqual(ip, str(req.ip))
         self.assertEqual(expected_resp, resp)
-        neutron.update_port.assert_not_called()
+        os_net.update_port.assert_not_called()
 
     def test_ensure_loadbalancer_not_ready(self):
         cls = d_lbaasv2.LBaaSv2Driver
@@ -611,10 +610,10 @@ class TestLBaaSv2Driver(test_base.TestCase):
             'loadbalancer_id': pool.loadbalancer_id,
             'protocol': pool.protocol,
             'lb_algorithm': lb_algorithm}
-        lbaas.create_pool.side_effect = n_exc.StateInvalidClient
+        lbaas.create_pool.side_effect = os_exc.BadRequestException
 
-        self.assertRaises(n_exc.StateInvalidClient, cls._create_pool, m_driver,
-                          pool)
+        self.assertRaises(os_exc.BadRequestException, cls._create_pool,
+                          m_driver, pool)
         lbaas.create_pool.assert_called_once_with(**req)
 
     def test_find_pool_by_listener(self):

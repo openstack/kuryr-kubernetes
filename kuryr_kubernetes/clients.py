@@ -17,12 +17,12 @@ from functools import partial
 import ipaddress
 import os
 
-from debtcollector import removals
 from kuryr.lib import utils
 from openstack import connection
 from openstack import exceptions as os_exc
 from openstack.network.v2 import port as os_port
 from openstack.network.v2 import trunk as os_trunk
+from openstack import resource as os_resource
 from openstack import utils as os_utils
 
 from kuryr_kubernetes import config
@@ -38,11 +38,6 @@ _POD_RESOURCES_CLIENT = 'pod-resources-client'
 
 def get_network_client():
     return _clients[_OPENSTACKSDK].network
-
-
-@removals.remove
-def get_neutron_client():
-    return _clients[_NEUTRON_CLIENT]
 
 
 def get_openstacksdk():
@@ -66,13 +61,8 @@ def get_compute_client():
 
 
 def setup_clients():
-    setup_neutron_client()
     setup_kubernetes_client()
     setup_openstacksdk()
-
-
-def setup_neutron_client():
-    _clients[_NEUTRON_CLIENT] = utils.get_neutron_client()
 
 
 def setup_kubernetes_client():
@@ -151,6 +141,11 @@ def handle_neutron_errors(method, *args, **kwargs):
 def setup_openstacksdk():
     auth_plugin = utils.get_auth_plugin('neutron')
     session = utils.get_keystone_session('neutron', auth_plugin)
+    # TODO(mdulko): To use Neutron's ability to do compare-and-swap updates we
+    #               need to manually add support for inserting If-Match header
+    #               into requests. At the moment we only need it for ports.
+    #               Remove when lower-constraints openstacksdk supports this.
+    os_port.Port.if_match = os_resource.Header('If-Match')
     conn = connection.Connection(
         session=session,
         region_name=getattr(config.CONF.neutron, 'region_name', None))

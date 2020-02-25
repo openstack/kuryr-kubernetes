@@ -15,7 +15,7 @@
 
 import mock
 
-from neutronclient.common import exceptions as n_exc
+from openstack import exceptions as o_exc
 
 from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes.controller.drivers import vif_pool
@@ -153,9 +153,9 @@ class TestNamespaceHandler(test_base.TestCase):
         self._get_net_crd_id.return_value = None
         self._get_net_crd.return_value = None
         self._create_namespace_network.side_effect = (
-            n_exc.NeutronClientException)
+            o_exc.SDKException)
 
-        self.assertRaises(n_exc.NeutronClientException,
+        self.assertRaises(o_exc.SDKException,
                           namespace.NamespaceHandler.on_present,
                           self._handler, self._namespace)
 
@@ -226,9 +226,9 @@ class TestNamespaceHandler(test_base.TestCase):
         self._add_kuryrnet_crd.return_value = net_crd
         self._set_net_crd.side_effect = k_exc.K8sClientException
         self._rollback_network_resources.side_effect = (
-            n_exc.NeutronClientException)
+            o_exc.SDKException)
 
-        self.assertRaises(n_exc.NeutronClientException,
+        self.assertRaises(o_exc.SDKException,
                           namespace.NamespaceHandler.on_present,
                           self._handler, self._namespace)
 

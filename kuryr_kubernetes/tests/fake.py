@@ -90,7 +90,7 @@ def _fake_vifs_string(dictionary=None):
 
 def get_port_obj(port_id='07cfe856-11cc-43d9-9200-ff4dc02d3620',
                  device_owner='compute:kuryr', ip_address=None,
-                 vif_details=None):
+                 vif_details=None, **kwargs):
 
     fixed_ips = [{'subnet_id': 'e1942bb1-5f51-4646-9885-365b66215592',
                   'ip_address': '10.10.0.5'},
@@ -138,4 +138,5 @@ def get_port_obj(port_id='07cfe856-11cc-43d9-9200-ff4dc02d3620',
                  'tags': [],
                  'trunk_details': None,
                  'updated_at': u'2019-12-04T15:06:09Z'}
+    port_data.update(kwargs)
     return os_port.Port(**port_data)

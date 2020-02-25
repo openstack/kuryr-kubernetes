@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutronclient.common import exceptions as n_exc
 from openstack import exceptions as os_exc
 from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
@@ -131,7 +130,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                         try:
                             self._drv_vif_pool.activate_vif(pod, vif)
                             changed = True
-                        except n_exc.PortNotFoundClient:
+                        except os_exc.ResourceNotFound:
                             LOG.debug("Port not found, possibly already "
                                       "deleted. No need to activate it")
             finally:

@@ -119,10 +119,10 @@ class TestFipPubIpDriver(test_base.TestCase):
         res_id = mock.sentinel.res_id
         vip_port_id = mock.sentinel.vip_port_id
 
-        neutron = self.useFixture(k_fix.MockNeutronClient()).client
-        neutron.update_ip.side_effect = os_exc.ConflictException
-        neutron.get_ip.return_value = munch.Munch({'id': res_id,
-                                                   'port_id': vip_port_id})
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
+        os_net.update_ip.side_effect = os_exc.ConflictException
+        os_net.get_ip.return_value = munch.Munch({'id': res_id,
+                                                  'port_id': vip_port_id})
         self.assertIsNone(driver.associate(res_id, vip_port_id))
 
     def test_associate_conflict_incorrect(self):

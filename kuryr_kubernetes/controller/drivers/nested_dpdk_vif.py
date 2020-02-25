@@ -31,10 +31,10 @@ class NestedDpdkPodVIFDriver(nested_vif.NestedPodVIFDriver):
     # TODO(garyloug): maybe log a warning if the vswitch is not ovs-dpdk?
 
     def request_vif(self, pod, project_id, subnets, security_groups):
-        neutron = clients.get_neutron_client()
+        os_net = clients.get_network_client()
         compute = clients.get_compute_client()
 
-        vm_id = self._get_parent_port(neutron, pod)['device_id']
+        vm_id = self._get_parent_port(pod).device_id
         net_id = utils.get_network_id(subnets)
 
         try:
@@ -43,7 +43,7 @@ class NestedDpdkPodVIFDriver(nested_vif.NestedPodVIFDriver):
             LOG.warning("Unable to create interface for server %s.",
                         vm_id)
             raise
-        port = neutron.show_port(result.port_id).get('port')
+        port = os_net.get_port(result.port_id)
         return ovu.neutron_to_osvif_vif_dpdk(port, subnets, pod)
 
     def request_vifs(self, pod, project_id, subnets, security_groups,
@@ -52,10 +52,9 @@ class NestedDpdkPodVIFDriver(nested_vif.NestedPodVIFDriver):
         raise NotImplementedError()
 
     def release_vif(self, pod, vif, project_id=None, security_groups=None):
-        neutron = clients.get_neutron_client()
         compute = clients.get_compute_client()
 
-        vm_id = self._get_parent_port(neutron, pod)['device_id']
+        vm_id = self._get_parent_port(pod).device_id
         LOG.debug("release_vif for vm_id %s %s", vm_id, vif.id)
 
         try:
