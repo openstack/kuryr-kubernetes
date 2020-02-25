@@ -17,7 +17,6 @@
     check:
       jobs:
         - kuryr-kubernetes-tempest
-        - kuryr-kubernetes-tempest-containerized-openshift
         - kuryr-kubernetes-tempest-containerized
         - kuryr-kubernetes-tempest-containerized-lower-constraints
         - kuryr-kubernetes-tempest-containerized-ovn
@@ -34,6 +33,7 @@
     experimental:
       jobs:
         - kuryr-kubernetes-tempest-containerized-l2
+        - kuryr-kubernetes-tempest-containerized-openshift
         - kuryr-kubernetes-tempest-containerized-pools-namespace
         - kuryr-kubernetes-tempest-containerized-openshift-serial
         - kuryr-kubernetes-tempest-ovn
