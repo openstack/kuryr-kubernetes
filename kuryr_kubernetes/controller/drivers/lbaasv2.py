@@ -14,16 +14,9 @@
 #    under the License.
 
 import random
-from six.moves import http_client as httplib
 import time
 
-import requests
-
 from openstack import exceptions as os_exc
-from openstack.load_balancer.v2 import listener as o_lis
-from openstack.load_balancer.v2 import load_balancer as o_lb
-from openstack.load_balancer.v2 import member as o_mem
-from openstack.load_balancer.v2 import pool as o_pool
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import timeutils
@@ -128,8 +121,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             if self._octavia_tags:
                 req['tags'] = CONF.neutron_defaults.resource_tags
             else:
-                if resource in ('loadbalancer', 'listener', 'pool',
-                                'l7policy'):
+                if resource in ('loadbalancer', 'listener', 'pool'):
                     req['description'] = ','.join(
                         CONF.neutron_defaults.resource_tags)
 
@@ -377,9 +369,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
             result = self._ensure_provisioned(
                 loadbalancer, listener, self._create_listener,
                 self._find_listener, _LB_STS_POLL_SLOW_INTERVAL)
-        except requests.exceptions.HTTPError:
-            LOG.info("Listener creation failed, most probably because "
-                     "protocol %(prot)s is not supported", {'prot': protocol})
+        except os_exc.SDKException:
+            LOG.exception("Listener creation failed, most probably because "
+                          "protocol %(prot)s is not supported",
+                          {'prot': protocol})
             return None
 
         if CONF.octavia_defaults.sg_mode == 'create':
@@ -482,26 +475,6 @@ class LBaaSv2Driver(base.LBaaSDriver):
         except StopIteration:
             return None
 
-    def _post_lb_resource(self, resource, request, **kwargs):
-        # FIXME(dulek): openstacksdk doesn't support Octavia tags until version
-        #               0.24.0 (Stein+). At the moment our dependency is
-        #               >=0.13.0, because we want Kuryr to support multiple
-        #               OpenStack versions also in terms of dependencies (think
-        #               building container images from various distros or
-        #               running Kuryr on older OS-es). Once 0.24.0 is fairly
-        #               stable and available, we can raise the requirement and
-        #               use lbaas.create_*() directly. Until then we manually
-        #               send POST request.
-        lbaas = clients.get_loadbalancer_client()
-        response = lbaas.post(resource.base_path % kwargs,
-                              json={resource.resource_key: request})
-        if not response.ok:
-            LOG.error('Error when creating %s: %s', resource.resource_key,
-                      response.text)
-            response.raise_for_status()
-        response_dict = response.json()[resource.resource_key]
-        return resource(**response_dict)
-
     def _create_loadbalancer(self, loadbalancer):
         request = {
             'name': loadbalancer.name,
@@ -515,7 +488,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         self.add_tags('loadbalancer', request)
 
-        response = self._post_lb_resource(o_lb.LoadBalancer, request)
+        lbaas = clients.get_loadbalancer_client()
+        response = lbaas.create_load_balancer(**request)
 
         loadbalancer.id = response.id
         loadbalancer.port_id = self._get_vip_port(loadbalancer).id
@@ -557,7 +531,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
             'protocol_port': listener.port,
         }
         self.add_tags('listener', request)
-        response = self._post_lb_resource(o_lis.Listener, request)
+        lbaas = clients.get_loadbalancer_client()
+        response = lbaas.create_listener(**request)
         listener.id = response.id
         return listener
 
@@ -580,11 +555,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                     _LB_STS_POLL_FAST_INTERVAL)
 
         lbaas = clients.get_loadbalancer_client()
-        response = lbaas.put(o_lis.Listener.base_path + '/' + listener_id,
-                             json={o_lis.Listener.resource_key: request})
-        if not response.ok:
-            LOG.error('Error when updating %s: %s',
-                      o_lis.Listener.resource_key, response.text)
+        try:
+            lbaas.update_listener(listener_id, **request)
+        except os_exc.SDKException:
+            LOG.exception('Error when updating listener %s' % listener_id)
             raise k_exc.ResourceNotReady(listener_id)
 
     def _find_listener(self, listener):
@@ -616,7 +590,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
             'lb_algorithm': lb_algorithm,
         }
         self.add_tags('pool', request)
-        response = self._post_lb_resource(o_pool.Pool, request)
+        lbaas = clients.get_loadbalancer_client()
+        response = lbaas.create_pool(**request)
         pool.id = response.id
         return pool
 
@@ -652,8 +627,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
             'protocol_port': member.port,
         }
         self.add_tags('member', request)
-        response = self._post_lb_resource(o_mem.Member, request,
-                                          pool_id=member.pool_id)
+        lbaas = clients.get_loadbalancer_client()
+        response = lbaas.create_member(member.pool_id, **request)
         member.id = response.id
         return member
 
@@ -683,9 +658,6 @@ class LBaaSv2Driver(base.LBaaSDriver):
         except os_exc.HttpException as e:
             if e.status_code not in okay_codes:
                 raise
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code not in okay_codes:
-                raise
 
         result = find(obj)
         if result:
@@ -701,9 +673,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 result = self._ensure(obj, create, find)
                 if result:
                     return result
-            except requests.exceptions.HTTPError as e:
-                if e.response.status_code == httplib.BAD_REQUEST:
-                    raise
+            except os_exc.BadRequestException:
+                raise
+            except os_exc.SDKException:
+                pass
 
         raise k_exc.ResourceNotReady(obj)
 
