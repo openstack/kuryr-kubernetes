@@ -23,15 +23,51 @@ from oslo_config import cfg as oslo_cfg
 def get_quota_obj():
     return {
         'quota': {
-            'subnet': 100,
-            'network': 100,
-            'floatingip': 50,
-            'subnetpool': -1,
-            'security_group_rule': 100,
-            'security_group': 10,
-            'router': 10,
-            'rbac_policy': 10,
-            'port': 500
+            'subnet': {
+                'used': 50,
+                'limit': 100,
+                'reserved': 0
+            },
+            'network': {
+                'used': 50,
+                'limit': 100,
+                'reserved': 0
+            },
+            'floatingip': {
+                'used': 25,
+                'limit': 50,
+                'reserved': 0
+            },
+            'subnetpool': {
+                'used': 0,
+                'limit': -1,
+                'reserved': 0
+            },
+            'security_group_rule': {
+                'used': 50,
+                'limit': 100,
+                'reserved': 0
+            },
+            'security_group': {
+                'used': 5,
+                'limit': 10,
+                'reserved': 0
+            },
+            'router': {
+                'used': 5,
+                'limit': 10,
+                'reserved': 0
+            },
+            'rbac_policy': {
+                'used': 5,
+                'limit': 10,
+                'reserved': 0
+            },
+            'port': {
+                'used': 250,
+                'limit': 500,
+                'reserved': 0
+            }
         }
     }
 

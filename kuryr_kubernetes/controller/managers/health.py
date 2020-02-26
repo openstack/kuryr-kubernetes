@@ -61,7 +61,7 @@ class HealthServer(object):
     def _components_ready(self):
         os_net = clients.get_network_client()
         project_id = config.CONF.neutron_defaults.project
-        quota = os_net.get_quota(project_id)
+        quota = os_net.get_quota(quota=project_id, details=True)
 
         for component in self._registry:
             if not component.is_ready(quota):

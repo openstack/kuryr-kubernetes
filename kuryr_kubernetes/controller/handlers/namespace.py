@@ -16,7 +16,6 @@ import eventlet
 import time
 
 from openstack import exceptions as os_exc
-from oslo_cache import core as cache
 from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
@@ -34,21 +33,6 @@ LOG = logging.getLogger(__name__)
 
 DEFAULT_CLEANUP_INTERVAL = 60
 DEFAULT_CLEANUP_RETRIES = 10
-
-namespace_handler_caching_opts = [
-    oslo_cfg.BoolOpt('caching', default=True),
-    oslo_cfg.IntOpt('cache_time', default=120),
-]
-
-oslo_cfg.CONF.register_opts(namespace_handler_caching_opts,
-                            "namespace_handler_caching")
-
-cache.configure(oslo_cfg.CONF)
-namespace_handler_cache_region = cache.create_region()
-MEMOIZE = cache.get_memoization_decorator(
-    oslo_cfg.CONF, namespace_handler_cache_region, "namespace_handler_caching")
-
-cache.configure_cache_region(oslo_cfg.CONF, namespace_handler_cache_region)
 
 
 class NamespaceHandler(k8s_base.ResourceEventHandler):
@@ -172,18 +156,13 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
             return False
         return self._check_quota(quota)
 
-    @MEMOIZE
     def _check_quota(self, quota):
-        os_net = clients.get_network_client()
-        resources = {'subnets': os_net.subnets,
-                     'networks': os_net.networks,
-                     'security_groups': os_net.security_groups}
+        resources = ('subnets', 'networks', 'security_groups')
 
-        for resource, network_func in resources.items():
+        for resource in resources:
             resource_quota = quota[resource]
             if utils.has_limit(resource_quota):
-                if not utils.is_available(resource, resource_quota,
-                                          network_func):
+                if not utils.is_available(resource, resource_quota):
                     return False
         return True
 
