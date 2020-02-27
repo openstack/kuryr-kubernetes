@@ -23,7 +23,6 @@ from openstack.load_balancer.v2 import load_balancer as o_lb
 from openstack.load_balancer.v2 import member as o_mem
 from openstack.load_balancer.v2 import pool as o_pool
 from oslo_config import cfg
-import requests
 
 from kuryr_kubernetes.controller.drivers import lbaasv2 as d_lbaasv2
 from kuryr_kubernetes import exceptions as k_exc
@@ -85,7 +84,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         self.addCleanup(CONF.clear_override, 'resource_tags',
                         group='neutron_defaults')
         d = d_lbaasv2.LBaaSv2Driver()
-        for res in ('loadbalancer', 'listener', 'pool', 'l7policy'):
+        for res in ('loadbalancer', 'listener', 'pool'):
             req = {}
             d.add_tags(res, req)
             self.assertEqual({'description': 'foo'}, req,
@@ -325,6 +324,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
     def test_create_loadbalancer(self):
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         loadbalancer = obj_lbaas.LBaaSLoadBalancer(
             name='TEST_NAME', project_id='TEST_PROJECT', ip='1.2.3.4',
             subnet_id='D3FA400A-F543-4B91-9CD3-047AF0CE42D1',
@@ -337,13 +337,12 @@ class TestLBaaSv2Driver(test_base.TestCase):
             'vip_subnet_id': loadbalancer.subnet_id,
         }
         resp = o_lb.LoadBalancer(id=loadbalancer_id, provider='haproxy')
-        m_driver._post_lb_resource.return_value = resp
+        lbaas.create_load_balancer.return_value = resp
         m_driver._get_vip_port.return_value = munch.Munch(
             {'id': mock.sentinel.port_id})
 
         ret = cls._create_loadbalancer(m_driver, loadbalancer)
-        m_driver._post_lb_resource.assert_called_once_with(o_lb.LoadBalancer,
-                                                           req)
+        lbaas.create_load_balancer.assert_called_once_with(**req)
         for attr in loadbalancer.obj_fields:
             self.assertEqual(getattr(loadbalancer, attr),
                              getattr(ret, attr))
@@ -352,6 +351,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
     def test_create_loadbalancer_provider_defined(self):
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         loadbalancer = obj_lbaas.LBaaSLoadBalancer(
             name='TEST_NAME', project_id='TEST_PROJECT', ip='1.2.3.4',
             subnet_id='D3FA400A-F543-4B91-9CD3-047AF0CE42D1',
@@ -366,13 +366,12 @@ class TestLBaaSv2Driver(test_base.TestCase):
             'provider': loadbalancer.provider,
         }
         resp = o_lb.LoadBalancer(id=loadbalancer_id, provider='amphora')
-        m_driver._post_lb_resource.return_value = resp
+        lbaas.create_load_balancer.return_value = resp
         m_driver._get_vip_port.return_value = munch.Munch(
             {'id': mock.sentinel.port_id})
 
         ret = cls._create_loadbalancer(m_driver, loadbalancer)
-        m_driver._post_lb_resource.assert_called_once_with(o_lb.LoadBalancer,
-                                                           req)
+        lbaas.create_load_balancer.assert_called_once_with(**req)
         for attr in loadbalancer.obj_fields:
             self.assertEqual(getattr(loadbalancer, attr),
                              getattr(ret, attr))
@@ -381,6 +380,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
     def test_create_loadbalancer_provider_mismatch(self):
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         loadbalancer = obj_lbaas.LBaaSLoadBalancer(
             name='TEST_NAME', project_id='TEST_PROJECT', ip='1.2.3.4',
             subnet_id='D3FA400A-F543-4B91-9CD3-047AF0CE42D1',
@@ -395,13 +395,12 @@ class TestLBaaSv2Driver(test_base.TestCase):
             'provider': loadbalancer.provider,
         }
         resp = o_lb.LoadBalancer(id=loadbalancer_id, provider='haproxy')
-        m_driver._post_lb_resource.return_value = resp
+        lbaas.create_load_balancer.return_value = resp
         m_driver._get_vip_port.return_value = munch.Munch(
             {'id': mock.sentinel.port_id})
 
         ret = cls._create_loadbalancer(m_driver, loadbalancer)
-        m_driver._post_lb_resource.assert_called_once_with(o_lb.LoadBalancer,
-                                                           req)
+        lbaas.create_load_balancer.assert_called_once_with(**req)
         self.assertIsNone(ret)
 
     def test_find_loadbalancer(self):
@@ -476,6 +475,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
     def test_create_listener(self):
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         listener = obj_lbaas.LBaaSListener(
             name='TEST_NAME', project_id='TEST_PROJECT', protocol='TCP',
             port=1234, loadbalancer_id='00EE9E11-91C2-41CF-8FD4-7970579E5C4C')
@@ -487,10 +487,10 @@ class TestLBaaSv2Driver(test_base.TestCase):
             'protocol': listener.protocol,
             'protocol_port': listener.port}
         resp = o_lis.Listener(id=listener_id)
-        m_driver._post_lb_resource.return_value = resp
+        lbaas.create_listener.return_value = resp
 
         ret = cls._create_listener(m_driver, listener)
-        m_driver._post_lb_resource.assert_called_once_with(o_lis.Listener, req)
+        lbaas.create_listener.assert_called_once_with(**req)
         for attr in listener.obj_fields:
             self.assertEqual(getattr(listener, attr),
                              getattr(ret, attr))
@@ -540,6 +540,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
     def test_create_pool(self):
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         lb_algorithm = 'ROUND_ROBIN'
         pool = obj_lbaas.LBaaSPool(
             name='TEST_NAME', project_id='TEST_PROJECT', protocol='TCP',
@@ -554,10 +555,10 @@ class TestLBaaSv2Driver(test_base.TestCase):
             'protocol': pool.protocol,
             'lb_algorithm': lb_algorithm}
         resp = o_pool.Pool(id=pool_id)
-        m_driver._post_lb_resource.return_value = resp
+        lbaas.create_pool.return_value = resp
 
         ret = cls._create_pool(m_driver, pool)
-        m_driver._post_lb_resource.assert_called_once_with(o_pool.Pool, req)
+        lbaas.create_pool.assert_called_once_with(**req)
         for attr in pool.obj_fields:
             self.assertEqual(getattr(pool, attr),
                              getattr(ret, attr))
@@ -566,6 +567,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
     def test_create_pool_with_different_lb_algorithm(self):
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         lb_algorithm = 'SOURCE_IP_PORT'
         pool = obj_lbaas.LBaaSPool(
             name='TEST_NAME', project_id='TEST_PROJECT', protocol='TCP',
@@ -580,14 +582,14 @@ class TestLBaaSv2Driver(test_base.TestCase):
             'protocol': pool.protocol,
             'lb_algorithm': lb_algorithm}
         resp = o_pool.Pool(id=pool_id)
-        m_driver._post_lb_resource.return_value = resp
+        lbaas.create_pool.return_value = resp
         CONF.set_override('lb_algorithm', lb_algorithm,
                           group='octavia_defaults')
         self.addCleanup(CONF.clear_override, 'lb_algorithm',
                         group='octavia_defaults')
 
         ret = cls._create_pool(m_driver, pool)
-        m_driver._post_lb_resource.assert_called_once_with(o_pool.Pool, req)
+        lbaas.create_pool.assert_called_once_with(**req)
         for attr in pool.obj_fields:
             self.assertEqual(getattr(pool, attr),
                              getattr(ret, attr))
@@ -596,6 +598,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
     def test_create_pool_conflict(self):
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         lb_algorithm = 'ROUND_ROBIN'
         pool = obj_lbaas.LBaaSPool(
             name='TEST_NAME', project_id='TEST_PROJECT', protocol='TCP',
@@ -608,11 +611,11 @@ class TestLBaaSv2Driver(test_base.TestCase):
             'loadbalancer_id': pool.loadbalancer_id,
             'protocol': pool.protocol,
             'lb_algorithm': lb_algorithm}
-        m_driver._post_lb_resource.side_effect = n_exc.StateInvalidClient
+        lbaas.create_pool.side_effect = n_exc.StateInvalidClient
 
         self.assertRaises(n_exc.StateInvalidClient, cls._create_pool, m_driver,
                           pool)
-        m_driver._post_lb_resource.assert_called_once_with(o_pool.Pool, req)
+        lbaas.create_pool.assert_called_once_with(**req)
 
     def test_find_pool_by_listener(self):
         lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
@@ -660,6 +663,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
     def test_create_member(self):
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
         member = obj_lbaas.LBaaSMember(
             name='TEST_NAME', project_id='TEST_PROJECT', ip='1.2.3.4',
             port=1234, subnet_id='D3FA400A-F543-4B91-9CD3-047AF0CE42D1',
@@ -672,11 +676,10 @@ class TestLBaaSv2Driver(test_base.TestCase):
             'address': str(member.ip),
             'protocol_port': member.port}
         resp = o_mem.Member(id=member_id)
-        m_driver._post_lb_resource.return_value = resp
+        lbaas.create_member.return_value = resp
 
         ret = cls._create_member(m_driver, member)
-        m_driver._post_lb_resource.assert_called_once_with(
-            o_mem.Member, req, pool_id=member.pool_id)
+        lbaas.create_member.assert_called_once_with(member.pool_id, **req)
         for attr in member.obj_fields:
             self.assertEqual(getattr(member, attr),
                              getattr(ret, attr))
@@ -764,15 +767,6 @@ class TestLBaaSv2Driver(test_base.TestCase):
         self._verify_ensure_with_exception(
             os_exc.HttpException(http_status=500))
 
-    def test_ensure_with_httperrors(self):
-        resp = requests.Response()
-        resp.status_code = 409
-        self._verify_ensure_with_exception(
-            requests.exceptions.HTTPError(response=resp))
-        resp.status_code = 500
-        self._verify_ensure_with_exception(
-            requests.exceptions.HTTPError(response=resp))
-
     def test_request(self):
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
@@ -782,12 +776,9 @@ class TestLBaaSv2Driver(test_base.TestCase):
         find = mock.sentinel.find
         timer = [mock.sentinel.t0]
         m_driver._provisioning_timer.return_value = timer
-        resp = requests.Response()
-        resp.status_code = 400
-        m_driver._ensure.side_effect = requests.exceptions.HTTPError(
-            response=resp)
+        m_driver._ensure.side_effect = os_exc.BadRequestException()
 
-        self.assertRaises(requests.exceptions.HTTPError,
+        self.assertRaises(os_exc.BadRequestException,
                           cls._ensure_provisioned, m_driver,
                           loadbalancer, obj, create, find)
 
