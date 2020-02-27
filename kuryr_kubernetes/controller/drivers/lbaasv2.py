@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import ipaddress
 import random
 from six.moves import http_client as httplib
 import time
@@ -31,6 +32,7 @@ from oslo_utils import versionutils
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
+from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes.controller.drivers import utils as c_utils
 from kuryr_kubernetes import exceptions as k_exc
@@ -307,11 +309,14 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                                                   max_port+1)):
                             continue
                         all_pod_rules.append(rule)
+                        sg_rule_ethertype = ipaddress.ip_network(
+                            rule.remote_ip_prefix).version
                         try:
                             LOG.debug("Creating LBaaS sg rule for sg: %r",
                                       lb_sg)
                             os_net.create_security_group_rule(
                                 direction='ingress',
+                                ether_type=sg_rule_ethertype,
                                 port_range_min=port,
                                 port_range_max=port,
                                 protocol=protocol,
@@ -338,9 +343,13 @@ class LBaaSv2Driver(base.LBaaSDriver):
             self._delete_rule_if_no_match(rule, all_pod_rules)
 
         if add_default_rules:
+            sg_rule_ethertype = k_const.IPv4
+            if utils.get_service_subnet_version() == k_const.IP_VERSION_6:
+                sg_rule_ethertype = k_const.IPv6
             try:
                 LOG.debug("Restoring default LBaaS sg rule for sg: %r", lb_sg)
                 os_net.create_security_group_rule(direction='ingress',
+                                                  ether_type=sg_rule_ethertype,
                                                   port_range_min=port,
                                                   port_range_max=port,
                                                   protocol=protocol,
