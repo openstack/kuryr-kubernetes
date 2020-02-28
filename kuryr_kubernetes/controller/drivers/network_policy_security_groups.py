@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from oslo_config import cfg
+from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
@@ -19,9 +21,6 @@ from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes import exceptions
-
-from oslo_config import cfg
-from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 
@@ -172,12 +171,27 @@ def _create_sg_rule_on_text_port(sg_id, direction, port, rule_selected_pods,
                 matched_pods, container_ports, allow_all,
                 namespace, matched, crd_rules, sg_id, direction,
                 port, rule_selected_pod)
+
+    _apply_sg_rules_on_matched_pods(matched_pods, sg_id, direction, namespace,
+                                    port, crd_rules, allow_all)
+
+    return matched
+
+
+def _apply_sg_rules_on_matched_pods(matched_pods, sg_id, direction, namespace,
+                                    port, crd_rules, allow_all=False):
     for container_port, pods in matched_pods.items():
         if allow_all:
-            sg_rule = driver_utils.create_security_group_rule_body(
-                sg_id, direction, container_port,
-                protocol=port.get('protocol'),
-                pods=pods)
+            for ethertype in (constants.IPv4, constants.IPv6):
+                sg_rule = driver_utils.create_security_group_rule_body(
+                    sg_id, direction, container_port,
+                    protocol=port.get('protocol'),
+                    ethertype=ethertype,
+                    pods=pods)
+                sgr_id = driver_utils.create_security_group_rule(sg_rule)
+                sg_rule['security_group_rule']['id'] = sgr_id
+                if sg_rule not in crd_rules:
+                    crd_rules.append(sg_rule)
         else:
             namespace_obj = driver_utils.get_namespace(namespace)
             if not namespace_obj:
@@ -190,11 +204,10 @@ def _create_sg_rule_on_text_port(sg_id, direction, port, rule_selected_pods,
                 sg_id, direction, container_port,
                 protocol=port.get('protocol'), cidr=namespace_cidr,
                 pods=pods)
-        sgr_id = driver_utils.create_security_group_rule(sg_rule)
-        sg_rule['security_group_rule']['id'] = sgr_id
-        if sg_rule not in crd_rules:
-            crd_rules.append(sg_rule)
-    return matched
+            sgr_id = driver_utils.create_security_group_rule(sg_rule)
+            sg_rule['security_group_rule']['id'] = sgr_id
+            if sg_rule not in crd_rules:
+                crd_rules.append(sg_rule)
 
 
 def _create_sg_rules(crd, pod, pod_selector, rule_block,
