@@ -117,7 +117,11 @@ class VIFVHostUserDriver(health.HealthHandler, base.BaseBindingDriver):
         vhu_sock_path = os.path.join(self.mount_path,
                                      _get_vhu_sock(config_file_path))
         LOG.debug("remove: %s, %s", config_file_path, vhu_sock_path)
-        os.remove(vhu_sock_path)
+        try:
+            os.remove(vhu_sock_path)
+        except Exception:
+            LOG.exception("Failed to delete socket %s when processing VIF %s.",
+                          vhu_sock_path, vif.id)
         os.remove(config_file_path)
 
     def is_alive(self):
