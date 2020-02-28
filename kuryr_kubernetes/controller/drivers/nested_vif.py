@@ -13,7 +13,6 @@
 #    under the License.
 
 import abc
-import six
 
 from kuryr.lib import exceptions as kl_exc
 from openstack import exceptions as os_exc
@@ -27,8 +26,8 @@ from kuryr_kubernetes.controller.drivers import neutron_vif
 LOG = logging.getLogger(__name__)
 
 
-@six.add_metaclass(abc.ABCMeta)
-class NestedPodVIFDriver(neutron_vif.NeutronPodVIFDriver):
+class NestedPodVIFDriver(neutron_vif.NeutronPodVIFDriver,
+                         metaclass=abc.ABCMeta):
     """Skeletal handler driver for VIFs for Nested Pods."""
 
     def _get_parent_port_by_host_ip(self, node_fixed_ip):

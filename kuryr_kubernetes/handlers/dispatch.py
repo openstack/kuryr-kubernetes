@@ -14,7 +14,6 @@
 #    under the License.
 
 import abc
-import six
 
 from oslo_log import log as logging
 
@@ -71,8 +70,7 @@ class Dispatcher(h_base.EventHandler):
             handler(event)
 
 
-@six.add_metaclass(abc.ABCMeta)
-class EventConsumer(h_base.EventHandler):
+class EventConsumer(h_base.EventHandler, metaclass=abc.ABCMeta):
     """Consumes events matching specified predicates.
 
     EventConsumer is an interface for all event handlers that are to be
@@ -92,8 +90,7 @@ class EventConsumer(h_base.EventHandler):
         raise NotImplementedError()
 
 
-@six.add_metaclass(abc.ABCMeta)
-class EventPipeline(h_base.EventHandler):
+class EventPipeline(h_base.EventHandler, metaclass=abc.ABCMeta):
     """Serves as an entry-point for event handling.
 
     Implementing subclasses should override `_wrap_dispatcher` and/or

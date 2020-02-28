@@ -14,7 +14,7 @@
 #    under the License.
 
 import mock
-from six.moves import queue as six_queue
+import queue
 
 from kuryr_kubernetes.handlers import asynchronous as h_async
 from kuryr_kubernetes.tests import base as test_base
@@ -37,7 +37,7 @@ class TestAsyncHandler(test_base.TestCase):
         self.assertEqual({group: m_queue}, async_handler._queues)
         m_queue.put.assert_called_once_with(event)
 
-    @mock.patch('six.moves.queue.Queue')
+    @mock.patch('queue.Queue')
     def test_call_new(self, m_queue_type):
         event = mock.sentinel.event
         group = mock.sentinel.group
@@ -85,7 +85,7 @@ class TestAsyncHandler(test_base.TestCase):
         group = mock.sentinel.group
         m_queue = mock.Mock()
         m_queue.empty.return_value = True
-        m_queue.get.side_effect = events + [six_queue.Empty()]
+        m_queue.get.side_effect = events + [queue.Empty()]
         m_handler = mock.Mock()
         m_count.return_value = list(range(5))
         async_handler = h_async.Async(m_handler, mock.Mock(), mock.Mock())
@@ -102,7 +102,7 @@ class TestAsyncHandler(test_base.TestCase):
         group = mock.sentinel.group
         m_queue = mock.Mock()
         m_queue.empty.side_effect = [False, True, True]
-        m_queue.get.side_effect = events + [six_queue.Empty()]
+        m_queue.get.side_effect = events + [queue.Empty()]
         m_handler = mock.Mock()
         m_count.return_value = list(range(5))
         async_handler = h_async.Async(m_handler, mock.Mock(), mock.Mock())

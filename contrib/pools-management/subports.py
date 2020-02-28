@@ -13,10 +13,10 @@
 # limitations under the License.
 
 import argparse
+from http import client as httplib
 import socket
 
 from oslo_serialization import jsonutils
-from six.moves import http_client as httplib
 
 from kuryr_kubernetes import constants
 

@@ -10,8 +10,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from http import client as httplib
 import os
-from six.moves import http_client as httplib
 
 from flask import Flask
 from pyroute2 import IPDB

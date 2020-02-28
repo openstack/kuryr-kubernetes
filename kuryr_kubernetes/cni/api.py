@@ -15,16 +15,14 @@
 
 
 import abc
-import six
-from six.moves import http_client as httplib
+from http import client as httplib
 import traceback
-
-import requests
 
 from kuryr.lib._i18n import _
 from os_vif.objects import base
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
+import requests
 
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as k_const
@@ -33,8 +31,7 @@ from kuryr_kubernetes import exceptions as k_exc
 LOG = logging.getLogger(__name__)
 
 
-@six.add_metaclass(abc.ABCMeta)
-class CNIRunner(object):
+class CNIRunner(object, metaclass=abc.ABCMeta):
     # TODO(ivc): extend SUPPORTED_VERSIONS and format output based on
     # requested params.CNI_VERSION and/or params.config.cniVersion
     VERSION = '0.3.1'

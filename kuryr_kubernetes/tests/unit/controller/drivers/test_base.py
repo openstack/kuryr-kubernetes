@@ -14,15 +14,14 @@
 #    under the License.
 
 import abc
+
 import mock
-import six
 
 from kuryr_kubernetes.controller.drivers import base as d_base
 from kuryr_kubernetes.tests import base as test_base
 
 
-@six.add_metaclass(abc.ABCMeta)
-class _TestDriver(d_base.DriverBase):
+class _TestDriver(d_base.DriverBase, metaclass=abc.ABCMeta):
     ALIAS = 'test_alias'
 
     @abc.abstractmethod

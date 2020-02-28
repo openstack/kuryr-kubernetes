@@ -14,7 +14,7 @@
 #    under the License.
 
 import itertools
-from six.moves import queue as six_queue
+import queue as py_queue
 import time
 
 from oslo_log import log as logging
@@ -54,7 +54,7 @@ class Async(base.EventHandler):
         try:
             queue = self._queues[group]
         except KeyError:
-            queue = six_queue.Queue(self._queue_depth)
+            queue = py_queue.Queue(self._queue_depth)
             self._queues[group] = queue
             thread = self._thread_group.add_thread(self._run, group, queue)
             thread.link(self._done, group)
@@ -68,7 +68,7 @@ class Async(base.EventHandler):
             # avoid tests getting stuck in infinite loops)
             try:
                 event = queue.get(timeout=self._grace_period)
-            except six_queue.Empty:
+            except py_queue.Empty:
                 break
             # FIXME(ivc): temporary workaround to skip stale events
             # If K8s updates resource while the handler is processing it,

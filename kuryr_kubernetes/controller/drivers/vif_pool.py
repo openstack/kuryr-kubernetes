@@ -17,7 +17,6 @@ import abc
 import collections
 import eventlet
 import os
-import six
 import time
 
 from kuryr.lib._i18n import _
@@ -130,8 +129,7 @@ class NoopVIFPool(base.VIFPoolDriver):
         pass
 
 
-@six.add_metaclass(abc.ABCMeta)
-class BaseVIFPool(base.VIFPoolDriver):
+class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
     """Skeletal pool driver.
 
     In order to handle the pools of ports, a few dicts are used:

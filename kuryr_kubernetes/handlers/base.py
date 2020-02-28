@@ -14,11 +14,9 @@
 #    under the License.
 
 import abc
-import six
 
 
-@six.add_metaclass(abc.ABCMeta)
-class EventHandler(object):
+class EventHandler(object, metaclass=abc.ABCMeta):
     """Base class for event handlers."""
 
     @abc.abstractmethod

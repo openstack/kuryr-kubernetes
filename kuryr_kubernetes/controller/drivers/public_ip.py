@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import abc
-import six
 
 from openstack import exceptions as os_exc
 from oslo_log import log as logging
@@ -24,8 +23,7 @@ from kuryr_kubernetes.controller.drivers import utils
 LOG = logging.getLogger(__name__)
 
 
-@six.add_metaclass(abc.ABCMeta)
-class BasePubIpDriver(object):
+class BasePubIpDriver(object, metaclass=abc.ABCMeta):
     """Base class for public IP functionality."""
 
     @abc.abstractmethod

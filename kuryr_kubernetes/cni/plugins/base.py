@@ -15,11 +15,9 @@
 
 
 import abc
-import six
 
 
-@six.add_metaclass(abc.ABCMeta)
-class CNIPlugin(object):
+class CNIPlugin(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def add(self, params):

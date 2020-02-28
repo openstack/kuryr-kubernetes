@@ -14,7 +14,6 @@
 #    under the License.
 
 import abc
-import six
 
 from kuryr.lib._i18n import _
 from stevedore import driver as stv_driver
@@ -38,8 +37,7 @@ class DriverBase(object):
 
     Usage example:
 
-        @six.add_metaclass(abc.ABCMeta)
-        class SomeDriverInterface(DriverBase):
+        class SomeDriverInterface(DriverBase, metaclass=abc.ABCMeta):
             ALIAS = 'driver_alias'
 
             @abc.abstractmethod
@@ -93,8 +91,7 @@ class DriverBase(object):
         return self.__class__.__name__
 
 
-@six.add_metaclass(abc.ABCMeta)
-class PodProjectDriver(DriverBase):
+class PodProjectDriver(DriverBase, metaclass=abc.ABCMeta):
     """Provides an OpenStack project ID for Kubernetes Pod ports."""
 
     ALIAS = 'pod_project'
@@ -110,8 +107,7 @@ class PodProjectDriver(DriverBase):
         raise NotImplementedError()
 
 
-@six.add_metaclass(abc.ABCMeta)
-class ServiceProjectDriver(DriverBase):
+class ServiceProjectDriver(DriverBase, metaclass=abc.ABCMeta):
     """Provides an OpenStack project ID for Kubernetes Services."""
 
     ALIAS = 'service_project'
@@ -127,8 +123,7 @@ class ServiceProjectDriver(DriverBase):
         raise NotImplementedError()
 
 
-@six.add_metaclass(abc.ABCMeta)
-class NamespaceProjectDriver(DriverBase):
+class NamespaceProjectDriver(DriverBase, metaclass=abc.ABCMeta):
     """Provides an OpenStack project ID for Kubernetes Namespace."""
 
     ALIAS = 'namespace_project'
@@ -144,8 +139,7 @@ class NamespaceProjectDriver(DriverBase):
         raise NotImplementedError()
 
 
-@six.add_metaclass(abc.ABCMeta)
-class PodSubnetsDriver(DriverBase):
+class PodSubnetsDriver(DriverBase, metaclass=abc.ABCMeta):
     """Provides subnets for Kubernetes Pods."""
 
     ALIAS = 'pod_subnets'
@@ -202,8 +196,7 @@ class PodSubnetsDriver(DriverBase):
         raise NotImplementedError()
 
 
-@six.add_metaclass(abc.ABCMeta)
-class ServiceSubnetsDriver(DriverBase):
+class ServiceSubnetsDriver(DriverBase, metaclass=abc.ABCMeta):
     """Provides subnets for Kubernetes Services."""
 
     ALIAS = 'service_subnets'
@@ -222,8 +215,7 @@ class ServiceSubnetsDriver(DriverBase):
         raise NotImplementedError()
 
 
-@six.add_metaclass(abc.ABCMeta)
-class PodSecurityGroupsDriver(DriverBase):
+class PodSecurityGroupsDriver(DriverBase, metaclass=abc.ABCMeta):
     """Provides security groups for Kubernetes Pods."""
 
     ALIAS = 'pod_security_groups'
@@ -287,8 +279,7 @@ class PodSecurityGroupsDriver(DriverBase):
         raise NotImplementedError()
 
 
-@six.add_metaclass(abc.ABCMeta)
-class ServiceSecurityGroupsDriver(DriverBase):
+class ServiceSecurityGroupsDriver(DriverBase, metaclass=abc.ABCMeta):
     """Provides security groups for Kubernetes Services."""
 
     ALIAS = 'service_security_groups'
@@ -304,8 +295,7 @@ class ServiceSecurityGroupsDriver(DriverBase):
         raise NotImplementedError()
 
 
-@six.add_metaclass(abc.ABCMeta)
-class PodVIFDriver(DriverBase):
+class PodVIFDriver(DriverBase, metaclass=abc.ABCMeta):
     """Manages Neutron ports to provide VIFs for Kubernetes Pods."""
 
     ALIAS = 'pod_vif'
@@ -433,8 +423,7 @@ class PodVIFDriver(DriverBase):
         raise NotImplementedError()
 
 
-@six.add_metaclass(abc.ABCMeta)
-class MultiVIFDriver(DriverBase):
+class MultiVIFDriver(DriverBase, metaclass=abc.ABCMeta):
     """Manages additional ports of Kubernetes Pods."""
 
     ALIAS = 'multi_vif'
@@ -626,8 +615,7 @@ class LBaaSDriver(DriverBase):
         raise NotImplementedError()
 
 
-@six.add_metaclass(abc.ABCMeta)
-class VIFPoolDriver(PodVIFDriver):
+class VIFPoolDriver(PodVIFDriver, metaclass=abc.ABCMeta):
     """Manages Pool of Neutron ports to provide VIFs for Kubernetes Pods."""
 
     ALIAS = 'vif_pool'
@@ -657,8 +645,7 @@ class VIFPoolDriver(PodVIFDriver):
         raise NotImplementedError()
 
 
-@six.add_metaclass(abc.ABCMeta)
-class ServicePubIpDriver(DriverBase):
+class ServicePubIpDriver(DriverBase, metaclass=abc.ABCMeta):
     """Manages loadbalancerIP/public ip for neutron lbaas."""
 
     ALIAS = 'service_public_ip'
@@ -705,8 +692,7 @@ class ServicePubIpDriver(DriverBase):
         """
 
 
-@six.add_metaclass(abc.ABCMeta)
-class NetworkPolicyDriver(DriverBase):
+class NetworkPolicyDriver(DriverBase, metaclass=abc.ABCMeta):
     """Provide network-policy for pods"""
 
     ALIAS = 'network_policy'
@@ -777,8 +763,7 @@ class NetworkPolicyDriver(DriverBase):
         raise NotImplementedError()
 
 
-@six.add_metaclass(abc.ABCMeta)
-class NetworkPolicyProjectDriver(DriverBase):
+class NetworkPolicyProjectDriver(DriverBase, metaclass=abc.ABCMeta):
     """Get an OpenStack project id for K8s network policies"""
 
     ALIAS = 'network_policy_project'

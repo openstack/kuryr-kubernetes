@@ -13,9 +13,9 @@
 # limitations under the License.
 
 from ctypes import c_bool
+from http import client as httplib
 import multiprocessing
 import os
-from six.moves import http_client as httplib
 import socket
 import sys
 import threading

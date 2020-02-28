@@ -14,7 +14,6 @@
 #    under the License.
 
 import abc
-import six
 
 from os_vif import objects as obj_vif
 from oslo_log import log as logging
@@ -28,8 +27,7 @@ from kuryr_kubernetes import utils
 LOG = logging.getLogger(__name__)
 
 
-@six.add_metaclass(abc.ABCMeta)
-class CNIHandlerBase(k8s_base.ResourceEventHandler):
+class CNIHandlerBase(k8s_base.ResourceEventHandler, metaclass=abc.ABCMeta):
     OBJECT_KIND = k_const.K8S_OBJ_POD
 
     def __init__(self, cni, on_done):

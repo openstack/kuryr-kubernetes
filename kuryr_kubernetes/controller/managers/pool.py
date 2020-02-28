@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from http import server
 import os
+import socketserver
 import threading
 
-from six.moves.BaseHTTPServer import BaseHTTPRequestHandler
-from six.moves.socketserver import ThreadingUnixStreamServer
 
 from openstack import exceptions as os_exc
 from oslo_config import cfg as oslo_cfg
@@ -41,11 +41,11 @@ pool_manager_opts = [
 oslo_cfg.CONF.register_opts(pool_manager_opts, "pool_manager")
 
 
-class UnixDomainHttpServer(ThreadingUnixStreamServer):
+class UnixDomainHttpServer(socketserver.ThreadingUnixStreamServer):
     pass
 
 
-class RequestHandler(BaseHTTPRequestHandler):
+class RequestHandler(server.BaseHTTPRequestHandler):
     protocol = "HTTP/1.0"
 
     def do_POST(self):

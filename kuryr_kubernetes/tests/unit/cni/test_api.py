@@ -13,13 +13,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from io import StringIO
+
 import mock
-from six import StringIO
-
-import requests
-
 from oslo_config import cfg
 from oslo_serialization import jsonutils
+import requests
 
 from kuryr_kubernetes.cni import api
 from kuryr_kubernetes.tests import base as test_base

@@ -14,7 +14,6 @@
 
 import abc
 import errno
-import six
 
 from oslo_log import log as logging
 import pyroute2
@@ -32,8 +31,8 @@ MACVLAN_MODE_BRIDGE = 'bridge'
 LOG = logging.getLogger(__name__)
 
 
-@six.add_metaclass(abc.ABCMeta)
-class NestedDriver(health.HealthHandler, b_base.BaseBindingDriver):
+class NestedDriver(health.HealthHandler, b_base.BaseBindingDriver,
+                   metaclass=abc.ABCMeta):
 
     def __init__(self):
         super(NestedDriver, self).__init__()

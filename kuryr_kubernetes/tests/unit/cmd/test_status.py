@@ -12,10 +12,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import mock
+import io
 
+import mock
 from oslo_serialization import jsonutils
-import six
 
 from kuryr_kubernetes.cmd import status
 from kuryr_kubernetes import constants
@@ -62,7 +62,7 @@ class TestStatusCmd(test_base.TestCase):
         obj = self.cmd._get_annotation(pod)
         self.assertEqual(mock_obj, obj)
 
-    @mock.patch('sys.stdout', new_callable=six.StringIO)
+    @mock.patch('sys.stdout', new_callable=io.StringIO)
     def _test_upgrade_check(self, code, code_name, m_stdout):
         method_success_m = mock.Mock()
         method_success_m.return_value = status.UpgradeCheckResult(0, 'foo')

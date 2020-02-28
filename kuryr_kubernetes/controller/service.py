@@ -14,7 +14,6 @@
 #    under the License.
 
 import functools
-import six
 import sys
 
 import os_vif
@@ -72,9 +71,8 @@ class KuryrK8sServiceMeta(type(service.Service),
     pass
 
 
-class KuryrK8sService(six.with_metaclass(KuryrK8sServiceMeta,
-                                         service.Service,
-                                         periodic_task.PeriodicTasks)):
+class KuryrK8sService(service.Service, periodic_task.PeriodicTasks,
+                      metaclass=KuryrK8sServiceMeta):
     """Kuryr-Kubernetes controller Service."""
 
     def __init__(self):

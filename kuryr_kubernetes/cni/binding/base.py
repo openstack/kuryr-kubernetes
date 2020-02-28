@@ -15,7 +15,6 @@
 
 import abc
 import errno
-import six
 
 import os_vif
 from oslo_log import log as logging
@@ -30,8 +29,7 @@ _BINDING_NAMESPACE = 'kuryr_kubernetes.cni.binding'
 LOG = logging.getLogger(__name__)
 
 
-@six.add_metaclass(abc.ABCMeta)
-class BaseBindingDriver(object):
+class BaseBindingDriver(object, metaclass=abc.ABCMeta):
     """Interface to attach ports to pods."""
 
     def _remove_ifaces(self, ipdb, ifnames, netns='host'):

@@ -14,14 +14,13 @@
 #    under the License.
 
 import abc
-import six
 
 from oslo_versionedobjects import base as obj_base
 
 
-@six.add_metaclass(abc.ABCMeta)
 class KuryrK8sObjectBase(obj_base.VersionedObject,
-                         obj_base.ComparableVersionedObject):
+                         obj_base.ComparableVersionedObject,
+                         metaclass=abc.ABCMeta):
 
     OBJ_PROJECT_NAMESPACE = 'kuryr_kubernetes'
 
