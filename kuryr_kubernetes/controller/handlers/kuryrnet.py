@@ -64,10 +64,6 @@ class KuryrNetHandler(k8s_base.ResourceEventHandler):
         # required
         project_id = self._drv_project.get_project(namespace)
         subnets = self._drv_subnets.get_namespace_subnet(namespace, subnet_id)
-        sgs = []
-        sg_id = kuryrnet_crd['spec'].get('sgId')
-        if sg_id:
-            sgs.append(sg_id)
 
         nodes = utils.get_nodes_ips()
         # NOTE(ltomasbo): Patching the kuryrnet_crd here instead of after
@@ -86,7 +82,7 @@ class KuryrNetHandler(k8s_base.ResourceEventHandler):
                       node_ip)
             try:
                 self._drv_vif_pool.populate_pool(node_ip, project_id, subnets,
-                                                 sgs)
+                                                 [])
             except exceptions.ResourceNotReady:
                 # Ensure the repopulation is retriggered if the system was not
                 # yet ready to perform the repopulation actions
