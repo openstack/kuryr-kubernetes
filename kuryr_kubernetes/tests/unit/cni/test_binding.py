@@ -97,8 +97,13 @@ class TestDriverMixin(test_base.TestCase):
         if report:
             report.assert_called_once()
 
+    @mock.patch('kuryr_kubernetes.cni.binding.base.get_ipdb')
     @mock.patch('os_vif.unplug')
-    def _test_disconnect(self, m_vif_unplug, report=None):
+    def _test_disconnect(self, m_vif_unplug, m_get_ipdb, report=None):
+        def get_ipdb(netns=None):
+            return self.ipdbs[netns]
+        m_get_ipdb.side_effect = get_ipdb
+
         base.disconnect(self.vif, self.instance_info, self.ifname, self.netns,
                         report)
         m_vif_unplug.assert_called_once_with(self.vif, self.instance_info)

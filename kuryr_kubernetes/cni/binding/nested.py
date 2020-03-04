@@ -110,9 +110,13 @@ class NestedDriver(health.HealthHandler, b_base.BaseBindingDriver,
                 iface.up()
 
     def disconnect(self, vif, ifname, netns, container_id):
-        # NOTE(vikasc): device will get deleted with container namespace, so
-        # nothing to be done here.
-        pass
+        # NOTE(dulek): Interfaces should get deleted with the netns, but it may
+        #              happen that kubelet or crio will call new CNI ADD before
+        #              the old netns is deleted. This might result in VLAN ID
+        #              conflict. In oder to protect from that let's remove the
+        #              netns ifaces here anyway.
+        with b_base.get_ipdb(netns) as c_ipdb:
+            self._remove_ifaces(c_ipdb, (vif.vif_name, ifname), netns)
 
 
 class VlanDriver(NestedDriver):
