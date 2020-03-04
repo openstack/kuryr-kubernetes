@@ -434,3 +434,23 @@ class TestK8sClient(test_base.TestCase):
 
         self.assertRaises(exc.K8sClientException,
                           self.client.delete, path)
+
+    def test__raise_from_response(self):
+        m_resp = mock.MagicMock()
+        m_resp.ok = True
+        m_resp.status_code = 202
+        self.client._raise_from_response(m_resp)
+
+    def test__raise_from_response_404(self):
+        m_resp = mock.MagicMock()
+        m_resp.ok = False
+        m_resp.status_code = 404
+        self.assertRaises(exc.K8sResourceNotFound,
+                          self.client._raise_from_response, m_resp)
+
+    def test__raise_from_response_500(self):
+        m_resp = mock.MagicMock()
+        m_resp.ok = False
+        m_resp.status_code = 500
+        self.assertRaises(exc.K8sClientException,
+                          self.client._raise_from_response, m_resp)

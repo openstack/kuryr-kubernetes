@@ -76,6 +76,12 @@ class K8sClient(object):
             else:
                 self.verify_server = ca_crt_file
 
+    def _raise_from_response(self, response):
+        if response.status_code == requests.codes.not_found:
+            raise exc.K8sResourceNotFound(response.text)
+        if not response.ok:
+            raise exc.K8sClientException(response.text)
+
     def get(self, path, json=True, headers=None):
         LOG.debug("Get %(path)s", {'path': path})
         url = self._base_url + path
@@ -87,10 +93,7 @@ class K8sClient(object):
         response = self.session.get(url, cert=self.cert,
                                     verify=self.verify_server,
                                     headers=header)
-        if response.status_code == requests.codes.not_found:
-            raise exc.K8sResourceNotFound(response.text)
-        if not response.ok:
-            raise exc.K8sClientException(response.text)
+        self._raise_from_response(response)
         result = response.json() if json else response.text
         return result
 
@@ -113,9 +116,8 @@ class K8sClient(object):
         response = self.session.patch(url, json={field: data},
                                       headers=header, cert=self.cert,
                                       verify=self.verify_server)
-        if response.ok:
-            return response.json().get('status')
-        raise exc.K8sClientException(response.text)
+        self._raise_from_response(response)
+        return response.json().get('status')
 
     def patch_crd(self, field, path, data):
         content_type = 'application/json-patch+json'
@@ -132,9 +134,8 @@ class K8sClient(object):
         response = self.session.patch(url, data=jsonutils.dumps(data),
                                       headers=header, cert=self.cert,
                                       verify=self.verify_server)
-        if response.ok:
-            return response.json().get('status')
-        raise exc.K8sClientException(response.text)
+        self._raise_from_response(response)
+        return response.json().get('status')
 
     def patch_node_annotations(self, node, annotation_name, value):
         content_type = 'application/json-patch+json'
@@ -149,9 +150,8 @@ class K8sClient(object):
         response = self.session.patch(url, data=jsonutils.dumps(data),
                                       headers=header, cert=self.cert,
                                       verify=self.verify_server)
-        if response.ok:
-            return response.json().get('status')
-        raise exc.K8sClientException(response.text)
+        self._raise_from_response(response)
+        return response.json().get('status')
 
     def remove_node_annotations(self, node, annotation_name):
         content_type = 'application/json-patch+json'
@@ -164,9 +164,8 @@ class K8sClient(object):
         response = self.session.patch(url, data=jsonutils.dumps(data),
                                       headers=header, cert=self.cert,
                                       verify=self.verify_server)
-        if response.ok:
-            return response.json().get('status')
-        raise exc.K8sClientException(response.text)
+        self._raise_from_response(response)
+        return response.json().get('status')
 
     def post(self, path, body):
         LOG.debug("Post %(path)s: %(body)s", {'path': path, 'body': body})
@@ -177,9 +176,8 @@ class K8sClient(object):
 
         response = self.session.post(url, json=body, cert=self.cert,
                                      verify=self.verify_server, headers=header)
-        if response.ok:
-            return response.json()
-        raise exc.K8sClientException(response)
+        self._raise_from_response(response)
+        return response.json()
 
     def delete(self, path):
         LOG.debug("Delete %(path)s", {'path': path})
@@ -191,12 +189,8 @@ class K8sClient(object):
         response = self.session.delete(url, cert=self.cert,
                                        verify=self.verify_server,
                                        headers=header)
-        if response.ok:
-            return response.json()
-        else:
-            if response.status_code == requests.codes.not_found:
-                raise exc.K8sResourceNotFound(response.text)
-            raise exc.K8sClientException(response)
+        self._raise_from_response(response)
+        return response.json()
 
     def annotate(self, path, annotations, resource_version=None):
         """Pushes a resource annotation to the K8s API resource
@@ -245,10 +239,7 @@ class K8sClient(object):
                       % {'headers': response.headers,
                          'content': response.content, 'text': response.text})
 
-            if response.status_code == requests.codes.not_found:
-                raise exc.K8sResourceNotFound(response.text)
-            else:
-                raise exc.K8sClientException(response.text)
+            self._raise_from_response(response)
 
     def watch(self, path):
         url = self._base_url + path
