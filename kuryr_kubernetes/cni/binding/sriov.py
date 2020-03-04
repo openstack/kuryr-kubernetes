@@ -33,8 +33,9 @@ LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
 
 
-class VIFSriovDriver(object):
+class VIFSriovDriver(b_base.BaseBindingDriver):
     def __init__(self):
+        super().__init__()
         self._lock = None
         self._device_pf_mapping = self._get_device_pf_mapping()
 
