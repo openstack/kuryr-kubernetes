@@ -39,8 +39,6 @@ spec:
                 type: boolean
               routerId:
                 type: string
-              sgId:
-                type: string
               subnetCIDR:
                 type: string
               subnetId:

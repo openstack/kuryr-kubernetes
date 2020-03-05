@@ -301,12 +301,10 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         router_id = mock.sentinel.router_id
         net_id = mock.sentinel.net_id
         subnet_id = mock.sentinel.subnet_id
-        sg_id = mock.sentinel.sg_id
         crd_spec = {
             'subnetId': subnet_id,
             'routerId': router_id,
             'netId': net_id,
-            'sgId': sg_id
         }
         namespace = mock.sentinel.namespace
 
@@ -324,12 +322,10 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         router_id = mock.sentinel.router_id
         net_id = mock.sentinel.net_id
         subnet_id = mock.sentinel.subnet_id
-        sg_id = mock.sentinel.sg_id
         crd_spec = {
             'subnetId': subnet_id,
             'routerId': router_id,
             'netId': net_id,
-            'sgId': sg_id
         }
         namespace = mock.sentinel.namespace
 
