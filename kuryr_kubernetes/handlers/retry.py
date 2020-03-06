@@ -16,7 +16,6 @@
 import itertools
 import time
 
-from neutronclient.common import exceptions as n_exc
 from openstack import exceptions as os_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -78,12 +77,6 @@ class Retry(base.EventHandler):
             try:
                 self._handler(event)
                 break
-            except n_exc.OverQuotaClient:
-                # NOTE(gryf): this exception handling should be removed after
-                # nested_macvlan_driver convertion to OpenStackSDK.
-                with excutils.save_and_reraise_exception() as ex:
-                    if self._sleep(deadline, attempt, ex.value):
-                        ex.reraise = False
             except os_exc.ConflictException as ex:
                 if ex.details.startswith('Quota exceeded for resources'):
                     with excutils.save_and_reraise_exception() as ex:
