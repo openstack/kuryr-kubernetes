@@ -53,7 +53,7 @@ nested_dpdk_opts = [
 CONF.register_opts(nested_dpdk_opts, "nested_dpdk")
 
 
-class DpdkDriver(health.HealthHandler):
+class DpdkDriver(health.HealthHandler, b_base.BaseBindingDriver):
 
     def __init__(self):
         super(DpdkDriver, self).__init__()
