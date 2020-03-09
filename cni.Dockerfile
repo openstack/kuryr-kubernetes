@@ -9,8 +9,9 @@ LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redh
 
 ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/master"
 ARG OSLO_LOCK_PATH=/var/kuryr-lock
+ARG PKG_YUM_REPO=https://rdoproject.org/repos/rdo-release.rpm
 
-RUN yum install -y epel-release https://rdoproject.org/repos/rdo-release.rpm \
+RUN yum install -y epel-release $PKG_YUM_REPO \
     && yum install -y --setopt=tsflags=nodocs python3-pip openvswitch sudo iproute libstdc++ pciutils kmod-libs \
     && yum install -y --setopt=tsflags=nodocs gcc python3-devel git
 
