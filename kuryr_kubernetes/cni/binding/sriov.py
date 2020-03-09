@@ -27,13 +27,15 @@ from kuryr_kubernetes.cni.binding import base as b_base
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
 from kuryr_kubernetes import exceptions
+from kuryr_kubernetes.handlers import health
 from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
 
 
-class VIFSriovDriver(b_base.BaseBindingDriver):
+class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
+
     def __init__(self):
         super().__init__()
         self._lock = None
@@ -382,17 +384,6 @@ class VIFSriovDriver(b_base.BaseBindingDriver):
             LOG.exception("Unable to set vlan for VF %s on pf %s",
                           vf_index, pf)
             raise
-
-    def is_alive(self):
-        bridge_name = CONF.neutron_defaults.ovs_bridge
-        try:
-            with b_base.get_ipdb() as h_ipdb:
-                h_ipdb.interfaces[bridge_name]
-            return True
-        except Exception:
-            LOG.warning("Default OVS bridge %s does not exist on "
-                        "the host.", bridge_name)
-            return False
 
     def _get_device_pf_mapping(self):
         """Return a mapping in format {<physnet_name>:[<pf_name>, ...]}"""
