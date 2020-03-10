@@ -55,7 +55,7 @@ func transformData(args *skel.CmdArgs, command string) (KuryrDaemonData, error) 
 }
 
 func makeDaemonRequest(data KuryrDaemonData, expectedCode int) ([]byte, error) {
-	log.Print("Calling Kuryr Daemon.")
+	log.Printf("Calling kuryr-daemon with %s request (CNI_ARGS=%s, CNI_NETNS=%s).", data.Command, data.Args, data.Netns)
 
 	b, err := json.Marshal(data)
 	if err != nil {
