@@ -25,6 +25,7 @@ from oslo_serialization import jsonutils
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
 from kuryr_kubernetes import exceptions as k_exc
+from kuryr_kubernetes import utils
 
 
 OPERATORS_WITH_VALUES = [constants.K8S_OPERATOR_IN,
@@ -182,10 +183,8 @@ def replace_encoded_characters(labels):
 def create_security_group_rule(body):
     os_net = clients.get_network_client()
 
-    sgr = ''
-
     try:
-        params = dict(body['security_group_rule'])
+        params = dict(body)
         if 'ethertype' in params:
             # NOTE(gryf): in openstacksdk, there is ether_type attribute in
             # the security_group_rule object, in CRD we have 'ethertype'
@@ -220,29 +219,27 @@ def delete_security_group_rule(security_group_rule_id):
         raise
 
 
-def patch_kuryrnetworkpolicy_crd(crd, i_rules, e_rules, pod_selector,
-                                 np_spec=None):
+def patch_kuryrnetworkpolicy_crd(crd, i_rules, e_rules):
     kubernetes = clients.get_kubernetes_client()
     crd_name = crd['metadata']['name']
-    if not np_spec:
-        np_spec = crd['spec']['networkpolicy_spec']
-    LOG.debug('Patching KuryrNetPolicy CRD %s' % crd_name)
+    LOG.debug('Patching KuryrNetworkPolicy CRD %s' % crd_name)
     try:
-        kubernetes.patch_crd('spec', crd['metadata']['selfLink'],
-                             {'ingressSgRules': i_rules,
-                              'egressSgRules': e_rules,
-                              'podSelector': pod_selector,
-                              'networkpolicy_spec': np_spec})
+        spec = {
+            'ingressSgRules': i_rules,
+            'egressSgRules': e_rules,
+        }
+
+        kubernetes.patch_crd('spec', crd['metadata']['selfLink'], spec)
     except k_exc.K8sResourceNotFound:
-        LOG.debug('KuryrNetPolicy CRD not found %s', crd_name)
+        LOG.debug('KuryrNetworkPolicy CRD not found %s', crd_name)
     except k_exc.K8sClientException:
-        LOG.exception('Error updating kuryrnetpolicy CRD %s', crd_name)
+        LOG.exception('Error updating KuryrNetworkPolicy CRD %s', crd_name)
         raise
 
 
 def create_security_group_rule_body(
-        security_group_id, direction, port_range_min=None,
-        port_range_max=None, protocol=None, ethertype=None, cidr=None,
+        direction, port_range_min=None, port_range_max=None, protocol=None,
+        ethertype='IPv4', cidr=None,
         description="Kuryr-Kubernetes NetPolicy SG rule", namespace=None,
         pods=None):
     if not port_range_min:
@@ -253,15 +250,12 @@ def create_security_group_rule_body(
     if not protocol:
         protocol = 'TCP'
 
-    if not ethertype:
-        ethertype = 'IPv4'
-        if cidr and netaddr.IPNetwork(cidr).version == 6:
-            ethertype = 'IPv6'
+    if cidr and netaddr.IPNetwork(cidr).version == 6:
+        ethertype = 'IPv6'
 
     security_group_rule_body = {
-        'security_group_rule': {
+        'sgRule': {
             'ethertype': ethertype,
-            'security_group_id': security_group_id,
             'description': description,
             'direction': direction,
             'protocol': protocol.lower(),
@@ -270,12 +264,12 @@ def create_security_group_rule_body(
         }
     }
     if cidr:
-        security_group_rule_body['security_group_rule'][
-            'remote_ip_prefix'] = cidr
+        security_group_rule_body['sgRule']['remote_ip_prefix'] = cidr
     if namespace:
         security_group_rule_body['namespace'] = namespace
     if pods:
-        security_group_rule_body['remote_ip_prefixes'] = pods
+        security_group_rule_body['affectedPods'] = [
+            {'podIP': ip, 'podNamespace': ns} for ip, ns in pods.items()]
     LOG.debug("Creating sg rule body %s", security_group_rule_body)
     return security_group_rule_body
 
@@ -310,25 +304,60 @@ def get_annotated_labels(resource, annotation_labels):
     return None
 
 
-def get_kuryrnetpolicy_crds(namespace=None):
+def get_kuryrnetworkpolicy_crds(namespace=None):
     kubernetes = clients.get_kubernetes_client()
 
     try:
         if namespace:
-            knp_path = '{}/{}/kuryrnetpolicies'.format(
+            knp_path = '{}/{}/kuryrnetworkpolicies'.format(
                 constants.K8S_API_CRD_NAMESPACES, namespace)
         else:
-            knp_path = constants.K8S_API_CRD_KURYRNETPOLICIES
-        LOG.debug("K8s API Query %s", knp_path)
+            knp_path = constants.K8S_API_CRD_KURYRNETWORKPOLICIES
         knps = kubernetes.get(knp_path)
-        LOG.debug("Return Kuryr Network Policies with label %s", knps)
+        LOG.debug("Returning KuryrNetworkPolicies %s", knps)
     except k_exc.K8sResourceNotFound:
-        LOG.exception("KuryrNetPolicy CRD not found")
+        LOG.exception("KuryrNetworkPolicy CRD not found")
         raise
     except k_exc.K8sClientException:
         LOG.exception("Kubernetes Client Exception")
         raise
-    return knps
+    return knps.get('items', [])
+
+
+def get_networkpolicies(namespace=None):
+    # FIXME(dulek): This is awful, shouldn't we have list method on k8s_client?
+    kubernetes = clients.get_kubernetes_client()
+
+    try:
+        if namespace:
+            np_path = '{}/{}/networkpolicies'.format(
+                constants.K8S_API_CRD_NAMESPACES, namespace)
+        else:
+            np_path = constants.K8S_API_POLICIES
+        nps = kubernetes.get(np_path)
+    except k_exc.K8sResourceNotFound:
+        LOG.exception("NetworkPolicy or namespace %s not found", namespace)
+        raise
+    except k_exc.K8sClientException:
+        LOG.exception("Exception when listing NetworkPolicies.")
+        raise
+    return nps.get('items', [])
+
+
+def zip_knp_np(knps, nps):
+    """Returns tuples of matching KuryrNetworkPolicy and NetworkPolicy objs.
+
+    :param knps: List of KuryrNetworkPolicy objects
+    :param nps: List of NetworkPolicy objects
+    :return: List of tuples of matching (knp, np)
+    """
+    pairs = []
+    for knp in knps:
+        for np in nps:
+            if utils.get_res_unique_name(knp) == utils.get_res_unique_name(np):
+                pairs.append((knp, np))
+                break
+    return pairs
 
 
 def match_expressions(expressions, labels):
@@ -369,6 +398,8 @@ def match_labels(crd_labels, labels):
 
 
 def match_selector(selector, labels):
+    if selector is None:
+        return True
     crd_labels = selector.get('matchLabels', None)
     crd_expressions = selector.get('matchExpressions', None)
 

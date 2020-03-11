@@ -1,14 +1,16 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: kuryrnetpolicies.openstack.org
+  name: kuryrnetworkpolicies.openstack.org
 spec:
   group: openstack.org
   scope: Namespaced
   names:
-    plural: kuryrnetpolicies
-    singular: kuryrnetpolicy
-    kind: KuryrNetPolicy
+    plural: kuryrnetworkpolicies
+    singular: kuryrnetworkpolicy
+    kind: KuryrNetworkPolicy
+    shortNames:
+    - knp
   versions:
   - name: v1
     served: true
@@ -17,47 +19,54 @@ spec:
       - name: SG-ID
         type: string
         description: The ID of the SG associated to the policy
-        jsonPath: .spec.securityGroupId
+        jsonPath: .status.securityGroupId
       - name: Age
         type: date
         jsonPath: .metadata.creationTimestamp
     schema:
       openAPIV3Schema:
         type: object
+        required:
+        - status
+        - spec
         properties:
           spec:
             type: object
             required:
             - egressSgRules
             - ingressSgRules
-            - networkpolicy_spec
             - podSelector
-            - securityGroupId
+            - policyTypes
             properties:
               egressSgRules:
                 type: array
                 items:
                   type: object
                   required:
-                  - security_group_rule
+                  - sgRule
                   properties:
-                    remote_ip_prefixes:
-                      type: object
-                      x-kubernetes-preserve-unknown-fields: true
+                    affectedPods:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          podIP:
+                            type: string
+                          podNamespace:
+                            type: string
+                        required:
+                        - podIP
+                        - podNamespace
                     namespace:
                       type: string
-                    security_group_rule:
+                    sgRule:
                       type: object
-                      required:
-                      - id
                       properties:
                         description:
                           type: string
                         direction:
                           type: string
                         ethertype:
-                          type: string
-                        id:
                           type: string
                         port_range_max:
                           type: integer
@@ -66,33 +75,36 @@ spec:
                         protocol:
                           type: string
                         remote_ip_prefix:
-                          type: string
-                        security_group_id:
                           type: string
               ingressSgRules:
                 type: array
                 items:
                   type: object
                   required:
-                  - security_group_rule
+                  - sgRule
                   properties:
-                    remote_ip_prefixes:
-                      x-kubernetes-preserve-unknown-fields: true
-                      type: object
+                    affectedPods:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          podIP:
+                            type: string
+                          podNamespace:
+                            type: string
+                        required:
+                        - podIP
+                        - podNamespace
                     namespace:
                       type: string
-                    security_group_rule:
+                    sgRule:
                       type: object
-                      required:
-                      - id
                       properties:
                         description:
                           type: string
                         direction:
                           type: string
                         ethertype:
-                          type: string
-                        id:
                           type: string
                         port_range_max:
                           type: integer
@@ -102,32 +114,45 @@ spec:
                           type: string
                         remote_ip_prefix:
                           type: string
-                        security_group_id:
-                          type: string
-              networkpolicy_spec:
-                type: object
-                properties:
-                  podSelector:
-                    x-kubernetes-preserve-unknown-fields: true
-                    type: object
-                  policyTypes:
-                    type: array
-                    items:
-                      type: string
-                  ingress:
-                    type: array
-                    items:
-                      x-kubernetes-preserve-unknown-fields: true
-                      type: object
-                  egress:
-                    type: array
-                    items:
-                      x-kubernetes-preserve-unknown-fields: true
-                      type: object
               podSelector:
                 x-kubernetes-preserve-unknown-fields: true
                 type: object
+              policyTypes:
+                type: array
+                items:
+                  type: string
+          status:
+            type: object
+            required:
+            - securityGroupRules
+            properties:
               securityGroupId:
                 type: string
-              securityGroupName:
-                type: string
+              securityGroupRules:
+                type: array
+                items:
+                  type: object
+                  required:
+                  - id
+                  properties:
+                    id:
+                      type: string
+                    description:
+                      type: string
+                    direction:
+                      type: string
+                    ethertype:
+                      type: string
+                    port_range_max:
+                      type: integer
+                    port_range_min:
+                      type: integer
+                    protocol:
+                      type: string
+                    remote_ip_prefix:
+                      type: string
+                    security_group_id:
+                      type: string
+              podSelector:
+                x-kubernetes-preserve-unknown-fields: true
+                type: object

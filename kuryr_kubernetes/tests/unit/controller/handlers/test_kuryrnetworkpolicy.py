@@ -1,4 +1,4 @@
-# Copyright 2018 Red Hat, Inc.
+# Copyright 2020 Red Hat, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,15 +15,19 @@
 from unittest import mock
 
 from kuryr_kubernetes.controller.drivers import base as drivers
-from kuryr_kubernetes.controller.handlers import policy
+from kuryr_kubernetes.controller.handlers import kuryrnetworkpolicy
 from kuryr_kubernetes.tests import base as test_base
 
 
 class TestPolicyHandler(test_base.TestCase):
 
+    @mock.patch.object(drivers.LBaaSDriver, 'get_instance')
     @mock.patch.object(drivers.NetworkPolicyDriver, 'get_instance')
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
-    def setUp(self, m_get_k8s, m_get_np):
+    @mock.patch('kuryr_kubernetes.clients.get_network_client')
+    @mock.patch('kuryr_kubernetes.clients.get_loadbalancer_client')
+    def setUp(self, m_get_os_lb, m_get_os_net, m_get_k8s, m_get_np,
+              m_get_lbaas):
         super(TestPolicyHandler, self).setUp()
 
         self._project_id = mock.sentinel.project_id
@@ -55,27 +59,54 @@ class TestPolicyHandler(test_base.TestCase):
         m_get_k8s.return_value = self.k8s
         self.m_get_k8s = m_get_k8s
 
+        self.os_net = mock.Mock()
+        m_get_os_net.return_value = self.os_net
+        self.m_get_os_net = m_get_os_net
+
         self.np_driver = mock.Mock()
         m_get_np.return_value = self.np_driver
-        self._m_get_np = m_get_np
+        self.m_get_np = m_get_np
 
-        self.handler = policy.NetworkPolicyHandler()
+        self.lbaas_driver = mock.Mock()
+        m_get_lbaas.return_value = self.lbaas_driver
+        self.m_get_lbaas = m_get_lbaas
+
+        self.k8s.get.return_value = {}
+        self.handler = kuryrnetworkpolicy.KuryrNetworkPolicyHandler()
+
+    def _get_knp_obj(self):
+        knp_obj = {
+            'apiVersion': 'openstack.org/v1',
+            'kind': 'KuryrNetworkPolicy',
+            'metadata': {
+                'name': 'np-test-network-policy',
+                'namespace': 'test-1',
+            },
+            'spec': {
+                'securityGroupId': 'c1ac16f5-e198-4628-9d84-253c6001be8e',
+                'securityGroupName': 'sg-test-network-policy'
+            }}
+        return knp_obj
 
     def test_init(self):
         self.m_get_k8s.assert_called_once()
-        self._m_get_np.assert_called_once()
+        self.m_get_np.assert_called_once()
 
         self.assertEqual(self.np_driver, self.handler._drv_policy)
         self.assertEqual(self.k8s, self.handler.k8s)
+        self.assertEqual(self.os_net, self.handler.os_net)
+        self.assertEqual(self.lbaas_driver, self.handler._drv_lbaas)
 
-    def test_on_finalize(self):
-        self.handler.on_finalize(self._policy)
-        self.np_driver.release_network_policy.assert_called_once_with(
-            self._policy)
+    def test_convert(self):
+        self.k8s.get.return_value = {'items': [{
+                'metadata': {
+                    'selfLink': mock.sentinel.old_self_link,
+                    'namespace': 'ns',
+                }
+            }]}
+        self.np_driver.get_from_old_crd.return_value = mock.sentinel.new_crd
 
-    def test_on_present(self):
-        self.handler.on_present(self._policy)
-        self.k8s.add_finalizer.assert_called_once_with(
-            self._policy, 'kuryr.openstack.org/networkpolicy-finalizer')
-        self.np_driver.ensure_network_policy.assert_called_once_with(
-            self._policy)
+        self.handler._convert_old_crds()
+
+        self.k8s.post.assert_called_once_with(mock.ANY, mock.sentinel.new_crd)
+        self.k8s.delete.assert_called_once_with(mock.sentinel.old_self_link)

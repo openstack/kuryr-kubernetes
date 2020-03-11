@@ -38,6 +38,7 @@ sudo chown ${USER}:${USER} ${HOME}/.kube/config
 /usr/local/bin/kubectl --kubeconfig=${HOME}/.kube/config get endpoints -o yaml --all-namespaces >> ${K8S_LOG_DIR}/endpoints.txt
 /usr/local/bin/kubectl --kubeconfig=${HOME}/.kube/config get kuryrnetpolicy -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrnetpolicy_crds.txt
 /usr/local/bin/kubectl --kubeconfig=${HOME}/.kube/config get kuryrport -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrport_crds.txt
+/usr/local/bin/kubectl --kubeconfig=${HOME}/.kube/config get kuryrnetworkpolicy -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrnetworkpolicy_crds.txt
 # Kubernetes pods logs
 mkdir -p ${K8S_LOG_DIR}/pod_logs
 while read -r line

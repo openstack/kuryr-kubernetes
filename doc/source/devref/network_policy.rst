@@ -47,22 +47,22 @@ The network policy CRD has the following format:
 .. code-block:: yaml
 
    apiVersion: openstack.org/v1
-   kind: KuryrNetPolicy
+   kind: KuryrNetworkPolicy
    metadata:
      ...
    spec:
      egressSgRules:
-     - security_group_rule:
+     - sgRule:
        ...
      ingressSgRules:
-     - security_group_rule:
-       ...
-     networkpolicy_spec:
+     - sgRule:
        ...
      podSelector:
        ...
+   status:
      securityGroupId: ...
-     securityGroupName: ...
+     podSelector: ...
+     securityGroupRules: ...
 
 A new handler has been added to react to Network Policy events, and the existing
 ones, for instance service/pod handlers, have been modified to account for the
@@ -201,26 +201,25 @@ are assumed to assumed to affect Ingress.
 .. code-block:: yaml
 
    apiVersion: openstack.org/v1
-   kind: KuryrNetPolicy
+   kind: KuryrNetworkPolicy
    metadata:
-     name: np-default-deny
+     name: default-deny
      namespace: default
      ...
    spec:
      egressSgRules:
-     - security_group_rule:
+     - sgRule:
          description: Kuryr-Kubernetes NetPolicy SG rule
          direction: egress
          ethertype: IPv4
-         id: 60a0d59c-2102-43e0-b025-75c98b7d9315
          security_group_id: 20d9b623-f1e0-449d-95c1-01624cb3e315
      ingressSgRules: []
-     networkpolicy_spec:
-       ...
      podSelector:
        ...
+   status:
      securityGroupId: 20d9b623-f1e0-449d-95c1-01624cb3e315
-     securityGroupName: sg-default-deny
+     securityGroupRules: ...
+     podSelector: ...
 
 
 Allow traffic from pod
@@ -263,37 +262,33 @@ restriction was enforced.
 .. code-block:: yaml
 
    apiVersion: openstack.org/v1
-   kind: KuryrNetPolicy
+   kind: KuryrNetworkPolicy
    metadata:
-     name: np-allow-monitoring-via-pod-selector
+     name: allow-monitoring-via-pod-selector
      namespace: default
      ...
    spec:
      egressSgRules:
-     - security_group_rule:
+     - sgRule:
          description: Kuryr-Kubernetes NetPolicy SG rule
          direction: egress
          ethertype: IPv4
-         id: 203a14fe-1059-4eff-93ed-a42bd957145d
-         security_group_id: 7f0ef8c2-4846-4d8c-952f-94a9098fff17
      ingressSgRules:
      - namespace: default
-       security_group_rule:
+       sgRule:
          description: Kuryr-Kubernetes NetPolicy SG rule
          direction: ingress
          ethertype: IPv4
-         id: 7987c382-f2a9-47f7-b6e8-1a3a1bcb7d95
          port_range_max: 8080
          port_range_min: 8080
          protocol: tcp
          remote_ip_prefix: 10.0.1.143
-         security_group_id: 7f0ef8c2-4846-4d8c-952f-94a9098fff17
-     networkpolicy_spec:
-       ...
      podSelector:
        ...
+   status:
      securityGroupId: 7f0ef8c2-4846-4d8c-952f-94a9098fff17
-     securityGroupName: sg-allow-monitoring-via-pod-selector
+     securityGroupRules: ...
+     podSelector: ...
 
 
 Allow traffic from namespace
@@ -337,36 +332,32 @@ egress rule allowing traffic to everywhere.
 .. code-block:: yaml
 
    apiVersion: openstack.org/v1
-   kind: KuryrNetPolicy
-     name: np-allow-test-via-ns-selector
+   kind: KuryrNetworkPolicy
+     name: allow-test-via-ns-selector
      namespace: default
      ...
    spec:
      egressSgRules:
-     - security_group_rule:
+     - sgRule:
          description: Kuryr-Kubernetes NetPolicy SG rule
          direction: egress
          ethertype: IPv4
-         id: 8c21bf42-c8b9-4628-b0a1-bd0dbb192e6b
-         security_group_id: c480327c-2db4-4eb6-af1e-eeb0ce9b46c9
      ingressSgRules:
      - namespace: dev
-       security_group_rule:
+       sgRule:
          description: Kuryr-Kubernetes NetPolicy SG rule
          direction: ingress
          ethertype: IPv4
-         id: 2a33b802-56ad-430a-801d-690f653198ef
          port_range_max: 8080
          port_range_min: 8080
          protocol: tcp
          remote_ip_prefix: 10.0.1.192/26
-         security_group_id: c480327c-2db4-4eb6-af1e-eeb0ce9b46c9
-     networkpolicy_spec:
-       ...
      podSelector:
        ...
+   status:
      securityGroupId: c480327c-2db4-4eb6-af1e-eeb0ce9b46c9
-     securityGroupName: sg-allow-test-via-ns-selector
+     securityGroupRules: ...
+     podSelector: ...
 
 .. note::
 

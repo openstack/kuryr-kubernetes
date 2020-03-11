@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import uuid
+
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -21,6 +23,7 @@ from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes import exceptions
+from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -29,9 +32,7 @@ def _get_namespace_labels(namespace):
     kubernetes = clients.get_kubernetes_client()
 
     try:
-        path = '{}/{}'.format(
-            constants.K8S_API_NAMESPACES, namespace)
-        LOG.debug("K8s API Query %s", path)
+        path = '{}/{}'.format(constants.K8S_API_NAMESPACES, namespace)
         namespaces = kubernetes.get(path)
         LOG.debug("Return Namespace: %s", namespaces)
     except exceptions.K8sResourceNotFound:
@@ -43,107 +44,41 @@ def _get_namespace_labels(namespace):
     return namespaces['metadata'].get('labels')
 
 
-def _create_sg_rule(sg_id, direction, cidr, port=None, namespace=None):
-    if port:
-        sg_rule = driver_utils.create_security_group_rule_body(
-            sg_id, direction, port.get('port'),
-            protocol=port.get('protocol'), cidr=cidr, namespace=namespace)
-    else:
-        sg_rule = driver_utils.create_security_group_rule_body(
-            sg_id, direction, port_range_min=1,
-            port_range_max=65535, cidr=cidr, namespace=namespace)
+def _bump_networkpolicy(knp):
+    kubernetes = clients.get_kubernetes_client()
 
-    sgr_id = driver_utils.create_security_group_rule(sg_rule)
-
-    sg_rule['security_group_rule']['id'] = sgr_id
-    return sg_rule
-
-
-def _get_crd_rule(crd_rules, container_port):
-    """Returns a CRD rule that matches a container port
-
-    Retrieves the CRD rule that contains a given port in
-    the range of the rule ports.
-    """
-    for crd_rule in crd_rules:
-        remote_ip_prefixes = crd_rule.get('remote_ip_prefixes')
-        min_port = crd_rule['security_group_rule'].get('port_range_min')
-        max_port = crd_rule['security_group_rule'].get('port_range_max')
-        if (remote_ip_prefixes and (
-                min_port >= container_port and
-                container_port <= max_port)):
-            return crd_rule
+    try:
+        kubernetes.annotate(
+            knp['metadata']['annotations']['networkPolicyLink'],
+            {constants.K8S_ANNOTATION_POLICY: str(uuid.uuid4())})
+    except exceptions.K8sResourceNotFound:
+        LOG.exception("NetworkPolicy not found")
+        raise
+    except exceptions.K8sClientException:
+        LOG.exception("Kubernetes Client Exception")
+        raise
 
 
-def _create_sg_rules_with_container_ports(matched_pods, container_ports,
-                                          allow_all, namespace, matched,
-                                          crd_rules, sg_id, direction,
-                                          port, rule_selected_pod):
-    """Create security group rules based on container ports
+def _create_sg_rules_with_container_ports(container_ports, matched):
+    """Checks if security group rules based on container ports will be updated
 
-    If it's an allow from/to everywhere rule or a rule with a
-    NamespaceSelector, updates a sg rule that might already exist
-    and match the named port or creates a new one with the
-    remote_ip_prefixes field containing the matched pod info.
-    Otherwise, creates rules for each container port without
-    a remote_ip_prefixes field.
-
-    param matched_pods: List of dicts where the key is a container
-                        port and value is the pods that have the port
     param container_ports: List of tuples with pods and port values
-    param allow_all: True is it's an allow from/to everywhere rule,
-                     False otherwise.
-    param namespace: Namespace name
     param matched: If a sg rule was created for the NP rule
-    param crd_rules: List of sg rules to update when patching the CRD
-    param sg_id: ID of the security group
-    param direction: String representing rule direction, ingress or egress
-    param port: Dict containing port and protocol
-    param rule_selected_pod: K8s Pod object selected by the rules selectors
 
-    return: True if a sg rule was created, False otherwise.
+    return: True if a sg rule needs to be created, False otherwise.
     """
     for pod, container_port in container_ports:
-        pod_namespace = pod['metadata']['namespace']
         pod_ip = driver_utils.get_pod_ip(pod)
         if not pod_ip:
             LOG.debug("Skipping SG rule creation for pod %s due to "
                       "no IP assigned", pod['metadata']['name'])
             continue
-
-        pod_info = {pod_ip: pod_namespace}
-        matched = True
-        if allow_all or namespace:
-            crd_rule = _get_crd_rule(crd_rules, container_port)
-            if crd_rule:
-                crd_rule['remote_ip_prefixes'].update(pod_info)
-            else:
-                if container_port in matched_pods:
-                    matched_pods[container_port].update(pod_info)
-                else:
-                    matched_pods[container_port] = pod_info
-        else:
-            pod_ip = driver_utils.get_pod_ip(rule_selected_pod)
-            if not pod_ip:
-                LOG.debug("Skipping SG rule creation for pod %s due to no IP "
-                          "assigned", rule_selected_pod['metadata']['name'])
-                continue
-            sg_rule = driver_utils.create_security_group_rule_body(
-                sg_id, direction, container_port,
-                protocol=port.get('protocol'),
-                cidr=pod_ip, pods=pod_info)
-            sgr_id = driver_utils.create_security_group_rule(sg_rule)
-            sg_rule['security_group_rule']['id'] = sgr_id
-            if sg_rule not in crd_rules:
-                crd_rules.append(sg_rule)
-    return matched
+        return matched
+    return False
 
 
-def _create_sg_rule_on_text_port(sg_id, direction, port, rule_selected_pods,
-                                 crd_rules, matched, crd,
-                                 allow_all=False, namespace=None):
-    matched_pods = {}
-
+def _create_sg_rule_on_text_port(direction, port, rule_selected_pods, matched,
+                                 crd):
     spec_pod_selector = crd['spec'].get('podSelector')
     policy_namespace = crd['metadata']['namespace']
     spec_pods = driver_utils.get_pods(
@@ -151,11 +86,8 @@ def _create_sg_rule_on_text_port(sg_id, direction, port, rule_selected_pods,
     if direction == 'ingress':
         for spec_pod in spec_pods:
             container_ports = driver_utils.get_ports(spec_pod, port)
-            for rule_selected_pod in rule_selected_pods:
-                matched = _create_sg_rules_with_container_ports(
-                    matched_pods, container_ports, allow_all, namespace,
-                    matched, crd_rules, sg_id, direction, port,
-                    rule_selected_pod)
+            matched = _create_sg_rules_with_container_ports(
+                container_ports, matched)
     elif direction == 'egress':
         for rule_selected_pod in rule_selected_pods:
             pod_label = rule_selected_pod['metadata'].get('labels')
@@ -168,51 +100,11 @@ def _create_sg_rule_on_text_port(sg_id, direction, port, rule_selected_pods,
             container_ports = driver_utils.get_ports(
                 rule_selected_pod, port)
             matched = _create_sg_rules_with_container_ports(
-                matched_pods, container_ports, allow_all,
-                namespace, matched, crd_rules, sg_id, direction,
-                port, rule_selected_pod)
-
-    _apply_sg_rules_on_matched_pods(matched_pods, sg_id, direction, namespace,
-                                    port, crd_rules, allow_all)
-
+                container_ports, matched)
     return matched
 
 
-def _apply_sg_rules_on_matched_pods(matched_pods, sg_id, direction, namespace,
-                                    port, crd_rules, allow_all=False):
-    for container_port, pods in matched_pods.items():
-        if allow_all:
-            for ethertype in (constants.IPv4, constants.IPv6):
-                sg_rule = driver_utils.create_security_group_rule_body(
-                    sg_id, direction, container_port,
-                    protocol=port.get('protocol'),
-                    ethertype=ethertype,
-                    pods=pods)
-                sgr_id = driver_utils.create_security_group_rule(sg_rule)
-                sg_rule['security_group_rule']['id'] = sgr_id
-                if sg_rule not in crd_rules:
-                    crd_rules.append(sg_rule)
-        else:
-            namespace_obj = driver_utils.get_namespace(namespace)
-            if not namespace_obj:
-                LOG.debug("Skipping SG rule creation. Inexistent"
-                          " namespace.")
-                continue
-            namespace_cidr = driver_utils.get_namespace_subnet_cidr(
-                namespace_obj)
-            sg_rule = driver_utils.create_security_group_rule_body(
-                sg_id, direction, container_port,
-                protocol=port.get('protocol'), cidr=namespace_cidr,
-                pods=pods)
-            sgr_id = driver_utils.create_security_group_rule(sg_rule)
-            sg_rule['security_group_rule']['id'] = sgr_id
-            if sg_rule not in crd_rules:
-                crd_rules.append(sg_rule)
-
-
-def _create_sg_rules(crd, pod, pod_selector, rule_block,
-                     crd_rules, direction, matched, namespace=None,
-                     allow_all=False):
+def _create_sg_rules(crd, pod, pod_selector, rule_block, direction, matched):
     pod_labels = pod['metadata'].get('labels')
     pod_ip = driver_utils.get_pod_ip(pod)
     if not pod_ip:
@@ -224,73 +116,52 @@ def _create_sg_rules(crd, pod, pod_selector, rule_block,
     # with empty value or with '{}', as they have same result in here.
     if pod_selector:
         if driver_utils.match_selector(pod_selector, pod_labels):
-            sg_id = crd['spec']['securityGroupId']
             if 'ports' in rule_block:
                 for port in rule_block['ports']:
                     if type(port.get('port')) is not int:
                         matched = _create_sg_rule_on_text_port(
-                            sg_id, direction, port, [pod],
-                            crd_rules, matched, crd)
+                            direction, port, [pod], matched, crd)
                     else:
                         matched = True
-                        sg_rule = _create_sg_rule(
-                            sg_id, direction, cidr=pod_ip, port=port,
-                            namespace=namespace)
-                        if sg_rule not in crd_rules:
-                            crd_rules.append(sg_rule)
             else:
                 matched = True
-                sg_rule = _create_sg_rule(
-                    sg_id, direction, cidr=pod_ip, namespace=namespace)
-                if sg_rule not in crd_rules:
-                    crd_rules.append(sg_rule)
     else:
         # NOTE (maysams) When a policy with namespaceSelector and text port
         # is applied the port on the pods needs to be retrieved.
-        sg_id = crd['spec']['securityGroupId']
         if 'ports' in rule_block:
             for port in rule_block['ports']:
                 if type(port.get('port')) is not int:
-                    matched = (
-                        _create_sg_rule_on_text_port(
-                            sg_id, direction, port, [pod],
-                            crd_rules, matched, crd,
-                            allow_all=allow_all, namespace=namespace))
+                    matched = _create_sg_rule_on_text_port(
+                        direction, port, [pod], matched, crd)
     return matched
 
 
 def _parse_selectors_on_pod(crd, pod, pod_selector, namespace_selector,
-                            rule_block, crd_rules, direction, matched):
+                            rule_block, direction, matched):
     pod_namespace = pod['metadata']['namespace']
     pod_namespace_labels = _get_namespace_labels(pod_namespace)
     policy_namespace = crd['metadata']['namespace']
 
     if namespace_selector == {}:
         matched = _create_sg_rules(crd, pod, pod_selector, rule_block,
-                                   crd_rules, direction, matched,
-                                   allow_all=True)
+                                   direction, matched)
     elif namespace_selector:
         if (pod_namespace_labels and
             driver_utils.match_selector(namespace_selector,
                                         pod_namespace_labels)):
             matched = _create_sg_rules(crd, pod, pod_selector,
-                                       rule_block, crd_rules,
-                                       direction, matched,
-                                       namespace=pod_namespace)
+                                       rule_block, direction, matched)
     else:
         if pod_namespace == policy_namespace:
             matched = _create_sg_rules(crd, pod, pod_selector, rule_block,
-                                       crd_rules, direction, matched,
-                                       namespace=pod_namespace)
-    return matched, crd_rules
+                                       direction, matched)
+    return matched
 
 
 def _parse_selectors_on_namespace(crd, direction, pod_selector,
-                                  ns_selector, rule_block, crd_rules,
-                                  namespace, matched):
+                                  ns_selector, rule_block, namespace, matched):
     ns_name = namespace['metadata'].get('name')
     ns_labels = namespace['metadata'].get('labels')
-    sg_id = crd['spec']['securityGroupId']
 
     if (ns_selector and ns_labels and
             driver_utils.match_selector(ns_selector, ns_labels)):
@@ -301,10 +172,8 @@ def _parse_selectors_on_namespace(crd, direction, pod_selector,
                     if type(port.get('port')) is not int:
                         matched = (
                             _create_sg_rule_on_text_port(
-                                sg_id, direction, port, pods,
-                                crd_rules, matched, crd))
+                                direction, port, pods, matched, crd))
                     else:
-                        matched = True
                         for pod in pods:
                             pod_ip = driver_utils.get_pod_ip(pod)
                             if not pod_ip:
@@ -312,11 +181,7 @@ def _parse_selectors_on_namespace(crd, direction, pod_selector,
                                 LOG.debug("Skipping SG rule creation for pod "
                                           "%s due to no IP assigned", pod_name)
                                 continue
-                            sg_rule = _create_sg_rule(
-                                sg_id, direction, pod_ip, port=port,
-                                namespace=ns_name)
-                            if sg_rule not in crd_rules:
-                                crd_rules.append(sg_rule)
+                            matched = True
             else:
                 for pod in pods:
                     pod_ip = driver_utils.get_pod_ip(pod)
@@ -326,45 +191,25 @@ def _parse_selectors_on_namespace(crd, direction, pod_selector,
                                   " to no IP assigned", pod_name)
                         continue
                     matched = True
-                    sg_rule = _create_sg_rule(
-                        sg_id, direction, pod_ip,
-                        namespace=ns_name)
-                    if sg_rule not in crd_rules:
-                        crd_rules.append(sg_rule)
         else:
             ns_pods = driver_utils.get_pods(ns_selector)['items']
-            ns_cidr = driver_utils.get_namespace_subnet_cidr(namespace)
             if 'ports' in rule_block:
                 for port in rule_block['ports']:
                     if type(port.get('port')) is not int:
                         matched = (
                             _create_sg_rule_on_text_port(
-                                sg_id, direction, port, ns_pods,
-                                crd_rules, matched, crd))
+                                direction, port, ns_pods, matched, crd))
                     else:
                         matched = True
-                        sg_rule = _create_sg_rule(
-                            sg_id, direction, ns_cidr,
-                            port=port, namespace=ns_name)
-                        if sg_rule not in crd_rules:
-                            crd_rules.append(sg_rule)
             else:
                 matched = True
-                sg_rule = _create_sg_rule(
-                    sg_id, direction, ns_cidr,
-                    namespace=ns_name)
-                if sg_rule not in crd_rules:
-                    crd_rules.append(sg_rule)
-    return matched, crd_rules
+    return matched
 
 
-def _parse_rules(direction, crd, pod=None, namespace=None):
-    policy = crd['spec']['networkpolicy_spec']
+def _parse_rules(direction, crd, policy, pod=None, namespace=None):
     rule_direction = 'from'
-    crd_rules = crd['spec'].get('ingressSgRules')
     if direction == 'egress':
         rule_direction = 'to'
-        crd_rules = crd['spec'].get('egressSgRules')
 
     matched = False
     rule_list = policy.get(direction, [])
@@ -373,13 +218,13 @@ def _parse_rules(direction, crd, pod=None, namespace=None):
             namespace_selector = rule.get('namespaceSelector')
             pod_selector = rule.get('podSelector')
             if pod:
-                matched, crd_rules = _parse_selectors_on_pod(
+                matched = _parse_selectors_on_pod(
                     crd, pod, pod_selector, namespace_selector,
-                    rule_block, crd_rules, direction, matched)
+                    rule_block, direction, matched)
             elif namespace:
-                matched, crd_rules = _parse_selectors_on_namespace(
+                matched = _parse_selectors_on_namespace(
                     crd, direction, pod_selector, namespace_selector,
-                    rule_block, crd_rules, namespace, matched)
+                    rule_block, namespace, matched)
 
         # NOTE(maysams): Cover the case of a network policy that allows
         # from everywhere on a named port, e.g., when there is no 'from'
@@ -387,84 +232,62 @@ def _parse_rules(direction, crd, pod=None, namespace=None):
         if pod and not matched:
             for port in rule_block.get('ports', []):
                 if type(port.get('port')) is not int:
-                    sg_id = crd['spec']['securityGroupId']
                     if (not rule_block.get(rule_direction, [])
                             or direction == "ingress"):
-                        matched = (_create_sg_rule_on_text_port(
-                            sg_id, direction, port, [pod],
-                            crd_rules, matched, crd,
-                            allow_all=True))
-    return matched, crd_rules
+                        matched = _create_sg_rule_on_text_port(
+                            direction, port, [pod], matched, crd)
+    return matched
 
 
 def _parse_rules_on_delete_namespace(rule_list, direction, ns_name):
-    matched = False
-    rules = []
     for rule in rule_list:
-        LOG.debug('Parsing %(dir)s Rule %(r)s', {'dir': direction,
-                                                 'r': rule})
+        LOG.debug('Parsing %(dir)s Rule %(r)s', {'dir': direction, 'r': rule})
         rule_namespace = rule.get('namespace', None)
-        remote_ip_prefixes = rule.get('remote_ip_prefixes', {})
+        affectedPods = rule.get('affectedPods', [])
         if rule_namespace and rule_namespace == ns_name:
-            matched = True
-            driver_utils.delete_security_group_rule(
-                rule['security_group_rule']['id'])
-        elif remote_ip_prefixes:
-            for remote_ip, namespace in list(remote_ip_prefixes.items()):
-                if namespace == ns_name:
-                    matched = True
-                    remote_ip_prefixes.pop(remote_ip)
-            if remote_ip_prefixes:
-                rule['remote_ip_prefixes'] = remote_ip_prefixes
-                rules.append(rule)
-        else:
-            rules.append(rule)
-    return matched, rules
+            return True
+        elif affectedPods:
+            for pod_info in affectedPods:
+                if pod_info['podNamespace'] == ns_name:
+                    return True
+    return False
 
 
 def _parse_rules_on_delete_pod(rule_list, direction, pod_ip):
-    matched = False
-    rules = []
     for rule in rule_list:
-        LOG.debug('Parsing %(dir)s Rule %(r)s', {'dir': direction,
-                                                 'r': rule})
-        remote_ip_prefix = rule['security_group_rule'].get(
-            'remote_ip_prefix')
-        remote_ip_prefixes = rule.get('remote_ip_prefixes', {})
+        LOG.debug('Parsing %(dir)s Rule %(r)s', {'dir': direction, 'r': rule})
+        remote_ip_prefix = rule['sgRule'].get('remote_ip_prefix')
+        affectedPods = rule.get('affectedPods', [])
         if remote_ip_prefix and remote_ip_prefix == pod_ip:
-            matched = True
-            driver_utils.delete_security_group_rule(
-                rule['security_group_rule']['id'])
-        elif remote_ip_prefixes:
-            if pod_ip in remote_ip_prefixes:
-                matched = True
-                remote_ip_prefixes.pop(pod_ip)
-                if remote_ip_prefixes:
-                    rule['remote_ip_prefixes'] = remote_ip_prefixes
-                    rules.append(rule)
-        else:
-            rules.append(rule)
-    return matched, rules
+            return True
+        elif affectedPods:
+            for pod_info in affectedPods:
+                if pod_info['podIP'] == pod_ip:
+                    return True
+    return False
 
 
-def _get_pod_sgs(pod, project_id):
+def _get_pod_sgs(pod):
     sg_list = []
 
     pod_labels = pod['metadata'].get('labels')
     pod_namespace = pod['metadata']['namespace']
 
-    knp_crds = driver_utils.get_kuryrnetpolicy_crds(
+    knp_crds = driver_utils.get_kuryrnetworkpolicy_crds(
         namespace=pod_namespace)
-    for crd in knp_crds.get('items'):
+    for crd in knp_crds:
         pod_selector = crd['spec'].get('podSelector')
-        if pod_selector:
-            if driver_utils.match_selector(pod_selector, pod_labels):
-                LOG.debug("Appending %s",
-                          str(crd['spec']['securityGroupId']))
-                sg_list.append(str(crd['spec']['securityGroupId']))
-        else:
-            LOG.debug("Appending %s", str(crd['spec']['securityGroupId']))
-            sg_list.append(str(crd['spec']['securityGroupId']))
+        if driver_utils.match_selector(pod_selector, pod_labels):
+            sg_id = crd['status'].get('securityGroupId')
+            if not sg_id:
+                # NOTE(dulek): We could just assume KNP handler will apply it,
+                #              but it's possible that when it gets this pod it
+                #              will have no IP yet and will be skipped.
+                LOG.warning('SG for NP %s not created yet, will retry.',
+                            utils.get_res_unique_name(crd))
+                raise exceptions.ResourceNotReady(pod)
+            LOG.debug("Appending %s", crd['status']['securityGroupId'])
+            sg_list.append(crd['status']['securityGroupId'])
 
     # NOTE(maysams) Pods that are not selected by any Networkpolicy
     # are fully accessible. Thus, the default security group is associated.
@@ -481,55 +304,56 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
     """Provides security groups for pods based on network policies"""
 
     def get_security_groups(self, pod, project_id):
-        return _get_pod_sgs(pod, project_id)
+        return _get_pod_sgs(pod)
 
     def create_sg_rules(self, pod):
-        LOG.debug("Creating sg rule for pod: %s", pod['metadata']['name'])
+        LOG.debug("Creating SG rules for pod: %s", pod['metadata']['name'])
         crd_pod_selectors = []
-        knp_crds = driver_utils.get_kuryrnetpolicy_crds()
-        for crd in knp_crds.get('items'):
-            crd_selector = crd['spec'].get('podSelector')
+        knp_crds = driver_utils.get_kuryrnetworkpolicy_crds()
+        nps = driver_utils.get_networkpolicies()
+        pairs = driver_utils.zip_knp_np(knp_crds, nps)
 
-            i_matched, i_rules = _parse_rules('ingress', crd, pod=pod)
-            e_matched, e_rules = _parse_rules('egress', crd, pod=pod)
+        for crd, policy in pairs:
+            crd_selector = crd['spec'].get('podSelector')
+            spec = policy.get('spec')
+
+            i_matched = _parse_rules('ingress', crd, spec, pod=pod)
+            e_matched = _parse_rules('egress', crd, spec, pod=pod)
 
             if i_matched or e_matched:
-                driver_utils.patch_kuryrnetworkpolicy_crd(crd, i_rules,
-                                                          e_rules,
-                                                          crd_selector)
+                _bump_networkpolicy(crd)
             if i_matched:
                 crd_pod_selectors.append(crd_selector)
         return crd_pod_selectors
 
     def delete_sg_rules(self, pod):
-        LOG.debug("Deleting sg rule for pod: %s", pod['metadata']['name'])
+        LOG.debug("Deleting SG rules for pod: %s", pod['metadata']['name'])
         pod_ip = driver_utils.get_pod_ip(pod)
+        crd_pod_selectors = []
         if not pod_ip:
             LOG.debug("Skipping SG rule deletion as pod %s has no IP assigned",
                       pod['metadata']['name'])
-            return None
-        crd_pod_selectors = []
-        knp_crds = driver_utils.get_kuryrnetpolicy_crds()
-        for crd in knp_crds.get('items'):
+            return crd_pod_selectors
+        knp_crds = driver_utils.get_kuryrnetworkpolicy_crds()
+        for crd in knp_crds:
             crd_selector = crd['spec'].get('podSelector')
             ingress_rule_list = crd['spec'].get('ingressSgRules')
             egress_rule_list = crd['spec'].get('egressSgRules')
 
-            i_matched, i_rules = _parse_rules_on_delete_pod(
+            i_matched = _parse_rules_on_delete_pod(
                 ingress_rule_list, "ingress", pod_ip)
-            e_matched, e_rules = _parse_rules_on_delete_pod(
+            e_matched = _parse_rules_on_delete_pod(
                 egress_rule_list, "egress", pod_ip)
 
             if i_matched or e_matched:
-                driver_utils.patch_kuryrnetworkpolicy_crd(crd, i_rules,
-                                                          e_rules,
-                                                          crd_selector)
+                _bump_networkpolicy(crd)
             if i_matched:
                 crd_pod_selectors.append(crd_selector)
         return crd_pod_selectors
 
     def update_sg_rules(self, pod):
-        LOG.debug("Updating sg rule for pod: %s", pod['metadata']['name'])
+        LOG.debug("Updating SG rules for pod: %s", pod['metadata']['name'])
+        # FIXME(dulek): No need to bump twice.
         crd_pod_selectors = []
         crd_pod_selectors.extend(self.delete_sg_rules(pod))
         crd_pod_selectors.extend(self.create_sg_rules(pod))
@@ -537,51 +361,47 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
 
     def delete_namespace_sg_rules(self, namespace):
         ns_name = namespace['metadata']['name']
-        LOG.debug("Deleting sg rule for namespace: %s",
-                  ns_name)
+        LOG.debug("Deleting SG rules for namespace: %s", ns_name)
 
         crd_selectors = []
-        knp_crds = driver_utils.get_kuryrnetpolicy_crds()
-        for crd in knp_crds.get('items'):
+        knp_crds = driver_utils.get_kuryrnetworkpolicy_crds()
+        for crd in knp_crds:
             crd_selector = crd['spec'].get('podSelector')
             ingress_rule_list = crd['spec'].get('ingressSgRules')
             egress_rule_list = crd['spec'].get('egressSgRules')
 
-            i_matched, i_rules = _parse_rules_on_delete_namespace(
+            i_matched = _parse_rules_on_delete_namespace(
                 ingress_rule_list, "ingress", ns_name)
-            e_matched, e_rules = _parse_rules_on_delete_namespace(
+            e_matched = _parse_rules_on_delete_namespace(
                 egress_rule_list, "egress", ns_name)
 
             if i_matched or e_matched:
-                driver_utils.patch_kuryrnetworkpolicy_crd(
-                    crd, i_rules, e_rules, crd_selector)
+                _bump_networkpolicy(crd)
             if i_matched:
                 crd_selectors.append(crd_selector)
         return crd_selectors
 
     def create_namespace_sg_rules(self, namespace):
         ns_name = namespace['metadata']['name']
-        LOG.debug("Creating sg rule for namespace: %s", ns_name)
+        LOG.debug("Creating SG rules for namespace: %s", ns_name)
         crd_selectors = []
-        knp_crds = driver_utils.get_kuryrnetpolicy_crds()
-        for crd in knp_crds.get('items'):
+        knp_crds = driver_utils.get_kuryrnetworkpolicy_crds()
+        nps = driver_utils.get_networkpolicies()
+        pairs = driver_utils.zip_knp_np(knp_crds, nps)
+        for crd, policy in pairs:
             crd_selector = crd['spec'].get('podSelector')
-
-            i_matched, i_rules = _parse_rules(
-                'ingress', crd, namespace=namespace)
-            e_matched, e_rules = _parse_rules(
-                'egress', crd, namespace=namespace)
+            spec = policy.get('spec')
+            i_matched = _parse_rules('ingress', crd, spec, namespace=namespace)
+            e_matched = _parse_rules('egress', crd, spec, namespace=namespace)
 
             if i_matched or e_matched:
-                driver_utils.patch_kuryrnetworkpolicy_crd(crd, i_rules,
-                                                          e_rules,
-                                                          crd_selector)
+                _bump_networkpolicy(crd)
             if i_matched:
                 crd_selectors.append(crd_selector)
         return crd_selectors
 
     def update_namespace_sg_rules(self, namespace):
-        LOG.debug("Updating sg rule for namespace: %s",
+        LOG.debug("Updating SG rules for namespace: %s",
                   namespace['metadata']['name'])
         crd_selectors = []
         crd_selectors.extend(self.delete_namespace_sg_rules(namespace))
@@ -608,5 +428,5 @@ class NetworkPolicyServiceSecurityGroupsDriver(
             # all of them. Hence only considering the security groups applied
             # to the first one.
             if pods:
-                return _get_pod_sgs(pods[0], project_id)
+                return _get_pod_sgs(pods[0])
         return sg_list[:]

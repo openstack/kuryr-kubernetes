@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import munch
-from openstack import exceptions as os_exc
 from unittest import mock
 
 from kuryr_kubernetes.controller.drivers import network_policy
@@ -75,8 +73,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         self._policy_uid = mock.sentinel.policy_uid
         self._policy_link = mock.sentinel.policy_link
         self._sg_id = mock.sentinel.sg_id
-        self._i_rules = [{'security_group_rule': {'id': ''}}]
-        self._e_rules = [{'security_group_rule': {'id': ''}}]
+        self._i_rules = [{'sgRule': {'id': ''}}]
+        self._e_rules = [{'sgRule': {'id': ''}}]
 
         self._policy = {
             'apiVersion': 'networking.k8s.io/v1',
@@ -104,12 +102,46 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                 [{'namespaceSelector': {
                                     'matchLabels': {
                                         'project': 'myproject'}}}]}],
-                'policyTypes': ['Ingress', 'Egress']
+                'policyTypes': ['Ingress', 'Egress'],
+                'podSelector': {},
             }
         }
 
-        self._crd = {
-            'metadata': {'name': mock.sentinel.name,
+        self.crd = {
+            'metadata': {'name': 'foobar',
+                         'namespace': 'default',
+                         'selfLink': mock.sentinel.selfLink},
+            'spec': {
+                'egressSgRules': [
+                    {'sgRule':
+                        {'description': 'Kuryr-Kubernetes NetPolicy SG rule',
+                         'direction': 'egress',
+                         'ethertype': 'IPv4',
+                         'port_range_max': 5978,
+                         'port_range_min': 5978,
+                         'protocol': 'tcp',
+                         }}],
+                'ingressSgRules': [
+                    {'sgRule':
+                        {'description': 'Kuryr-Kubernetes NetPolicy SG rule',
+                         'direction': 'ingress',
+                         'ethertype': 'IPv4',
+                         'port_range_max': 6379,
+                         'port_range_min': 6379,
+                         'protocol': 'tcp',
+                         }}],
+                'podSelector': {},
+                'policyTypes': self._policy['spec']['policyTypes']
+            },
+            'status': {
+                'securityGroupId': self._sg_id,
+                'securityGroupRules': [],
+                'podSelector': {},
+            }
+        }
+
+        self.old_crd = {
+            'metadata': {'name': 'np-foobar',
                          'namespace': 'default',
                          'selfLink': mock.sentinel.selfLink},
             'spec': {
@@ -135,6 +167,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                       'security_group_id': self._sg_id,
                       'id': mock.sentinel.id
                       }}],
+                'podSelector': {},
                 'networkpolicy_spec': self._policy['spec'],
                 'securityGroupId': self._sg_id,
                 'securityGroupName': mock.sentinel.sg_name}}
@@ -144,207 +177,57 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         self._driver = network_policy.NetworkPolicyDriver()
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'get_kuryrnetpolicy_crd', return_value=False)
+                       '_get_default_np_rules')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'create_security_group_rules_from_network_policy')
+                       '_get_knp_crd', return_value=False)
     @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'update_security_group_rules_from_network_policy')
-    def test_ensure_network_policy(self, m_update, m_create, m_get_crd):
-        self._driver.ensure_network_policy(self._policy, self._project_id)
-
-        m_get_crd.assert_called_once_with(self._policy)
-        m_create.assert_called_once_with(self._policy, self._project_id)
-        m_update.assert_not_called()
-
-    @mock.patch.object(network_policy.NetworkPolicyDriver, 'affected_pods')
-    @mock.patch.object(network_policy.NetworkPolicyDriver, 'namespaced_pods')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'get_kuryrnetpolicy_crd', return_value=True)
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'create_security_group_rules_from_network_policy')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'update_security_group_rules_from_network_policy')
-    def test_ensure_network_policy_with_existing_crd(
-            self, m_update, m_create, m_get_crd, m_namespaced, m_affected):
-        previous_selector = mock.sentinel.previous_selector
-        m_update.return_value = previous_selector
-        self._driver.ensure_network_policy(self._policy, self._project_id)
-
-        m_get_crd.assert_called_once_with(self._policy)
-        m_create.assert_not_called()
-        m_update.assert_called_once_with(self._policy)
-        m_affected.assert_called_once_with(self._policy, previous_selector)
-        m_namespaced.assert_not_called()
-
-    @mock.patch.object(network_policy.NetworkPolicyDriver, 'affected_pods')
-    @mock.patch.object(network_policy.NetworkPolicyDriver, 'namespaced_pods')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'get_kuryrnetpolicy_crd', return_value=True)
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'create_security_group_rules_from_network_policy')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'update_security_group_rules_from_network_policy')
-    def test_ensure_network_policy_with_existing_crd_no_selector(
-            self, m_update, m_create, m_get_crd, m_namespaced, m_affected):
-        m_update.return_value = None
-        self._driver.ensure_network_policy(self._policy, self._project_id)
-
-        m_get_crd.assert_called_once_with(self._policy)
-        m_create.assert_not_called()
-        m_update.assert_called_once_with(self._policy)
-        m_affected.assert_not_called()
-        m_namespaced.assert_called_once_with(self._policy)
-
-    @mock.patch.object(network_policy.NetworkPolicyDriver, 'affected_pods')
-    @mock.patch.object(network_policy.NetworkPolicyDriver, 'namespaced_pods')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'get_kuryrnetpolicy_crd')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'create_security_group_rules_from_network_policy')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'update_security_group_rules_from_network_policy')
-    def test_ensure_network_policy_with_existing_crd_empty_selector(
-            self, m_update, m_create, m_get_crd, m_namespaced, m_affected):
-        previous_selector = {}
-        pod_selector = {'matchLabels': {'run': 'demo'}}
-        updated_policy = self._policy.copy()
-        updated_policy['spec']['podSelector'] = pod_selector
-        crd_with_empty_selector = self._crd.copy()
-        crd_with_empty_selector['spec']['podSelector'] = previous_selector
-
-        m_get_crd.return_value = crd_with_empty_selector
-        m_update.return_value = previous_selector
-
-        self._driver.ensure_network_policy(updated_policy, self._project_id)
-
-        m_get_crd.assert_called_once_with(updated_policy)
-        m_create.assert_not_called()
-        m_update.assert_called_once_with(updated_policy)
-        m_affected.assert_called_with(self._policy, previous_selector)
-        m_namespaced.assert_not_called()
-
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_add_default_np_rules')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'get_kuryrnetpolicy_crd')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_add_kuryrnetpolicy_crd')
+                       '_create_knp_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        'parse_network_policy_rules')
     @mock.patch.object(utils, 'get_subnet_cidr')
-    def test_create_security_group_rules_from_network_policy(self, m_utils,
-                                                             m_parse,
-                                                             m_add_crd,
-                                                             m_get_crd,
-                                                             m_add_default):
-        self._driver.os_net.create_security_group.return_value = (
-            munch.Munch({'id': mock.sentinel.id,
-                         'security_group_rules': []}))
+    def test_ensure_network_policy(self, m_utils, m_parse, m_add_crd,
+                                   m_get_crd, m_get_default):
         m_utils.get_subnet_cidr.return_value = mock.sentinel.cidr
         m_parse.return_value = (self._i_rules, self._e_rules)
-        self._driver.os_net.create_security_group_rule.return_value = (
-            munch.Munch({'id': mock.sentinel.id}))
-        self._driver.create_security_group_rules_from_network_policy(
-            self._policy, self._project_id)
+        self._driver.ensure_network_policy(
+            self._policy)
         m_get_crd.assert_called_once()
         m_add_crd.assert_called_once()
-        m_add_default.assert_called_once()
+        m_get_default.assert_called_once()
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_add_default_np_rules')
+                       '_get_default_np_rules')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'get_kuryrnetpolicy_crd')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_add_kuryrnetpolicy_crd')
+                       '_get_knp_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        'parse_network_policy_rules')
     @mock.patch.object(utils, 'get_subnet_cidr')
-    def test_create_security_group_rules_with_k8s_exc(self, m_utils, m_parse,
-                                                      m_add_crd, m_get_crd,
-                                                      m_add_default):
-        self._driver.os_net.create_security_group.return_value = (
-            munch.Munch({'id': mock.sentinel.id,
-                         'security_group_rules': []}))
+    def test_ensure_network_policy_with_k8s_exc(self, m_utils, m_parse,
+                                                m_get_crd, m_get_default):
         m_utils.get_subnet_cidr.return_value = mock.sentinel.cidr
         m_parse.return_value = (self._i_rules, self._e_rules)
         m_get_crd.side_effect = exceptions.K8sClientException
-        self._driver.os_net.create_security_group_rule.return_value = (
-            munch.Munch({'id': mock.sentinel.id}))
-        self.assertRaises(
-            exceptions.K8sClientException,
-            self._driver.create_security_group_rules_from_network_policy,
-            self._policy, self._project_id)
-        m_add_crd.assert_called_once()
-        m_add_default.assert_called_once()
+        self.assertRaises(exceptions.K8sClientException,
+                          self._driver.ensure_network_policy, self._policy)
+        m_get_default.assert_called_once()
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_add_default_np_rules')
+                       '_get_default_np_rules')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'get_kuryrnetpolicy_crd')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_add_kuryrnetpolicy_crd')
+                       '_get_knp_crd', return_value=None)
+    @mock.patch.object(network_policy.NetworkPolicyDriver, '_create_knp_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        'parse_network_policy_rules')
     @mock.patch.object(utils, 'get_subnet_cidr')
-    def test_create_security_group_rules_error_add_crd(self, m_utils, m_parse,
-                                                       m_add_crd, m_get_crd,
-                                                       m_add_default):
-        self._driver.os_net.create_security_group.return_value = (
-            munch.Munch({'id': mock.sentinel.id,
-                         'security_group_rules': []}))
+    def test_ensure_network_policy_error_add_crd(
+            self, m_utils, m_parse, m_add_crd, m_get_crd, m_get_default):
         m_utils.get_subnet_cidr.return_value = mock.sentinel.cidr
         m_parse.return_value = (self._i_rules, self._e_rules)
         m_add_crd.side_effect = exceptions.K8sClientException
-        self._driver.os_net.create_security_group_rule.return_value = (
-            munch.Munch({'id': mock.sentinel.id}))
-        self.assertRaises(
-            exceptions.K8sClientException,
-            self._driver.create_security_group_rules_from_network_policy,
-            self._policy, self._project_id)
-        m_get_crd.assert_not_called()
-        m_add_default.assert_called_once()
-
-    def test_create_security_group_rules_with_n_exc(self):
-        self._driver.os_net.create_security_group.side_effect = (
-            os_exc.SDKException())
-        self.assertRaises(
-            os_exc.SDKException,
-            self._driver.create_security_group_rules_from_network_policy,
-            self._policy, self._project_id)
-
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
-                'create_security_group_rule')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'get_kuryrnetpolicy_crd')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'parse_network_policy_rules')
-    def test_update_security_group_rules(self, m_parse, m_get_crd,
-                                         m_create_sgr):
-        policy = self._policy.copy()
-        policy['spec']['podSelector'] = {'matchLabels': {'test': 'test'}}
-        m_get_crd.return_value = self._crd
-        m_parse.return_value = (self._i_rules, self._e_rules)
-        self._driver.update_security_group_rules_from_network_policy(
-            policy)
-        m_parse.assert_called_with(policy, self._sg_id)
-
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
-                'create_security_group_rule')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'get_kuryrnetpolicy_crd')
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'parse_network_policy_rules')
-    def test_update_security_group_rules_with_k8s_exc(self, m_parse, m_get_crd,
-                                                      m_create_sgr):
-        self._driver.kubernetes.patch_crd.side_effect = (
-            exceptions.K8sClientException())
-        m_get_crd.return_value = self._crd
-        m_parse.return_value = (self._i_rules, self._e_rules)
-        self.assertRaises(
-            exceptions.K8sClientException,
-            self._driver.update_security_group_rules_from_network_policy,
-            self._policy)
-        m_parse.assert_called_with(self._policy, self._sg_id)
+        self.assertRaises(exceptions.K8sClientException,
+                          self._driver.ensure_network_policy, self._policy)
+        m_get_crd.assert_called()
+        m_get_default.assert_called_once()
 
     def test_get_namespaces(self):
         namespace_selector = {'namespaceSelector': {
@@ -363,6 +246,13 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         self.assertEqual([], resp)
         self.kubernetes.get.assert_called_once()
 
+    def test_get_from_old_crd(self):
+        knp = self._driver.get_from_old_crd(self.old_crd)
+        self.assertEqual(self.crd['spec'], knp['spec'])
+        self.assertEqual(self.crd['status'], knp['status'])
+        for k in ['name', 'namespace']:
+            self.assertEqual(self.crd['metadata'][k], knp['metadata'][k])
+
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_get_resource_details')
@@ -377,7 +267,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         namespace = 'myproject'
         m_get_namespaces.return_value = [get_namespace_obj()]
         m_get_resource_details.return_value = subnet_cidr, namespace
-        self._driver.parse_network_policy_rules(self._policy, self._sg_id)
+        self._driver.parse_network_policy_rules(self._policy)
         m_get_namespaces.assert_called()
         m_get_resource_details.assert_called()
         m_create.assert_called()
@@ -391,12 +281,12 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         policy = self._policy.copy()
         policy['spec']['ingress'] = [{}]
         policy['spec']['egress'] = [{}]
-        self._driver.parse_network_policy_rules(policy, self._sg_id)
+        self._driver.parse_network_policy_rules(policy)
         m_get_ns.assert_not_called()
-        calls = [mock.call(self._sg_id, 'ingress', ethertype='IPv4'),
-                 mock.call(self._sg_id, 'ingress', ethertype='IPv6'),
-                 mock.call(self._sg_id, 'egress', ethertype='IPv4'),
-                 mock.call(self._sg_id, 'egress', ethertype='IPv6')]
+        calls = [mock.call('ingress', ethertype='IPv4'),
+                 mock.call('ingress', ethertype='IPv6'),
+                 mock.call('egress', ethertype='IPv4'),
+                 mock.call('egress', ethertype='IPv6')]
         m_create.assert_has_calls(calls)
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
@@ -408,7 +298,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                       [{'port': 6379, 'protocol': 'TCP'}]}]
         policy['spec']['egress'] = [{'ports':
                                      [{'port': 6379, 'protocol': 'TCP'}]}]
-        self._driver.parse_network_policy_rules(policy, self._sg_id)
+        self._driver.parse_network_policy_rules(policy)
         m_create_all_pods_sg_rules.assert_called()
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
@@ -429,7 +319,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                                 'TCP'}],
                                      'to': [{'ipBlock':
                                              {'cidr': '10.0.0.0/24'}}]}]
-        self._driver.parse_network_policy_rules(policy, self._sg_id)
+        self._driver.parse_network_policy_rules(policy)
         m_create_sg_rule.assert_called()
 
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
@@ -450,37 +340,18 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         selectors = {'namespaceSelector': {
                      'matchLabels': {
                          'project': 'myproject'}}}
-        policy['spec']['egress'] = [
-            {'to':
-                [selectors]}]
-        policy['spec']['ingress'] = [
-            {'from':
-                [selectors]}]
-        selectors = {'namespace_selector': selectors['namespaceSelector']}
-        self._driver.parse_network_policy_rules(policy, self._sg_id)
+        policy['spec']['egress'] = [{'to': [selectors]}]
+        policy['spec']['ingress'] = [{'from': [selectors]}]
+        self._driver.parse_network_policy_rules(policy)
         m_get_namespaces.assert_called()
         m_get_resource_details.assert_called()
-        calls = [mock.call(self._sg_id, 'ingress', port_range_min=1,
+        calls = [mock.call('ingress', port_range_min=1,
                            port_range_max=65535, cidr=subnet_cidr,
                            namespace=namespace),
-                 mock.call(self._sg_id, 'egress', port_range_min=1,
+                 mock.call('egress', port_range_min=1,
                            port_range_max=65535, cidr=subnet_cidr,
                            namespace=namespace)]
         m_create.assert_has_calls(calls)
-
-    def test_knps_on_namespace(self):
-        self.kubernetes.get.return_value = {'items': ['not-empty']}
-        namespace = 'test1'
-
-        resp = self._driver.knps_on_namespace(namespace)
-        self.assertTrue(resp)
-
-    def test_knps_on_namespace_empty(self):
-        self.kubernetes.get.return_value = {'items': []}
-        namespace = 'test1'
-
-        resp = self._driver.knps_on_namespace(namespace)
-        self.assertFalse(resp)
 
     @mock.patch.object(network_policy.NetworkPolicyDriver, 'namespaced_pods')
     def test_affected_pods(self, m_namespaced):
@@ -509,19 +380,10 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         self.assertEqual([], resp)
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_del_kuryrnetpolicy_crd', return_value=False)
+                       '_del_knp_crd', return_value=False)
     def test_release_network_policy(self, m_del_crd):
-        self._driver.release_network_policy(self._crd)
-        self.neutron.delete_security_group.assert_called_once_with(
-            self._crd['spec']['securityGroupId'])
-        m_del_crd.assert_called_once_with(self._crd['metadata']['name'],
-                                          self._crd['metadata']['namespace'])
-
-    @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       '_del_kuryrnetpolicy_crd', return_value=False)
-    def test_release_network_policy_removed_crd(self, m_del_crd):
-        self._driver.release_network_policy(None)
-        m_del_crd.assert_not_called()
+        self._driver.release_network_policy(self.crd)
+        m_del_crd.assert_called_once_with(self.crd)
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_create_sg_rules_with_container_ports')
@@ -543,8 +405,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         m_get_pods.return_value = {'items': [pod]}
         m_get_ports.return_value = container_ports
 
-        self._driver._create_sg_rule_body_on_text_port(self._sg_id,
-                                                       direction,
+        self._driver._create_sg_rule_body_on_text_port(direction,
                                                        port,
                                                        resources,
                                                        crd_rules,
@@ -577,8 +438,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         m_get_pods.return_value = {'items': [pod]}
         m_get_ports.return_value = container_ports
 
-        self._driver._create_sg_rule_body_on_text_port(self._sg_id,
-                                                       direction,
+        self._driver._create_sg_rule_body_on_text_port(direction,
                                                        port,
                                                        resources,
                                                        crd_rules,
@@ -600,7 +460,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                                              m_create_sgr):
 
         def _create_sgr_cont(container_ports, allow_all, resource,
-                             matched_pods, crd_rules, sg_id, direction, port,
+                             matched_pods, crd_rules, direction, port,
                              pod_selector=None, policy_namespace=None):
             matched_pods[container_ports[0][1]] = 'foo'
 
@@ -617,8 +477,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         m_get_pods.return_value = {'items': [pod]}
         m_get_ports.return_value = container_ports
 
-        self._driver._create_sg_rule_body_on_text_port(self._sg_id,
-                                                       direction,
+        self._driver._create_sg_rule_body_on_text_port(direction,
                                                        port,
                                                        resources,
                                                        crd_rules,
@@ -629,7 +488,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         m_get_pods.assert_called_with(pod_selector, namespace)
         m_get_ports.assert_called_with(pod, port)
 
-        calls = [mock.call(self._sg_id, direction, container_ports[0][1],
+        calls = [mock.call(direction, container_ports[0][1],
                            protocol=port['protocol'], ethertype=e,
                            pods='foo') for e in ('IPv4', 'IPv6')]
 
@@ -656,8 +515,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         m_get_pods.return_value = {'items': [pod]}
         m_get_ports.return_value = container_ports
 
-        self._driver._create_sg_rule_body_on_text_port(self._sg_id,
-                                                       direction,
+        self._driver._create_sg_rule_body_on_text_port(direction,
                                                        port,
                                                        resources,
                                                        crd_rules,
@@ -685,8 +543,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
 
         m_get_ports.return_value = container_ports
 
-        self._driver._create_sg_rule_body_on_text_port(self._sg_id,
-                                                       direction,
+        self._driver._create_sg_rule_body_on_text_port(direction,
                                                        port,
                                                        resources,
                                                        crd_rules,
@@ -695,8 +552,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                                        allow_all=True)
 
         m_get_ports.assert_called_with(resources[0], port)
-        m_create_sgr.assert_called_once_with(self._sg_id, 'egress', None,
-                                             cidr=mock.ANY, protocol='TCP')
+        m_create_sgr.assert_called_once_with('egress', None, cidr=mock.ANY,
+                                             protocol='TCP')
         self.assertEqual(len(crd_rules), 1)
 
     @mock.patch('kuryr_kubernetes.utils.get_subnet_cidr')
@@ -731,8 +588,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         m_get_pods.return_value = {'items': [pod]}
         m_get_ports.return_value = container_ports
 
-        self._driver._create_sg_rule_body_on_text_port(self._sg_id,
-                                                       direction,
+        self._driver._create_sg_rule_body_on_text_port(direction,
                                                        port,
                                                        resources,
                                                        crd_rules,
@@ -741,10 +597,10 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                                        allow_all=True)
 
         m_get_ports.assert_called_with(resources[0], port)
-        calls = [mock.call(self._sg_id, direction, container_ports[0][1],
+        calls = [mock.call(direction, container_ports[0][1],
                            protocol=port['protocol'], ethertype=e,
                            pods='foo') for e in ('IPv4', 'IPv6')]
-        calls.append(mock.call(self._sg_id, direction, container_ports[0][1],
+        calls.append(mock.call(direction, container_ports[0][1],
                                protocol=port['protocol'],
                                cidr='10.0.0.128/26'))
         m_create_sgr.assert_has_calls(calls)
@@ -758,19 +614,18 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         direction = 'ingress'
         rules = []
 
-        self._driver._create_all_pods_sg_rules(port, self._sg_id, direction,
-                                               rules, '', None)
+        self._driver._create_all_pods_sg_rules(port, direction, rules, '',
+                                               None)
         self.assertEqual(len(rules), 2)
 
     def test__create_default_sg_rule(self):
         for direction in ('ingress', 'egress'):
             rules = []
 
-            self._driver._create_default_sg_rule(self._sg_id, direction, rules)
+            self._driver._create_default_sg_rule(direction, rules)
             self.assertEqual(len(rules), 2)
-            self.assertListEqual(rules, [{'security_group_rule': {
+            self.assertListEqual(rules, [{'sgRule': {
                 'ethertype': e,
-                'security_group_id': self._sg_id,
                 'direction': direction,
                 'description': 'Kuryr-Kubernetes NetPolicy SG rule'
                 }} for e in ('IPv4', 'IPv6')])

@@ -697,13 +697,10 @@ class NetworkPolicyDriver(DriverBase, metaclass=abc.ABCMeta):
     ALIAS = 'network_policy'
 
     @abc.abstractmethod
-    def ensure_network_policy(self, policy, project_id):
+    def ensure_network_policy(self, policy):
         """Policy created or updated
 
         :param policy: dict containing Kubernetes NP object
-        :param project_id: openstack project_id
-        :returns: list of Pod objects affected by the network policy
-        creation or its podSelector modification
         """
         raise NotImplementedError()
 
@@ -711,7 +708,7 @@ class NetworkPolicyDriver(DriverBase, metaclass=abc.ABCMeta):
     def release_network_policy(self, kuryrnetpolicy):
         """Delete a network policy
 
-        :param kuryrnetpolicy: dict containing Kuryrnetpolicy CRD object
+        :param kuryrnetpolicy: dict containing NetworkPolicy object
         """
         raise NotImplementedError()
 
@@ -730,18 +727,6 @@ class NetworkPolicyDriver(DriverBase, metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def knps_on_namespace(self, namespace):
-        """Check if there si kuryr network policy CRDs on the namespace
-
-        This method returns true if there are knps on the specified namespace
-        or false otherwise
-
-        :param namespace: namespace name where the knps CRDs should be
-        :returns: true if knps CRDs on the namespace, false otherwise
-        """
-        raise NotImplementedError()
-
-    @abc.abstractmethod
     def namespaced_pods(self, policy):
         """Return pods on the policy namespace
 
@@ -749,15 +734,6 @@ class NetworkPolicyDriver(DriverBase, metaclass=abc.ABCMeta):
 
         :param policy: dict containing Kubernetes NP object
         :returns: list of Pods objects on the policy namespace
-        """
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def get_kuryrnetpolicy_crd(self, policy):
-        """Return kuryrnetpolicy CRD object associated to the policy
-
-        :param policy: dict containing Kubernetes NP object
-        :returns: kuryrnetpolicy CRD object associated to the policy
         """
         raise NotImplementedError()
 

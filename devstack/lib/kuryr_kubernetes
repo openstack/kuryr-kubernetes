@@ -452,6 +452,7 @@ rules:
     - kuryrnets
     - kuryrnetworks
     - kuryrnetpolicies
+    - kuryrnetworkpolicies
     - kuryrloadbalancers
     - kuryrports
 - apiGroups: ["networking.k8s.io"]

@@ -95,6 +95,7 @@ Edit ``kuryr.conf``:
           - kuryrnets
           - kuryrnetworks
           - kuryrnetpolicies
+          - kuryrnetworkpolicies
           - kuryrloadbalancers
       - apiGroups: ["networking.k8s.io"]
         resources:

@@ -749,24 +749,41 @@ class LBaaSv2Driver(base.LBaaSDriver):
         endpoints_link = utils.get_endpoints_link(service)
         k8s = clients.get_kubernetes_client()
         try:
-            endpoint = k8s.get(endpoints_link)
+            k8s.get(endpoints_link)
         except k_exc.K8sResourceNotFound:
             LOG.debug("Endpoint not Found. Skipping LB SG update for "
                       "%s as the LB resources are not present", lbaas_name)
             return
 
-        lbaas = utils.get_lbaas_state(endpoint)
-        if not lbaas:
-            LOG.debug('Endpoint not yet annotated with lbaas state.')
+        try:
+            klb = k8s.get(f'{k_const.K8S_API_CRD_NAMESPACES}/{svc_namespace}/'
+                          f'kuryrloadbalancers/{svc_name}')
+        except k_exc.K8sResourceNotFound:
+            LOG.debug('No KuryrLoadBalancer for service %s created yet.',
+                      lbaas_name)
             raise k_exc.ResourceNotReady(svc_name)
 
-        lbaas_obj = lbaas.loadbalancer
-        lbaas_obj.security_groups = sgs
+        if (not klb.get('status', {}).get('loadbalancer') or
+                klb.get('status', {}).get('listeners') is None):
+            LOG.debug('KuryrLoadBalancer for service %s not populated yet.',
+                      lbaas_name)
+            raise k_exc.ResourceNotReady(svc_name)
 
-        utils.set_lbaas_state(endpoint, lbaas)
+        klb['status']['loadbalancer']['security_groups'] = sgs
+
+        lb = klb['status']['loadbalancer']
+        try:
+            k8s.patch_crd('status/loadbalancer', klb['metadata']['selfLink'],
+                          {'security_groups': sgs})
+        except k_exc.K8sResourceNotFound:
+            LOG.debug('KuryrLoadBalancer CRD not found %s', lbaas_name)
+            return
+        except k_exc.K8sClientException:
+            LOG.exception('Error updating KuryLoadBalancer CRD %s', lbaas_name)
+            raise
 
         lsnr_ids = {(listener['protocol'], listener['port']): listener['id']
-                    for listener in lbaas.listeners}
+                    for listener in klb['status']['listeners']}
 
         for port in svc_ports:
             port_protocol = port['protocol']
@@ -779,6 +796,6 @@ class LBaaSv2Driver(base.LBaaSDriver):
                             "%s and port %s. Skipping", port_protocol,
                             lbaas_port)
                 continue
-            self._apply_members_security_groups(lbaas_obj, lbaas_port,
+            self._apply_members_security_groups(lb, lbaas_port,
                                                 target_port, port_protocol,
                                                 sg_rule_name, listener_id, sgs)

@@ -98,7 +98,7 @@
         KURYR_LB_ALGORITHM: SOURCE_IP_PORT
         KURYR_SUBNET_DRIVER: namespace
         KURYR_SG_DRIVER: policy
-        KURYR_ENABLED_HANDLERS: vif,endpoints,service,namespace,pod_label,policy,kuryrnetpolicy,kuryrnetwork,kuryrport,kuryrloadbalancer
+        KURYR_ENABLED_HANDLERS: vif,endpoints,service,namespace,pod_label,policy,kuryrnetworkpolicy,kuryrnetwork,kuryrport,kuryrloadbalancer
     voting: false
 
 - job:
@@ -144,7 +144,7 @@
         KURYR_ENFORCE_SG_RULES: false
         KURYR_LB_ALGORITHM: SOURCE_IP_PORT
         KURYR_HYPERKUBE_VERSION: v1.16.0
-        KURYR_ENABLED_HANDLERS: vif,endpoints,service,namespace,pod_label,policy,kuryrnetpolicy,kuryrnetwork,kuryrport,kuryrloadbalancer
+        KURYR_ENABLED_HANDLERS: vif,endpoints,service,namespace,pod_label,policy,kuryrnetworkpolicy,kuryrnetwork,kuryrport,kuryrloadbalancer
         KURYR_SG_DRIVER: policy
         KURYR_SUBNET_DRIVER: namespace
         KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true

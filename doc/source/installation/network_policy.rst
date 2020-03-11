@@ -10,7 +10,7 @@ be found  at :doc:`./devstack/containerized`):
 .. code-block:: ini
 
    [kubernetes]
-   enabled_handlers=vif,lb,lbaasspec,policy,pod_label,namespace,kuryrnetwork,kuryrnetpolicy
+   enabled_handlers=vif,lb,lbaasspec,policy,pod_label,namespace,kuryrnetwork,kuryrnetworkpolicy
 
 Note that if you also want to enable prepopulation of ports pools upon new
 namespace creation, you need to also dd the kuryrnetwork_population handler
@@ -19,7 +19,7 @@ namespace creation, you need to also dd the kuryrnetwork_population handler
 .. code-block:: ini
 
    [kubernetes]
-   enabled_handlers=vif,lb,lbaasspec,policy,pod_label,namespace,kuryrnetpolicy,kuryrnetwork,kuryrnetwork_population
+   enabled_handlers=vif,lb,lbaasspec,policy,pod_label,namespace,kuryrnetworkpolicy,kuryrnetwork,kuryrnetwork_population
 
 After that, enable also the security group drivers for policies:
 
@@ -82,7 +82,7 @@ to add the policy, pod_label and namespace handler and drivers with:
 
 .. code-block:: bash
 
-   KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,policy,pod_label,namespace,kuryrnetpolicy
+   KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,policy,pod_label,namespace,kuryrnetworkpolicy
    KURYR_SG_DRIVER=policy
    KURYR_SUBNET_DRIVER=namespace
 
@@ -143,9 +143,9 @@ Testing the network policy support functionality
 
    .. code-block:: console
 
-      $ kubectl get kuryrnetpolicies
+      $ kubectl get kuryrnetworkpolicies
       NAME                     AGE
-      np-test-network-policy   2s
+      test-network-policy   2s
 
       $ kubectl get networkpolicies
       NAME                  POD-SELECTOR   AGE
@@ -158,69 +158,42 @@ Testing the network policy support functionality
 
    .. code-block:: console
 
-      $ kubectl get kuryrnetpolicy np-test-network-policy -o yaml
+      $ kubectl get kuryrnetworkpolicy test-network-policy -o yaml
 
       apiVersion: openstack.org/v1
-      kind: KuryrNetPolicy
+      kind: KuryrNetworkPolicy
       metadata:
         annotations:
-          networkpolicy_name: test-network-policy
-          networkpolicy_namespace: default
-          networkpolicy_uid: aee1c59f-c634-11e8-b63d-002564fdd760
+          networkPolicyLink: <link>
         clusterName: ""
         creationTimestamp: 2018-10-02T11:17:02Z
         generation: 0
-        name: np-test-network-policy
+        name: test-network-policy
         namespace: default
         resourceVersion: "2117"
-        selfLink: /apis/openstack.org/v1/namespaces/default/kuryrnetpolicies/np-test-network-policy
+        selfLink: /apis/openstack.org/v1/namespaces/default/kuryrnetworkpolicies/test-network-policy
         uid: afb99326-c634-11e8-b63d-002564fdd760
       spec:
         egressSgRules:
-        - security_group_rule:
+        - sgRule:
             description: Kuryr-Kubernetes NetPolicy SG rule
             direction: egress
             ethertype: IPv4
-            id: 6297c198-b385-44f3-8b43-29951f933a8f
             port_range_max: 5978
             port_range_min: 5978
             protocol: tcp
-            security_group_id: cdee7815-3b49-4a3e-abc8-31e384ab75c5
         ingressSgRules:
-        - security_group_rule:
+        - sgRule:
             description: Kuryr-Kubernetes NetPolicy SG rule
             direction: ingress
             ethertype: IPv4
-            id: f4e11e73-81c6-4c1b-9760-714eedff417b
             port_range_max: 6379
             port_range_min: 6379
             protocol: tcp
-            security_group_id: cdee7815-3b49-4a3e-abc8-31e384ab75c5
+      status:
         securityGroupId: cdee7815-3b49-4a3e-abc8-31e384ab75c5
-        securityGroupName: sg-test-network-policy
-        networkpolicy_spec:
-          egress:
-          - to:
-            - namespaceSelector:
-                matchLabels:
-                  project: default
-            ports:
-            - port: 5978
-              protocol: TCP
-          ingress:
-          - from:
-            - namespaceSelector:
-                matchLabels:
-                  project: default
-            ports:
-            - port: 6379
-              protocol: TCP
-          podSelector:
-            matchLabels:
-              project: default
-          policyTypes:
-          - Ingress
-          - Egress
+        securityGroupRules:
+        …
 
       $ openstack security group rule list sg-test-network-policy --protocol tcp -c "IP Protocol" -c "Port Range" -c "Direction" --long
       +-------------+------------+-----------+
@@ -273,67 +246,41 @@ Testing the network policy support functionality
       $ kubectl patch networkpolicy test-network-policy -p '{"spec":{"ingress":[{"ports":[{"port": 8080,"protocol": "TCP"}]}]}}'
       networkpolicy "test-network-policy" patched
 
-      $ kubectl get knp np-test-network-policy -o yaml
+      $ kubectl get knp test-network-policy -o yaml
       apiVersion: openstack.org/v1
-      kind: KuryrNetPolicy
+      kind: KuryrNetworkPolicy
       metadata:
         annotations:
-          networkpolicy_name: test-network-policy
-          networkpolicy_namespace: default
-          networkpolicy_uid: aee1c59f-c634-11e8-b63d-002564fdd760
+          networkPolicyLink: <link>
         clusterName: ""
         creationTimestamp: 2018-10-02T11:17:02Z
         generation: 0
-        name: np-test-network-policy
+        name: test-network-policy
         namespace: default
         resourceVersion: "1546"
-        selfLink: /apis/openstack.org/v1/namespaces/default/kuryrnetpolicies/np-test-network-policy
+        selfLink: /apis/openstack.org/v1/namespaces/default/kuryrnetworkpolicies/np-test-network-policy
         uid: afb99326-c634-11e8-b63d-002564fdd760
       spec:
         egressSgRules:
-        - security_group_rule:
+        - sgRule:
             description: Kuryr-Kubernetes NetPolicy SG rule
             direction: egress
             ethertype: IPv4
-            id: 1969a0b3-55e1-43d7-ba16-005b4ed4cbb7
             port_range_max: 5978
             port_range_min: 5978
             protocol: tcp
-            security_group_id: cdee7815-3b49-4a3e-abc8-31e384ab75c5
         ingressSgRules:
-        - security_group_rule:
+        - sgRule:
             description: Kuryr-Kubernetes NetPolicy SG rule
             direction: ingress
             ethertype: IPv4
-            id: 6598aa1f-4f94-4fb2-81ce-d3649ba28f33
             port_range_max: 8080
             port_range_min: 8080
             protocol: tcp
-            security_group_id: cdee7815-3b49-4a3e-abc8-31e384ab75c5
+      status:
         securityGroupId: cdee7815-3b49-4a3e-abc8-31e384ab75c5
-        networkpolicy_spec:
-          egress:
-          - ports:
-            - port: 5978
-              protocol: TCP
-            to:
-            - namespaceSelector:
-                matchLabels:
-                  project: default
-          ingress:
-          - ports:
-            - port: 8080
-              protocol: TCP
-            from:
-            - namespaceSelector:
-                matchLabels:
-                  project: default
-          podSelector:
-            matchLabels:
-              project: default
-          policyTypes:
-          - Ingress
-          - Egress
+        securityGroupRules:
+        …
 
       $ openstack security group rule list sg-test-network-policy -c "IP Protocol" -c "Port Range" -c "Direction" --long
       +-------------+------------+-----------+
@@ -388,6 +335,6 @@ Testing the network policy support functionality
    .. code-block:: console
 
       $ kubectl delete -f network_policy.yml
-      $ kubectl get kuryrnetpolicies
+      $ kubectl get kuryrnetworkpolicies
       $ kubectl get networkpolicies
       $ openstack security group list | grep sg-test-network-policy

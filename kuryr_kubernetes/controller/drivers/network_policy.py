@@ -38,91 +38,94 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         self.os_net = clients.get_network_client()
         self.kubernetes = clients.get_kubernetes_client()
 
-    def ensure_network_policy(self, policy, project_id):
+    def ensure_network_policy(self, policy):
         """Create security group rules out of network policies
 
         Triggered by events from network policies, this method ensures that
-        security groups and security group rules are created or updated in
-        reaction to kubernetes network policies events.
-
-        In addition it returns the pods affected by the policy:
-        - Creation: pods on the namespace of the created policy
-        - Update: pods that needs to be updated in case of PodSelector
-        modification, i.e., the pods that were affected by the previous
-        PodSelector
+        KuryrNetworkPolicy object is created with the security group rules
+        definitions required to represent the NetworkPolicy.
         """
         LOG.debug("Creating network policy %s", policy['metadata']['name'])
 
-        if self.get_kuryrnetpolicy_crd(policy):
-            previous_selector = (
-                self.update_security_group_rules_from_network_policy(policy))
-            if previous_selector or previous_selector == {}:
-                return self.affected_pods(policy, previous_selector)
-            if previous_selector is None:
-                return self.namespaced_pods(policy)
+        i_rules, e_rules = self._get_security_group_rules_from_network_policy(
+            policy)
+
+        knp = self._get_knp_crd(policy)
+        if not knp:
+            self._create_knp_crd(policy, i_rules, e_rules)
         else:
-            self.create_security_group_rules_from_network_policy(policy,
-                                                                 project_id)
+            self._patch_knp_crd(policy, i_rules, e_rules, knp)
 
-    def update_security_group_rules_from_network_policy(self, policy):
-        """Update security group rules
+    def _convert_old_sg_rule(self, rule):
+        del rule['security_group_rule']['id']
+        del rule['security_group_rule']['security_group_id']
+        result = {
+            'sgRule': rule['security_group_rule'],
+        }
 
-        This method updates security group rules based on CRUD events gotten
-        from a configuration or patch to an existing network policy
+        if 'namespace' in rule:
+            result['namespace'] = rule['namespace']
+
+        if 'remote_ip_prefixes' in rule:
+            result['affectedPods'] = []
+            for ip, namespace in rule['remote_ip_prefixes']:
+                result['affectedPods'].append({
+                    'podIP': ip,
+                    'podNamespace': namespace,
+                })
+
+        return result
+
+    def get_from_old_crd(self, netpolicy):
+        name = netpolicy['metadata']['name'][3:]  # Remove 'np-'
+        namespace = netpolicy['metadata']['namespace']
+        link = (f'{constants.K8S_API_NETWORKING}/namespaces/{namespace}/'
+                f'networkpolicies/{name}')
+        knp = {
+            'apiVersion': constants.K8S_API_CRD_VERSION,
+            'kind': constants.K8S_OBJ_KURYRNETWORKPOLICY,
+            'metadata': {
+                'namespace': namespace,
+                'name': name,
+                'annotations': {
+                    'networkPolicyLink': link,
+                },
+                'finalizers': [constants.NETWORKPOLICY_FINALIZER],
+            },
+            'spec': {
+                'podSelector':
+                    netpolicy['spec']['networkpolicy_spec']['podSelector'],
+                'egressSgRules': [self._convert_old_sg_rule(r) for r in
+                                  netpolicy['spec']['egressSgRules']],
+                'ingressSgRules': [self._convert_old_sg_rule(r) for r in
+                                   netpolicy['spec']['ingressSgRules']],
+                'policyTypes':
+                    netpolicy['spec']['networkpolicy_spec']['policyTypes'],
+            },
+            'status': {
+                'podSelector': netpolicy['spec']['podSelector'],
+                'securityGroupId': netpolicy['spec']['securityGroupId'],
+                # We'll just let KuryrNetworkPolicyHandler figure out if rules
+                # are created on its own.
+                'securityGroupRules': [],
+            },
+        }
+
+        return knp
+
+    def _get_security_group_rules_from_network_policy(self, policy):
+        """Get security group rules required to represent an NP
+
+        This method creates the security group rules bodies coming out of a
+        network policies' parsing.
         """
-        crd = self.get_kuryrnetpolicy_crd(policy)
-        crd_name = crd['metadata']['name']
-        LOG.debug("Already existing CRD %s", crd_name)
-        sg_id = crd['spec']['securityGroupId']
-        # Fetch existing SG rules from kuryrnetpolicy CRD
-        existing_sg_rules = []
-        existing_i_rules = crd['spec'].get('ingressSgRules')
-        existing_e_rules = crd['spec'].get('egressSgRules')
-        if existing_i_rules or existing_e_rules:
-            existing_sg_rules = existing_i_rules + existing_e_rules
-        existing_pod_selector = crd['spec'].get('podSelector')
-        # Parse network policy update and get new ruleset
-        i_rules, e_rules = self.parse_network_policy_rules(policy, sg_id)
-        current_sg_rules = i_rules + e_rules
-        # Get existing security group rules ids
-        sgr_ids = [x['security_group_rule'].pop('id') for x in
-                   existing_sg_rules]
-        # SG rules that are meant to be kept get their id back
-        sg_rules_to_keep = [existing_sg_rules.index(rule) for rule in
-                            existing_sg_rules if rule in current_sg_rules]
-        for sg_rule in sg_rules_to_keep:
-            sgr_id = sgr_ids[sg_rule]
-            existing_sg_rules[sg_rule]['security_group_rule']['id'] = sgr_id
-        # Delete SG rules that are no longer in the updated policy
-        sg_rules_to_delete = [existing_sg_rules.index(rule) for rule in
-                              existing_sg_rules if rule not in
-                              current_sg_rules]
-        for sg_rule in sg_rules_to_delete:
-            driver_utils.delete_security_group_rule(sgr_ids[sg_rule])
-        # Create new rules that weren't already on the security group
-        sg_rules_to_add = [rule for rule in current_sg_rules if rule not in
-                           existing_sg_rules]
-        for sg_rule in sg_rules_to_add:
-            sgr_id = driver_utils.create_security_group_rule(sg_rule)
-            if sg_rule['security_group_rule'].get('direction') == 'ingress':
-                for i_rule in i_rules:
-                    if sg_rule == i_rule:
-                        i_rule["security_group_rule"]["id"] = sgr_id
-            else:
-                for e_rule in e_rules:
-                    if sg_rule == e_rule:
-                        e_rule["security_group_rule"]["id"] = sgr_id
-        # Annotate kuryrnetpolicy CRD with current policy and ruleset
-        pod_selector = policy['spec'].get('podSelector')
-        driver_utils.patch_kuryrnetworkpolicy_crd(crd, i_rules, e_rules,
-                                                  pod_selector,
-                                                  np_spec=policy['spec'])
+        i_rules, e_rules = self.parse_network_policy_rules(policy)
+        # Add default rules to allow traffic from host and svc subnet
+        i_rules += self._get_default_np_rules()
 
-        if existing_pod_selector != pod_selector:
-            return existing_pod_selector
-        return False
+        return i_rules, e_rules
 
-    def _add_default_np_rules(self, sg_id):
+    def _get_default_np_rules(self):
         """Add extra SG rule to allow traffic from svcs and host.
 
         This method adds the base security group rules for the NP security
@@ -130,6 +133,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         - Ensure traffic is allowed from the services subnet
         - Ensure traffic is allowed from the host
         """
+        rules = []
         default_cidrs = []
         if CONF.octavia_defaults.enforce_sg_rules:
             default_cidrs.append(utils.get_subnet_cidr(
@@ -141,27 +145,21 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             ethertype = constants.IPv4
             if ipaddress.ip_network(cidr).version == constants.IP_VERSION_6:
                 ethertype = constants.IPv6
-            default_rule = {
-                'security_group_rule': {
+            rules.append({
+                'sgRule': {
                     'ethertype': ethertype,
-                    'security_group_id': sg_id,
                     'direction': 'ingress',
                     'description': 'Kuryr-Kubernetes NetPolicy SG rule',
-                    'remote_ip_prefix': cidr
-                }}
-            driver_utils.create_security_group_rule(default_rule)
+                    'remote_ip_prefix': cidr,
+                }})
 
-    def create_security_group_rules_from_network_policy(self, policy,
-                                                        project_id):
-        """Create initial security group and rules
+        return rules
 
-        This method creates the initial security group for hosting security
-        group rules coming out of network policies' parsing.
-        """
-        sg_name = ("sg-" + policy['metadata']['namespace'] + "-" +
-                   policy['metadata']['name'])
-        desc = "Kuryr-Kubernetes NetPolicy SG"
-        sg = None
+    def create_security_group(self, knp, project_id):
+        sg_name = ("sg-" + knp['metadata']['namespace'] + "-" +
+                   knp['metadata']['name'])
+        desc = ("Kuryr-Kubernetes Network Policy %s SG" %
+                utils.get_res_unique_name(knp))
         try:
             # Create initial security group
             sg = self.os_net.create_security_group(name=sg_name,
@@ -176,46 +174,14 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             #              rules just after creation.
             for sgr in sg.security_group_rules:
                 self.os_net.delete_security_group_rule(sgr['id'])
-
-            i_rules, e_rules = self.parse_network_policy_rules(policy, sg.id)
-            for i_rule in i_rules:
-                sgr_id = driver_utils.create_security_group_rule(i_rule)
-                i_rule['security_group_rule']['id'] = sgr_id
-
-            for e_rule in e_rules:
-                sgr_id = driver_utils.create_security_group_rule(e_rule)
-                e_rule['security_group_rule']['id'] = sgr_id
-
-            # Add default rules to allow traffic from host and svc subnet
-            self._add_default_np_rules(sg.id)
         except (os_exc.SDKException, exceptions.ResourceNotReady):
             LOG.exception("Error creating security group for network policy "
-                          " %s", policy['metadata']['name'])
-            # If there's any issue creating sg rules, remove them
-            if sg:
-                self.os_net.delete_security_group(sg.id)
+                          " %s", knp['metadata']['name'])
             raise
 
-        try:
-            self._add_kuryrnetpolicy_crd(policy, project_id, sg.id, i_rules,
-                                         e_rules)
-        except exceptions.K8sClientException:
-            LOG.exception("Rolling back security groups")
-            # Same with CRD creation
-            self.os_net.delete_security_group(sg.id)
-            raise
+        return sg.id
 
-        try:
-            crd = self.get_kuryrnetpolicy_crd(policy)
-            self.kubernetes.annotate(policy['metadata']['selfLink'],
-                                     {"kuryrnetpolicy_selfLink":
-                                      crd['metadata']['selfLink']})
-        except exceptions.K8sClientException:
-            LOG.exception('Error annotating network policy')
-            raise
-
-    def _get_pods(self, pod_selector, namespace=None,
-                  namespace_selector=None):
+    def _get_pods(self, pod_selector, namespace=None, namespace_selector=None):
         matching_pods = {"items": []}
         if namespace_selector:
             matching_namespaces = driver_utils.get_namespaces(
@@ -232,7 +198,6 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         if not namespace_selector and namespace:
             matching_namespaces.append(self.kubernetes.get(
                 '{}/namespaces/{}'.format(constants.K8S_API_BASE, namespace)))
-
         else:
             matching_namespaces.extend(driver_utils.get_namespaces(
                 namespace_selector).get('items'))
@@ -285,7 +250,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
 
     def _create_sg_rules_with_container_ports(
         self, container_ports, allow_all, resource, matched_pods,
-            crd_rules, sg_id, direction, port, pod_selector=None,
+            crd_rules, direction, port, pod_selector=None,
             policy_namespace=None):
         cidr, ns = self._get_resource_details(resource)
         for pod, container_port in container_ports:
@@ -308,18 +273,18 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         if not allow_all and matched_pods and cidr:
             for container_port, pods in matched_pods.items():
                 sg_rule = driver_utils.create_security_group_rule_body(
-                    sg_id, direction, container_port,
+                    direction, container_port,
                     protocol=port.get('protocol'),
                     cidr=cidr, pods=pods)
                 if sg_rule not in crd_rules:
                     crd_rules.append(sg_rule)
                 if direction == 'egress':
                     self._create_svc_egress_sg_rule(
-                        sg_id, policy_namespace, crd_rules,
+                        policy_namespace, crd_rules,
                         resource=resource, port=container_port,
                         protocol=port.get('protocol'))
 
-    def _create_sg_rule_body_on_text_port(self, sg_id, direction, port,
+    def _create_sg_rule_body_on_text_port(self, direction, port,
                                           resources, crd_rules, pod_selector,
                                           policy_namespace, allow_all=False):
         """Create SG rules when named port is used in the NP rule
@@ -352,7 +317,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 for resource in resources:
                     self._create_sg_rules_with_container_ports(
                         container_ports, allow_all, resource, matched_pods,
-                        crd_rules, sg_id, direction, port)
+                        crd_rules, direction, port)
         elif direction == "egress":
             for resource in resources:
                 # NOTE(maysams) Skipping objects that refers to ipblocks
@@ -364,24 +329,24 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 container_ports = driver_utils.get_ports(resource, port)
                 self._create_sg_rules_with_container_ports(
                     container_ports, allow_all, resource, matched_pods,
-                    crd_rules, sg_id, direction, port, pod_selector,
+                    crd_rules, direction, port, pod_selector,
                     policy_namespace)
         if allow_all:
             container_port = None
             for container_port, pods in matched_pods.items():
                 for ethertype in (constants.IPv4, constants.IPv6):
                     sg_rule = driver_utils.create_security_group_rule_body(
-                        sg_id, direction, container_port,
+                        direction, container_port,
                         protocol=port.get('protocol'),
                         ethertype=ethertype,
                         pods=pods)
                     crd_rules.append(sg_rule)
             if direction == 'egress':
                 self._create_svc_egress_sg_rule(
-                    sg_id, policy_namespace, crd_rules,
+                    policy_namespace, crd_rules,
                     port=container_port, protocol=port.get('protocol'))
 
-    def _create_sg_rule_on_number_port(self, allowed_resources, sg_id,
+    def _create_sg_rule_on_number_port(self, allowed_resources,
                                        direction, port, sg_rule_body_list,
                                        policy_namespace):
         for resource in allowed_resources:
@@ -393,52 +358,51 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 continue
             sg_rule = (
                 driver_utils.create_security_group_rule_body(
-                    sg_id, direction, port.get('port'),
+                    direction, port.get('port'),
                     protocol=port.get('protocol'),
                     cidr=cidr,
                     namespace=ns))
             sg_rule_body_list.append(sg_rule)
             if direction == 'egress':
                 self._create_svc_egress_sg_rule(
-                    sg_id, policy_namespace, sg_rule_body_list,
+                    policy_namespace, sg_rule_body_list,
                     resource=resource, port=port.get('port'),
                     protocol=port.get('protocol'))
 
-    def _create_all_pods_sg_rules(self, port, sg_id, direction,
+    def _create_all_pods_sg_rules(self, port, direction,
                                   sg_rule_body_list, pod_selector,
                                   policy_namespace):
         if type(port.get('port')) is not int:
             all_pods = driver_utils.get_namespaced_pods().get('items')
             self._create_sg_rule_body_on_text_port(
-                sg_id, direction, port, all_pods,
+                direction, port, all_pods,
                 sg_rule_body_list, pod_selector, policy_namespace,
                 allow_all=True)
         else:
             for ethertype in (constants.IPv4, constants.IPv6):
                 sg_rule = (
                     driver_utils.create_security_group_rule_body(
-                        sg_id, direction, port.get('port'),
+                        direction, port.get('port'),
                         ethertype=ethertype,
                         protocol=port.get('protocol')))
                 sg_rule_body_list.append(sg_rule)
                 if direction == 'egress':
                     self._create_svc_egress_sg_rule(
-                        sg_id, policy_namespace, sg_rule_body_list,
+                        policy_namespace, sg_rule_body_list,
                         port=port.get('port'),
                         protocol=port.get('protocol'))
 
-    def _create_default_sg_rule(self, sg_id, direction, sg_rule_body_list):
+    def _create_default_sg_rule(self, direction, sg_rule_body_list):
         for ethertype in (constants.IPv4, constants.IPv6):
             default_rule = {
-                'security_group_rule': {
+                'sgRule': {
                     'ethertype': ethertype,
-                    'security_group_id': sg_id,
                     'direction': direction,
                     'description': 'Kuryr-Kubernetes NetPolicy SG rule',
                 }}
             sg_rule_body_list.append(default_rule)
 
-    def _parse_sg_rules(self, sg_rule_body_list, direction, policy, sg_id):
+    def _parse_sg_rules(self, sg_rule_body_list, direction, policy):
         """Parse policy into security group rules.
 
         This method inspects the policy object and create the equivalent
@@ -460,16 +424,14 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     # traffic as NP policy is not affecting ingress
                     LOG.debug('Applying default all open for ingress for '
                               'policy %s', policy['metadata']['selfLink'])
-                    self._create_default_sg_rule(
-                        sg_id, direction, sg_rule_body_list)
+                    self._create_default_sg_rule(direction, sg_rule_body_list)
             elif direction == 'egress':
                 if policy_types and 'Egress' not in policy_types:
                     # NOTE(ltomasbo): add default rule to enable all egress
                     # traffic as NP policy is not affecting egress
                     LOG.debug('Applying default all open for egress for '
                               'policy %s', policy['metadata']['selfLink'])
-                    self._create_default_sg_rule(
-                        sg_id, direction, sg_rule_body_list)
+                    self._create_default_sg_rule(direction, sg_rule_body_list)
             else:
                 LOG.warning('Not supported policyType at network policy %s',
                             policy['metadata']['selfLink'])
@@ -487,7 +449,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                       policy['metadata']['selfLink'])
             for ethertype in (constants.IPv4, constants.IPv6):
                 rule = driver_utils.create_security_group_rule_body(
-                    sg_id, direction, ethertype=ethertype)
+                    direction, ethertype=ethertype)
                 sg_rule_body_list.append(rule)
 
         for rule_block in rule_list:
@@ -519,20 +481,20 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     if allowed_resources or allow_all or selectors:
                         if type(port.get('port')) is not int:
                             self._create_sg_rule_body_on_text_port(
-                                sg_id, direction, port, allowed_resources,
+                                direction, port, allowed_resources,
                                 sg_rule_body_list, pod_selector,
                                 policy_namespace)
                         else:
                             self._create_sg_rule_on_number_port(
-                                allowed_resources, sg_id, direction, port,
+                                allowed_resources, direction, port,
                                 sg_rule_body_list, policy_namespace)
                         if allow_all:
                             self._create_all_pods_sg_rules(
-                                port, sg_id, direction, sg_rule_body_list,
+                                port, direction, sg_rule_body_list,
                                 pod_selector, policy_namespace)
                     else:
                         self._create_all_pods_sg_rules(
-                            port, sg_id, direction, sg_rule_body_list,
+                            port, direction, sg_rule_body_list,
                             pod_selector, policy_namespace)
             elif allowed_resources or allow_all or selectors:
                 for resource in allowed_resources:
@@ -543,27 +505,27 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     if not cidr:
                         continue
                     rule = driver_utils.create_security_group_rule_body(
-                        sg_id, direction,
+                        direction,
                         port_range_min=1,
                         port_range_max=65535,
                         cidr=cidr,
                         namespace=namespace)
                     sg_rule_body_list.append(rule)
                     if direction == 'egress':
-                        rule = self._create_svc_egress_sg_rule(
-                            sg_id, policy_namespace, sg_rule_body_list,
+                        self._create_svc_egress_sg_rule(
+                            policy_namespace, sg_rule_body_list,
                             resource=resource)
                 if allow_all:
                     for ethertype in (constants.IPv4, constants.IPv6):
                         rule = driver_utils.create_security_group_rule_body(
-                            sg_id, direction,
+                            direction,
                             port_range_min=1,
                             port_range_max=65535,
                             ethertype=ethertype)
                         sg_rule_body_list.append(rule)
                         if direction == 'egress':
-                            self._create_svc_egress_sg_rule(
-                                sg_id, policy_namespace, sg_rule_body_list)
+                            self._create_svc_egress_sg_rule(policy_namespace,
+                                                            sg_rule_body_list)
             else:
                 LOG.debug('This network policy specifies no %(direction)s '
                           '%(rule_direction)s and no ports: %(policy)s',
@@ -571,15 +533,14 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                            'rule_direction': rule_direction,
                            'policy': policy['metadata']['selfLink']})
 
-    def _create_svc_egress_sg_rule(self, sg_id, policy_namespace,
-                                   sg_rule_body_list, resource=None,
-                                   port=None, protocol=None):
+    def _create_svc_egress_sg_rule(self, policy_namespace, sg_rule_body_list,
+                                   resource=None, port=None, protocol=None):
         services = driver_utils.get_services()
         if not resource:
             svc_subnet = utils.get_subnet_cidr(
                 CONF.neutron_defaults.service_subnet)
             rule = driver_utils.create_security_group_rule_body(
-                sg_id, 'egress', port, protocol=protocol, cidr=svc_subnet)
+                'egress', port, protocol=protocol, cidr=svc_subnet)
             if rule not in sg_rule_body_list:
                 sg_rule_body_list.append(rule)
             return
@@ -613,7 +574,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             if not cluster_ip:
                 continue
             rule = driver_utils.create_security_group_rule_body(
-                sg_id, 'egress', port, protocol=protocol,
+                'egress', port, protocol=protocol,
                 cidr=cluster_ip)
             if rule not in sg_rule_body_list:
                 sg_rule_body_list.append(rule)
@@ -626,7 +587,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 return True
         return False
 
-    def parse_network_policy_rules(self, policy, sg_id):
+    def parse_network_policy_rules(self, policy):
         """Create security group rule bodies out of network policies.
 
         Whenever a notification from the handler 'on-present' method is
@@ -637,10 +598,8 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         ingress_sg_rule_body_list = []
         egress_sg_rule_body_list = []
 
-        self._parse_sg_rules(ingress_sg_rule_body_list, 'ingress', policy,
-                             sg_id)
-        self._parse_sg_rules(egress_sg_rule_body_list, 'egress', policy,
-                             sg_id)
+        self._parse_sg_rules(ingress_sg_rule_body_list, 'ingress', policy)
+        self._parse_sg_rules(egress_sg_rule_body_list, 'egress', policy)
 
         return ingress_sg_rule_body_list, egress_sg_rule_body_list
 
@@ -657,19 +616,15 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             LOG.exception("Error deleting security group %s.", sg_id)
             raise
 
-    def release_network_policy(self, netpolicy_crd):
-        if netpolicy_crd is not None:
-            self.delete_np_sg(netpolicy_crd['spec']['securityGroupId'])
-            self._del_kuryrnetpolicy_crd(
-                netpolicy_crd['metadata']['name'],
-                netpolicy_crd['metadata']['namespace'])
+    def release_network_policy(self, policy):
+        return self._del_knp_crd(policy)
 
-    def get_kuryrnetpolicy_crd(self, policy):
-        netpolicy_crd_name = "np-" + policy['metadata']['name']
+    def _get_knp_crd(self, policy):
+        netpolicy_crd_name = policy['metadata']['name']
         netpolicy_crd_namespace = policy['metadata']['namespace']
         try:
             netpolicy_crd = self.kubernetes.get(
-                '{}/{}/kuryrnetpolicies/{}'.format(
+                '{}/{}/kuryrnetworkpolicies/{}'.format(
                     constants.K8S_API_CRD_NAMESPACES, netpolicy_crd_namespace,
                     netpolicy_crd_name))
         except exceptions.K8sResourceNotFound:
@@ -679,77 +634,81 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             raise
         return netpolicy_crd
 
-    def knps_on_namespace(self, namespace):
-        try:
-            netpolicy_crds = self.kubernetes.get(
-                '{}/{}/kuryrnetpolicies'.format(
-                    constants.K8S_API_CRD_NAMESPACES,
-                    namespace))
-        except exceptions.K8sClientException:
-            LOG.exception("Kubernetes Client Exception.")
-            raise
-        if netpolicy_crds.get('items'):
-            return True
-        return False
-
-    def _add_kuryrnetpolicy_crd(self, policy,  project_id, sg_id, i_rules,
-                                e_rules):
+    def _create_knp_crd(self, policy, i_rules, e_rules):
         networkpolicy_name = policy['metadata']['name']
-        netpolicy_crd_name = "np-" + networkpolicy_name
         namespace = policy['metadata']['namespace']
         pod_selector = policy['spec'].get('podSelector')
+        policy_types = policy['spec'].get('policyTypes', [])
         netpolicy_crd = {
             'apiVersion': 'openstack.org/v1',
-            'kind': constants.K8S_OBJ_KURYRNETPOLICY,
+            'kind': constants.K8S_OBJ_KURYRNETWORKPOLICY,
             'metadata': {
-                'name': netpolicy_crd_name,
+                'name': networkpolicy_name,
                 'namespace': namespace,
                 'annotations': {
-                    'networkpolicy_name': networkpolicy_name,
-                    'networkpolicy_namespace': namespace,
-                    'networkpolicy_uid': policy['metadata']['uid'],
+                    'networkPolicyLink': policy['metadata']['selfLink'],
                 },
+                'finalizers': [constants.NETWORKPOLICY_FINALIZER],
             },
             'spec': {
-                'securityGroupName': "sg-" + networkpolicy_name,
-                'securityGroupId': sg_id,
                 'ingressSgRules': i_rules,
                 'egressSgRules': e_rules,
                 'podSelector': pod_selector,
-                'networkpolicy_spec': policy['spec']
+                'policyTypes': policy_types,
+            },
+            'status': {
+                'securityGroupRules': [],
             },
         }
 
         try:
-            LOG.debug("Creating KuryrNetPolicy CRD %s" % netpolicy_crd)
-            kubernetes_post = '{}/{}/kuryrnetpolicies'.format(
+            LOG.debug("Creating KuryrNetworkPolicy CRD %s" % netpolicy_crd)
+            url = '{}/{}/kuryrnetworkpolicies'.format(
                 constants.K8S_API_CRD_NAMESPACES,
                 namespace)
-            self.kubernetes.post(kubernetes_post, netpolicy_crd)
+            netpolicy_crd = self.kubernetes.post(url, netpolicy_crd)
         except exceptions.K8sClientException:
-            LOG.exception("Kubernetes Client Exception creating kuryrnetpolicy"
-                          " CRD. %s" % exceptions.K8sClientException)
+            LOG.exception("Kubernetes Client Exception creating "
+                          "KuryrNetworkPolicy CRD.")
             raise
         return netpolicy_crd
 
-    def _del_kuryrnetpolicy_crd(self, netpolicy_crd_name,
-                                netpolicy_crd_namespace):
+    def _patch_knp_crd(self, policy, i_rules, e_rules, knp):
+        networkpolicy_name = policy['metadata']['name']
+        namespace = policy['metadata']['namespace']
+        pod_selector = policy['spec'].get('podSelector')
+        url = (f'{constants.K8S_API_CRD_NAMESPACES}/{namespace}'
+               f'/kuryrnetworkpolicies/{networkpolicy_name}')
+
+        # FIXME(dulek): Rules should be hashable objects, not dict so that
+        #               we could compare them easily here.
+        data = {
+            'ingressSgRules': i_rules,
+            'egressSgRules': e_rules,
+        }
+        if knp['spec'].get('podSelector') != pod_selector:
+            data['podSelector'] = pod_selector
+
+        self.kubernetes.patch_crd('spec', url, data)
+
+    def _del_knp_crd(self, policy):
         try:
-            LOG.debug("Deleting KuryrNetPolicy CRD %s" % netpolicy_crd_name)
-            self.kubernetes.delete('{}/{}/kuryrnetpolicies/{}'.format(
-                constants.K8S_API_CRD_NAMESPACES,
-                netpolicy_crd_namespace,
-                netpolicy_crd_name))
+            ns = policy['metadata']['namespace']
+            name = policy['metadata']['name']
+            LOG.debug("Deleting KuryrNetworkPolicy CRD %s" % name)
+            self.kubernetes.delete('{}/{}/kuryrnetworkpolicies/{}'.format(
+                constants.K8S_API_CRD_NAMESPACES, ns, name))
+            return True
         except exceptions.K8sResourceNotFound:
-            LOG.debug("KuryrNetPolicy CRD Object not found: %s",
-                      netpolicy_crd_name)
+            LOG.debug("KuryrNetworkPolicy CRD Object not found: %s", name)
+            return False
         except exceptions.K8sClientException:
-            LOG.exception("Kubernetes Client Exception deleting kuryrnetpolicy"
-                          " CRD.")
+            LOG.exception("Kubernetes Client Exception deleting "
+                          "KuryrNetworkPolicy CRD %s." % name)
             raise
 
     def affected_pods(self, policy, selector=None):
-        if selector or selector == {}:
+        if selector is not None:
             pod_selector = selector
         else:
             pod_selector = policy['spec'].get('podSelector')
