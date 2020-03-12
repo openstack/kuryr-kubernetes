@@ -53,14 +53,16 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
     @release_lock_object
     def connect(self, vif, ifname, netns, container_id):
         pci_info = self._process_vif(vif, ifname, netns)
-        self._save_pci_info(vif.id, pci_info)
+        if config.CONF.sriov.enable_node_annotations:
+            self._save_pci_info(vif.id, pci_info)
 
     def disconnect(self, vif, ifname, netns, container_id):
         # NOTE(k.zaitsev): when netns is deleted the interface is
         # returned automatically to host netns. We may reset
         # it to all-zero state
         self._return_device_driver(vif)
-        self._remove_pci_info(vif.id)
+        if config.CONF.sriov.enable_node_annotations:
+            self._remove_pci_info(vif.id)
 
     def _process_vif(self, vif, ifname, netns):
         pr_client = clients.get_pod_resources_client()

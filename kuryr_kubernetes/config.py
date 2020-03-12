@@ -310,6 +310,12 @@ sriov_opts = [
                        "names. Expected that device of VIF related to "
                        "exact physnet should be binded on specified driver."),
                 default=DEFAULT_PHYSNET_SUBNET_MAPPINGS),
+    cfg.BoolOpt('enable_node_annotations',
+                help=_("Enable node annotations. This option allows to "
+                       "set annotations required by neutron to set active "
+                       "state of ports. This option is useless when "
+                       "sriov-nic-agent is not running on node."),
+                default=False),
 ]
 
 
