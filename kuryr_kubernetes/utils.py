@@ -353,3 +353,15 @@ def get_service_ports(service):
              'port': port['port'],
              'targetPort': str(port['targetPort'])}
             for port in service['spec']['ports']]
+
+
+@MEMOIZE
+def get_service_subnet_version():
+    os_net = clients.get_network_client()
+    svc_subnet_id = CONF.neutron_defaults.service_subnet
+    try:
+        svc_subnet = os_net.get_subnet(svc_subnet_id)
+    except os_exc.ResourceNotFound:
+        LOG.exception("Service subnet %s not found", svc_subnet_id)
+        raise
+    return svc_subnet.ip_version
