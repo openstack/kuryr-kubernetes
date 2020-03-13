@@ -76,7 +76,7 @@ function ovs_bind_for_kubelet() {
         if [ "$KURYR_IPV6" == "False" ]; then
             subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}}
         else
-            subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V6_ID}}
+            subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_KURYR_V6_ID}}
         fi
         cidrs=$(openstack subnet pool show "${subnetpool_id}" -c prefixes -f value)
         subnetpool_cidr=$(python3 -c "print(${cidrs}[0])")

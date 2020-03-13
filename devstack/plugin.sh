@@ -274,8 +274,8 @@ function configure_neutron_defaults {
     local router
     local router_id
     local ext_svc_net_id
-    local ext_svc_subnet_id
-    local prot
+    local addrs_prefix
+    local subnetpool_name
 
     project_id=$(get_or_create_project \
         "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
@@ -286,11 +286,31 @@ function configure_neutron_defaults {
     # Neutron module
     KURYR_IPV6=$(trueorfalse False KURYR_IPV6)
     if [ "$KURYR_IPV6" == "False" ]; then
-      export KURYR_ETHERTYPE=IPv4
-      subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}}
+        export KURYR_ETHERTYPE=IPv4
+        subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}}
     else
-      export KURYR_ETHERTYPE=IPv6
-      subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V6_ID}}
+        export KURYR_ETHERTYPE=IPv6
+        # NOTE(gryf): To not clash with subnets created by DevStack for IPv6,
+        # we create another subnetpool just for kuryr subnets.
+        # SUBNETPOOL_KURYR_V6_ID will be used in function configure_kuryr in
+        # case of namespace kuryr subnet driver.
+        # This is not required for IPv4, because DevStack is only adding a
+        # conflicting route for IPv6. On DevStack this route is opening public
+        # IPv6 network to be accessible from host, which doesn't have place in
+        # IPv4 net, because floating IPs are used instead.
+        IPV6_ID=$(uuidgen | sed s/-//g | cut -c 23- | \
+            sed -e "s/\(..\)\(....\)\(....\)/\1:\2:\3/")
+        addrs_prefix="fd${IPV6_ID}::/56"
+        subnetpool_name=${SUBNETPOOL_KURYR_NAME_V6}
+        SUBNETPOOL_KURYR_V6_ID=$(openstack \
+            --os-cloud devstack-admin \
+            --os-region "${REGION_NAME}" \
+            subnet pool create "${subnetpool_name}" \
+            --default-prefix-length "${SUBNETPOOL_SIZE_V6}" \
+            --pool-prefix "${addrs_prefix}" \
+            --share -f value -c id)
+        export SUBNETPOOL_KURYR_V6_ID
+        subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_KURYR_V6_ID}}
     fi
 
     router=${KURYR_NEUTRON_DEFAULT_ROUTER:-$Q_ROUTER_NAME}
