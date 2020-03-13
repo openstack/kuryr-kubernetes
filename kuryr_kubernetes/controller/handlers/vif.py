@@ -124,7 +124,8 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             changed = False
             try:
                 for ifname, vif in state.vifs.items():
-                    if vif.plugin == constants.KURYR_VIF_TYPE_SRIOV:
+                    if (vif.plugin == constants.KURYR_VIF_TYPE_SRIOV and
+                            oslo_cfg.CONF.sriov.enable_node_annotations):
                         driver_utils.update_port_pci_info(pod, vif)
                     if not vif.active:
                         try:

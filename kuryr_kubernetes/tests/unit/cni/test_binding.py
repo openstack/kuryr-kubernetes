@@ -262,6 +262,8 @@ class TestSriovDriver(TestDriverMixin, test_base.TestCase):
                           group='sriov')
         CONF.set_override('resource_driver_mappings', 'sriov:igbvf',
                           group='sriov')
+        CONF.set_override('enable_node_annotations', True,
+                          group='sriov')
 
     @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
                 '_save_pci_info')
@@ -274,6 +276,18 @@ class TestSriovDriver(TestDriverMixin, test_base.TestCase):
         m_save_pci.assert_called_once_with(self.vif.id, self.pci_info)
 
     @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
+                '_save_pci_info')
+    @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
+                '_process_vif')
+    def test_connect_no_annotations(self, m_proc_vif, m_save_pci):
+        m_proc_vif.return_value = self.pci_info
+        CONF.set_override('enable_node_annotations', False,
+                          group='sriov')
+
+        self._test_connect()
+        m_save_pci.assert_not_called()
+
+    @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
                 '_return_device_driver')
     @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
                 '_remove_pci_info')
@@ -281,6 +295,19 @@ class TestSriovDriver(TestDriverMixin, test_base.TestCase):
         m_remove_pci.return_value = None
         m_return_device.return_value = None
         self._test_disconnect()
+        m_remove_pci.assert_called_once_with(self.vif.id)
+
+    @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
+                '_return_device_driver')
+    @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
+                '_remove_pci_info')
+    def test_disconnect_no_annotations(self, m_remove_pci, m_return_device):
+        m_return_device.return_value = None
+        m_remove_pci.return_value = None
+        CONF.set_override('enable_node_annotations', False,
+                          group='sriov')
+        self._test_disconnect()
+        m_remove_pci.assert_not_called()
 
     @mock.patch('kuryr_kubernetes.clients.get_pod_resources_client')
     @mock.patch('kuryr_kubernetes.cni.binding.sriov.VIFSriovDriver.'
