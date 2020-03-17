@@ -1,4 +1,4 @@
-# Copyright 2019 Red Hat, Inc.
+# Copyright 2020 Red Hat, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
 
 from oslo_log import log as logging
 
+from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base as drivers
-from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes import utils
@@ -24,45 +24,35 @@ from kuryr_kubernetes import utils
 LOG = logging.getLogger(__name__)
 
 
-class KuryrNetHandler(k8s_base.ResourceEventHandler):
-    """Controller side of KuryrNet process for Kubernetes pods.
+class KuryrNetworkPopulationHandler(k8s_base.ResourceEventHandler):
+    """Controller side of KuryrNetwork process for Kubernetes pods.
 
-    `KuryrNetHandler` runs on the Kuryr-Kubernetes controller and is
-    responsible for populating pools for newly created namespaces.
+    `KuryrNetworkPopulationHandler` runs on the Kuryr-Kubernetes controller
+    and is responsible for populating pools for newly created namespaces.
     """
-    OBJECT_KIND = constants.K8S_OBJ_KURYRNET
-    OBJECT_WATCH_PATH = constants.K8S_API_CRD_KURYRNETS
+    OBJECT_KIND = constants.K8S_OBJ_KURYRNETWORK
+    OBJECT_WATCH_PATH = constants.K8S_API_CRD_KURYRNETWORKS
 
     def __init__(self):
-        super(KuryrNetHandler, self).__init__()
-        self._drv_project = drivers.NamespaceProjectDriver.get_instance()
+        super(KuryrNetworkPopulationHandler, self).__init__()
         self._drv_subnets = drivers.PodSubnetsDriver.get_instance()
         self._drv_vif_pool = drivers.VIFPoolDriver.get_instance(
             specific_driver='multi_pool')
         self._drv_vif_pool.set_vif_driver()
 
     def on_added(self, kuryrnet_crd):
-        subnet_id = kuryrnet_crd['spec'].get('subnetId')
-        if kuryrnet_crd['spec'].get('populated'):
+        subnet_id = kuryrnet_crd['status'].get('subnetId')
+        if not subnet_id:
+            return
+
+        if kuryrnet_crd['status'].get('populated'):
             LOG.debug("Subnet %s already populated", subnet_id)
             return
 
-        namespace = kuryrnet_crd['metadata']['annotations'].get(
-            'namespaceName')
-        namespace_obj = driver_utils.get_namespace(namespace)
-        if not namespace_obj:
-            LOG.debug("Skipping Kuryrnet addition. Inexistent namespace.")
-            return
-        namespace_kuryrnet_annotations = driver_utils.get_annotations(
-            namespace_obj, constants.K8S_ANNOTATION_NET_CRD)
-        if namespace_kuryrnet_annotations != kuryrnet_crd['metadata']['name']:
-            # NOTE(ltomasbo): Ensure pool is not populated if namespace is not
-            # yet annotated with kuryrnet information
-            return
-
+        namespace = kuryrnet_crd['spec'].get('nsName')
+        project_id = kuryrnet_crd['spec'].get('projectId')
         # NOTE(ltomasbo): using namespace name instead of object as it is not
         # required
-        project_id = self._drv_project.get_project(namespace)
         subnets = self._drv_subnets.get_namespace_subnet(namespace, subnet_id)
 
         nodes = utils.get_nodes_ips()
@@ -74,7 +64,7 @@ class KuryrNetHandler(k8s_base.ResourceEventHandler):
         # the pools will not get the ports loaded (as they are not ACTIVE)
         # and new population actions may be triggered if the controller was
         # restarted before performing the populated=true patching.
-        driver_utils.patch_kuryrnet_crd(kuryrnet_crd, populated=True)
+        self._patch_kuryrnetwork_crd(kuryrnet_crd, populated=True)
         # TODO(ltomasbo): Skip the master node where pods are not usually
         # allocated.
         for node_ip in nodes:
@@ -86,5 +76,16 @@ class KuryrNetHandler(k8s_base.ResourceEventHandler):
             except exceptions.ResourceNotReady:
                 # Ensure the repopulation is retriggered if the system was not
                 # yet ready to perform the repopulation actions
-                driver_utils.patch_kuryrnet_crd(kuryrnet_crd, populated=False)
+                self._patch_kuryrnetwork_crd(kuryrnet_crd, populated=False)
                 raise
+
+    def _patch_kuryrnetwork_crd(self, kns_crd, populated=True):
+        kubernetes = clients.get_kubernetes_client()
+        crd_name = kns_crd['metadata']['name']
+        LOG.debug('Patching KuryrNetwork CRD %s' % crd_name)
+        try:
+            kubernetes.patch_crd('status', kns_crd['metadata']['selfLink'],
+                                 {'populated': populated})
+        except exceptions.K8sClientException:
+            LOG.exception('Error updating kuryrnet CRD %s', crd_name)
+            raise

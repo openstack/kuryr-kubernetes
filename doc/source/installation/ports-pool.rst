@@ -169,7 +169,7 @@ subnet), the next handler needs to be enabled:
 .. code-block:: ini
 
    [kubernetes]
-   enabled_handlers=vif,lb,lbaasspec,namespace,*kuryrnet*
+   enabled_handlers=vif,lb,lbaasspec,namespace,*kuryrnetwork*
 
 
 This can be enabled at devstack deployment time to by adding the next to the
@@ -177,4 +177,4 @@ local.conf:
 
 .. code-block:: bash
 
-   KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,namespace,*kuryrnet*
+   KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,namespace,*kuryrnetwork*

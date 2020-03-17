@@ -109,8 +109,6 @@ class K8sClient(object):
     def patch(self, field, path, data):
         LOG.debug("Patch %(path)s: %(data)s", {
             'path': path, 'data': data})
-        if field == 'status':
-            path = path + '/' + str(field)
         content_type = 'application/merge-patch+json'
         url, header = self._get_url_and_header(path, content_type)
         response = self.session.patch(url, json={field: data},
@@ -119,14 +117,18 @@ class K8sClient(object):
         self._raise_from_response(response)
         return response.json().get('status')
 
-    def patch_crd(self, field, path, data):
+    def patch_crd(self, field, path, data, action='replace'):
         content_type = 'application/json-patch+json'
         url, header = self._get_url_and_header(path, content_type)
 
-        data = [{'op': 'replace',
-                 'path': '/{}/{}'.format(field, np_field),
-                 'value': value}
-                for np_field, value in data.items()]
+        if action == 'remove':
+            data = [{'op': action,
+                     'path': f'/{field}/{data}'}]
+        else:
+            data = [{'op': action,
+                     'path': f'/{field}/{crd_field}',
+                     'value': value}
+                    for crd_field, value in data.items()]
 
         LOG.debug("Patch %(path)s: %(data)s", {
             'path': path, 'data': data})
@@ -166,6 +168,21 @@ class K8sClient(object):
                                       verify=self.verify_server)
         self._raise_from_response(response)
         return response.json().get('status')
+
+    def remove_annotations(self, path, annotation_name):
+        content_type = 'application/json-patch+json'
+        url, header = self._get_url_and_header(path, content_type)
+
+        data = [{'op': 'remove',
+                 'path': '/metadata/annotations',
+                 'value': annotation_name}]
+
+        response = self.session.patch(url, data=jsonutils.dumps(data),
+                                      headers=header, cert=self.cert,
+                                      verify=self.verify_server)
+        if response.ok:
+            return response.json().get('status')
+        raise exc.K8sClientException(response.text)
 
     def post(self, path, body):
         LOG.debug("Post %(path)s: %(body)s", {'path': path, 'body': body})

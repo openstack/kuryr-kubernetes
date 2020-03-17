@@ -19,7 +19,6 @@ import munch
 from openstack import exceptions as os_exc
 from oslo_config import cfg as oslo_cfg
 
-from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import namespace_subnet as subnet_drv
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.tests import base as test_base
@@ -52,16 +51,6 @@ def get_pod_obj():
                 'openstack.org/kuryr-vif': {}
             }
         }}
-
-
-def get_namespace_obj():
-    return {
-        'metadata': {
-            'annotations': {
-                constants.K8S_ANNOTATION_NET_CRD: 'net_crd_url_sample'
-            }
-        }
-    }
 
 
 class TestNamespacePodSubnetDriver(test_base.TestCase):
@@ -110,21 +99,20 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
 
         namespace = mock.sentinel.namespace
         subnet_id = mock.sentinel.subnet_id
-        ns = get_namespace_obj()
         crd = {
-            'spec': {
+            'status': {
                 'subnetId': subnet_id
             }
         }
 
         kubernetes = self.useFixture(k_fix.MockK8sClient()).client
-        kubernetes.get.side_effect = [ns, crd]
+        kubernetes.get.return_value = crd
 
         subnet_id_resp = cls._get_namespace_subnet_id(m_driver, namespace)
         kubernetes.get.assert_called()
         self.assertEqual(subnet_id, subnet_id_resp)
 
-    def test__get_namespace_subnet_id_get_namespace_exception(self):
+    def test__get_namespace_subnet_id_get_crd_exception(self):
         cls = subnet_drv.NamespacePodSubnetDriver
         m_driver = mock.MagicMock(spec=cls)
 
@@ -132,41 +120,6 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
 
         kubernetes = self.useFixture(k_fix.MockK8sClient()).client
         kubernetes.get.side_effect = k_exc.K8sClientException
-
-        self.assertRaises(k_exc.ResourceNotReady,
-                          cls._get_namespace_subnet_id, m_driver, namespace)
-        kubernetes.get.assert_called_once()
-
-    def test__get_namespace_subnet_id_missing_annotation(self):
-        cls = subnet_drv.NamespacePodSubnetDriver
-        m_driver = mock.MagicMock(spec=cls)
-
-        namespace = mock.sentinel.namespace
-        subnet_id = mock.sentinel.subnet_id
-        ns = get_namespace_obj()
-        del ns['metadata']['annotations'][constants.K8S_ANNOTATION_NET_CRD]
-        crd = {
-            'spec': {
-                'subnetId': subnet_id
-            }
-        }
-
-        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
-        kubernetes.get.side_effect = [ns, crd]
-
-        self.assertRaises(k_exc.ResourceNotReady,
-                          cls._get_namespace_subnet_id, m_driver, namespace)
-        kubernetes.get.assert_called_once()
-
-    def test__get_namespace_subnet_id_get_crd_exception(self):
-        cls = subnet_drv.NamespacePodSubnetDriver
-        m_driver = mock.MagicMock(spec=cls)
-
-        namespace = mock.sentinel.namespace
-        ns = get_namespace_obj()
-
-        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
-        kubernetes.get.side_effect = [ns, k_exc.K8sClientException]
 
         self.assertRaises(k_exc.K8sClientException,
                           cls._get_namespace_subnet_id, m_driver, namespace)
@@ -206,7 +159,24 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         os_net.delete_network.assert_called_once_with(net_id)
         os_net.ports.assert_called_with(status='DOWN', network_id=net_id)
 
-    def test_create_namespace_network(self):
+    def test_create_network(self):
+        cls = subnet_drv.NamespacePodSubnetDriver
+        m_driver = mock.MagicMock(spec=cls)
+
+        namespace = 'test'
+        project_id = mock.sentinel.project_id
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
+        os_net.networks.return_value = iter([])
+        net = munch.Munch({'id': mock.sentinel.net})
+        os_net.create_network.return_value = net
+
+        net_id_resp = cls.create_network(m_driver, namespace, project_id)
+
+        self.assertEqual(net_id_resp, net['id'])
+        os_net.create_network.assert_called_once()
+        os_net.networks.assert_called_once()
+
+    def test_create_network_existing(self):
         cls = subnet_drv.NamespacePodSubnetDriver
         m_driver = mock.MagicMock(spec=cls)
 
@@ -214,126 +184,101 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         project_id = mock.sentinel.project_id
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
         net = munch.Munch({'id': mock.sentinel.net})
-        os_net.create_network.return_value = net
+        os_net.networks.return_value = iter([net])
+
+        net_id_resp = cls.create_network(m_driver, namespace, project_id)
+
+        self.assertEqual(net_id_resp, net['id'])
+        os_net.create_network.assert_not_called()
+        os_net.networks.assert_called_once()
+
+    def test_create_subnet(self):
+        cls = subnet_drv.NamespacePodSubnetDriver
+        m_driver = mock.MagicMock(spec=cls)
+
+        namespace = 'test'
+        project_id = mock.sentinel.project_id
+        net_id = mock.sentinel.net_id
         subnet = munch.Munch({'id': mock.sentinel.subnet,
                               'cidr': mock.sentinel.cidr})
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
+        os_net.subnets.return_value = iter([])
         os_net.create_subnet.return_value = subnet
+
+        subnet_id, subnet_cidr = cls.create_subnet(m_driver, namespace,
+                                                   project_id, net_id)
+
+        self.assertEqual(subnet_id, subnet['id'])
+        self.assertEqual(subnet_cidr, subnet['cidr'])
+        os_net.create_subnet.assert_called_once()
+        os_net.subnets.assert_called_once()
+
+    def test_create_subnet_existing(self):
+        cls = subnet_drv.NamespacePodSubnetDriver
+        m_driver = mock.MagicMock(spec=cls)
+
+        namespace = 'test'
+        project_id = mock.sentinel.project_id
+        net_id = mock.sentinel.net_id
+        subnet = munch.Munch({'id': mock.sentinel.subnet,
+                              'cidr': mock.sentinel.cidr})
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
+        os_net.subnets.return_value = iter([subnet])
+
+        subnet_id, subnet_cidr = cls.create_subnet(m_driver, namespace,
+                                                   project_id, net_id)
+
+        self.assertEqual(subnet_id, subnet['id'])
+        self.assertEqual(subnet_cidr, subnet['cidr'])
+        os_net.create_subnet.assert_not_called()
+        os_net.subnets.assert_called_once()
+
+    def test_add_subnet_to_router(self):
+        cls = subnet_drv.NamespacePodSubnetDriver
+        m_driver = mock.MagicMock(spec=cls)
+
+        subnet_id = mock.sentinel.subnet_id
+        os_net = self.useFixture(k_fix.MockNetworkClient()).client
         os_net.add_interface_to_router.return_value = {}
         router_id = 'router1'
         oslo_cfg.CONF.set_override('pod_router',
                                    router_id,
                                    group='namespace_subnet')
-        net_crd = {'netId': net['id'],
-                   'routerId': router_id,
-                   'subnetId': subnet['id'],
-                   'subnetCIDR': subnet['cidr']}
 
-        net_crd_resp = cls.create_namespace_network(m_driver, namespace,
-                                                    project_id)
-
-        self.assertEqual(net_crd_resp, net_crd)
-        os_net.create_network.assert_called_once()
-        os_net.create_subnet.assert_called_once()
+        router_id_resp = cls.add_subnet_to_router(m_driver, subnet_id)
+        self.assertEqual(router_id_resp, router_id)
         os_net.add_interface_to_router.assert_called_once()
 
-    def test_create_namespace_network_net_exception(self):
+    def test_add_subnet_to_router_already_connected(self):
         cls = subnet_drv.NamespacePodSubnetDriver
         m_driver = mock.MagicMock(spec=cls)
 
-        namespace = 'test'
-
-        project_id = mock.sentinel.project_id
+        subnet_id = mock.sentinel.subnet_id
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
-        os_net.create_network.side_effect = os_exc.SDKException
+        os_net.add_interface_to_router.side_effect = (
+            os_exc.BadRequestException)
+        router_id = 'router1'
+        oslo_cfg.CONF.set_override('pod_router',
+                                   router_id,
+                                   group='namespace_subnet')
 
-        self.assertRaises(os_exc.SDKException,
-                          cls.create_namespace_network, m_driver, namespace,
-                          project_id)
-
-        os_net.create_network.assert_called_once()
-        os_net.create_subnet.assert_not_called()
-        os_net.add_interface_to_router.assert_not_called()
-
-    def test_create_namespace_network_subnet_exception(self):
-        cls = subnet_drv.NamespacePodSubnetDriver
-        m_driver = mock.MagicMock(spec=cls)
-
-        namespace = 'test'
-        project_id = mock.sentinel.project_id
-        os_net = self.useFixture(k_fix.MockNetworkClient()).client
-        net = munch.Munch({'id': mock.sentinel.net})
-        os_net.create_network.return_value = net
-        os_net.create_subnet.side_effect = os_exc.SDKException
-
-        self.assertRaises(os_exc.SDKException,
-                          cls.create_namespace_network, m_driver, namespace,
-                          project_id)
-
-        os_net.create_network.assert_called_once()
-        os_net.create_subnet.assert_called_once()
-        os_net.add_interface_to_router.assert_not_called()
-
-    def test_create_namespace_network_router_exception(self):
-        cls = subnet_drv.NamespacePodSubnetDriver
-        m_driver = mock.MagicMock(spec=cls)
-
-        namespace = 'test'
-        project_id = mock.sentinel.project_id
-        os_net = self.useFixture(k_fix.MockNetworkClient()).client
-        net = munch.Munch({'id': mock.sentinel.net})
-        os_net.create_network.return_value = net
-        subnet = munch.Munch({'id': mock.sentinel.subnet})
-        os_net.create_subnet.return_value = subnet
-        os_net.add_interface_to_router.side_effect = os_exc.SDKException
-
-        self.assertRaises(os_exc.SDKException,
-                          cls.create_namespace_network, m_driver, namespace,
-                          project_id)
-
-        os_net.create_network.assert_called_once()
-        os_net.create_subnet.assert_called_once()
+        router_id_resp = cls.add_subnet_to_router(m_driver, subnet_id)
+        self.assertEqual(router_id_resp, router_id)
         os_net.add_interface_to_router.assert_called_once()
 
-    def test_rollback_network_resources(self):
+    def test_add_subnet_to_router_exception(self):
         cls = subnet_drv.NamespacePodSubnetDriver
         m_driver = mock.MagicMock(spec=cls)
 
-        router_id = mock.sentinel.router_id
-        net_id = mock.sentinel.net_id
         subnet_id = mock.sentinel.subnet_id
-        crd_spec = {
-            'subnetId': subnet_id,
-            'routerId': router_id,
-            'netId': net_id,
-        }
-        namespace = mock.sentinel.namespace
-
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
-        os_net.remove_interface_from_router.return_value = {}
-        cls.rollback_network_resources(m_driver, crd_spec, namespace)
-        os_net.remove_interface_from_router.assert_called_with(
-            router_id, subnet_id=subnet_id)
-        os_net.delete_network.assert_called_with(net_id)
-
-    def test_rollback_network_resources_router_exception(self):
-        cls = subnet_drv.NamespacePodSubnetDriver
-        m_driver = mock.MagicMock(spec=cls)
-
-        router_id = mock.sentinel.router_id
-        net_id = mock.sentinel.net_id
-        subnet_id = mock.sentinel.subnet_id
-        crd_spec = {
-            'subnetId': subnet_id,
-            'routerId': router_id,
-            'netId': net_id,
-        }
-        namespace = mock.sentinel.namespace
-
-        os_net = self.useFixture(k_fix.MockNetworkClient()).client
-        os_net.remove_interface_from_router.side_effect = (
+        os_net.add_interface_to_router.side_effect = (
             os_exc.SDKException)
+        router_id = 'router1'
+        oslo_cfg.CONF.set_override('pod_router',
+                                   router_id,
+                                   group='namespace_subnet')
 
-        cls.rollback_network_resources(m_driver, crd_spec, namespace)
-        os_net.remove_interface_from_router.assert_called_with(
-            router_id, subnet_id=subnet_id)
-        os_net.delete_network.assert_not_called()
+        self.assertRaises(os_exc.SDKException,
+                          cls.add_subnet_to_router, m_driver, subnet_id)
+        os_net.add_interface_to_router.assert_called_once()

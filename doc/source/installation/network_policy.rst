@@ -10,16 +10,16 @@ be found  at :doc:`./devstack/containerized`):
 .. code-block:: ini
 
    [kubernetes]
-   enabled_handlers=vif,lb,lbaasspec,policy,pod_label,namespace,kuryrnetpolicy
+   enabled_handlers=vif,lb,lbaasspec,policy,pod_label,namespace,kuryrnetwork,kuryrnetpolicy
 
 Note that if you also want to enable prepopulation of ports pools upon new
-namespace creation, you need to add the kuryrnet handler (more details on
-:doc:`./ports-pool`):
+namespace creation, you need to also dd the kuryrnetwork_population handler
+(more details on :doc:`./ports-pool`):
 
 .. code-block:: ini
 
    [kubernetes]
-   enabled_handlers=vif,lb,lbaasspec,policy,pod_label,namespace,kuryrnetpolicy,kuryrnet
+   enabled_handlers=vif,lb,lbaasspec,policy,pod_label,namespace,kuryrnetpolicy,kuryrnetwork,kuryrnetwork_population
 
 After that, enable also the security group drivers for policies:
 
