@@ -184,7 +184,7 @@ class TestOSVIFUtils(test_base.TestCase):
         port_profile = mock.sentinel.port_profile
         network = mock.sentinel.network
         port_active = mock.sentinel.port_active
-        vif_name = mock.sentinel.vif_name
+        vif_name = "vhu01234567-89"
         hybrid_bridge = mock.sentinel.hybrid_bridge
         vif = mock.sentinel.vif
         port = fake.get_port_obj(port_id=port_id,
@@ -240,7 +240,7 @@ class TestOSVIFUtils(test_base.TestCase):
 
         subnets = mock.sentinel.subnets
         network = mock.sentinel.network
-        vif_name = mock.sentinel.vif_name
+        vif_name = "vhu01234567-89"
         vif = mock.sentinel.vif
 
         m_mk_profile.return_value = port.profile
@@ -257,6 +257,92 @@ class TestOSVIFUtils(test_base.TestCase):
         m_get_vif_name.assert_called_once_with(port)
         self.assertEqual(network.bridge,
                          port.binding_vif_details['bridge_name'])
+
+    @mock.patch('kuryr_kubernetes.os_vif_util._get_vhu_vif_name')
+    @mock.patch('kuryr_kubernetes.os_vif_util._is_port_active')
+    @mock.patch('kuryr_kubernetes.os_vif_util._make_vif_network')
+    @mock.patch('os_vif.objects.vif.VIFVHostUser')
+    @mock.patch('os_vif.objects.vif.VIFPortProfileOpenVSwitch')
+    def test_neutron_to_osvif_vif_ovs_vu_client(self, m_mk_profile, m_mk_vif,
+                                                m_make_vif_network,
+                                                m_is_port_active,
+                                                m_get_vif_name):
+        vif_plugin = 'vhostuser'
+        o_cfg.CONF.set_override('mount_point',
+                                '/var/lib/cni/vhostuser',
+                                group='vhostuser')
+        port_id = mock.sentinel.port_id
+        mac_address = mock.sentinel.mac_address
+        ovs_bridge = mock.sentinel.ovs_bridge
+        subnets = mock.sentinel.subnets
+        port_profile = mock.sentinel.port_profile
+        network = mock.sentinel.network
+        port_active = mock.sentinel.port_active
+        vif_name = "vhu01234567-89"
+        vif = mock.sentinel.vif
+
+        m_mk_profile.return_value = port_profile
+        m_make_vif_network.return_value = network
+        m_is_port_active.return_value = port_active
+        m_get_vif_name.return_value = vif_name
+        m_mk_vif.return_value = vif
+
+        port = fake.get_port_obj(port_id=port_id,
+                                 vif_details={'ovs_hybrid_plug': False,
+                                              'bridge_name': ovs_bridge,
+                                              'vhostuser_mode': 'client'})
+        port.mac_address = mac_address
+
+        self.assertEqual(vif, ovu.neutron_to_osvif_vif_ovs(vif_plugin, port,
+                                                           subnets))
+        m_mk_profile.assert_called_once_with(interface_id=port_id)
+        m_make_vif_network.assert_called_once_with(port, subnets)
+        m_is_port_active.assert_called_once_with(port)
+        m_get_vif_name.assert_called_once_with(port_id)
+        self.assertEqual(ovs_bridge, network.bridge)
+
+    @mock.patch('kuryr_kubernetes.os_vif_util._get_vhu_vif_name')
+    @mock.patch('kuryr_kubernetes.os_vif_util._is_port_active')
+    @mock.patch('kuryr_kubernetes.os_vif_util._make_vif_network')
+    @mock.patch('os_vif.objects.vif.VIFVHostUser')
+    @mock.patch('os_vif.objects.vif.VIFPortProfileOpenVSwitch')
+    def test_neutron_to_osvif_vif_ovs_vu_server(self, m_mk_profile, m_mk_vif,
+                                                m_make_vif_network,
+                                                m_is_port_active,
+                                                m_get_vif_name):
+        vif_plugin = 'vhostuser'
+        o_cfg.CONF.set_override('mount_point',
+                                '/var/lib/cni/vhostuser',
+                                group='vhostuser')
+        port_id = mock.sentinel.port_id
+        mac_address = mock.sentinel.mac_address
+        ovs_bridge = mock.sentinel.ovs_bridge
+        subnets = mock.sentinel.subnets
+        port_profile = mock.sentinel.port_profile
+        network = mock.sentinel.network
+        port_active = mock.sentinel.port_active
+        vif_name = mock.sentinel.vif_name
+        vif = mock.sentinel.vif
+
+        m_mk_profile.return_value = port_profile
+        m_make_vif_network.return_value = network
+        m_is_port_active.return_value = port_active
+        m_get_vif_name.return_value = vif_name
+        m_mk_vif.return_value = vif
+
+        port = fake.get_port_obj(port_id=port_id,
+                                 vif_details={'ovs_hybrid_plug': False,
+                                              'bridge_name': ovs_bridge,
+                                              'vhostuser_mode': 'server'})
+        port.mac_address = mac_address
+
+        self.assertEqual(vif, ovu.neutron_to_osvif_vif_ovs(vif_plugin, port,
+                                                           subnets))
+        m_mk_profile.assert_called_once_with(interface_id=port_id)
+        m_make_vif_network.assert_called_once_with(port, subnets)
+        m_is_port_active.assert_called_once_with(port)
+        m_get_vif_name.assert_called_once_with(port_id)
+        self.assertEqual(ovs_bridge, network.bridge)
 
     @mock.patch('kuryr_kubernetes.os_vif_util._get_vif_name')
     @mock.patch('kuryr_kubernetes.os_vif_util._is_port_active')

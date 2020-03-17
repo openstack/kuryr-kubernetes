@@ -23,13 +23,17 @@ from os_vif.objects import route as osv_route
 from os_vif.objects import subnet as osv_subnet
 from os_vif.objects import vif as osv_vif
 from oslo_config import cfg as oslo_cfg
+from oslo_log import log as logging
 from stevedore import driver as stv_driver
+from vif_plug_ovs import constants as osv_const
 
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as const
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.objects import vif as k_vif
 
+
+LOG = logging.getLogger(__name__)
 
 # REVISIT(ivc): consider making this module part of kuryr-lib
 _VIF_TRANSLATOR_NAMESPACE = "kuryr_kubernetes.vif_translators"
@@ -193,6 +197,15 @@ def _make_vif_network(neutron_port, subnets):
     return network
 
 
+# TODO(a.perevalov) generalize it with get_veth_pair_names
+# but it's reasonable if we're going to add vhostuser support
+# into kuryr project
+def _get_vhu_vif_name(port_id):
+    ifname = osv_const.OVS_VHOSTUSER_PREFIX + port_id
+    ifname = ifname[:kl_const.NIC_NAME_LEN]
+    return ifname
+
+
 def _get_vif_name(neutron_port):
     """Gets a VIF device name for port.
 
@@ -249,8 +262,30 @@ def neutron_to_osvif_vif_ovs(vif_plugin, os_port, subnets):
 
     network = _make_vif_network(os_port, subnets)
     network.bridge = ovs_bridge
+    vhostuser_mode = details.get('vhostuser_mode', False)
 
-    if details.get('ovs_hybrid_plug'):
+    LOG.debug('Detected vhostuser_mode=%s for port %s', vhostuser_mode,
+              os_port.id)
+    if vhostuser_mode:
+        # TODO(a.perevalov) obtain path to mount point from pod's mountVolumes
+        vhostuser_mount_point = (config.CONF.vhostuser.mount_point)
+        if not vhostuser_mount_point:
+            raise oslo_cfg.RequiredOptError('vhostuser_mount_point',
+                                            'neutron_defaults')
+        vif = osv_vif.VIFVHostUser(
+            id=os_port.id,
+            address=os_port.mac_address,
+            network=network,
+            has_traffic_filtering=details.get('port_filter', False),
+            preserve_on_delete=False,
+            active=_is_port_active(os_port),
+            port_profile=profile,
+            plugin='ovs',
+            path=vhostuser_mount_point,
+            mode=vhostuser_mode,
+            vif_name=_get_vhu_vif_name(os_port.id),
+            bridge_name=network.bridge)
+    elif details.get('ovs_hybrid_plug'):
         vif = osv_vif.VIFBridge(
             id=os_port.id,
             address=os_port.mac_address,
@@ -386,7 +421,6 @@ def neutron_to_osvif_vif(vif_translator, os_port, subnets):
     :param subnets: subnet mapping as returned by PodSubnetsDriver.get_subnets
     :return: os-vif VIF object
     """
-
     try:
         mgr = _VIF_MANAGERS[vif_translator]
     except KeyError:

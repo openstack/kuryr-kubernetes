@@ -319,6 +319,17 @@ sriov_opts = [
 ]
 
 
+vhostuser = [
+    cfg.StrOpt('mount_point',
+               help=_("Path where vhost-user port will be created "
+                      "also it should be mount point for pod"),
+               default='/var/cni/vhostuser'),
+    cfg.StrOpt('ovs_vhu_path',
+               help=_("Path where OVS keeps socket files for vhost-user "
+                      "ports"),
+               default='/var/run/openvswitch/')
+]
+
 CONF = cfg.CONF
 CONF.register_opts(kuryr_k8s_opts)
 CONF.register_opts(daemon_opts, group='cni_daemon')
@@ -328,6 +339,7 @@ CONF.register_opts(octavia_defaults, group='octavia_defaults')
 CONF.register_opts(cache_defaults, group='cache_defaults')
 CONF.register_opts(nested_vif_driver_opts, group='pod_vif_nested')
 CONF.register_opts(sriov_opts, group='sriov')
+CONF.register_opts(vhostuser, group='vhostuser')
 
 CONF.register_opts(lib_config.core_opts)
 CONF.register_opts(lib_config.binding_opts, 'binding')
