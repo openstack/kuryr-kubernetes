@@ -181,10 +181,11 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
 
         # create subnet with namespace as name
         subnet_pool_id = oslo_cfg.CONF.namespace_subnet.pod_subnet_pool
+        ip_version = utils.get_subnetpool_version(subnet_pool_id)
         try:
             neutron_subnet = (os_net
                               .create_subnet(network_id=net_id,
-                                             ip_version=4,
+                                             ip_version=ip_version,
                                              name=subnet_name,
                                              enable_dhcp=False,
                                              subnetpool_id=subnet_pool_id,
