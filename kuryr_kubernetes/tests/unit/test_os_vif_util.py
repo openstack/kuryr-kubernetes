@@ -321,7 +321,7 @@ class TestOSVIFUtils(test_base.TestCase):
         port_profile = mock.sentinel.port_profile
         network = mock.sentinel.network
         port_active = mock.sentinel.port_active
-        vif_name = mock.sentinel.vif_name
+        vif_name = "vhu01234567-89"
         vif = mock.sentinel.vif
 
         m_mk_profile.return_value = port_profile

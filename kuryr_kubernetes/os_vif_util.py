@@ -14,6 +14,8 @@
 #    under the License.
 
 
+import os
+
 from kuryr.lib._i18n import _
 from kuryr.lib.binding.drivers import utils as kl_utils
 from kuryr.lib import constants as kl_const
@@ -272,6 +274,7 @@ def neutron_to_osvif_vif_ovs(vif_plugin, os_port, subnets):
         if not vhostuser_mount_point:
             raise oslo_cfg.RequiredOptError('vhostuser_mount_point',
                                             'neutron_defaults')
+        vif_name = _get_vhu_vif_name(os_port.id)
         vif = osv_vif.VIFVHostUser(
             id=os_port.id,
             address=os_port.mac_address,
@@ -281,9 +284,9 @@ def neutron_to_osvif_vif_ovs(vif_plugin, os_port, subnets):
             active=_is_port_active(os_port),
             port_profile=profile,
             plugin='ovs',
-            path=vhostuser_mount_point,
+            path=os.path.join(vhostuser_mount_point, vif_name),
             mode=vhostuser_mode,
-            vif_name=_get_vhu_vif_name(os_port.id),
+            vif_name=vif_name,
             bridge_name=network.bridge)
     elif details.get('ovs_hybrid_plug'):
         vif = osv_vif.VIFBridge(
