@@ -70,12 +70,14 @@ class TestVIFHandler(test_base.TestCase):
         self._activate_vif = self._handler._drv_vif_pool.activate_vif
         self._set_pod_state = self._handler._set_pod_state
         self._is_pod_scheduled = self._handler._is_pod_scheduled
+        self._is_pod_completed = self._handler._is_pod_completed
         self._request_additional_vifs = \
             self._multi_vif_drv.request_additional_vifs
 
         self._request_vif.return_value = self._vif
         self._request_additional_vifs.return_value = self._additioan_vifs
         self._is_pod_scheduled.return_value = True
+        self._is_pod_completed.return_value = False
         self._get_project.return_value = self._project_id
         self._get_subnets.return_value = self._subnets
         self._get_security_groups.return_value = self._security_groups
@@ -139,6 +141,17 @@ class TestVIFHandler(test_base.TestCase):
         self.assertFalse(h_vif.VIFHandler._is_pod_scheduled({'spec': {},
                                                              'status': {}}))
 
+    def test_is_pod_completed_pending(self):
+        self.assertFalse(h_vif.VIFHandler._is_pod_completed(self._pod))
+
+    def test_is_pod_completed_succeeded(self):
+        self.assertTrue(h_vif.VIFHandler._is_pod_completed({'status': {'phase':
+                        k_const.K8S_POD_STATUS_SUCCEEDED}}))
+
+    def test_is_pod_completed_failed(self):
+        self.assertTrue(h_vif.VIFHandler._is_pod_completed({'status': {'phase':
+                        k_const.K8S_POD_STATUS_FAILED}}))
+
     @mock.patch('oslo_config.cfg.CONF')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'update_port_pci_info')
@@ -167,7 +180,7 @@ class TestVIFHandler(test_base.TestCase):
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
-        m_get_pod_state.assert_not_called()
+        m_get_pod_state.assert_called_once()
         self._request_vif.assert_not_called()
         self._request_additional_vifs.assert_not_called()
         self._activate_vif.assert_not_called()
@@ -182,11 +195,38 @@ class TestVIFHandler(test_base.TestCase):
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
-        m_get_pod_state.assert_not_called()
+        m_get_pod_state.assert_called_once()
         self._request_vif.assert_not_called()
         self._request_additional_vifs.assert_not_called()
         self._activate_vif.assert_not_called()
         self._set_pod_state.assert_not_called()
+
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
+    def test_on_present_on_completed_with_annotation(self, m_get_pod_state):
+        self._is_pod_completed.return_value = True
+        m_get_pod_state.return_value = self._state
+
+        h_vif.VIFHandler.on_present(self._handler, self._pod)
+
+        self._handler.on_deleted.assert_called_once_with(self._pod)
+        self._set_pod_state.assert_called_once_with(self._pod, None)
+        self._request_vif.assert_not_called()
+        self._request_additional_vifs.assert_not_called()
+        self._activate_vif.assert_not_called()
+
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
+    def test_on_present_on_completed_without_annotation(self, m_get_pod_state):
+        self._is_pod_completed.return_value = True
+        m_get_pod_state.return_value = None
+
+        h_vif.VIFHandler.on_present(self._handler, self._pod)
+
+        self._handler.on_deleted.assert_not_called()
+
+        self._set_pod_state.assert_not_called()
+        self._request_vif.assert_not_called()
+        self._request_additional_vifs.assert_not_called()
+        self._activate_vif.assert_not_called()
 
     @mock.patch('oslo_config.cfg.CONF')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
