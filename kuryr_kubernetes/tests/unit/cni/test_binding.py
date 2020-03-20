@@ -238,7 +238,7 @@ class TestSriovDriver(TestDriverMixin, test_base.TestCase):
         super(TestSriovDriver, self).setUp()
         self.vif = fake._fake_vif(objects.vif.VIFSriov)
         self.vif.physnet = 'physnet2'
-        self.pci_info = mock.Mock()
+        self.pci_info = mock.MagicMock()
         self.vif.pod_link = 'pod_link'
         self.vif.pod_name = 'pod_1'
         self.pci = mock.Mock()

@@ -12,7 +12,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import collections
 import os
 
 from kuryr.lib._i18n import _
@@ -39,7 +38,6 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
     def __init__(self):
         super().__init__()
         self._lock = None
-        self._device_pf_mapping = self._get_device_pf_mapping()
 
     def release_lock_object(func):
         def wrapped(self, *args, **kwargs):
@@ -134,6 +132,7 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
     def _compute_pci(self, pci, driver, pod_link, vif, ifname, netns):
         port_id = vif.id
         vf_name, vf_index, pf, pci_info = self._get_vf_info(pci, driver)
+        pci_info['physical_network'] = vif.physnet
         if driver in constants.USERSPACE_DRIVERS:
             LOG.info("PCI device %s will be rebinded to userspace network "
                      "driver %s", pci, driver)
@@ -270,7 +269,6 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
 
     def _get_pci_info(self, pf, vf_index):
         pci_slot = ''
-        physnet = ''
         pci_vendor_info = ''
 
         vendor_path = '/sys/class/net/{}/device/virtfn{}/vendor'.format(
@@ -290,19 +288,8 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
         pci_slot_path = os.readlink(vf_path)
         pci_slot = pci_slot_path.split('/')[1]
 
-        physnet = self._get_physnet_by_pf(pf)
-
         return {'pci_slot': pci_slot,
-                'physical_network': physnet,
                 'pci_vendor_info': pci_vendor_info}
-
-    def _get_physnet_by_pf(self, desired_pf):
-        for physnet, pf_list in self._device_pf_mapping.items():
-            for pf in pf_list:
-                if pf == desired_pf:
-                    return physnet
-        LOG.exception("Unable to find physnet for pf %s", desired_pf)
-        raise
 
     def _save_pci_info(self, neutron_port, port_pci_info):
         k8s = clients.get_kubernetes_client()
@@ -386,17 +373,3 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
             LOG.exception("Unable to set vlan for VF %s on pf %s",
                           vf_index, pf)
             raise
-
-    def _get_device_pf_mapping(self):
-        """Return a mapping in format {<physnet_name>:[<pf_name>, ...]}"""
-
-        phys_mappings = config.CONF.sriov.physical_device_mappings
-        physnets = collections.defaultdict(list)
-        for phys_map in phys_mappings:
-            try:
-                netname, ifname = phys_map.split(':', 1)
-            except ValueError:
-                raise cfg.Error(
-                    "Invalid mapping {}".format(phys_map))
-            physnets[netname].append(ifname)
-        return physnets

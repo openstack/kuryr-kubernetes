@@ -286,13 +286,6 @@ sriov_opts = [
                 help=_("A mapping of default subnets for certain physnets "
                        "in a form of physnet-name:<SUBNET-ID>"),
                 default=DEFAULT_PHYSNET_SUBNET_MAPPINGS),
-    cfg.ListOpt('physical_device_mappings',
-                default=DEFAULT_DEVICE_MAPPINGS,
-                help=_("Comma-separated list of "
-                       "<physical_network>:<network_device> tuples mapping "
-                       "physical network names to the agent's node-specific "
-                       "physical network device interfaces of SR-IOV physical "
-                       "function to be used for VLAN networks.")),
     cfg.DictOpt('physnet_resource_mappings',
                 help=_("A mapping of physnets for certain sriov dp "
                        "resource name in a form of "

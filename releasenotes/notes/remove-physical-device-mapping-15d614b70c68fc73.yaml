@@ -1,0 +1,8 @@
+---
+upgrade:
+  - |
+    Since kuryr-kubernetes works with pod-resource-service
+    provided by kubelet, and now it can get particular virtual
+    function chosen by sriov-device-plugin to compute, there
+    is no need to keep config option mapping physnets to
+    physical devices.
