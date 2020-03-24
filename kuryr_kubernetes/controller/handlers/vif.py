@@ -63,6 +63,23 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                 drivers.ServiceSecurityGroupsDriver.get_instance())
 
     def on_present(self, pod):
+        state = driver_utils.get_pod_state(pod)
+        if (self._is_pod_completed(pod)):
+            if state:
+                LOG.debug("Pod has completed execution, removing the vifs")
+                self.on_deleted(pod)
+                try:
+                    self._set_pod_state(pod, None)
+                except k_exc.K8sClientException:
+                    LOG.exception("Could not clear pod annotation")
+                    raise k_exc.ResourceNotReady(pod['metadata']['name'])
+                except k_exc.K8sResourceNotFound:
+                    pass
+            else:
+                LOG.debug("Pod has completed execution, no annotation found."
+                          " Skipping")
+            return
+
         if (driver_utils.is_host_network(pod) or
                 not self._is_pod_scheduled(pod)):
             # REVISIT(ivc): consider an additional configurable check that
@@ -70,7 +87,6 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             # where certain pods/namespaces/nodes can be managed by other
             # networking solutions/CNI drivers.
             return
-        state = driver_utils.get_pod_state(pod)
         LOG.debug("Got VIFs from annotation: %r", state)
         project_id = self._drv_project.get_project(pod)
         security_groups = self._drv_sg.get_security_groups(pod, project_id)
@@ -206,6 +222,15 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         try:
             return (pod['spec']['nodeName'] and
                     pod['status']['phase'] == constants.K8S_POD_STATUS_PENDING)
+        except KeyError:
+            return False
+
+    @staticmethod
+    def _is_pod_completed(pod):
+        try:
+            return (pod['status']['phase'] in
+                    (constants.K8S_POD_STATUS_SUCCEEDED,
+                     constants.K8S_POD_STATUS_FAILED))
         except KeyError:
             return False
 
