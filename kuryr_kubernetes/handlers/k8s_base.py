@@ -64,21 +64,28 @@ class ResourceEventHandler(dispatch.EventConsumer, health.HealthHandler):
     def consumes(self):
         return {object_kind: self.OBJECT_KIND}
 
+    def _check_finalize(self, obj):
+        deletion_timestamp = None
+        try:
+            deletion_timestamp = obj['metadata']['deletionTimestamp']
+        except (KeyError, TypeError):
+            pass
+
+        return deletion_timestamp
+
     def __call__(self, event):
         event_type = event.get('type')
         obj = event.get('object')
         if 'MODIFIED' == event_type:
-            deletion_timestamp = None
-            try:
-                deletion_timestamp = obj['metadata']['deletionTimestamp']
-            except (KeyError, TypeError):
-                pass
-            if deletion_timestamp:
+            if self._check_finalize(obj):
                 self.on_finalize(obj)
                 return
             self.on_modified(obj)
             self.on_present(obj)
         elif 'ADDED' == event_type:
+            if self._check_finalize(obj):
+                self.on_finalize(obj)
+                return
             self.on_added(obj)
             self.on_present(obj)
         elif 'DELETED' == event_type:
