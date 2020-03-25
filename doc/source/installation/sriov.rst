@@ -23,7 +23,6 @@ a SR-IOV port on a baremetal installation the 3 following steps should be done:
    .. code-block:: ini
 
       [sriov]
-      physical_device_mappings = physnet1:ens4f0
       default_physnet_subnets = physnet1:<UUID of vlan-sriov-net>
 
    This mapping is required for ability to find appropriate PF/VF functions at
