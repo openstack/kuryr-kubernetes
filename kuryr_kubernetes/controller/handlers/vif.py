@@ -237,9 +237,11 @@ class VIFHandler(k8s_base.ResourceEventHandler):
     def _set_pod_state(self, pod, state):
         # TODO(ivc): extract annotation interactions
         if not state:
+            old_annotation = pod['metadata'].get('annotations', {})
             LOG.debug("Removing VIFs annotation: %r for pod %s/%s (uid: %s)",
-                      state, pod['metadata']['namespace'],
-                      pod['metadata']['name'], pod['metadata']['uid'])
+                      old_annotation.get(constants.K8S_ANNOTATION_VIF),
+                      pod['metadata']['namespace'], pod['metadata']['name'],
+                      pod['metadata']['uid'])
             annotation = None
         else:
             state_dict = state.obj_to_primitive()
