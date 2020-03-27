@@ -112,7 +112,7 @@ class HealthServer(object):
         return data, httplib.OK, self.headers
 
     def run(self):
-        address = '0.0.0.0'
+        address = '::'
         try:
             LOG.info('Starting health check server.')
             self.application.run(address, CONF.health_server.port)
