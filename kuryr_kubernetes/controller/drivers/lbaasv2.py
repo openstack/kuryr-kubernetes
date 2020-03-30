@@ -266,7 +266,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                         protocol, lb_sg, new_sgs, listener_id)
             return
 
-        lbaas_sg_rules = os_net.security_group_rules(security_group_id=lb_sg)
+        lbaas_sg_rules = os_net.security_group_rules(
+                security_group_id=lb_sg, project_id=loadbalancer.project_id)
         all_pod_rules = []
         add_default_rules = False
 
