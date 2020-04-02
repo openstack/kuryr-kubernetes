@@ -17,7 +17,6 @@
 import os.path
 import stat
 
-from kuryr.lib._i18n import _
 from os_vif.objects import fields as osv_fields
 from oslo_config import cfg
 from oslo_log import log
@@ -31,16 +30,6 @@ from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import health
 
 LOG = log.getLogger(__name__)
-
-
-def _get_vhostport_type(vif):
-    if vif.mode == osv_fields.VIFVHostUserMode.SERVER:
-        return 'dpdkvhostuserclient'
-    elif vif.mode == osv_fields.VIFVHostUserMode.CLIENT:
-        return 'dpdkvhostuser'
-    raise k_exc.IntegrityError(
-        _("Unknown vhostuser mode %(mode)s for vif %(vif_id)s")
-        % {'mode': vif.mode, 'vif_id': vif.id})
 
 
 def _get_vhostuser_port_name(vif):
