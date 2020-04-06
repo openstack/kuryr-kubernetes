@@ -13,7 +13,7 @@ ARG PKG_YUM_REPO=https://rdoproject.org/repos/rdo-release.rpm
 
 RUN yum install -y epel-release $PKG_YUM_REPO \
     && yum install -y --setopt=tsflags=nodocs python3-pip openvswitch sudo iproute libstdc++ pciutils kmod-libs \
-    && yum install -y --setopt=tsflags=nodocs gcc python3-devel git
+    && yum install -y --setopt=tsflags=nodocs gcc gcc-c++ python3-devel git
 
 COPY . /opt/kuryr-kubernetes
 

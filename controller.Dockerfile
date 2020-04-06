@@ -5,7 +5,7 @@ ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/mas
 
 RUN yum install -y epel-release \
     && yum install -y --setopt=tsflags=nodocs python3-pip libstdc++ \
-    && yum install -y --setopt=tsflags=nodocs gcc python3-devel git
+    && yum install -y --setopt=tsflags=nodocs gcc gcc-c++ python3-devel git
 
 COPY . /opt/kuryr-kubernetes
 
