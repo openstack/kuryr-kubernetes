@@ -24,6 +24,7 @@ import time
 import cotyledon
 import flask
 from pyroute2.ipdb import transactional
+import urllib3
 
 import os_vif
 from os_vif.objects import base
@@ -330,6 +331,7 @@ class CNIDaemonServiceManager(cotyledon.ServiceManager):
 
 
 def start():
+    urllib3.disable_warnings()
     config.init(sys.argv[1:])
     config.setup_logging()
 

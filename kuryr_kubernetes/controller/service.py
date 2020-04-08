@@ -16,6 +16,8 @@
 import functools
 import sys
 
+import urllib3
+
 import os_vif
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -162,6 +164,7 @@ class KuryrK8sService(service.Service, periodic_task.PeriodicTasks,
 
 
 def start():
+    urllib3.disable_warnings()
     config.init(sys.argv[1:])
     config.setup_logging()
     clients.setup_clients()
