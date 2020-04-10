@@ -220,7 +220,9 @@ class CNIDaemonWatcherService(cotyledon.Service):
         # NOTE(dulek): We need a lock when modifying shared self.registry dict
         #              to prevent race conditions with other processes/threads.
         with lockutils.lock(pod_name, external=True):
-            if pod_name not in self.registry:
+            if (pod_name not in self.registry or
+                    self.registry[pod_name]['pod']['metadata']['uid']
+                    != pod['metadata']['uid']):
                 self.registry[pod_name] = {'pod': pod, 'vifs': vif_dict,
                                            'containerid': None,
                                            'vif_unplugged': False,

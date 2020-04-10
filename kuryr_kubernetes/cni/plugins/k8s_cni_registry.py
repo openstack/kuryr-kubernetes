@@ -20,6 +20,7 @@ from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
 
+from kuryr_kubernetes import clients
 from kuryr_kubernetes.cni.binding import base as b_base
 from kuryr_kubernetes.cni.plugins import base as base_cni
 from kuryr_kubernetes.cni import utils
@@ -42,6 +43,7 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
     def __init__(self, registry, healthy):
         self.healthy = healthy
         self.registry = registry
+        self.k8s = clients.get_kubernetes_client()
 
     def _get_pod_name(self, params):
         return "%(namespace)s/%(name)s" % {
@@ -49,7 +51,7 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
             'name': params.args.K8S_POD_NAME}
 
     def add(self, params):
-        vifs = self._do_work(params, b_base.connect)
+        vifs = self._do_work(params, b_base.connect, confirm=True)
 
         pod_name = self._get_pod_name(params)
 
@@ -124,10 +126,28 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
                 LOG.debug("Reporting CNI driver not healthy.")
                 self.healthy.value = driver_healthy
 
-    def _do_work(self, params, fn):
+    def _do_work(self, params, fn, confirm=False):
         pod_name = self._get_pod_name(params)
 
         timeout = CONF.cni_daemon.vif_annotation_timeout
+
+        if confirm:
+            # Try to confirm if pod in the registry is not stale cache.
+            with lockutils.lock(pod_name, external=True):
+                if pod_name in self.registry:
+                    cached_pod = self.registry[pod_name]['pod']
+                    try:
+                        pod = self.k8s.get(cached_pod['metadata']['selfLink'])
+                    except Exception:
+                        LOG.exception('Error when getting pod %s', pod_name)
+                        raise exceptions.ResourceNotReady(pod_name)
+
+                    if pod['metadata']['uid'] != cached_pod['metadata']['uid']:
+                        LOG.warning('Stale pod %s detected in cache. (API '
+                                    'uid=%s, cached uid=%s). Removing it from '
+                                    'cache.', pod_name, pod['metadata']['uid'],
+                                    cached_pod['metadata']['uid'])
+                        del self.registry[pod_name]
 
         # In case of KeyError retry for `timeout` s, wait 1 s between tries.
         @retrying.retry(stop_max_delay=timeout * 1000, wait_fixed=RETRY_DELAY,

@@ -20,15 +20,17 @@ from kuryr_kubernetes.cni.plugins import k8s_cni_registry
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.tests import base
 from kuryr_kubernetes.tests import fake
+from kuryr_kubernetes.tests.unit import kuryr_fixtures
 
 
 class TestK8sCNIRegistryPlugin(base.TestCase):
     def setUp(self):
         super(TestK8sCNIRegistryPlugin, self).setUp()
+        self.k8s_mock = self.useFixture(kuryr_fixtures.MockK8sClient()).client
         self.default_iface = 'baz'
         self.additional_iface = 'eth1'
         self.pod = {'metadata': {'name': 'foo', 'uid': 'bar',
-                                 'namespace': 'default'}}
+                                 'namespace': 'default', 'selfLink': 'baz'}}
         self.vifs = fake._fake_vifs_dict()
         registry = {'default/foo': {'pod': self.pod, 'vifs': self.vifs,
                                     'containerid': None,
@@ -44,6 +46,8 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
     @mock.patch('oslo_concurrency.lockutils.lock')
     @mock.patch('kuryr_kubernetes.cni.binding.base.connect')
     def test_add_present(self, m_connect, m_lock):
+        self.k8s_mock.get.return_value = self.pod
+
         self.plugin.add(self.params)
 
         m_lock.assert_called_with('default/foo', external=True)
@@ -116,7 +120,8 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
                    'vif_unplugged': False, 'del_received': False})
         m_getitem = mock.Mock(side_effect=se)
         m_setitem = mock.Mock()
-        m_registry = mock.Mock(__getitem__=m_getitem, __setitem__=m_setitem)
+        m_registry = mock.Mock(__getitem__=m_getitem, __setitem__=m_setitem,
+                               __contains__=mock.Mock(return_value=False))
         self.plugin.registry = m_registry
         self.plugin.add(self.params)
 
@@ -137,13 +142,15 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
                                   container_id='cont_id')
 
     @mock.patch('time.sleep', mock.Mock())
+    @mock.patch('oslo_concurrency.lockutils.lock', mock.Mock(
+        return_value=mock.Mock(__enter__=mock.Mock(), __exit__=mock.Mock())))
     def test_add_not_present(self):
         cfg.CONF.set_override('vif_annotation_timeout', 0, group='cni_daemon')
         self.addCleanup(cfg.CONF.set_override, 'vif_annotation_timeout', 120,
                         group='cni_daemon')
 
         m_getitem = mock.Mock(side_effect=KeyError)
-        m_registry = mock.Mock(__getitem__=m_getitem)
+        m_registry = mock.Mock(__getitem__=m_getitem, __contains__=False)
         self.plugin.registry = m_registry
         self.assertRaises(exceptions.ResourceNotReady, self.plugin.add,
                           self.params)

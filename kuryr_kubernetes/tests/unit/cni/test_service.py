@@ -21,12 +21,14 @@ from kuryr_kubernetes.cni.plugins import k8s_cni_registry
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.tests import base
 from kuryr_kubernetes.tests import fake
+from kuryr_kubernetes.tests.unit import kuryr_fixtures
 
 
 class TestDaemonServer(base.TestCase):
     def setUp(self):
         super(TestDaemonServer, self).setUp()
         healthy = mock.Mock()
+        self.k8s_mock = self.useFixture(kuryr_fixtures.MockK8sClient())
         self.plugin = k8s_cni_registry.K8sCNIRegistryPlugin({}, healthy)
         self.health_registry = mock.Mock()
         self.srv = service.DaemonServer(self.plugin, self.health_registry)
