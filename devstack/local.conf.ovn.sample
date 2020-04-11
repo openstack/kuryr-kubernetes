@@ -27,13 +27,17 @@ IDENTITY_API_VERSION=3
 ENABLED_SERVICES=""
 
 # OVN components
-enable_plugin networking-ovn https://opendev.org/openstack/networking-ovn
+Q_AGENT=ovn
+Q_ML2_PLUGIN_MECHANISM_DRIVERS=ovn,logger
+Q_ML2_PLUGIN_TYPE_DRIVERS=local,flat,vlan,geneve
+Q_ML2_TENANT_NETWORK_TYPE=geneve
+
 enable_service ovn-northd
 enable_service ovn-controller
-enable_service networking-ovn-metadata-agent
+enable_service q-ovn-metadata-agent
 
 # Neutron services
-enable_service neutron
+enable_plugin neutron https://opendev.org/openstack/neutron
 enable_service q-svc
 
 # VAR RUN PATH
@@ -87,6 +91,8 @@ enable_service placement-client
 enable_service g-api
 enable_service g-reg
 
+# OVN octavia provider plugin
+enable_plugin ovn-octavia-provider https://opendev.org/openstack/ovn-octavia-provider
 
 # Keystone
 enable_service key
