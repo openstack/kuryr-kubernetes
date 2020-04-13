@@ -17,7 +17,6 @@ from kuryr.lib import opts as lib_opts
 from kuryr_kubernetes.cni import health as cni_health
 from kuryr_kubernetes import config
 from kuryr_kubernetes.controller.drivers import namespace_subnet
-from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes.controller.drivers import vif_pool
 from kuryr_kubernetes.controller.managers import health
 from kuryr_kubernetes.controller.managers import pool
@@ -39,7 +38,6 @@ _kuryr_k8s_opts = [
     ('cni_health_server', cni_health.cni_health_server_opts),
     ('namespace_subnet', namespace_subnet.namespace_subnet_driver_opts),
     ('sriov', config.sriov_opts),
-    ('pod_ip_caching', driver_utils.pod_ip_caching_opts),
 ]
 
 
