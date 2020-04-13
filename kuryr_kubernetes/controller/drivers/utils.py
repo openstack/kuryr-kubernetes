@@ -16,7 +16,6 @@
 import urllib
 
 from openstack import exceptions as os_exc
-from oslo_cache import core as cache
 from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
@@ -33,20 +32,6 @@ OPERATORS_WITH_VALUES = [constants.K8S_OPERATOR_IN,
 LOG = log.getLogger(__name__)
 
 CONF = cfg.CONF
-
-pod_ip_caching_opts = [
-    cfg.BoolOpt('caching', default=True),
-    cfg.IntOpt('cache_time', default=3600),
-]
-
-CONF.register_opts(pod_ip_caching_opts, "pod_ip_caching")
-
-cache.configure(CONF)
-pod_ip_cache_region = cache.create_region()
-MEMOIZE = cache.get_memoization_decorator(
-    CONF, pod_ip_cache_region, "pod_ip_caching")
-
-cache.configure_cache_region(CONF, pod_ip_cache_region)
 
 
 def get_network_id(subnets):
@@ -275,7 +260,6 @@ def create_security_group_rule_body(
     return security_group_rule_body
 
 
-@MEMOIZE
 def get_pod_ip(pod):
     try:
         pod_metadata = pod['metadata']['annotations']
