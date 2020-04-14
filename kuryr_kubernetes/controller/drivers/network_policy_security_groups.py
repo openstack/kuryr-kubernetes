@@ -396,13 +396,14 @@ def _parse_rules_on_delete_namespace(rule_list, direction, ns_name):
             matched = True
             driver_utils.delete_security_group_rule(
                 rule['security_group_rule']['id'])
-        for remote_ip, namespace in list(remote_ip_prefixes.items()):
-            if namespace == ns_name:
-                matched = True
-                remote_ip_prefixes.pop(remote_ip)
-                if remote_ip_prefixes:
-                    rule['remote_ip_prefixes'] = remote_ip_prefixes
-                    rules.append(rule)
+        elif remote_ip_prefixes:
+            for remote_ip, namespace in list(remote_ip_prefixes.items()):
+                if namespace == ns_name:
+                    matched = True
+                    remote_ip_prefixes.pop(remote_ip)
+            if remote_ip_prefixes:
+                rule['remote_ip_prefixes'] = remote_ip_prefixes
+                rules.append(rule)
         else:
             rules.append(rule)
     return matched, rules
