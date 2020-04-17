@@ -37,8 +37,9 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
 
         rq = self._get_port_request(pod, project_id, subnets, security_groups)
         port = os_net.create_port(**rq)
-        utils.tag_neutron_resources([port])
 
+        self._check_port_binding([port])
+        utils.tag_neutron_resources([port])
         return ovu.neutron_to_osvif_vif(port.binding_vif_type, port, subnets)
 
     def request_vifs(self, pod, project_id, subnets, security_groups,
@@ -54,7 +55,6 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
         except os_exc.SDKException:
             LOG.exception("Error creating bulk ports: %s", bulk_port_rq)
             raise
-        utils.tag_neutron_resources(ports)
 
         vif_plugin = ports[0].binding_vif_type
 
@@ -66,6 +66,8 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
             port_info = os_net.get_port(ports[0].id)
             vif_plugin = port_info.binding_vif_type
 
+        self._check_port_binding(ports)
+        utils.tag_neutron_resources(ports)
         vifs = []
         for port in ports:
             vif = ovu.neutron_to_osvif_vif(vif_plugin, port, subnets)
@@ -124,3 +126,11 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
             port_req_body['security_groups'] = security_groups
 
         return port_req_body
+
+    def _check_port_binding(self, ports):
+        if ports[0].binding_vif_type == "binding_failed":
+            for port in ports:
+                clients.get_network_client().delete_port(port.id)
+            LOG.error("Binding failed error for ports: %s."
+                      " Please check Neutron for errors.", ports)
+            raise k_exc.ResourceNotReady(ports)
