@@ -12,9 +12,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import mock
 import munch
 from openstack import exceptions as os_exc
+from unittest import mock
 
 from kuryr_kubernetes.controller.drivers import lb_public_ip\
     as d_lb_public_ip

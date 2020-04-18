@@ -13,8 +13,8 @@
 #    under the License.
 
 import io
+from unittest import mock
 
-import mock
 from oslo_serialization import jsonutils
 
 from kuryr_kubernetes.cmd import status

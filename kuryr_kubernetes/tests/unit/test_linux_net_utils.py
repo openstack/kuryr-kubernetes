@@ -10,7 +10,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import mock
+from unittest import mock
+
 from oslo_concurrency import processutils as utils
 
 from kuryr_kubernetes import linux_net_utils as linux_net

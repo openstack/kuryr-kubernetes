@@ -14,8 +14,8 @@
 #    under the License.
 
 import abc
+from unittest import mock
 
-import mock
 
 from kuryr_kubernetes.controller.drivers import base as d_base
 from kuryr_kubernetes.tests import base as test_base

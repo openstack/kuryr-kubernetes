@@ -14,7 +14,7 @@
 
 from kuryr_kubernetes.handlers import health as h_health
 from kuryr_kubernetes.tests import base as test_base
-import mock
+from unittest import mock
 
 
 class _TestHandler(h_health.HealthHandler):
