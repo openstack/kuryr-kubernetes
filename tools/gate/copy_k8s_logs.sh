@@ -42,7 +42,7 @@ while read -r line
 do
     name=$(echo ${line} | cut -f1 -d " ")
     namespace=$(echo ${line} | cut -f2 -d " ")
-    containers=`/usr/local/bin/kubectl --kubeconfig=${HOME}/.kube/config -n ${namespace} get pods ${name} -o jsonpath="{.spec.containers[*].name}"`
+    containers=`/usr/local/bin/kubectl --kubeconfig=${HOME}/.kube/config -n ${namespace} get pods ${name} -o jsonpath="{.spec.containers[*].name} {.spec.initContainers[*].name}"`
     for container in ${containers}
     do
         /usr/local/bin/kubectl --kubeconfig=${HOME}/.kube/config logs -n ${namespace} -c ${container} ${name} >> ${K8S_LOG_DIR}/pod_logs/${namespace}-${name}-${container}.txt
