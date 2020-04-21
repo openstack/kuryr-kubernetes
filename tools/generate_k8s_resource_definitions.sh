@@ -57,6 +57,15 @@ username = $username
 password = $password
 auth_url = $auth_url
 auth_type = password
+EOF
+
+    if [ ! -z $CA_CERTIFICATE_PATH ]; then
+        cat >> $CONF_PATH << EOF
+cafile = /etc/ssl/certs/kuryr-ca-bundle.crt
+EOF
+    fi
+
+    cat >> $CONF_PATH << EOF
 [neutron_defaults]
 ovs_bridge = br-int
 service_subnet = $service_subnet_id
