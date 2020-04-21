@@ -17,6 +17,7 @@ import abc
 import errno
 
 import os_vif
+from os_vif.objects import vif as osv_objects
 from oslo_log import log as logging
 import pyroute2
 from stevedore import driver as stv_driver
@@ -118,6 +119,8 @@ def _configure_l3(vif, ifname, netns, is_default_gateway):
 
 
 def _need_configure_l3(vif):
+    if isinstance(vif, osv_objects.VIFVHostUser):
+        return False
     if not hasattr(vif, 'physnet'):
         # NOTE(danil): non-sriov vif. Figure out if it is nested-dpdk
         if vif.obj_attr_is_set('port_profile') and hasattr(vif.port_profile,
