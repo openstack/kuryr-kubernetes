@@ -14,7 +14,7 @@
 #    under the License.
 
 from eventlet import greenlet
-import mock
+from unittest import mock
 
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as kuryr_fixtures

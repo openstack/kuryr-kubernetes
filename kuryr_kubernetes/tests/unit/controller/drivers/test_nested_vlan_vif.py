@@ -10,8 +10,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import mock
 import munch
+from unittest import mock
 
 from kuryr.lib import constants as kl_const
 from kuryr.lib import exceptions as kl_exc

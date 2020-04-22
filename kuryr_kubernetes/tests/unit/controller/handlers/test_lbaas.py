@@ -14,7 +14,7 @@
 #    under the License.
 
 import itertools
-import mock
+from unittest import mock
 import uuid
 
 import os_vif.objects.network as osv_network

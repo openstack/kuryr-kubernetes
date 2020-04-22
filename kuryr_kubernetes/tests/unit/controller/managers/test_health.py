@@ -16,7 +16,8 @@ from kuryr_kubernetes.controller.managers import health
 from kuryr_kubernetes.handlers import health as h_health
 from kuryr_kubernetes.tests import base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
-import mock
+from unittest import mock
+
 from oslo_config import cfg as oslo_cfg
 
 

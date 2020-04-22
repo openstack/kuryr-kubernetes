@@ -14,8 +14,8 @@
 #    under the License.
 
 from io import StringIO
+from unittest import mock
 
-import mock
 from oslo_config import cfg
 from oslo_serialization import jsonutils
 import requests

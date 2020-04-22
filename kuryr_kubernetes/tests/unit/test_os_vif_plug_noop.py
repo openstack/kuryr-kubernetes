@@ -10,8 +10,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import mock
 from stevedore import extension
+from unittest import mock
 
 import os_vif
 from os_vif import objects

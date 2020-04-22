@@ -13,8 +13,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from unittest import mock
+
 import ddt
-import mock
 
 from kuryr_kubernetes.controller.drivers import nested_dpdk_vif
 from kuryr_kubernetes.tests import base as test_base

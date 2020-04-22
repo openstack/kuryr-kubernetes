@@ -10,7 +10,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import mock
+from unittest import mock
 
 from kuryr.lib import exceptions as kl_exc
 from oslo_config import cfg as oslo_cfg

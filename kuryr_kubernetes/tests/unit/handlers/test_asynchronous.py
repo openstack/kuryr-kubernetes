@@ -13,8 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import mock
 import queue
+from unittest import mock
 
 from kuryr_kubernetes.handlers import asynchronous as h_async
 from kuryr_kubernetes.tests import base as test_base

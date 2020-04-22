@@ -13,10 +13,10 @@
 from ctypes import c_bool
 from kuryr_kubernetes.cni import health
 from kuryr_kubernetes.tests import base
-import mock
 import multiprocessing
 import os
 import tempfile
+from unittest import mock
 
 from oslo_config import cfg
 

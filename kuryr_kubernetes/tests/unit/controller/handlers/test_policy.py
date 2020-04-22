@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import mock
+from unittest import mock
 
 from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes.controller.handlers import policy
