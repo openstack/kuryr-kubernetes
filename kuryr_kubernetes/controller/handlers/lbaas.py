@@ -163,6 +163,8 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         self._drv_pod_project = drv_base.PodProjectDriver.get_instance()
         self._drv_pod_subnets = drv_base.PodSubnetsDriver.get_instance()
         self._drv_service_pub_ip = drv_base.ServicePubIpDriver.get_instance()
+        self._drv_project = drv_base.ServiceProjectDriver.get_instance()
+        self._drv_sg = drv_base.ServiceSecurityGroupsDriver.get_instance()
         # Note(yboaron) LBaaS driver supports 'provider' parameter in
         # Load Balancer creation flow.
         # We need to set the requested load balancer provider
@@ -281,38 +283,25 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
 
         return changed
 
-    def _sync_lbaas_sgs(self, endpoints, lbaas_state, lbaas_spec):
-        # NOTE (maysams) Need to retrieve the LBaaS Spec again due to
-        # the possibility of it being updated after the LBaaS creation
-        # process has started.
+    def _sync_lbaas_sgs(self, endpoints, lbaas_state):
         svc_link = self._get_service_link(endpoints)
         k8s = clients.get_kubernetes_client()
         service = k8s.get(svc_link)
-        lbaas_spec = utils.get_lbaas_spec(service)
 
         lb = lbaas_state.loadbalancer
-        default_sgs = config.CONF.neutron_defaults.pod_security_groups
-        # NOTE(maysams) As the endpoint and svc are annotated with the
-        # 'lbaas_spec' in two separate k8s calls, it's possible that
-        # the endpoint got annotated and the svc haven't due to controller
-        # restarts. For this case, a resourceNotReady exception is raised
-        # till the svc gets annotated with a 'lbaas_spec'.
-        if lbaas_spec:
-            lbaas_spec_sgs = lbaas_spec.security_groups_ids
-        else:
-            raise k_exc.ResourceNotReady(svc_link)
-        if lb.security_groups and lb.security_groups != lbaas_spec_sgs:
-            sgs = [lb_sg for lb_sg in lb.security_groups
-                   if lb_sg not in default_sgs]
-            if lbaas_spec_sgs != default_sgs:
-                sgs.extend(lbaas_spec_sgs)
-            lb.security_groups = sgs
+        # NOTE(maysams) It's possible that while the service annotation
+        # is added the backend pods on that service are not yet created
+        # resulting in no security groups retrieved for the service.
+        # Let's retrieve again to ensure is updated.
+        project_id = self._drv_project.get_project(service)
+        lb_sgs = self._drv_sg.get_security_groups(service, project_id)
+        lb.security_groups = lb_sgs
 
     def _add_new_members(self, endpoints, lbaas_state, lbaas_spec):
         changed = False
 
         try:
-            self._sync_lbaas_sgs(endpoints, lbaas_state, lbaas_spec)
+            self._sync_lbaas_sgs(endpoints, lbaas_state)
         except k_exc.K8sResourceNotFound:
             LOG.debug("The svc has been deleted while processing the endpoints"
                       " update. No need to add new members.")
