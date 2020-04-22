@@ -42,7 +42,7 @@ that can be used to Deploy Kuryr on Kubernetes. The script is placed in
 
 .. code-block:: console
 
-   $ ./tools/generate_k8s_resource_definitions <output_dir> [<controller_conf_path>] [<cni_conf_path>] [<ca_certificate_path>]
+   $ ./tools/generate_k8s_resource_definitions.sh <output_dir> [<controller_conf_path>] [<cni_conf_path>] [<ca_certificate_path>]
 
 * ``output_dir`` - directory where to put yaml files with definitions.
 * ``controller_conf_path`` - path to custom kuryr-controller configuration
