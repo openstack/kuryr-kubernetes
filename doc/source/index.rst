@@ -15,7 +15,7 @@ Contents
    readme
    installation/index
    usage
-   contributing
+   contributor/index
 
 
 Developer Docs

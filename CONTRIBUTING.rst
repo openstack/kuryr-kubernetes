@@ -1,23 +1,19 @@
-If you would like to contribute to the development of OpenStack, you must
-follow the steps in this page:
-https://docs.openstack.org/infra/manual/developers.html
+The source repository for this project can be found at:
 
-If you already have a good understanding of how the system works and your
-OpenStack accounts are set up, you can skip to the development workflow section
-of this documentation to learn how changes to OpenStack should be submitted for
-review via the Gerrit tool:
-https://docs.openstack.org/infra/manual/developers.html#development-workflow
+   https://opendev.org/openstack/kuryr-kubernetes
 
-Pull requests submitted through GitHub will be ignored.
+Pull requests submitted through GitHub are not monitored.
 
-Bugs should be filed on Launchpad, not GitHub:
-https://bugs.launchpad.net/kuryr-kubernetes
+To start contributing to OpenStack, follow the steps in the contribution guide
+to set up and use Gerrit:
 
-If you want to have your code checked for pep8 automatically before committing
-changes, you can just do::
+   https://docs.openstack.org/contributors/code-and-documentation/quick-start.html
 
-    pip install pre-commit
-    pre-commit install
+Bugs should be filed on Launchpad:
 
-From that moment on, every time you run *git commit* it will first check your
-diff for pep8 compliance and refuse to commit if it doesn't pass.
+   https://bugs.launchpad.net/kuryr-kubernetes
+
+For more specific information about contributing to this repository, see the
+kuryr-kubernetes contributor guide:
+
+   https://docs.openstack.org/kuryr-kubernetes/latest/contributor/contributing.html
