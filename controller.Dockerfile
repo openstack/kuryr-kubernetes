@@ -1,7 +1,7 @@
 FROM centos:8
 LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redhat.com>"
 
-ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/master"
+ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/ussuri"
 
 RUN yum install -y epel-release \
     && yum install -y --setopt=tsflags=nodocs python3-pip libstdc++ \
