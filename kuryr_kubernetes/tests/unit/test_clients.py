@@ -15,6 +15,8 @@
 
 from unittest import mock
 
+from openstack.network.v2 import port as os_port
+
 from kuryr_kubernetes import clients
 from kuryr_kubernetes.tests import base as test_base
 
@@ -48,3 +50,81 @@ class TestK8sClient(test_base.TestCase):
                       clients.get_network_client())
         self.assertIs(openstacksdk_mock.compute,
                       clients.get_compute_client())
+
+
+class TestOpenStackSDKHack(test_base.TestCase):
+
+    def test_create_ports_incorrect_payload(self):
+        m_osdk = mock.Mock()
+
+        self.assertRaises(KeyError, clients._create_ports, m_osdk, {})
+
+    def test_create_no_ports(self):
+        m_response = mock.Mock()
+        m_response.json.return_value = {'ports': []}
+        m_post = mock.Mock()
+        m_post.return_value = m_response
+        m_osdk = mock.Mock()
+        m_osdk.post = m_post
+
+        payload = {'ports': []}
+
+        clients._create_ports(m_osdk, payload)
+        m_post.assert_called_once_with(os_port.Port.base_path, json=payload)
+
+    def test_create_ports(self):
+        m_response = mock.Mock()
+        m_response.json.return_value = {'ports': []}
+        m_post = mock.Mock()
+        m_post.return_value = m_response
+        m_osdk = mock.Mock()
+        m_osdk.post = m_post
+
+        payload = {'ports': [{'admin_state_up': True,
+                              'allowed_address_pairs': [{}],
+                              'binding_host_id': 'binding-host-id-1',
+                              'binding_profile': {},
+                              'binding_vif_details': {},
+                              'binding_vif_type': 'ovs',
+                              'binding_vnic_type': 'normal',
+                              'device_id': 'device-id-1',
+                              'device_owner': 'compute:nova',
+                              'dns_assignment': [{}],
+                              'dns_name': 'dns-name-1',
+                              'extra_dhcp_opts': [{}],
+                              'fixed_ips': [{'subnet_id': 'subnet-id-1',
+                                             'ip_address': '10.10.10.01'}],
+                              'id': 'port-id-1',
+                              'mac_address': 'de:ad:be:ef:de:ad',
+                              'name': 'port-name-',
+                              'network_id': 'network-id-1',
+                              'port_security_enabled': True,
+                              'security_groups': [],
+                              'status': 'ACTIVE',
+                              'tenant_id': 'project-id-'}]}
+
+        expected = {'ports': [{'admin_state_up': True,
+                               'allowed_address_pairs': [{}],
+                               'binding:host_id': 'binding-host-id-1',
+                               'binding:profile': {},
+                               'binding:vif_details': {},
+                               'binding:vif_type': 'ovs',
+                               'binding:vnic_type': 'normal',
+                               'device_id': 'device-id-1',
+                               'device_owner': 'compute:nova',
+                               'dns_assignment': [{}],
+                               'dns_name': 'dns-name-1',
+                               'extra_dhcp_opts': [{}],
+                               'fixed_ips': [{'subnet_id': 'subnet-id-1',
+                                              'ip_address': '10.10.10.01'}],
+                               'id': 'port-id-1',
+                               'mac_address': 'de:ad:be:ef:de:ad',
+                               'name': 'port-name-',
+                               'network_id': 'network-id-1',
+                               'port_security_enabled': True,
+                               'security_groups': [],
+                               'status': 'ACTIVE',
+                               'tenant_id': 'project-id-'}]}
+
+        clients._create_ports(m_osdk, payload)
+        m_post.assert_called_once_with(os_port.Port.base_path, json=expected)
