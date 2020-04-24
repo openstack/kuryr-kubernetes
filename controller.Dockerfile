@@ -3,7 +3,8 @@ LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redh
 
 ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/ussuri"
 
-RUN yum install -y epel-release \
+RUN yum upgrade -y \
+    && yum install -y epel-release \
     && yum install -y --setopt=tsflags=nodocs python3-pip libstdc++ \
     && yum install -y --setopt=tsflags=nodocs gcc gcc-c++ python3-devel git
 

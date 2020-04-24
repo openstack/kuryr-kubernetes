@@ -18,14 +18,17 @@
     description: |
         Kuryr-Kubernetes tempest job using OVN
     required-projects:
-      - openstack/networking-ovn
+      - openstack/neutron
     host-vars:
       controller:
         devstack_plugins:
-          networking-ovn: https://opendev.org/openstack/networking-ovn
-          neutron: https://opendev.org/openstack/neutron
+          neutron: "https://opendev.org/openstack/neutron stable/ussuri"
     vars:
       devstack_localrc:
+        Q_AGENT: ovn
+        Q_ML2_PLUGIN_MECHANISM_DRIVERS: ovn,logger
+        Q_ML2_PLUGIN_TYPE_DRIVERS: local,flat,vlan,geneve
+        Q_ML2_TENANT_NETWORK_TYPE: geneve
         VAR_RUN_PATH: /usr/local/var/run
         Q_USE_PROVIDERNET_FOR_PUBLIC: true
         PHYSICAL_NETWORK: public
@@ -33,10 +36,12 @@
         # OVN already builds from source by default
         Q_BUILD_OVS_FROM_GIT: false
         KURYR_NEUTRON_DEFAULT_ROUTER: kuryr-router
+        OVN_BRANCH: branch-20.03
       devstack_services:
         ovn-northd: true
         ovn-controller: true
-        networking-ovn-metadata-agent: true
+        q-ovn-metadata-agent: true
+        q-svc: true
         q-agt: false
         q-l3: false
         q-dhcp: false
