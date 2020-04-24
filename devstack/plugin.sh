@@ -17,9 +17,9 @@ set -o xtrace
 
 function container_runtime {
     if [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
-        sudo podman "$@"
+        sudo podman "$@" || die $LINENO "Error when running podman command"
     else
-        docker "$@"
+        docker "$@" || die $LINENO "Error when running docker command"
     fi
 }
 
