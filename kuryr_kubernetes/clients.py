@@ -86,7 +86,19 @@ def setup_kubernetes_client():
 
 def _create_ports(self, payload):
     """bulk create ports using openstacksdk module"""
-    # TODO(gryf): this should be implemented on openstacksdk instead.
+    # TODO(gryf): this function should be removed while we update openstacksdk
+    # version to 0.42.
+    key_map = {'binding_host_id': 'binding:host_id',
+               'binding_profile': 'binding:profile',
+               'binding_vif_details': 'binding:vif_details',
+               'binding_vif_type': 'binding:vif_type',
+               'binding_vnic_type': 'binding:vnic_type'}
+
+    for port in payload['ports']:
+        for key, mapping in key_map.items():
+            if key in port:
+                port[mapping] = port.pop(key)
+
     response = self.post(os_port.Port.base_path, json=payload)
 
     if not response.ok:
