@@ -186,10 +186,15 @@ def create_security_group_rule(body):
         sgr = os_net.create_security_group_rule(**params)
         return sgr.id
     except os_exc.ConflictException as ex:
-        LOG.debug("Failed to create already existing security group "
-                  "rule %s", body)
-        # Get existent sg rule id from exception message
-        return str(ex).split()[-1][:-1]
+        if 'quota' in ex.details.lower():
+            LOG.error("Failed to create security group rule %s: %s", body,
+                      ex.details)
+            raise
+        else:
+            LOG.debug("Failed to create already existing security group "
+                      "rule %s", body)
+            # Get existent sg rule id from exception message
+            return str(ex).split()[-1][:-1]
     except os_exc.SDKException:
         LOG.debug("Error creating security group rule")
         raise
