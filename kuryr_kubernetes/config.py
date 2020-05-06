@@ -342,6 +342,15 @@ vhostuser = [
                default='/var/run/openvswitch/')
 ]
 
+prometheus_exporter_opts = [
+    cfg.IntOpt('controller_exporter_port',
+               help=_('port for the Controller Prometheus exporter.'),
+               default=9654),
+    cfg.IntOpt('cni_exporter_port',
+               help=_('port for the CNI Prometheus exporter.'),
+               default=9655)
+]
+
 CONF = cfg.CONF
 CONF.register_opts(kuryr_k8s_opts)
 CONF.register_opts(daemon_opts, group='cni_daemon')
@@ -352,6 +361,7 @@ CONF.register_opts(cache_defaults, group='cache_defaults')
 CONF.register_opts(nested_vif_driver_opts, group='pod_vif_nested')
 CONF.register_opts(sriov_opts, group='sriov')
 CONF.register_opts(vhostuser, group='vhostuser')
+CONF.register_opts(prometheus_exporter_opts, "prometheus_exporter")
 
 CONF.register_opts(lib_config.core_opts)
 CONF.register_opts(lib_config.binding_opts, 'binding')

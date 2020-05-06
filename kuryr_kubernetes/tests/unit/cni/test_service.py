@@ -31,11 +31,14 @@ class TestDaemonServer(base.TestCase):
         self.k8s_mock = self.useFixture(kuryr_fixtures.MockK8sClient())
         self.plugin = k8s_cni_registry.K8sCNIRegistryPlugin({}, healthy)
         self.health_registry = mock.Mock()
-        self.srv = service.DaemonServer(self.plugin, self.health_registry)
+        self.metrics = dict()
+        self.srv = service.DaemonServer(
+            self.plugin, self.health_registry, self.metrics)
 
         self.srv.application.testing = True
         self.test_client = self.srv.application.test_client()
-        params = {'config_kuryr': {}, 'CNI_ARGS': 'foo=bar',
+        cni_args = 'foo=bar;K8S_POD_NAMESPACE=test;K8S_POD_NAME=test'
+        params = {'config_kuryr': {}, 'CNI_ARGS': cni_args,
                   'CNI_CONTAINERID': 'baz', 'CNI_COMMAND': 'ADD'}
         self.params_str = jsonutils.dumps(params)
 
