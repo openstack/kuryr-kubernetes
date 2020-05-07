@@ -809,7 +809,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             lbaas_port = port['port']
             target_port = port['targetPort']
             sg_rule_name = "%s:%s:%s" % (lbaas_name, port_protocol, lbaas_port)
-            listener_id = lsnr_ids.get((port_protocol, target_port))
+            listener_id = lsnr_ids.get((port_protocol, lbaas_port))
             if listener_id is None:
                 LOG.warning("There is no listener associated to the protocol "
                             "%s and port %s. Skipping", port_protocol,
