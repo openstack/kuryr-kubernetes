@@ -138,9 +138,12 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         if worker_subnet_id:
             default_cidrs.append(utils.get_subnet_cidr(worker_subnet_id))
         for cidr in default_cidrs:
+            ethertype = constants.IPv4
+            if ipaddress.ip_network(cidr).version == constants.IP_VERSION_6:
+                ethertype = constants.IPv6
             default_rule = {
                 'security_group_rule': {
-                    'ethertype': 'IPv4',
+                    'ethertype': ethertype,
                     'security_group_id': sg_id,
                     'direction': 'ingress',
                     'description': 'Kuryr-Kubernetes NetPolicy SG rule',
@@ -365,12 +368,15 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     crd_rules, sg_id, direction, port, pod_selector,
                     policy_namespace)
         if allow_all:
+            container_port = None
             for container_port, pods in matched_pods.items():
-                sg_rule = driver_utils.create_security_group_rule_body(
-                    sg_id, direction, container_port,
-                    protocol=port.get('protocol'),
-                    pods=pods)
-                crd_rules.append(sg_rule)
+                for ethertype in (constants.IPv4, constants.IPv6):
+                    sg_rule = driver_utils.create_security_group_rule_body(
+                        sg_id, direction, container_port,
+                        protocol=port.get('protocol'),
+                        ethertype=ethertype,
+                        pods=pods)
+                    crd_rules.append(sg_rule)
             if direction == 'egress':
                 rules = self._create_svc_egress_sg_rule(
                     sg_id, policy_namespace, port=container_port,
@@ -410,26 +416,29 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 sg_rule_body_list, pod_selector, policy_namespace,
                 allow_all=True)
         else:
-            sg_rule = (
-                driver_utils.create_security_group_rule_body(
-                    sg_id, direction, port.get('port'),
-                    protocol=port.get('protocol')))
-            sg_rule_body_list.append(sg_rule)
-            if direction == 'egress':
-                rule = self._create_svc_egress_sg_rule(
-                    sg_id, policy_namespace, port=port.get('port'),
-                    protocol=port.get('protocol'))
-                sg_rule_body_list.extend(rule)
+            for ethertype in (constants.IPv4, constants.IPv6):
+                sg_rule = (
+                    driver_utils.create_security_group_rule_body(
+                        sg_id, direction, port.get('port'),
+                        ethertype=ethertype,
+                        protocol=port.get('protocol')))
+                sg_rule_body_list.append(sg_rule)
+                if direction == 'egress':
+                    rule = self._create_svc_egress_sg_rule(
+                        sg_id, policy_namespace, port=port.get('port'),
+                        protocol=port.get('protocol'))
+                    sg_rule_body_list.extend(rule)
 
     def _create_default_sg_rule(self, sg_id, direction, sg_rule_body_list):
-        default_rule = {
-            'security_group_rule': {
-                'ethertype': 'IPv4',
-                'security_group_id': sg_id,
-                'direction': direction,
-                'description': 'Kuryr-Kubernetes NetPolicy SG rule',
-            }}
-        sg_rule_body_list.append(default_rule)
+        for ethertype in (constants.IPv4, constants.IPv6):
+            default_rule = {
+                'security_group_rule': {
+                    'ethertype': ethertype,
+                    'security_group_id': sg_id,
+                    'direction': direction,
+                    'description': 'Kuryr-Kubernetes NetPolicy SG rule',
+                }}
+            sg_rule_body_list.append(default_rule)
 
     def _parse_sg_rules(self, sg_rule_body_list, direction, policy, sg_id):
         """Parse policy into security group rules.
@@ -478,9 +487,10 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         if rule_list[0] == {}:
             LOG.debug('Applying default all open policy from %s',
                       policy['metadata']['selfLink'])
-            rule = driver_utils.create_security_group_rule_body(sg_id,
-                                                                direction)
-            sg_rule_body_list.append(rule)
+            for ethertype in (constants.IPv4, constants.IPv6):
+                rule = driver_utils.create_security_group_rule_body(
+                    sg_id, direction, ethertype=ethertype)
+                sg_rule_body_list.append(rule)
 
         for rule_block in rule_list:
             LOG.debug('Parsing %(dir)s Rule %(rule)s', {'dir': direction,
@@ -546,15 +556,17 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                             sg_id, policy_namespace, resource=resource)
                         sg_rule_body_list.extend(rule)
                 if allow_all:
-                    rule = driver_utils.create_security_group_rule_body(
-                        sg_id, direction,
-                        port_range_min=1,
-                        port_range_max=65535)
-                    if direction == 'egress':
-                        rule = self._create_svc_egress_sg_rule(
-                            sg_id, policy_namespace)
-                        sg_rule_body_list.extend(rule)
-                    sg_rule_body_list.append(rule)
+                    for ethertype in (constants.IPv4, constants.IPv6):
+                        rule = driver_utils.create_security_group_rule_body(
+                            sg_id, direction,
+                            port_range_min=1,
+                            port_range_max=65535,
+                            ethertype=ethertype)
+                        sg_rule_body_list.append(rule)
+                        if direction == 'egress':
+                            rule = self._create_svc_egress_sg_rule(
+                                sg_id, policy_namespace)
+                            sg_rule_body_list.extend(rule)
             else:
                 LOG.debug('This network policy specifies no %(direction)s '
                           '%(rule_direction)s and no ports: %(policy)s',

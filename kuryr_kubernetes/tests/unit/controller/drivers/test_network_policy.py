@@ -240,7 +240,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         self._driver.os_net.create_security_group.return_value = (
             munch.Munch({'id': mock.sentinel.id,
                          'security_group_rules': []}))
-        m_utils.get_subnet_cidr.return_value = {'cidr': mock.sentinel.cidr}
+        m_utils.get_subnet_cidr.return_value = mock.sentinel.cidr
         m_parse.return_value = (self._i_rules, self._e_rules)
         self._driver.os_net.create_security_group_rule.return_value = (
             munch.Munch({'id': mock.sentinel.id}))
@@ -265,7 +265,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         self._driver.os_net.create_security_group.return_value = (
             munch.Munch({'id': mock.sentinel.id,
                          'security_group_rules': []}))
-        m_utils.get_subnet_cidr.return_value = {'cidr': mock.sentinel.cidr}
+        m_utils.get_subnet_cidr.return_value = mock.sentinel.cidr
         m_parse.return_value = (self._i_rules, self._e_rules)
         m_get_crd.side_effect = exceptions.K8sClientException
         self._driver.os_net.create_security_group_rule.return_value = (
@@ -292,7 +292,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         self._driver.os_net.create_security_group.return_value = (
             munch.Munch({'id': mock.sentinel.id,
                          'security_group_rules': []}))
-        m_utils.get_subnet_cidr.return_value = {'cidr': mock.sentinel.cidr}
+        m_utils.get_subnet_cidr.return_value = mock.sentinel.cidr
         m_parse.return_value = (self._i_rules, self._e_rules)
         m_add_crd.side_effect = exceptions.K8sClientException
         self._driver.os_net.create_security_group_rule.return_value = (
@@ -393,8 +393,10 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         policy['spec']['egress'] = [{}]
         self._driver.parse_network_policy_rules(policy, self._sg_id)
         m_get_ns.assert_not_called()
-        calls = [mock.call(self._sg_id, 'ingress'),
-                 mock.call(self._sg_id, 'egress')]
+        calls = [mock.call(self._sg_id, 'ingress', ethertype='IPv4'),
+                 mock.call(self._sg_id, 'ingress', ethertype='IPv6'),
+                 mock.call(self._sg_id, 'egress', ethertype='IPv4'),
+                 mock.call(self._sg_id, 'egress', ethertype='IPv6')]
         m_create.assert_has_calls(calls)
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
@@ -520,3 +522,248 @@ class TestNetworkPolicyDriver(test_base.TestCase):
     def test_release_network_policy_removed_crd(self, m_del_crd):
         self._driver.release_network_policy(None)
         m_del_crd.assert_not_called()
+
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_create_sg_rules_with_container_ports')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pods')
+    def test__create_sg_rule_body_on_text_port_ingress(self,
+                                                       m_get_pods,
+                                                       m_get_ports,
+                                                       m_create_sgr_cont):
+        pod = mock.sentinel.pod
+        port = mock.sentinel.port
+        container_ports = mock.sentinel.ports
+        resources = [mock.sentinel.resource]
+        crd_rules = mock.sentinel.crd_rules
+        pod_selector = {}
+        namespace = mock.sentinel.namespace
+        direction = 'ingress'
+
+        m_get_pods.return_value = {'items': [pod]}
+        m_get_ports.return_value = container_ports
+
+        self._driver._create_sg_rule_body_on_text_port(self._sg_id,
+                                                       direction,
+                                                       port,
+                                                       resources,
+                                                       crd_rules,
+                                                       pod_selector,
+                                                       namespace)
+
+        m_get_pods.assert_called_with(pod_selector, namespace)
+        m_get_ports.assert_called_with(pod, port)
+
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'create_security_group_rule_body')
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_create_sg_rules_with_container_ports')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pods')
+    def test__create_sg_rule_body_on_text_port_ingress_all(self,
+                                                           m_get_pods,
+                                                           m_get_ports,
+                                                           m_create_sgr_cont,
+                                                           m_create_sgr):
+        pod = mock.sentinel.pod
+        port = mock.sentinel.port
+        container_ports = mock.sentinel.ports
+        resources = [mock.sentinel.resource]
+        crd_rules = mock.sentinel.crd_rules
+        pod_selector = {}
+        namespace = mock.sentinel.namespace
+        direction = 'ingress'
+
+        m_get_pods.return_value = {'items': [pod]}
+        m_get_ports.return_value = container_ports
+
+        self._driver._create_sg_rule_body_on_text_port(self._sg_id,
+                                                       direction,
+                                                       port,
+                                                       resources,
+                                                       crd_rules,
+                                                       pod_selector,
+                                                       namespace,
+                                                       allow_all=True)
+
+        m_get_pods.assert_called_with(pod_selector, namespace)
+        m_get_ports.assert_called_with(pod, port)
+        m_create_sgr.assert_not_called()
+
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'create_security_group_rule_body')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pods')
+    def test__create_sg_rule_body_on_text_port_ingress_match(self,
+                                                             m_get_pods,
+                                                             m_get_ports,
+                                                             m_create_sgr):
+
+        def _create_sgr_cont(container_ports, allow_all, resource,
+                             matched_pods, crd_rules, sg_id, direction, port,
+                             pod_selector=None, policy_namespace=None):
+            matched_pods[container_ports[0][1]] = 'foo'
+
+        pod = mock.sentinel.pod
+        port = {'protocol': 'TCP', 'port': 22}
+        container_ports = [("pod", mock.sentinel.container_port)]
+        resources = [mock.sentinel.resource]
+        crd_rules = []
+        pod_selector = {}
+        namespace = mock.sentinel.namespace
+        direction = 'ingress'
+        self._driver._create_sg_rules_with_container_ports = _create_sgr_cont
+
+        m_get_pods.return_value = {'items': [pod]}
+        m_get_ports.return_value = container_ports
+
+        self._driver._create_sg_rule_body_on_text_port(self._sg_id,
+                                                       direction,
+                                                       port,
+                                                       resources,
+                                                       crd_rules,
+                                                       pod_selector,
+                                                       namespace,
+                                                       allow_all=True)
+
+        m_get_pods.assert_called_with(pod_selector, namespace)
+        m_get_ports.assert_called_with(pod, port)
+
+        calls = [mock.call(self._sg_id, direction, container_ports[0][1],
+                           protocol=port['protocol'], ethertype=e,
+                           pods='foo') for e in ('IPv4', 'IPv6')]
+
+        m_create_sgr.assert_has_calls(calls)
+        self.assertEqual(len(crd_rules), 2)
+
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_create_sg_rules_with_container_ports')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pods')
+    def test__create_sg_rule_body_on_text_port_egress(self,
+                                                      m_get_pods,
+                                                      m_get_ports,
+                                                      m_create_sgr_cont):
+        pod = mock.sentinel.pod
+        port = mock.sentinel.port
+        container_ports = mock.sentinel.ports
+        resources = [{'spec': 'foo'}]
+        crd_rules = mock.sentinel.crd_rules
+        pod_selector = {}
+        namespace = mock.sentinel.namespace
+        direction = 'egress'
+
+        m_get_pods.return_value = {'items': [pod]}
+        m_get_ports.return_value = container_ports
+
+        self._driver._create_sg_rule_body_on_text_port(self._sg_id,
+                                                       direction,
+                                                       port,
+                                                       resources,
+                                                       crd_rules,
+                                                       pod_selector,
+                                                       namespace)
+
+        m_get_ports.assert_called_with(resources[0], port)
+
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'create_security_group_rule_body')
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_create_sg_rules_with_container_ports')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports')
+    def test__create_sg_rule_body_on_text_port_egress_all(self,
+                                                          m_get_ports,
+                                                          m_create_sgr_cont,
+                                                          m_create_sgr):
+        port = {'protocol': 'TCP', 'port': 22}
+        container_ports = mock.sentinel.ports
+        resources = [{'spec': 'foo'}]
+        crd_rules = []
+        pod_selector = {}
+        namespace = mock.sentinel.namespace
+        direction = 'egress'
+
+        m_get_ports.return_value = container_ports
+
+        self._driver._create_sg_rule_body_on_text_port(self._sg_id,
+                                                       direction,
+                                                       port,
+                                                       resources,
+                                                       crd_rules,
+                                                       pod_selector,
+                                                       namespace,
+                                                       allow_all=True)
+
+        m_get_ports.assert_called_with(resources[0], port)
+        m_create_sgr.assert_called_once_with(self._sg_id, 'egress', None,
+                                             cidr=mock.ANY, protocol='TCP')
+        self.assertEqual(len(crd_rules), 1)
+
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'create_security_group_rule_body')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pods')
+    def test__create_sg_rule_body_on_text_port_egress_match(self,
+                                                            m_get_pods,
+                                                            m_get_ports,
+                                                            m_create_sgr):
+
+        def _create_sgr_cont(container_ports, allow_all, resource,
+                             matched_pods, crd_rules, sg_id, direction, port,
+                             pod_selector=None, policy_namespace=None):
+            matched_pods[container_ports[0][1]] = 'foo'
+
+        pod = mock.sentinel.pod
+        port = {'protocol': 'TCP', 'port': 22}
+        container_ports = [("pod", mock.sentinel.container_port)]
+        resources = [{'spec': 'foo'}]
+        crd_rules = []
+        pod_selector = {}
+        namespace = mock.sentinel.namespace
+        direction = 'egress'
+        self._driver._create_sg_rules_with_container_ports = _create_sgr_cont
+
+        m_get_pods.return_value = {'items': [pod]}
+        m_get_ports.return_value = container_ports
+
+        self._driver._create_sg_rule_body_on_text_port(self._sg_id,
+                                                       direction,
+                                                       port,
+                                                       resources,
+                                                       crd_rules,
+                                                       pod_selector,
+                                                       namespace,
+                                                       allow_all=True)
+
+        m_get_ports.assert_called_with(resources[0], port)
+
+        calls = [mock.call(self._sg_id, direction, container_ports[0][1],
+                           protocol=port['protocol'], ethertype=e,
+                           pods='foo') for e in ('IPv4', 'IPv6')]
+
+        m_create_sgr.assert_has_calls(calls)
+        # NOTE(gryf): there are 3 rules created in case of egress direction,
+        # since additional one is created for specific cidr in service subnet.
+        self.assertEqual(len(crd_rules), 3)
+
+    def test__create_all_pods_sg_rules(self):
+        port = {'protocol': 'TCP', 'port': 22}
+        direction = 'ingress'
+        rules = []
+
+        self._driver._create_all_pods_sg_rules(port, self._sg_id, direction,
+                                               rules, '', None)
+        self.assertEqual(len(rules), 2)
+
+    def test__create_default_sg_rule(self):
+        for direction in ('ingress', 'egress'):
+            rules = []
+
+            self._driver._create_default_sg_rule(self._sg_id, direction, rules)
+            self.assertEqual(len(rules), 2)
+            self.assertListEqual(rules, [{'security_group_rule': {
+                'ethertype': e,
+                'security_group_id': self._sg_id,
+                'direction': direction,
+                'description': 'Kuryr-Kubernetes NetPolicy SG rule'
+                }} for e in ('IPv4', 'IPv6')])

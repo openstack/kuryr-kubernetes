@@ -15,6 +15,7 @@
 
 import urllib
 
+import netaddr
 from openstack import exceptions as os_exc
 from oslo_config import cfg
 from oslo_log import log
@@ -233,7 +234,7 @@ def patch_kuryrnetworkpolicy_crd(crd, i_rules, e_rules, pod_selector,
 
 def create_security_group_rule_body(
         security_group_id, direction, port_range_min=None,
-        port_range_max=None, protocol=None, ethertype='IPv4', cidr=None,
+        port_range_max=None, protocol=None, ethertype=None, cidr=None,
         description="Kuryr-Kubernetes NetPolicy SG rule", namespace=None,
         pods=None):
     if not port_range_min:
@@ -243,6 +244,12 @@ def create_security_group_rule_body(
         port_range_max = port_range_min
     if not protocol:
         protocol = 'TCP'
+
+    if not ethertype:
+        ethertype = 'IPv4'
+        if cidr and netaddr.IPNetwork(cidr).version == 6:
+            ethertype = 'IPv6'
+
     security_group_rule_body = {
         'security_group_rule': {
             'ethertype': ethertype,

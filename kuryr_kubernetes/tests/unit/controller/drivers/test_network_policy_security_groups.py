@@ -700,3 +700,94 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
 
         self.assertEqual(matched, matched_selector)
         self.assertEqual(rules, final_crd_rules)
+
+
+class TestNetworkPolicySecurityGroupsFunctions(test_base.TestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.kubernetes = self.useFixture(k_fix.MockK8sClient()).client
+        self.npsg = network_policy_security_groups
+        self.sg_id = mock.sentinel.sg_id
+
+        self.crd = {
+            'spec': {
+                'ingressSgRules': [],
+                'networkpolicy_spec': {
+                    'ingress': [],
+                    'policyTypes': ['Ingress']
+                }
+            },
+            'metadata': {'namespace': 'ns'}
+        }
+
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'create_security_group_rule')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'create_security_group_rule_body')
+    def test__apply_sg_rules_on_matched_pods_empty_match(self, m_create_sgrb,
+                                                         m_create_sgr):
+        self.npsg._apply_sg_rules_on_matched_pods({}, self.sg_id, 'ingress',
+                                                  'ns', 'port', 'crd_rules')
+
+        m_create_sgrb.assert_not_called()
+        m_create_sgr.assert_not_called()
+
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'get_namespace_subnet_cidr')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'get_namespace')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'create_security_group_rule')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'create_security_group_rule_body')
+    def test__apply_sg_rules_on_matched_pods_not_all(self, m_create_sgrb,
+                                                     m_create_sgr, m_get_ns,
+                                                     m_get_ns_sub_cidr):
+        pod = mock.sentinel.pod
+        ns = mock.sentinel.ns
+        port = {'protocol': 'TCP', 'port': 22}
+        matched_pods = {'container_port': [pod]}
+
+        m_get_ns.return_value = ns
+        m_create_sgrb.return_value = {'security_group_rule': {}}
+        crd_rules = []
+        direction = 'ingress'
+
+        self.npsg._apply_sg_rules_on_matched_pods(matched_pods, self.sg_id,
+                                                  direction, 'ns', port,
+                                                  crd_rules)
+
+        m_get_ns_sub_cidr.assert_called_once_with(ns)
+        m_create_sgrb.assert_called_once_with(self.sg_id, direction,
+                                              'container_port',
+                                              protocol=mock.ANY, cidr=mock.ANY,
+                                              pods=[pod])
+        m_create_sgr.assert_called_once()
+        self.assertEqual(len(crd_rules), 1)
+
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'get_namespace_subnet_cidr')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'get_namespace')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'create_security_group_rule')
+    def test__apply_sg_rules_on_matched_pods_all(self, m_create_sgr, m_get_ns,
+                                                 m_get_ns_sub_cidr):
+        pod = mock.sentinel.pod
+        ns = mock.sentinel.ns
+        port = {'protocol': 'TCP', 'port': 22}
+        matched_pods = {'container_port': [pod]}
+
+        m_get_ns.return_value = ns
+        crd_rules = []
+        direction = 'ingress'
+
+        self.npsg._apply_sg_rules_on_matched_pods(matched_pods, self.sg_id,
+                                                  direction, 'ns', port,
+                                                  crd_rules, allow_all=True)
+
+        self.assertEqual(m_create_sgr.call_count, 2)
+        self.assertEqual(len(crd_rules), 2)
+        self.assertListEqual([r['security_group_rule']['ethertype']
+                              for r in crd_rules], ['IPv4', 'IPv6'])
