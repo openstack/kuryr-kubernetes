@@ -16,10 +16,19 @@ XTRACE=$(set +o | grep xtrace)
 set -o xtrace
 
 function container_runtime {
+    # Ignore error at killing/removing a container doesn't running to avoid
+    # unstack is terminated.
+    # TODO: Support for CRI-O if it's required.
+    local regex_cmds_ignore="(kill|rm)\s+"
+
     if [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
         sudo podman "$@" || die $LINENO "Error when running podman command"
     else
-        docker "$@" || die $LINENO "Error when running docker command"
+        if [[ $@ =~ $regex_cmds_ignore ]]; then
+            docker "$@"
+        else
+            docker "$@" || die $LINENO "Error when running docker command"
+        fi
     fi
 }
 
