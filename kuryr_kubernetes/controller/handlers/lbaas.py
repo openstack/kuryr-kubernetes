@@ -306,7 +306,8 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
             LOG.debug("The svc has been deleted while processing the endpoints"
                       " update. No need to add new members.")
 
-        lsnr_by_id = {l.id: l for l in lbaas_state.listeners}
+        lsnr_by_id = {listener.id: listener
+                      for listener in lbaas_state.listeners}
         pool_by_lsnr_port = {(lsnr_by_id[p.listener_id].protocol,
                               lsnr_by_id[p.listener_id].port): p
                              for p in lbaas_state.pools}
@@ -410,11 +411,12 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
             return config.CONF.pod_vif_nested.worker_nodes_subnet
 
     def _get_port_in_pool(self, pool, lbaas_state, lbaas_spec):
-        for l in lbaas_state.listeners:
-            if l.id != pool.listener_id:
+        for listener in lbaas_state.listeners:
+            if listener.id != pool.listener_id:
                 continue
             for port in lbaas_spec.ports:
-                if l.port == port.port and l.protocol == port.protocol:
+                if (listener.port == port.port and
+                        listener.protocol == port.protocol):
                     return port
         return None
 
@@ -487,11 +489,12 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         # we should:
         #  1. get the listener that pool is attached to
         #  2. check if listener's attributes appear in lbaas_spec.
-        for l in lbaas_state.listeners:
-            if l.id != pool.listener_id:
+        for listener in lbaas_state.listeners:
+            if listener.id != pool.listener_id:
                 continue
             for port in lbaas_spec.ports:
-                if l.port == port.port and l.protocol == port.protocol:
+                if (listener.port == port.port and
+                        listener.protocol == port.protocol):
                     return True
         return False
 
@@ -531,15 +534,17 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
             protocol = port_spec.protocol
             port = port_spec.port
             name = "%s:%s" % (lbaas_state.loadbalancer.name, protocol)
-            listener = [l for l in lbaas_state.listeners
-                        if l.port == port and l.protocol == protocol]
+            listener = [listener for listener in lbaas_state.listeners
+                        if listener.port == port and
+                        listener.protocol == protocol]
             if listener:
                 continue
             # FIXME (maysams): Due to a bug in Octavia, which does
             # not allows listeners with same port but different
             # protocols to co-exist, we need to skip the creation of
             # listeners that have the same port as an existing one.
-            listener = [l for l in lbaas_state.listeners if l.port == port]
+            listener = [listener for listener in lbaas_state.listeners if
+                        listener.port == port]
             if listener and not self._drv_lbaas.double_listeners_supported():
                 LOG.warning("Skipping listener creation for %s as another one"
                             " already exists with port %s", name, port)
@@ -565,8 +570,9 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                                              listener)
             removed_ids.add(listener.id)
         if removed_ids:
-            lbaas_state.listeners = [l for l in lbaas_state.listeners
-                                     if l.id not in removed_ids]
+            lbaas_state.listeners = [
+                listener for listener in lbaas_state.listeners
+                if listener.id not in removed_ids]
         return bool(removed_ids)
 
     def _update_lb_status(self, endpoints, lb_ip_address):

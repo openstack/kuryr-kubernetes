@@ -88,8 +88,8 @@ class VIFVHostUserDriver(health.HealthHandler, base.BaseBindingDriver):
                       dst_vhu_sock, vif.id)
             os.rename(src_vhu_sock, dst_vhu_sock)
         else:
-            error_msg = "Socket %s required for VIF %s doesn't exist".format(
-                src_vhu_sock, vif.id)
+            error_msg = ("Socket %s required for VIF %s doesn't exist" %
+                         (src_vhu_sock, vif.id))
             LOG.error(error_msg)
             raise k_exc.CNIError(error_msg)
 

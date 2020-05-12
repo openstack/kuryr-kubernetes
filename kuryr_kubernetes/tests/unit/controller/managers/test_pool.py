@@ -157,8 +157,7 @@ class TestRequestHandler(test_base.TestCase):
         headers['Content-Length'] = len(body)
         trigger_exception = False
 
-        expected_resp = ('Trunk port IP(s) missing.'
-                         .format(trunk_ips, num_ports)).encode()
+        expected_resp = ('Trunk port IP(s) missing.').encode()
 
         self._do_POST_helper(method, path, headers, body, expected_resp,
                              trigger_exception, trunk_ips, num_ports)
