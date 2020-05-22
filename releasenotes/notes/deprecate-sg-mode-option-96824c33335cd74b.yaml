@@ -1,0 +1,10 @@
+---
+deprecations:
+  - |
+    Setting the ``sg_mode`` option for octavia is being deprecated.
+    Main reason is that when ``sg_mode`` is create a new load balancer
+    security group is created. However, when ovn-octavia provider is
+    used that security group is not enforced, and thus there is no
+    need to have been created.
+    To address the other operation handled on this config, the
+    ``enforce_sg_rules`` config can be used instead.

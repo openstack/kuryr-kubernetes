@@ -241,7 +241,10 @@ octavia_defaults = [
                help=_("Define the LBaaS SG policy."),
                choices=[('create', 'replace the VIP SG with a new one'),
                         ('update', 'add rules to the existing VIP SG')],
-               default='update'),
+               default='update',
+               deprecated_for_removal=True,
+               deprecated_reason="enforce_sg_rules option can be used"
+                                 " instead"),
     cfg.BoolOpt('enforce_sg_rules',
                 help=_("Enable the enforcement of SG rules at the LB SG "
                        "in case the LB does not maintain the source IP "

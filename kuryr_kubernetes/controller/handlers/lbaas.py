@@ -300,11 +300,13 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
     def _add_new_members(self, endpoints, lbaas_state, lbaas_spec):
         changed = False
 
-        try:
-            self._sync_lbaas_sgs(endpoints, lbaas_state)
-        except k_exc.K8sResourceNotFound:
-            LOG.debug("The svc has been deleted while processing the endpoints"
-                      " update. No need to add new members.")
+        if config.CONF.octavia_defaults.enforce_sg_rules:
+            try:
+                self._sync_lbaas_sgs(endpoints, lbaas_state)
+            except k_exc.K8sResourceNotFound:
+                LOG.debug("The svc has been deleted while processing"
+                          " the endpoints update. No need to add new"
+                          " members.")
 
         lsnr_by_id = {listener.id: listener
                       for listener in lbaas_state.listeners}

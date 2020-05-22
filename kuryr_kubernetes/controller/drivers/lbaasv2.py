@@ -26,7 +26,6 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes.controller.drivers import base
-from kuryr_kubernetes.controller.drivers import utils as c_utils
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.objects import lbaas as obj_lbaas
 from kuryr_kubernetes import utils
@@ -163,32 +162,6 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 LOG.exception('Error when deleting loadbalancer security '
                               'group. Leaving it orphaned.')
 
-    def _create_lb_security_group_rule(self, loadbalancer, listener):
-        os_net = clients.get_network_client()
-        sg_id = self._find_listeners_sg(loadbalancer)
-        # if an SG for the loadbalancer has not being created, create one
-        if not sg_id:
-            sg = os_net.create_security_group(
-                name=loadbalancer.name, project_id=loadbalancer.project_id)
-            c_utils.tag_neutron_resources([sg])
-            loadbalancer.security_groups.append(sg.id)
-            vip_port = self._get_vip_port(loadbalancer)
-            os_net.update_port(vip_port.id, security_groups=[sg.id])
-            sg_id = sg.id
-
-        try:
-            os_net.create_security_group_rule(direction='ingress',
-                                              port_range_min=listener.port,
-                                              port_range_max=listener.port,
-                                              protocol=listener.protocol,
-                                              security_group_id=sg_id,
-                                              description=listener.name)
-        except os_exc.ConflictException:
-            pass
-        except os_exc.SDKException:
-            LOG.exception('Failed when creating security group rule for '
-                          'listener %s.', listener.name)
-
     def _create_listeners_acls(self, loadbalancer, port, target_port,
                                protocol, lb_sg, new_sgs, listener_id):
         all_pod_rules = []
@@ -243,16 +216,13 @@ class LBaaSv2Driver(base.LBaaSDriver):
         LOG.debug("Applying members security groups.")
         os_net = clients.get_network_client()
         lb_sg = None
-        if CONF.octavia_defaults.sg_mode == 'create':
-            if new_sgs:
-                lb_name = sg_rule_name.split(":")[0]
-                lb_sg = self._find_listeners_sg(loadbalancer, lb_name=lb_name)
-            else:
-                lb_sg = self._find_listeners_sg(loadbalancer)
-        else:
+        if CONF.octavia_defaults.enforce_sg_rules:
             vip_port = self._get_vip_port(loadbalancer)
             if vip_port:
                 lb_sg = vip_port.security_group_ids[0]
+        else:
+            LOG.debug("Skipping sg update for lb %s", loadbalancer.name)
+            return
 
         # NOTE (maysams) It might happen that the update of LBaaS SG
         # has been triggered and the LBaaS SG was not created yet.
@@ -382,8 +352,14 @@ class LBaaSv2Driver(base.LBaaSDriver):
                           {'prot': protocol})
             return None
 
-        if CONF.octavia_defaults.sg_mode == 'create':
-            self._create_lb_security_group_rule(loadbalancer, result)
+        # NOTE(maysams): When ovn-octavia provider is used
+        # there is no need to set a security group for
+        # the load balancer as it wouldn't be enforced.
+        if not CONF.octavia_defaults.enforce_sg_rules:
+            os_net = clients.get_network_client()
+            vip_port = self._get_vip_port(loadbalancer)
+            os_net.update_port(vip_port.id, security_groups=[])
+            loadbalancer.security_groups = []
 
         return result
 
@@ -394,18 +370,20 @@ class LBaaSv2Driver(base.LBaaSDriver):
                       lbaas.delete_listener,
                       listener.id)
 
-        if CONF.octavia_defaults.sg_mode == 'create':
-            sg_id = self._find_listeners_sg(loadbalancer)
-        else:
+        # NOTE(maysams): since lbs created with ovn-octavia provider
+        # does not have a sg in place, only need to delete sg rules
+        # when enforcing sg rules on the lb sg, meaning octavia
+        # Amphora provider is configured.
+        if CONF.octavia_defaults.enforce_sg_rules:
             sg_id = self._get_vip_port(loadbalancer).security_group_ids[0]
-        if sg_id:
-            rules = os_net.security_group_rules(security_group_id=sg_id,
-                                                description=listener.name)
-            try:
-                os_net.delete_security_group_rule(next(rules).id)
-            except StopIteration:
-                LOG.warning('Cannot find SG rule for %s (%s) listener.',
-                            listener.id, listener.name)
+            if sg_id:
+                rules = os_net.security_group_rules(security_group_id=sg_id,
+                                                    description=listener.name)
+                try:
+                    os_net.delete_security_group_rule(next(rules).id)
+                except StopIteration:
+                    LOG.warning('Cannot find SG rule for %s (%s) listener.',
+                                listener.id, listener.name)
 
     def ensure_pool(self, loadbalancer, listener):
         pool = obj_lbaas.LBaaSPool(name=listener.name,
@@ -497,7 +475,6 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         lbaas = clients.get_loadbalancer_client()
         response = lbaas.create_load_balancer(**request)
-
         loadbalancer.id = response.id
         loadbalancer.port_id = self._get_vip_port(loadbalancer).id
         if (loadbalancer.provider is not None and
@@ -758,20 +735,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 if interval:
                     time.sleep(interval)
 
-    def _find_listeners_sg(self, loadbalancer, lb_name=None):
+    def _find_listeners_sg(self, loadbalancer):
         os_net = clients.get_network_client()
-        if lb_name:
-            sgs = os_net.security_groups(name=lb_name,
-                                         project_id=loadbalancer.project_id)
-            # NOTE(ltomasbo): lb_name parameter is only passed when sg_mode
-            # is 'create' and in that case there is only one sg associated
-            # to the loadbalancer
-            try:
-                sg_id = next(sgs).id
-            except StopIteration:
-                sg_id = None
-                LOG.debug("Security Group not created yet for LBaaS.")
-            return sg_id
         try:
             sgs = os_net.security_groups(name=loadbalancer.name,
                                          project_id=loadbalancer.project_id)
