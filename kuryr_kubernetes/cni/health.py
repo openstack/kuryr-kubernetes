@@ -13,15 +13,13 @@
 from http import client as httplib
 import os
 
-from flask import Flask
+from oslo_config import cfg
+from oslo_log import log as logging
 from pyroute2 import IPDB
 
 from kuryr.lib._i18n import _
-from kuryr_kubernetes import clients
 from kuryr_kubernetes.cni import utils
-from kuryr_kubernetes import exceptions as exc
-from oslo_config import cfg
-from oslo_log import log as logging
+from kuryr_kubernetes import health as base_server
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
@@ -88,7 +86,7 @@ def _get_memsw_usage(cgroup_mem_path):
     return memsw_in_bytes / BYTES_AMOUNT
 
 
-class CNIHealthServer(object):
+class CNIHealthServer(base_server.BaseHealthServer):
     """Server used by readiness and liveness probe to manage CNI health checks.
 
     Verifies presence of NET_ADMIN capabilities, IPDB in working order,
@@ -98,33 +96,24 @@ class CNIHealthServer(object):
 
     def __init__(self, components_healthy):
 
-        self.ctx = None
+        super().__init__('daemon-health', CONF.cni_health_server.port)
         self._components_healthy = components_healthy
-        self.application = Flask('cni-health-daemon')
-        self.application.add_url_rule(
-            '/ready', methods=['GET'], view_func=self.readiness_status)
-        self.application.add_url_rule(
-            '/alive', methods=['GET'], view_func=self.liveness_status)
-        self.headers = {'Connection': 'close'}
 
     def readiness_status(self):
-        data = 'ok'
         k8s_conn = self.verify_k8s_connection()
 
         if not _has_cap(CAP_NET_ADMIN, EFFECTIVE_CAPS):
             error_message = 'NET_ADMIN capabilities not present.'
             LOG.error(error_message)
-            return error_message, httplib.INTERNAL_SERVER_ERROR, self.headers
+            return error_message, httplib.INTERNAL_SERVER_ERROR, {}
         if not k8s_conn:
-            error_message = 'Error when processing k8s healthz request.'
+            error_message = 'K8s API healtz endpoint failed.'
             LOG.error(error_message)
-            return error_message, httplib.INTERNAL_SERVER_ERROR, self.headers
+            return error_message, httplib.INTERNAL_SERVER_ERROR, {}
 
-        LOG.info('CNI driver readiness verified.')
-        return data, httplib.OK, self.headers
+        return 'ok', httplib.OK, {}
 
     def liveness_status(self):
-        data = 'ok'
         no_limit = -1
         try:
             with IPDB():
@@ -132,7 +121,7 @@ class CNIHealthServer(object):
         except Exception:
             error_message = 'IPDB not in working order.'
             LOG.error(error_message)
-            return error_message, httplib.INTERNAL_SERVER_ERROR, self.headers
+            return error_message, httplib.INTERNAL_SERVER_ERROR, {}
 
         if CONF.cni_health_server.max_memory_usage != no_limit:
             mem_usage = _get_memsw_usage(_get_cni_cgroup_path())
@@ -140,31 +129,12 @@ class CNIHealthServer(object):
             if mem_usage > CONF.cni_health_server.max_memory_usage:
                 err_message = 'CNI daemon exceeded maximum memory usage.'
                 LOG.error(err_message)
-                return err_message, httplib.INTERNAL_SERVER_ERROR, self.headers
+                return err_message, httplib.INTERNAL_SERVER_ERROR, {}
 
         with self._components_healthy.get_lock():
             if not self._components_healthy.value:
                 err_message = 'Kuryr CNI components not healthy.'
                 LOG.error(err_message)
-                return err_message, httplib.INTERNAL_SERVER_ERROR, self.headers
+                return err_message, httplib.INTERNAL_SERVER_ERROR, {}
 
-        LOG.debug('Kuryr CNI Liveness verified.')
-        return data, httplib.OK, self.headers
-
-    def run(self):
-        address = '::'
-        try:
-            LOG.info('Starting CNI health check server.')
-            self.application.run(address, CONF.cni_health_server.port)
-        except Exception:
-            LOG.exception('Failed to start CNI health check server.')
-            raise
-
-    def verify_k8s_connection(self):
-        k8s = clients.get_kubernetes_client()
-        try:
-            k8s.get('/healthz', json=False, headers={'Connection': 'close'})
-        except exc.K8sClientException:
-            LOG.exception('Exception when trying to reach Kubernetes API.')
-            return False
-        return True
+        return 'ok', httplib.OK, {}

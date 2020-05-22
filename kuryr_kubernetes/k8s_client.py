@@ -16,6 +16,7 @@ import contextlib
 import itertools
 import os
 import ssl
+import time
 from urllib import parse
 
 from oslo_log import log as logging
@@ -27,9 +28,14 @@ from kuryr.lib._i18n import _
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
 from kuryr_kubernetes import exceptions as exc
+from kuryr_kubernetes import utils
 
 CONF = config.CONF
 LOG = logging.getLogger(__name__)
+
+# Hardcoding 60 seconds as I don't see a scenario when we want to wait more
+# than a minute for reconnection.
+MAX_BACKOFF = 60
 
 
 class K8sClient(object):
@@ -267,6 +273,7 @@ class K8sClient(object):
         if self.token:
             header.update({'Authorization': 'Bearer %s' % self.token})
 
+        attempt = 0
         while True:
             try:
                 params = {'watch': 'true'}
@@ -279,6 +286,7 @@ class K8sClient(object):
                             timeout=timeouts)) as response:
                     if not response.ok:
                         raise exc.K8sClientException(response.text)
+                    attempt = 0
                     for line in response.iter_lines():
                         line = line.decode('utf-8').strip()
                         if line:
@@ -289,19 +297,16 @@ class K8sClient(object):
                             m = line_dict.get('object', {}).get('metadata', {})
                             resource_version = m.get('resourceVersion', None)
             except (requests.ReadTimeout, requests.ConnectionError,
-                    ssl.SSLError) as e:
-                if isinstance(e, ssl.SSLError) and e.args != ('timed out',):
-                    raise
-
-                LOG.warning('%ds without data received from watching %s. '
-                            'Retrying the connection with resourceVersion=%s.',
-                            timeouts[1], path, params.get('resourceVersion'))
-            except requests.exceptions.ChunkedEncodingError:
-                LOG.warning("Connection to %s closed when watching. This "
-                            "mostly happens when Octavia's Amphora closes "
-                            "connection due to lack of activity for 50s. "
-                            "Since Rocky Octavia this is configurable and "
-                            "should be set to at least 20m, so check timeouts "
-                            "on Kubernetes API LB listener. Restarting "
-                            "connection with resourceVersion=%s.", path,
-                            params.get('resourceVersion'))
+                    ssl.SSLError, requests.exceptions.ChunkedEncodingError):
+                t = utils.exponential_backoff(attempt, min_backoff=0,
+                                              max_backoff=MAX_BACKOFF)
+                log = LOG.debug
+                if attempt > 0:
+                    # Only make it a warning if it's happening again, no need
+                    # to inform about all the read timeouts.
+                    log = LOG.warning
+                log('Connection error when watching %s. Retrying in %ds with '
+                    'resourceVersion=%s', path, t,
+                    params.get('resourceVersion'))
+                time.sleep(t)
+                attempt += 1

@@ -212,8 +212,10 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             self._update_services(services, crd_pod_selectors, project_id)
 
     def is_ready(self, quota):
-        if utils.has_limit(quota.ports):
-            return utils.is_available('ports', quota.ports)
+        if (utils.has_limit(quota.ports) and
+                not utils.is_available('ports', quota.ports)):
+            LOG.error('Marking VIFHandler as not ready.')
+            return False
         return True
 
     @staticmethod

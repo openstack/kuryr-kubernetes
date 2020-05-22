@@ -127,9 +127,11 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
                     self._drv_lbaas.update_lbaas_sg(svc, sgs)
 
     def is_ready(self, quota):
-        if not utils.has_kuryr_crd(k_const.K8S_API_CRD_KURYRNETPOLICIES):
+        if not (utils.has_kuryr_crd(k_const.K8S_API_CRD_KURYRNETPOLICIES) and
+                self._check_quota(quota)):
+            LOG.error("Marking NetworkPolicyHandler as not ready.")
             return False
-        return self._check_quota(quota)
+        return True
 
     def _check_quota(self, quota):
         if utils.has_limit(quota.security_groups):
