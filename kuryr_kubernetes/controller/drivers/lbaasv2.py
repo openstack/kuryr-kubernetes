@@ -132,8 +132,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
         request = obj_lbaas.LBaaSLoadBalancer(
             name=name, project_id=project_id, subnet_id=subnet_id, ip=ip,
             security_groups=security_groups_ids, provider=provider)
-        response = self._ensure(request, self._create_loadbalancer,
-                                self._find_loadbalancer)
+        response = self._ensure(self._create_loadbalancer,
+                                self._find_loadbalancer, request)
         if not response:
             # NOTE(ivc): load balancer was present before 'create', but got
             # deleted externally between 'create' and 'find'
@@ -568,7 +568,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             LOG.exception('Error when updating listener %s' % listener_id)
             raise k_exc.ResourceNotReady(listener_id)
 
-    def _find_listener(self, listener):
+    def _find_listener(self, listener, loadbalancer):
         lbaas = clients.get_loadbalancer_client()
         response = lbaas.listeners(
             name=listener.name,
@@ -580,6 +580,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
         try:
             os_listener = next(response)
             listener.id = os_listener.id
+            if os_listener.provisioning_status == 'ERROR':
+                LOG.debug("Releasing listener %s", os_listener.id)
+                self.release_listener(loadbalancer, listener)
+                return None
         except (KeyError, StopIteration):
             return None
 
@@ -602,7 +606,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         pool.id = response.id
         return pool
 
-    def _find_pool(self, pool, by_listener=True):
+    def _find_pool(self, pool, loadbalancer, by_listener=True):
         lbaas = clients.get_loadbalancer_client()
         response = lbaas.pools(
             name=pool.name,
@@ -616,14 +620,17 @@ class LBaaSv2Driver(base.LBaaSDriver):
                          in {listener['id'] for listener in p.listeners}]
             else:
                 pools = [p for p in response if pool.name == p.name]
-
             pool.id = pools[0].id
+            if pools[0].provisioning_status == 'ERROR':
+                LOG.debug("Releasing pool %s", pool.id)
+                self.release_pool(loadbalancer, pool)
+                return None
         except (KeyError, IndexError):
             return None
         return pool
 
-    def _find_pool_by_name(self, pool):
-        return self._find_pool(pool, by_listener=False)
+    def _find_pool_by_name(self, pool, loadbalancer):
+        return self._find_pool(pool, loadbalancer, by_listener=False)
 
     def _create_member(self, member):
         request = {
@@ -639,7 +646,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         member.id = response.id
         return member
 
-    def _find_member(self, member):
+    def _find_member(self, member, loadbalancer):
         lbaas = clients.get_loadbalancer_client()
         response = lbaas.members(
             member.pool_id,
@@ -650,23 +657,27 @@ class LBaaSv2Driver(base.LBaaSDriver):
             protocol_port=member.port)
 
         try:
-            member.id = next(response).id
+            os_members = next(response)
+            member.id = os_members.id
+            if os_members.provisioning_status == 'ERROR':
+                LOG.debug("Releasing Member %s", os_members.id)
+                self.release_member(loadbalancer, member)
+                return None
         except (KeyError, StopIteration):
             return None
 
         return member
 
-    def _ensure(self, obj, create, find):
+    def _ensure(self, create, find, *args):
         okay_codes = (409, 500)
         try:
-            result = create(obj)
+            result = create(args[0])
             LOG.debug("Created %(obj)s", {'obj': result})
             return result
         except os_exc.HttpException as e:
             if e.status_code not in okay_codes:
                 raise
-
-        result = find(obj)
+        result = find(*args)
         if result:
             LOG.debug("Found %(obj)s", {'obj': result})
         return result
@@ -677,7 +688,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
                                                   interval):
             self._wait_for_provisioning(loadbalancer, remaining, interval)
             try:
-                result = self._ensure(obj, create, find)
+                result = self._ensure(create, find, obj, loadbalancer)
                 if result:
                     return result
             except os_exc.BadRequestException:
