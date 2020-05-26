@@ -13,7 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from openstack import exceptions as os_exc
+from os_vif import objects
 from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
@@ -24,10 +24,10 @@ from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import k8s_base
-from kuryr_kubernetes import objects
 from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
+KURYRPORT_URI = constants.K8S_API_CRD_NAMESPACES + '/{ns}/kuryrports/{crd}'
 
 
 class VIFHandler(k8s_base.ResourceEventHandler):
@@ -63,20 +63,16 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                 drivers.ServiceSecurityGroupsDriver.get_instance())
 
     def on_present(self, pod):
-        state = driver_utils.get_pod_state(pod)
-        if (self._is_pod_completed(pod)):
-            if state:
+        if self._move_annotations_to_crd(pod):
+            return
+
+        kp = driver_utils.get_kuryrport(pod)
+        if self._is_pod_completed(pod):
+            if kp:
                 LOG.debug("Pod has completed execution, removing the vifs")
-                self.on_deleted(pod)
-                try:
-                    self._set_pod_state(pod, None)
-                except k_exc.K8sClientException:
-                    LOG.exception("Could not clear pod annotation")
-                    raise k_exc.ResourceNotReady(pod['metadata']['name'])
-                except k_exc.K8sResourceNotFound:
-                    pass
+                self.on_finalize(pod)
             else:
-                LOG.debug("Pod has completed execution, no annotation found."
+                LOG.debug("Pod has completed execution, no KuryrPort found."
                           " Skipping")
             return
 
@@ -87,129 +83,31 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             # where certain pods/namespaces/nodes can be managed by other
             # networking solutions/CNI drivers.
             return
-        LOG.debug("Got VIFs from annotation: %r", state)
-        project_id = self._drv_project.get_project(pod)
-        security_groups = self._drv_sg.get_security_groups(pod, project_id)
-        if not state:
+
+        LOG.debug("Got KuryrPort: %r", kp)
+        if not kp:
             try:
-                subnets = self._drv_subnets.get_subnets(pod, project_id)
-            except (os_exc.ResourceNotFound, k_exc.K8sResourceNotFound):
-                LOG.warning("Subnet does not exists. If namespace driver is "
-                            "used, probably the namespace for the pod is "
-                            "already deleted. So this pod does not need to "
-                            "get a port as it will be deleted too. If the "
-                            "default subnet driver is used, then you must "
-                            "select an existing subnet to be used by Kuryr.")
-                return
-            # Request the default interface of pod
-            main_vif = self._drv_vif_pool.request_vif(
-                pod, project_id, subnets, security_groups)
-
-            if not main_vif:
-                pod_name = pod['metadata']['name']
-                LOG.warning("Ignoring event due to pod %s not being "
-                            "scheduled yet.", pod_name)
-                return
-
-            state = objects.vif.PodState(default_vif=main_vif)
-
-            # Request the additional interfaces from multiple dirvers
-            additional_vifs = []
-            for driver in self._drv_multi_vif:
-                additional_vifs.extend(
-                    driver.request_additional_vifs(
-                        pod, project_id, security_groups))
-            if additional_vifs:
-                state.additional_vifs = {}
-                for i, vif in enumerate(additional_vifs, start=1):
-                    k = (oslo_cfg.CONF.kubernetes.additional_ifname_prefix
-                         + str(i))
-                    state.additional_vifs[k] = vif
-
-            try:
-                self._set_pod_state(pod, state)
+                self._add_kuryrport_crd(pod)
             except k_exc.K8sClientException as ex:
-                LOG.debug("Failed to set annotation: %s", ex)
-                # FIXME(ivc): improve granularity of K8sClient exceptions:
-                # only resourceVersion conflict should be ignored
-                for ifname, vif in state.vifs.items():
-                    self._drv_vif_pool.release_vif(pod, vif,
-                                                   project_id,
-                                                   security_groups)
-        else:
-            changed = False
-            try:
-                for ifname, vif in state.vifs.items():
-                    if (vif.plugin == constants.KURYR_VIF_TYPE_SRIOV and
-                            oslo_cfg.CONF.sriov.enable_node_annotations):
-                        driver_utils.update_port_pci_info(pod, vif)
-                    if not vif.active:
-                        try:
-                            self._drv_vif_pool.activate_vif(vif)
-                            changed = True
-                        except os_exc.ResourceNotFound:
-                            LOG.debug("Port not found, possibly already "
-                                      "deleted. No need to activate it")
-            finally:
-                if changed:
-                    try:
-                        self._set_pod_state(pod, state)
-                    except k_exc.K8sResourceNotFound as ex:
-                        LOG.exception("Failed to set annotation: %s", ex)
-                        for ifname, vif in state.vifs.items():
-                            self._drv_vif_pool.release_vif(
-                                pod, vif, project_id,
-                                security_groups)
-                    except k_exc.K8sClientException:
-                        pod_name = pod['metadata']['name']
-                        raise k_exc.ResourceNotReady(pod_name)
-                    if self._is_network_policy_enabled():
-                        crd_pod_selectors = self._drv_sg.create_sg_rules(pod)
-                        if oslo_cfg.CONF.octavia_defaults.enforce_sg_rules:
-                            services = driver_utils.get_services()
-                            self._update_services(
-                                services, crd_pod_selectors, project_id)
+                LOG.exception("Kubernetes Client Exception creating "
+                              "KuryrPort CRD: %s", ex)
+                raise k_exc.ResourceNotReady(pod)
 
-    def on_deleted(self, pod):
-        if (driver_utils.is_host_network(pod) or
-                not pod['spec'].get('nodeName')):
-            return
+            k8s = clients.get_kubernetes_client()
+            k8s.add_finalizer(pod, constants.POD_FINALIZER)
 
-        project_id = self._drv_project.get_project(pod)
+    def on_finalize(self, pod):
+        k8s = clients.get_kubernetes_client()
         try:
-            crd_pod_selectors = self._drv_sg.delete_sg_rules(pod)
-        except k_exc.ResourceNotReady:
-            # NOTE(ltomasbo): If the pod is being deleted before
-            # kuryr-controller annotated any information about the port
-            # associated, there is no need for deleting sg rules associated to
-            # it. So this exception could be safetly ignored for the current
-            # sg drivers. Only the NP driver associates rules to the pods ips,
-            # and that waits for annotations to start.
-            LOG.debug("Pod was not yet annotated by Kuryr-controller. "
-                      "Skipping SG rules deletion associated to the pod %s",
-                      pod)
-            crd_pod_selectors = []
-        try:
-            security_groups = self._drv_sg.get_security_groups(pod, project_id)
-        except k_exc.ResourceNotReady:
-            # NOTE(ltomasbo): If the namespace object gets deleted first the
-            # namespace security group driver will raise a ResourceNotReady
-            # exception as it cannot access anymore the kuryrnetwork CRD
-            # annotated on the namespace object. In such case we set security
-            # groups to empty list so that if pools are enabled they will be
-            # properly released.
-            security_groups = []
+            k8s.delete(KURYRPORT_URI.format(ns=pod["metadata"]["namespace"],
+                                            crd=pod["metadata"]["name"]))
+        except k_exc.K8sResourceNotFound:
+            k8s.remove_finalizer(pod, constants.POD_FINALIZER)
 
-        state = driver_utils.get_pod_state(pod)
-        LOG.debug("Got VIFs from annotation: %r", state)
-        if state:
-            for ifname, vif in state.vifs.items():
-                self._drv_vif_pool.release_vif(pod, vif, project_id,
-                                               security_groups)
-        if (self._is_network_policy_enabled() and crd_pod_selectors and
-                oslo_cfg.CONF.octavia_defaults.enforce_sg_rules):
-            services = driver_utils.get_services()
-            self._update_services(services, crd_pod_selectors, project_id)
+        except k_exc.K8sClientException:
+            LOG.exception("Could not remove KuryrPort CRD for pod %s.",
+                          pod['metadata']['name'])
+            raise k_exc.ResourceNotReady(pod['metadata']['name'])
 
     def is_ready(self, quota):
         if (utils.has_limit(quota.ports) and
@@ -236,42 +134,6 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         except KeyError:
             return False
 
-    def _set_pod_state(self, pod, state):
-        # TODO(ivc): extract annotation interactions
-        if not state:
-            old_annotation = pod['metadata'].get('annotations', {})
-            LOG.debug("Removing VIFs annotation: %r for pod %s/%s (uid: %s)",
-                      old_annotation.get(constants.K8S_ANNOTATION_VIF),
-                      pod['metadata']['namespace'], pod['metadata']['name'],
-                      pod['metadata']['uid'])
-            annotation = None
-        else:
-            state_dict = state.obj_to_primitive()
-            annotation = jsonutils.dumps(state_dict, sort_keys=True)
-            LOG.debug("Setting VIFs annotation: %r for pod %s/%s (uid: %s)",
-                      annotation, pod['metadata']['namespace'],
-                      pod['metadata']['name'], pod['metadata']['uid'])
-
-        labels = pod['metadata'].get('labels')
-        if not labels:
-            LOG.debug("Removing Label annotation: %r", labels)
-            labels_annotation = None
-        else:
-            labels_annotation = jsonutils.dumps(labels, sort_keys=True)
-            LOG.debug("Setting Labels annotation: %r", labels_annotation)
-
-        # NOTE(dulek): We don't care about compatibility with Queens format
-        #              here, as eventually all Kuryr services will be upgraded
-        #              and cluster will start working normally. Meanwhile
-        #              we just ignore issue of old services being unable to
-        #              read new annotations.
-
-        k8s = clients.get_kubernetes_client()
-        k8s.annotate(pod['metadata']['selfLink'],
-                     {constants.K8S_ANNOTATION_VIF: annotation,
-                      constants.K8S_ANNOTATION_LABEL: labels_annotation},
-                     resource_version=pod['metadata']['resourceVersion'])
-
     def _update_services(self, services, crd_pod_selectors, project_id):
         for service in services.get('items'):
             if not driver_utils.service_matches_affected_pods(
@@ -285,3 +147,59 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         enabled_handlers = oslo_cfg.CONF.kubernetes.enabled_handlers
         svc_sg_driver = oslo_cfg.CONF.kubernetes.service_security_groups_driver
         return ('policy' in enabled_handlers and svc_sg_driver == 'policy')
+
+    def _add_kuryrport_crd(self, pod, vifs=None):
+        LOG.debug('Adding CRD %s', pod["metadata"]["name"])
+
+        if not vifs:
+            vifs = {}
+
+        kuryr_port = {
+            'apiVersion': constants.K8S_API_CRD_VERSION,
+            'kind': constants.K8S_OBJ_KURYRPORT,
+            'metadata': {
+                'name': pod['metadata']['name'],
+                'finalizers': [constants.KURYRPORT_FINALIZER],
+                'labels': {
+                    constants.KURYRPORT_LABEL: pod['spec']['nodeName']
+                }
+            },
+            'spec': {
+                'podUid': pod['metadata']['uid'],
+                'podNodeName': pod['spec']['nodeName'],
+                'vifs': vifs
+            }
+        }
+
+        k8s = clients.get_kubernetes_client()
+        k8s.post(KURYRPORT_URI.format(ns=pod["metadata"]["namespace"],
+                                      crd=''), kuryr_port)
+
+    def _move_annotations_to_crd(self, pod):
+        """Support upgrade from annotations to KuryrPort CRD."""
+        try:
+            state = (pod['metadata']['annotations']
+                     [constants.K8S_ANNOTATION_VIF])
+        except KeyError:
+            return False
+
+        _dict = jsonutils.loads(state)
+        state = objects.base.VersionedObject.obj_from_primitive(_dict)
+
+        vifs = {ifname: {'default': state.default_vif == vif,
+                         'vif': objects.base.VersionedObject
+                         .obj_to_primitive(vif)}
+                for ifname, vif in state.vifs.items()}
+
+        try:
+            self._add_kuryrport_crd(pod, vifs)
+        except k_exc.K8sClientException as ex:
+            LOG.exception("Kubernetes Client Exception recreating "
+                          "KuryrPort CRD from annotation: %s", ex)
+            raise k_exc.ResourceNotReady(pod)
+
+        k8s = clients.get_kubernetes_client()
+        k8s.remove_annotations(pod['metadata']['selfLink'],
+                               constants.K8S_ANNOTATION_VIF)
+
+        return True

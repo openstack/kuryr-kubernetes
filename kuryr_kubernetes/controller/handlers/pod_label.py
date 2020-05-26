@@ -47,9 +47,15 @@ class PodLabelHandler(k8s_base.ResourceEventHandler):
         self._drv_lbaas = drivers.LBaaSDriver.get_instance()
 
     def on_present(self, pod):
-        if driver_utils.is_host_network(pod) or not self._has_pod_state(pod):
+        if driver_utils.is_host_network(pod) or not self._has_vifs(pod):
             # NOTE(ltomasbo): The event will be retried once the vif handler
             # annotates the pod with the pod state.
+            return
+
+        if (constants.K8S_ANNOTATION_VIF in
+                pod['metadata'].get('annotations', {})):
+            # NOTE(dulek): This might happen on upgrade, we need to wait for
+            #              annotation to be moved to KuryrPort CRD.
             return
 
         current_pod_labels = pod['metadata'].get('labels')
@@ -97,11 +103,11 @@ class PodLabelHandler(k8s_base.ResourceEventHandler):
                      {constants.K8S_ANNOTATION_LABEL: annotation},
                      resource_version=pod['metadata']['resourceVersion'])
 
-    def _has_pod_state(self, pod):
+    def _has_vifs(self, pod):
         try:
-            pod_state = pod['metadata']['annotations'][
-                constants.K8S_ANNOTATION_VIF]
-            LOG.debug("Pod state is: %s", pod_state)
+            kp = driver_utils.get_vifs(pod)
+            vifs = kp['spec']['vifs']
+            LOG.debug("Pod have associated KuryrPort with vifs: %s", vifs)
         except KeyError:
             return False
         return True

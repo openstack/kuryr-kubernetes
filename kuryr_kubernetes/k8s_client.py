@@ -316,7 +316,7 @@ class K8sClient(object):
                                           headers=header, cert=self.cert,
                                           verify=self.verify_server)
             if response.ok:
-                return response.json()['metadata']['annotations']
+                return response.json()['metadata'].get('annotations', {})
             if response.status_code == requests.codes.conflict:
                 resource = self.get(path)
                 new_version = resource['metadata']['resourceVersion']

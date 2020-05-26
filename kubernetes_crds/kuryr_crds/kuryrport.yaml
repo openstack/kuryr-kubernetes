@@ -1,0 +1,48 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: kuryrports.openstack.org
+spec:
+  group: openstack.org
+  scope: Namespaced
+  names:
+    plural: kuryrports
+    singular: kuryrport
+    kind: KuryrPort
+    shortNames:
+    - kp
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - podUid
+                - podNodeName
+                - vifs
+              properties:
+                podUid:
+                  type: string
+                podNodeName:
+                  type: string
+                vifs:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+      additionalPrinterColumns:
+         - name: PodUID
+           type: string
+           description: Pod UID
+           jsonPath: .spec.podUid
+         - name: Nodename
+           type: string
+           description: Name of the node corresponding pod lives in
+           jsonPath: .spec.podNodeName
+         - name: labels
+           type: string
+           description: Labels for the CRD
+           jsonPath: .metadata.labels

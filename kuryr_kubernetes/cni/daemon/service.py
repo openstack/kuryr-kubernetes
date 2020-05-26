@@ -20,14 +20,14 @@ import socket
 import sys
 import threading
 import time
+import urllib.parse
+import urllib3
 
 import cotyledon
 import flask
 from pyroute2.ipdb import transactional
-import urllib3
 
 import os_vif
-from os_vif.objects import base
 from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -193,10 +193,12 @@ class CNIDaemonWatcherService(cotyledon.Service):
         self.pipeline.register(h_cni.CallbackHandler(self.on_done,
                                                      self.on_deleted))
         self.watcher = k_watcher.Watcher(self.pipeline)
-        self.watcher.add(
-            "%(base)s/pods?fieldSelector=spec.nodeName=%(node_name)s" % {
-                'base': k_const.K8S_API_BASE,
-                'node_name': self._get_nodename()})
+        query_label = urllib.parse.quote_plus(f'{k_const.KURYRPORT_LABEL}='
+                                              f'{self._get_nodename()}')
+
+        self.watcher.add(f'{k_const.K8S_API_CRD_KURYRPORTS}'
+                         f'?labelSelector={query_label}')
+
         self.is_running = True
         self.health_thread = threading.Thread(
             target=self._start_watcher_health_checker)
@@ -211,55 +213,43 @@ class CNIDaemonWatcherService(cotyledon.Service):
                     self.healthy.value = False
             time.sleep(HEALTH_CHECKER_DELAY)
 
-    def on_done(self, pod, vifs):
-        pod_name = utils.get_pod_unique_name(pod)
-        vif_dict = {
-            ifname: vif.obj_to_primitive() for
-            ifname, vif in vifs.items()
-        }
-        # NOTE(dulek): We need a lock when modifying shared self.registry dict
-        #              to prevent race conditions with other processes/threads.
-        with lockutils.lock(pod_name, external=True):
-            if (pod_name not in self.registry or
-                    self.registry[pod_name]['pod']['metadata']['uid']
-                    != pod['metadata']['uid']):
-                self.registry[pod_name] = {'pod': pod, 'vifs': vif_dict,
-                                           'containerid': None,
-                                           'vif_unplugged': False,
-                                           'del_received': False}
+    def on_done(self, kuryrport, vifs):
+        kp_name = utils.get_res_unique_name(kuryrport)
+        with lockutils.lock(kp_name, external=True):
+            if (kp_name not in self.registry or
+                    self.registry[kp_name]['kp']['metadata']['uid']
+                    != kuryrport['metadata']['uid']):
+                self.registry[kp_name] = {'kp': kuryrport,
+                                          'vifs': vifs,
+                                          'containerid': None,
+                                          'vif_unplugged': False,
+                                          'del_received': False}
             else:
-                # NOTE(dulek): Only update vif if its status changed, we don't
-                #              need to care about other changes now.
-                old_vifs = {
-                    ifname:
-                        base.VersionedObject.obj_from_primitive(vif_obj) for
-                        ifname, vif_obj in (
-                            self.registry[pod_name]['vifs'].items())
-                }
+                old_vifs = self.registry[kp_name]['vifs']
                 for iface in vifs:
                     if old_vifs[iface].active != vifs[iface].active:
-                        pod_dict = self.registry[pod_name]
-                        pod_dict['vifs'] = vif_dict
-                        self.registry[pod_name] = pod_dict
+                        kp_dict = self.registry[kp_name]
+                        kp_dict['vifs'] = vifs
+                        self.registry[kp_name] = kp_dict
 
-    def on_deleted(self, pod):
-        pod_name = utils.get_pod_unique_name(pod)
+    def on_deleted(self, kp):
+        kp_name = utils.get_res_unique_name(kp)
         try:
-            if pod_name in self.registry:
+            if kp_name in self.registry:
                 # NOTE(ndesh): We need to lock here to avoid race condition
                 #              with the deletion code for CNI DEL so that
                 #              we delete the registry entry exactly once
-                with lockutils.lock(pod_name, external=True):
-                    if self.registry[pod_name]['vif_unplugged']:
-                        del self.registry[pod_name]
+                with lockutils.lock(kp_name, external=True):
+                    if self.registry[kp_name]['vif_unplugged']:
+                        del self.registry[kp_name]
                     else:
-                        pod_dict = self.registry[pod_name]
-                        pod_dict['del_received'] = True
-                        self.registry[pod_name] = pod_dict
+                        kp_dict = self.registry[kp_name]
+                        kp_dict['del_received'] = True
+                        self.registry[kp_name] = kp_dict
         except KeyError:
             # This means someone else removed it. It's odd but safe to ignore.
-            LOG.debug('Pod %s entry already removed from registry while '
-                      'handling DELETED event. Ignoring.', pod_name)
+            LOG.debug('KuryrPort %s entry already removed from registry while '
+                      'handling DELETED event. Ignoring.', kp_name)
             pass
 
     def terminate(self):
