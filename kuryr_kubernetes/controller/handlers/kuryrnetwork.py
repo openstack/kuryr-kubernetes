@@ -92,7 +92,7 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
     def on_finalize(self, kuryrnet_crd):
         LOG.debug("Deleting kuryrnetwork CRD resources: %s", kuryrnet_crd)
 
-        net_id = kuryrnet_crd['status'].get('netId')
+        net_id = kuryrnet_crd.get('status', {}).get('netId')
         if net_id:
             self._drv_vif_pool.delete_network_pools(
                 kuryrnet_crd['status']['netId'])
