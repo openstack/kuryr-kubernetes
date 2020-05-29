@@ -769,7 +769,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         try:
             endpoint = k8s.get(endpoints_link)
         except k_exc.K8sResourceNotFound:
-            LOG.debug("Endpoint not Found. Skipping LB SG update for"
+            LOG.debug("Endpoint not Found. Skipping LB SG update for "
                       "%s as the LB resources are not present", lbaas_name)
             return
 
