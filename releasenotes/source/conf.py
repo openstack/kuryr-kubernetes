@@ -71,10 +71,15 @@ release = ''
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+pygments_style = 'native'
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
+
+# openstackdocstheme options
+openstackdocs_repo_name = 'openstack/kuryr-kubernetes'
+openstackdocs_bug_project = 'kuryr-kubernetes'
+openstackdocs_bug_tag = ''
 
 
 # -- Options for HTML output ----------------------------------------------
