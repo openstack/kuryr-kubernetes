@@ -44,7 +44,9 @@ _ACTIVATION_TIMEOUT = CONF.neutron_defaults.lbaas_activation_timeout
 _LB_STS_POLL_FAST_INTERVAL = 1
 _LB_STS_POLL_SLOW_INTERVAL = 3
 _OCTAVIA_TAGGING_VERSION = 2, 5
-_OCTAVIA_DL_VERSION = 2, 11
+# NOTE(ltomasbo): amphora supports it on 2.11, but ovn-octavia only on 2.13
+# In order to make it simpler, we assume this is supported only from 2.13
+_OCTAVIA_DL_VERSION = 2, 13
 _OCTAVIA_ACL_VERSION = 2, 12
 
 
@@ -67,13 +69,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
             self._octavia_acls = True
             LOG.info('Octavia supports ACLs for Amphora provider.')
         if v >= _OCTAVIA_DL_VERSION:
-            # FIXME(ltomasbo): ovn-octavia driver does not yet support double
-            # listeners. Remove when it does, considering the right
-            # octavia microversion
-            if CONF.kubernetes.endpoints_driver_octavia_provider != 'ovn':
-                self._octavia_double_listeners = True
-                LOG.info('Octavia supports double listeners (different '
-                         'protocol, same port) for Amphora provider.')
+            self._octavia_double_listeners = True
+            LOG.info('Octavia supports double listeners (different '
+                     'protocol, same port) for Amphora provider.')
         if v >= _OCTAVIA_TAGGING_VERSION:
             LOG.info('Octavia supports resource tags.')
             self._octavia_tags = True
