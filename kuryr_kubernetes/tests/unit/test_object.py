@@ -22,7 +22,7 @@ from oslo_versionedobjects import fixture
 # objects
 object_data = {
     'LBaaSListener': '1.0-a9e2d5c73687f5edc66fdb2f48650e15',
-    'LBaaSLoadBalancer': '1.3-8bc0a9bdbd160da67572aa38784378d1',
+    'LBaaSLoadBalancer': '1.4-835c38599fa4692ad26726342c36ccb4',
     'LBaaSMember': '1.0-a770c6884c27d6d8c21186b27d0e2ccb',
     'LBaaSPool': '1.1-6e77370d7632a902445444249eb77b01',
     'LBaaSPortSpec': '1.1-1b307f34630617086c7af70f2cb8b215',

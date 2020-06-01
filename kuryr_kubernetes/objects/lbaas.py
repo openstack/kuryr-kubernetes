@@ -26,7 +26,8 @@ class LBaaSLoadBalancer(k_obj.KuryrK8sObjectBase):
     # Version 1.1: Added provider field and security_groups field.
     # Version 1.2: Added support for security_groups=None
     # Version 1.3: Added support for provider=None
-    VERSION = '1.3'
+    # Version 1.4: Added support for security_groups=[]
+    VERSION = '1.4'
 
     fields = {
         'id': obj_fields.UUIDField(),
@@ -38,7 +39,7 @@ class LBaaSLoadBalancer(k_obj.KuryrK8sObjectBase):
         'provider': obj_fields.StringField(nullable=True,
                                            default=None),
         'security_groups': k_fields.ListOfUUIDField(nullable=True,
-                                                    default=None),
+                                                    default=[]),
     }
 
 
