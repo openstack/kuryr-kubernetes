@@ -491,7 +491,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
             name=loadbalancer.name,
             project_id=loadbalancer.project_id,
             vip_address=str(loadbalancer.ip),
-            vip_subnet_id=loadbalancer.subnet_id)
+            vip_subnet_id=loadbalancer.subnet_id,
+            provider=loadbalancer.provider)
 
         try:
             os_lb = next(response)  # openstacksdk returns a generator
