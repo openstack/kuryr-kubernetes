@@ -42,9 +42,10 @@ project = 'kuryr-kubernetes'
 copyright = '2013, OpenStack Foundation'
 
 # openstackdocstheme options
-repository_name = 'openstack/kuryr-kubernetes'
-bug_project = 'kuryr-kubernetes'
-bug_tag = ''
+openstackdocs_repo_name = 'openstack/kuryr-kubernetes'
+openstackdocs_auto_name = False
+openstackdocs_bug_project = 'kuryr-kubernetes'
+openstackdocs_bug_tag = ''
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
 add_function_parentheses = True
@@ -54,7 +55,7 @@ add_function_parentheses = True
 add_module_names = True
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+pygments_style = 'native'
 
 # -- Options for HTML output --------------------------------------------------
 
