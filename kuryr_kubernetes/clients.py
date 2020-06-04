@@ -20,6 +20,7 @@ import os
 from kuryr.lib import utils
 from openstack import connection
 from openstack import exceptions as os_exc
+from openstack.load_balancer.v2 import listener as os_listener
 from openstack.network.v2 import port as os_port
 from openstack.network.v2 import trunk as os_trunk
 from openstack import resource as os_resource
@@ -158,6 +159,11 @@ def setup_openstacksdk():
     #               into requests. At the moment we only need it for ports.
     #               Remove when lower-constraints openstacksdk supports this.
     os_port.Port.if_match = os_resource.Header('If-Match')
+    # TODO(maysams): We need to manually insert allowed_cidrs option
+    # as it's only supported from 0.41.0 version. Remove it once
+    # lower-constraints supports it.
+    os_listener.Listener.allowed_cidrs = os_resource.Body('allowed_cidrs',
+                                                          type=list)
     conn = connection.Connection(
         session=session,
         region_name=getattr(config.CONF.neutron, 'region_name', None))
