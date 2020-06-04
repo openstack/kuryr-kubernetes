@@ -89,17 +89,12 @@ class NestedDriver(health.HealthHandler, b_base.BaseBindingDriver,
                 # NOTE(dulek): This is related to bug 1854928. It's super-rare,
                 #              so aim of this piece is to gater any info useful
                 #              for determining when it happens.
-                LOG.exception('Creation of pod interface failed, most likely '
-                              'due to duplicated VLAN id. This will probably '
-                              'cause kuryr-daemon to crashloop. Trying to '
-                              'gather debugging information.')
-
-                with b_base.get_ipdb() as h_ipdb:
-                    LOG.error('List of host interfaces: %s', h_ipdb.interfaces)
-
-                with b_base.get_ipdb(netns) as c_ipdb:
-                    LOG.error('List of pod namespace interfaces: %s',
-                              c_ipdb.interfaces)
+                LOG.exception(f'Creation of pod interface failed due to VLAN '
+                              f'ID (vlan_info={args}) conflict. Probably the '
+                              f'CRI had not cleaned up the network namespace '
+                              f'of deleted pods. This should not be a '
+                              f'permanent issue but may cause restart of '
+                              f'kuryr-cni pod.')
             raise
 
         with b_base.get_ipdb(netns) as c_ipdb:
