@@ -44,6 +44,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
 
         rq = self._get_port_request(pod, project_id, subnets, security_groups)
         port = os_net.create_port(**rq)
+        self._check_port_binding([port])
         utils.tag_neutron_resources([port])
         vlan_id = self._add_subport(trunk_id, port.id)
 
@@ -85,6 +86,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         except os_exc.SDKException:
             LOG.exception("Error creating bulk ports: %s", bulk_port_rq)
             raise
+        self._check_port_binding(ports)
         utils.tag_neutron_resources(ports)
 
         for index, port in enumerate(ports):
