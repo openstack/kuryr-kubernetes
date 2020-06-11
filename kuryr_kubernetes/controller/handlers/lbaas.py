@@ -17,6 +17,7 @@ import eventlet
 import time
 
 from kuryr.lib._i18n import _
+from openstack import exceptions as os_exc
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
@@ -186,6 +187,22 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
         lbaas_state = utils.get_lbaas_state(endpoints)
         if not lbaas_state:
             lbaas_state = obj_lbaas.LBaaSState()
+        elif (lbaas_state.loadbalancer and self._lb_provider and
+              self._lb_provider != lbaas_state.loadbalancer.provider):
+            LOG.info("LoadBalancer associated to the service does not match "
+                     "the current provider: %s", lbaas_state.loadbalancer.id)
+            lb_client = clients.get_loadbalancer_client()
+            try:
+                lb_client.get_load_balancer(lbaas_state.loadbalancer.id)
+            except os_exc.NotFoundException:
+                # NOTE(ltomasbo): If the loadbalancer is gone, remove the
+                # annotations to ensure it is reprocessed
+                lbaas_state.loadbalancer = None
+                lbaas_state.pools = []
+                lbaas_state.listeners = []
+                lbaas_state.members = []
+                utils.set_lbaas_state(endpoints, lbaas_state)
+            return
 
         if self._sync_lbaas_members(endpoints, lbaas_state, lbaas_spec):
             # Note(yboaron) For LoadBalancer services, we should allocate FIP,
@@ -649,18 +666,38 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
             LOG.debug("Skipping cleanup of leftover lbaas. "
                       "Error retriving Kubernetes services")
             return
-        services_cluster_ip = set(service['spec']['clusterIP']
-                                  for service in services
-                                  if service['spec'].get('clusterIP'))
+        services_cluster_ip = {service['spec']['clusterIP']: service
+                               for service in services
+                               if service['spec'].get('clusterIP')}
+
+        services_without_selector = set(
+            service['spec']['clusterIP'] for service in services
+            if (service['spec'].get('clusterIP') and
+                not service['spec'].get('selector')))
         lbaas_spec = {}
         self._drv_lbaas.add_tags('loadbalancer', lbaas_spec)
         loadbalancers = lbaas_client.load_balancers(**lbaas_spec)
         for loadbalancer in loadbalancers:
-            if loadbalancer.vip_address not in services_cluster_ip:
+            if loadbalancer.vip_address not in services_cluster_ip.keys():
                 lb_obj = obj_lbaas.LBaaSLoadBalancer(**loadbalancer)
                 eventlet.spawn(self._ensure_release_lbaas, lb_obj)
+            else:
+                # check if the provider is the right one
+                if (loadbalancer.vip_address not in services_without_selector
+                        and self._lb_provider
+                        and self._lb_provider != loadbalancer.provider):
+                    LOG.debug("Removing loadbalancer with old provider: %s",
+                              loadbalancer)
+                    lb_obj = obj_lbaas.LBaaSLoadBalancer(**loadbalancer)
+                    eventlet.spawn(
+                        self._ensure_release_lbaas,
+                        lb_obj,
+                        services_cluster_ip[loadbalancer.vip_address])
+                    # NOTE(ltomasbo): give some extra time in between lbs
+                    # recreation actions
+                    time.sleep(1)
 
-    def _ensure_release_lbaas(self, lb_obj):
+    def _ensure_release_lbaas(self, lb_obj, svc=None):
         attempts = 0
         deadline = 0
         retry = True
@@ -678,6 +715,26 @@ class LoadBalancerHandler(k8s_base.ResourceEventHandler):
                 retry = False
             except k_exc.ResourceNotReady:
                 LOG.debug("Attempt (%s) of loadbalancer release %s failed."
-                          " A retry will be triggered.", attempts, lb_obj.name)
+                          " A retry will be triggered.", attempts,
+                          lb_obj.name)
                 attempts += 1
                 retry = True
+        if svc:
+            endpoints_link = utils.get_endpoints_link(svc)
+            k8s = clients.get_kubernetes_client()
+            try:
+                endpoints = k8s.get(endpoints_link)
+            except k_exc.K8sResourceNotFound:
+                LOG.debug("Endpoint not Found.")
+                return
+
+            lbaas = utils.get_lbaas_state(endpoints)
+            if lbaas:
+                lbaas.loadbalancer = None
+                lbaas.pools = []
+                lbaas.listeners = []
+                lbaas.members = []
+                # NOTE(ltomasbo): give some extra time to ensure the Load
+                # Balancer VIP is also released
+                time.sleep(1)
+                utils.set_lbaas_state(endpoints, lbaas)

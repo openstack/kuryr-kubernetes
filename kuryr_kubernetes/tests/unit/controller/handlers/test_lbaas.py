@@ -458,6 +458,7 @@ class TestLoadBalancerHandler(test_base.TestCase):
         m_get_lbaas_state.return_value = lbaas_state
         m_handler._sync_lbaas_members.return_value = True
         m_handler._drv_service_pub_ip = m_drv_service_pub_ip
+        m_handler._lb_provider = None
 
         h_lbaas.LoadBalancerHandler.on_present(m_handler, endpoints)
 
@@ -489,6 +490,9 @@ class TestLoadBalancerHandler(test_base.TestCase):
 
         lbaas_state = mock.sentinel.lbaas_state
         lbaas_state.service_pub_ip_info = None
+        loadbalancer = mock.Mock()
+        loadbalancer.port_id = 12345678
+        lbaas_state.loadbalancer = loadbalancer
         endpoints = mock.sentinel.endpoints
 
         floating_ip = {'floating_ip_address': '1.2.3.5',
@@ -509,6 +513,7 @@ class TestLoadBalancerHandler(test_base.TestCase):
         m_get_lbaas_state.return_value = lbaas_state
         m_handler._sync_lbaas_members = self._fake_sync_lbaas_members
         m_handler._drv_service_pub_ip = m_drv_service_pub_ip
+        m_handler._lb_provider = None
 
         h_lbaas.LoadBalancerHandler.on_present(m_handler, endpoints)
 
@@ -547,6 +552,7 @@ class TestLoadBalancerHandler(test_base.TestCase):
         m_set_lbaas_state.side_effect = (
             k_exc.K8sResourceNotFound('ep'))
         m_handler._drv_service_pub_ip = m_drv_service_pub_ip
+        m_handler._lb_provider = None
         h_lbaas.LoadBalancerHandler.on_present(m_handler, endpoints)
 
         m_get_lbaas_spec.assert_called_once_with(endpoints)

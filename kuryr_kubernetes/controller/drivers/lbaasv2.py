@@ -141,7 +141,6 @@ class LBaaSv2Driver(base.LBaaSDriver):
         return response
 
     def release_loadbalancer(self, loadbalancer):
-        os_net = clients.get_network_client()
         lbaas = clients.get_loadbalancer_client()
         self._release(
             loadbalancer,
@@ -150,15 +149,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             loadbalancer.id,
             cascade=True)
 
-        sg_id = self._find_listeners_sg(loadbalancer)
-        if sg_id:
-            # Note: reusing activation timeout as deletion timeout
-            self._wait_for_deletion(loadbalancer, _ACTIVATION_TIMEOUT)
-            try:
-                os_net.delete_security_group(sg_id)
-            except os_exc.SDKException:
-                LOG.exception('Error when deleting loadbalancer security '
-                              'group. Leaving it orphaned.')
+        self._wait_for_deletion(loadbalancer, _ACTIVATION_TIMEOUT)
 
     def _create_listeners_acls(self, loadbalancer, port, target_port,
                                protocol, lb_sg, new_sgs, listener_id):
@@ -733,26 +724,6 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 interval = min(interval, timer.leftover())
                 if interval:
                     time.sleep(interval)
-
-    def _find_listeners_sg(self, loadbalancer):
-        os_net = clients.get_network_client()
-        try:
-            sgs = os_net.security_groups(name=loadbalancer.name,
-                                         project_id=loadbalancer.project_id)
-            for sg in sgs:
-                try:
-                    if sg.id in loadbalancer.security_groups:
-                        return sg.id
-                except TypeError:
-                    LOG.exception('Loadbalancer %s does not have '
-                                  'security_groups defined.',
-                                  loadbalancer.name)
-                    raise
-        except os_exc.SDKException:
-            LOG.exception('Cannot list security groups for loadbalancer %s.',
-                          loadbalancer.name)
-
-        return None
 
     def update_lbaas_sg(self, service, sgs):
         LOG.debug('Setting SG for LBaaS VIP port')
