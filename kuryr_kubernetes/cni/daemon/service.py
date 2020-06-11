@@ -104,10 +104,10 @@ class DaemonServer(object):
             self.plugin.delete(params)
         except exceptions.ResourceNotReady:
             # NOTE(dulek): It's better to ignore this error - most of the time
-            #              it will happen when pod is long gone and kubelet
+            #              it will happen when pod is long gone and CRI
             #              overzealously tries to delete it from the network.
             #              We cannot really do anything without VIF annotation,
-            #              so let's just tell kubelet to move along.
+            #              so let's just tell CRI to move along.
             LOG.warning('Error when processing delNetwork request. '
                         'Ignoring this error, pod is most likely gone')
             return '', httplib.NO_CONTENT, self.headers
