@@ -9,7 +9,7 @@ LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redh
 
 ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/ussuri"
 ARG OSLO_LOCK_PATH=/var/kuryr-lock
-ARG PKG_YUM_REPO=https://rdoproject.org/repos/rdo-release.rpm
+ARG PKG_YUM_REPO=https://rdoproject.org/repos/openstack-ussuri/rdo-release-ussuri-0.el8.noarch.rpm
 
 RUN yum upgrade -y \
     && yum install -y epel-release $PKG_YUM_REPO \
