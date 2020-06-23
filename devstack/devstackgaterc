@@ -24,18 +24,4 @@ export DEVSTACK_LOCAL_CONFIG+=$'\n'"enable_plugin devstack-plugin-container http
 export DEVSTACK_LOCAL_CONFIG+=$'\n'"enable_plugin kuryr-kubernetes https://git.openstack.org/openstack/kuryr-kubernetes"
 export DEVSTACK_LOCAL_CONFIG+=$'\n'"NEUTRON_LBAAS_SERVICE_PROVIDERV2=LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
 export OVERRIDE_ENABLED_SERVICES=neutron,q-svc,key,mysql,rabbit,docker,etcd3,kubernetes-api,kubernetes-controller-manager,kubernetes-scheduler,kubelet,kuryr-kubernetes,q-lbaasv2
-
-if [[ $VARIANT == 'default' ]]; then
-    export OVERRIDE_ENABLED_SERVICES+=,q-agt,q-dhcp,q-l3
-elif [[ $VARIANT == 'dragonflow' ]]; then
-    export OVERRIDE_ENABLED_SERVICES+=,df-redis,df-redis-server,df-controller,df-ext-services,df-zmq-publisher-service,df-l3-agent
-    export DEVSTACK_LOCAL_CONFIG+=$'\n'"enable_plugin dragonflow https://github.com/openstack/dragonflow"
-    export DEVSTACK_LOCAL_CONFIG+=$'\n'"Q_ENABLE_DRAGONFLOW_LOCAL_CONTROLLER=True"
-    export DEVSTACK_LOCAL_CONFIG+=$'\n'"DF_RUNNING_IN_GATE=True"
-    export DEVSTACK_LOCAL_CONFIG+=$'\n'"TUNNEL_TYPE=vxlan"
-    export DEVSTACK_LOCAL_CONFIG+=$'\n'"DF_L2_RESPONDER=\"True\""
-    export DEVSTACK_LOCAL_CONFIG+=$'\n'"OVS_INSTALL_FROM_GIT=False"
-    export DEVSTACK_LOCAL_CONFIG+=$'\n'"OVS_BRANCH=master"
-else
-    die $LINENO "Unsupported variant"
-fi
+export OVERRIDE_ENABLED_SERVICES+=,q-agt,q-dhcp,q-l3

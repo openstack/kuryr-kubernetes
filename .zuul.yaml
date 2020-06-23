@@ -9,7 +9,6 @@
     required-projects:
       - openstack/devstack-gate
       - openstack/devstack-plugin-container
-      - openstack/dragonflow
       - openstack/kuryr
       - openstack/kuryr-kubernetes
     irrelevant-files:
@@ -43,13 +42,6 @@
 - job:
     name: kuryr-kubernetes-install-default
     parent: kuryr-kubernetes-install-base
-
-- job:
-    name: kuryr-kubernetes-install-dragonflow
-    parent: kuryr-kubernetes-install-base
-    vars:
-      variant: dragonflow
-    voting: false
 
 - job:
     name: kuryr-kubernetes-tempest-multinode
@@ -147,7 +139,6 @@
     check:
       jobs:
         - kuryr-kubernetes-install-default
-        - kuryr-kubernetes-install-dragonflow
         - kuryr-kubernetes-tempest-lbaasv2
         - kuryr-kubernetes-tempest-lbaasv2-openshift
         - kuryr-kubernetes-tempest-lbaasv2-daemon
