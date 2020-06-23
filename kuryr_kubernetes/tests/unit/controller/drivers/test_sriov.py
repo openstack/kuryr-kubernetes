@@ -71,11 +71,10 @@ class TestSriovVIFDriver(test_base.TestCase):
         cls = drvs.SriovVIFDriver
         m_driver = mock.Mock(spec=cls)
 
-        pod = mock.sentinel.pod
         vif = mock.Mock()
         vif.active = False
 
-        cls.activate_vif(m_driver, pod, vif)
+        cls.activate_vif(m_driver, vif)
         self.assertEqual(True, vif.active)
 
     @mock.patch('kuryr_kubernetes.os_vif_util.osvif_to_neutron_fixed_ips')

@@ -145,7 +145,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                         driver_utils.update_port_pci_info(pod, vif)
                     if not vif.active:
                         try:
-                            self._drv_vif_pool.activate_vif(pod, vif)
+                            self._drv_vif_pool.activate_vif(vif)
                             changed = True
                         except os_exc.ResourceNotFound:
                             LOG.debug("Port not found, possibly already "

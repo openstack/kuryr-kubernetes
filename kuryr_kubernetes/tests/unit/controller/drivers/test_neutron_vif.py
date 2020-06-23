@@ -184,7 +184,6 @@ class NeutronPodVIFDriver(test_base.TestCase):
         m_driver = mock.Mock(spec=cls)
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
-        pod = mock.sentinel.pod
         vif = mock.Mock()
         vif.active = False
         port = mock.MagicMock()
@@ -192,7 +191,7 @@ class NeutronPodVIFDriver(test_base.TestCase):
         port.__getitem__.return_value = kl_const.PORT_STATUS_ACTIVE
         os_net.get_port.return_value = port
 
-        cls.activate_vif(m_driver, pod, vif)
+        cls.activate_vif(m_driver, vif)
 
         os_net.get_port.assert_called_once_with(vif.id)
         self.assertTrue(vif.active)
@@ -202,11 +201,10 @@ class NeutronPodVIFDriver(test_base.TestCase):
         m_driver = mock.Mock(spec=cls)
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
-        pod = mock.sentinel.pod
         vif = mock.Mock()
         vif.active = True
 
-        cls.activate_vif(m_driver, pod, vif)
+        cls.activate_vif(m_driver, vif)
 
         os_net.get_port.assert_not_called()
 
@@ -215,7 +213,6 @@ class NeutronPodVIFDriver(test_base.TestCase):
         m_driver = mock.Mock(spec=cls)
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
-        pod = mock.sentinel.pod
         vif = mock.Mock()
         vif.active = False
         port = mock.MagicMock()
@@ -224,7 +221,7 @@ class NeutronPodVIFDriver(test_base.TestCase):
         os_net.get_port.return_value = port
 
         self.assertRaises(k_exc.ResourceNotReady, cls.activate_vif,
-                          m_driver, pod, vif)
+                          m_driver, vif)
 
     def _test_get_port_request(self, m_to_fips, security_groups,
                                m_get_device_id, m_get_port_name, m_get_host_id,

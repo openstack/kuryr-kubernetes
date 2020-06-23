@@ -247,7 +247,7 @@ class TestVIFHandler(test_base.TestCase):
 
         m_get_pod_state.assert_called_once_with(self._pod)
         m_update_pci.assert_called_once_with(self._pod, self._vif)
-        self._activate_vif.assert_called_once_with(self._pod, self._vif)
+        self._activate_vif.assert_called_once_with(self._vif)
         self._set_pod_state.assert_called_once_with(self._pod, self._state)
         self._request_vif.assert_not_called()
         self._request_additional_vifs.assert_not_called()

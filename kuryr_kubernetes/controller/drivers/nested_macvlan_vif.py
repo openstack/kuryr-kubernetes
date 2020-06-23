@@ -85,7 +85,7 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
             LOG.warning("Unable to release port %s as it no longer exists.",
                         vif.id)
 
-    def activate_vif(self, pod, vif):
+    def activate_vif(self, vif):
         # NOTE(mchiappe): there is no way to get feedback on the actual
         # interface creation or activation as no plugging can happen for this
         # interface type. However the status of the port is not relevant as
