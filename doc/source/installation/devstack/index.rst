@@ -38,6 +38,5 @@ ML2 drivers.
    nested-dpdk
    odl_support
    ovn_support
-   dragonflow_support
    containerized
    ports-pool
