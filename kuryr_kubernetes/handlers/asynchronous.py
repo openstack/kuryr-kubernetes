@@ -17,6 +17,7 @@ import itertools
 import queue as py_queue
 import time
 
+from oslo_concurrency import lockutils
 from oslo_log import log as logging
 
 
@@ -49,16 +50,21 @@ class Async(base.EventHandler):
         self._grace_period = grace_period
         self._queues = {}
 
-    def __call__(self, event):
+    def __call__(self, event, *args, **kwargs):
         group = self._group_by(event)
-        try:
-            queue = self._queues[group]
-        except KeyError:
-            queue = py_queue.Queue(self._queue_depth)
-            self._queues[group] = queue
-            thread = self._thread_group.add_thread(self._run, group, queue)
-            thread.link(self._done, group)
-        queue.put(event)
+        with lockutils.lock(group):
+            try:
+                queue = self._queues[group]
+                # NOTE(dulek): We don't want to risk injecting an outdated
+                #              state if events for that resource are in queue.
+                if kwargs.get('injected', False):
+                    return
+            except KeyError:
+                queue = py_queue.Queue(self._queue_depth)
+                self._queues[group] = queue
+                thread = self._thread_group.add_thread(self._run, group, queue)
+                thread.link(self._done, group)
+        queue.put((event, args, kwargs))
 
     def _run(self, group, queue):
         LOG.debug("Asynchronous handler started processing %s", group)
@@ -67,7 +73,7 @@ class Async(base.EventHandler):
             # to allow more controlled environment for unit-tests (e.g. to
             # avoid tests getting stuck in infinite loops)
             try:
-                event = queue.get(timeout=self._grace_period)
+                event, args, kwargs = queue.get(timeout=self._grace_period)
             except py_queue.Empty:
                 break
             # FIXME(ivc): temporary workaround to skip stale events
@@ -93,10 +99,10 @@ class Async(base.EventHandler):
             #    also introduce cache for long operations
             time.sleep(STALE_PERIOD)
             while not queue.empty():
-                event = queue.get()
+                event, args, kwargs = queue.get()
                 if queue.empty():
                     time.sleep(STALE_PERIOD)
-            self._handler(event)
+            self._handler(event, *args, **kwargs)
 
     def _done(self, thread, group):
         LOG.debug("Asynchronous handler stopped processing group %s", group)

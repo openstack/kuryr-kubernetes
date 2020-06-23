@@ -179,13 +179,16 @@ class TestWatcher(test_base.TestCase):
         path = '/test'
         m_tg = mock.Mock()
         m_th = mock.Mock()
+        m_tt = mock.Mock()
         m_handler = mock.Mock()
         watcher_obj = watcher.Watcher(m_handler, m_tg)
         watcher_obj._idle[path] = True
         watcher_obj._watching[path] = m_th
+        watcher_obj._timers[path] = m_tt
 
         watcher_obj._stop_watch(path)
 
+        m_tt.stop.assert_called()
         m_th.stop.assert_called()
 
     def test_stop_watch_idle(self):

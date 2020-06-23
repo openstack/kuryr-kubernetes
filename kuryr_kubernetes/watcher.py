@@ -17,6 +17,7 @@ import sys
 import time
 
 from kuryr_kubernetes import clients
+from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.handlers import health
 from kuryr_kubernetes import utils
 from oslo_config import cfg
@@ -78,6 +79,7 @@ class Watcher(health.HealthHandler):
         self._running = False
         self._resources = set()
         self._watching = {}
+        self._timers = {}
         self._idle = {}
 
         if timeout is None:
@@ -131,11 +133,41 @@ class Watcher(health.HealthHandler):
         for path in list(self._watching):
             self._stop_watch(path)
 
+    def _reconcile(self, path):
+        LOG.debug(f'Getting {path} for reconciliation.')
+        try:
+            response = self._client.get(path)
+            resources = response['items']
+        except exceptions.K8sClientException:
+            LOG.exception(f'Error getting path when reconciling.')
+            return
+
+        for resource in resources:
+            kind = response['kind']
+            # Strip List from e.g. PodList. For some reason `.items` of a list
+            # returned from API doesn't have `kind` set.
+            if kind.endswith('List'):
+                kind = kind[:-4]
+            resource['kind'] = kind
+
+            event = {
+                'type': 'MODIFIED',
+                'object': resource,
+            }
+            self._handler(event, injected=True)
+
     def _start_watch(self, path):
         tg = self._thread_group
         self._idle[path] = True
         if tg:
             self._watching[path] = tg.add_thread(self._watch, path)
+            period = CONF.kubernetes.watch_reconcile_period
+            if period > 0:
+                # Let's make sure handlers won't reconcile at the same time.
+                initial_delay = period + 5 * len(self._timers)
+                self._timers[path] = tg.add_timer_args(
+                    period, self._reconcile, args=(path,),
+                    initial_delay=initial_delay, stop_on_exception=False)
         else:
             self._watching[path] = None
             self._watch(path)
@@ -143,15 +175,21 @@ class Watcher(health.HealthHandler):
     def _stop_watch(self, path):
         if self._idle.get(path):
             if self._thread_group and path in self._watching:
+                if CONF.kubernetes.watch_reconcile_period:
+                    self._timers[path].stop()
                 self._watching[path].stop()
                 # NOTE(dulek): Thread gets killed immediately, so we need to
                 # take care of this ourselves.
+                if CONF.kubernetes.watch_reconcile_period:
+                    self._timers.pop(path, None)
                 self._watching.pop(path, None)
                 self._idle.pop(path, None)
 
     def _graceful_watch_exit(self, path):
         try:
             self._watching.pop(path, None)
+            if CONF.kubernetes.watch_reconcile_period:
+                self._timers.pop(path, None)
             self._idle.pop(path, None)
             LOG.info("Stopped watching '%s'", path)
         except KeyError:

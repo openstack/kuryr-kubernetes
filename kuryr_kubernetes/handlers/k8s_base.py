@@ -73,7 +73,7 @@ class ResourceEventHandler(dispatch.EventConsumer, health.HealthHandler):
 
         return deletion_timestamp
 
-    def __call__(self, event):
+    def __call__(self, event, *args, **kwargs):
         event_type = event.get('type')
         obj = event.get('object')
         if 'MODIFIED' == event_type:

@@ -32,8 +32,8 @@ class LogExceptions(base.EventHandler):
         self._handler = handler
         self._exceptions = exceptions
 
-    def __call__(self, event):
+    def __call__(self, event, *args, **kwargs):
         try:
-            self._handler(event)
+            self._handler(event, *args, **kwargs)
         except self._exceptions:
             LOG.exception("Failed to handle event %s", event)

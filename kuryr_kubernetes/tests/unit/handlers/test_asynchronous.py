@@ -35,7 +35,7 @@ class TestAsyncHandler(test_base.TestCase):
 
         m_handler.assert_not_called()
         self.assertEqual({group: m_queue}, async_handler._queues)
-        m_queue.put.assert_called_once_with(event)
+        m_queue.put.assert_called_once_with((event, (), {}))
 
     @mock.patch('queue.Queue')
     def test_call_new(self, m_queue_type):
@@ -60,7 +60,22 @@ class TestAsyncHandler(test_base.TestCase):
         m_tg.add_thread.assert_called_once_with(async_handler._run, group,
                                                 m_queue)
         m_th.link.assert_called_once_with(async_handler._done, group)
-        m_queue.put.assert_called_once_with(event)
+        m_queue.put.assert_called_once_with((event, (), {}))
+
+    def test_call_injected(self):
+        event = mock.sentinel.event
+        group = mock.sentinel.group
+        m_queue = mock.Mock()
+        m_handler = mock.Mock()
+        m_group_by = mock.Mock(return_value=group)
+        async_handler = h_async.Async(m_handler, mock.Mock(), m_group_by)
+        async_handler._queues[group] = m_queue
+
+        async_handler(event, injected=True)
+
+        m_handler.assert_not_called()
+        self.assertEqual({group: m_queue}, async_handler._queues)
+        m_queue.put.assert_not_called()
 
     @mock.patch('itertools.count')
     def test_run(self, m_count):
@@ -68,7 +83,7 @@ class TestAsyncHandler(test_base.TestCase):
         group = mock.sentinel.group
         m_queue = mock.Mock()
         m_queue.empty.return_value = True
-        m_queue.get.return_value = event
+        m_queue.get.return_value = (event, (), {})
         m_handler = mock.Mock()
         m_count.return_value = [1]
         async_handler = h_async.Async(m_handler, mock.Mock(), mock.Mock(),
@@ -81,7 +96,8 @@ class TestAsyncHandler(test_base.TestCase):
 
     @mock.patch('itertools.count')
     def test_run_empty(self, m_count):
-        events = [mock.sentinel.event1, mock.sentinel.event2]
+        events = [(x, (), {}) for x in (mock.sentinel.event1,
+                                        mock.sentinel.event2)]
         group = mock.sentinel.group
         m_queue = mock.Mock()
         m_queue.empty.return_value = True
@@ -93,12 +109,13 @@ class TestAsyncHandler(test_base.TestCase):
         with mock.patch('time.sleep'):
             async_handler._run(group, m_queue)
 
-        m_handler.assert_has_calls([mock.call(event) for event in events])
+        m_handler.assert_has_calls([mock.call(event[0]) for event in events])
         self.assertEqual(len(events), m_handler.call_count)
 
     @mock.patch('itertools.count')
     def test_run_stale(self, m_count):
-        events = [mock.sentinel.event1, mock.sentinel.event2]
+        events = [(x, (), {}) for x in (mock.sentinel.event1,
+                                        mock.sentinel.event2)]
         group = mock.sentinel.group
         m_queue = mock.Mock()
         m_queue.empty.side_effect = [False, True, True]
