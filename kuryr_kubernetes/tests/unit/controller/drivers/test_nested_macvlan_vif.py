@@ -230,11 +230,10 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
     def test_activate_vif(self, active_value):
         cls = nested_macvlan_vif.NestedMacvlanPodVIFDriver
         m_driver = mock.Mock(spec=cls)
-        pod = mock.sentinel.pod
         vif = mock.Mock()
         vif.active = active_value
 
-        cls.activate_vif(m_driver, pod, vif)
+        cls.activate_vif(m_driver, vif)
 
         self.assertEqual(vif.active, True)
 

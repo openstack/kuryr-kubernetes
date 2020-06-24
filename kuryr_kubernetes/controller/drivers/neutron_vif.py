@@ -77,7 +77,7 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
     def release_vif(self, pod, vif, project_id=None, security_groups=None):
         clients.get_network_client().delete_port(vif.id)
 
-    def activate_vif(self, pod, vif):
+    def activate_vif(self, vif):
         if vif.active:
             return
 

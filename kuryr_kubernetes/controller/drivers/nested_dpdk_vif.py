@@ -64,7 +64,7 @@ class NestedDpdkPodVIFDriver(nested_vif.NestedPodVIFDriver):
                         vif.id, vm_id)
             raise
 
-    def activate_vif(self, pod, vif):
+    def activate_vif(self, vif):
         # NOTE(danil): new virtual interface was created in nova instance
         # during request_vif call, thus if it was not created successfully
         # an exception o_exc.SDKException would be throwed. During binding

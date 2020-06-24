@@ -388,7 +388,7 @@ class PodVIFDriver(DriverBase, metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def activate_vif(self, pod, vif):
+    def activate_vif(self, vif):
         """Updates VIF to become active.
 
         Implementing drivers should update the specified `vif` object's
@@ -403,7 +403,6 @@ class PodVIFDriver(DriverBase, metaclass=abc.ABCMeta):
         This method may be called before, after or while the VIF is being
         plugged by the CNI plugin.
 
-        :param pod: dict containing Kubernetes Pod object
         :param vif: VIF object as returned by `PodVIFDriver.request_vif`
         """
         raise NotImplementedError()
