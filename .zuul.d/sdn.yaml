@@ -67,32 +67,3 @@
       devstack_localrc:
         KURYR_IPV6: true
     voting: false
-
-- job:
-    name: kuryr-kubernetes-tempest-dragonflow
-    parent: kuryr-kubernetes-tempest
-    description: |
-      Kuryr-Kubernetes tempest job using Dragonflow
-    required-projects:
-      - openstack/dragonflow
-    vars:
-      devstack_localrc:
-        Q_ENABLE_DRAGONFLOW_LOCAL_CONTROLLER: true
-        DF_RUNNING_IN_GATE: true
-        TUNNEL_TYPE: vxlan
-        DF_L2_RESPONDER: true
-        OVS_INSTALL_FROM_GIT: false
-        OVS_BRANCH: master
-      devstack_services:
-        q-agt: false
-        q-dhcp: false
-        q-l3: false
-        q-trunk: true
-        df-redis: true
-        df-redis-server: true
-        df-controller: true
-        df-ext-services: true
-        df-l3-agent: true
-      devstack_plugins:
-        dragonflow: https://github.com/openstack/dragonflow
-    voting: false
