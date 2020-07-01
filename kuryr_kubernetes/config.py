@@ -168,6 +168,14 @@ k8s_opts = [
                       'too high, Kuryr will take longer to reconnect when K8s '
                       'API stream was being silently broken.'),
                default=60),
+    cfg.IntOpt('watch_reconcile_period',
+               help=_('Period (in seconds) between iterations of fetching '
+                      'full list of watched K8s API resources and putting '
+                      'them into the enabled handlers. Setting 0 disables the '
+                      'periodic reconciling. The reconciliation is done to '
+                      'prevent Kuryr from missing events due to K8s API or '
+                      'etcd issues.'),
+               default=120),
     cfg.ListOpt('enabled_handlers',
                 help=_("The comma-separated handlers that should be "
                        "registered for watching in the pipeline."),
