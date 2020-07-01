@@ -12,6 +12,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import collections
 import os
 from unittest import mock
 import uuid
@@ -23,6 +24,7 @@ from oslo_config import cfg
 from oslo_utils import uuidutils
 
 from kuryr_kubernetes.cni.binding import base
+from kuryr_kubernetes.cni.binding import nested
 from kuryr_kubernetes.cni.binding import sriov
 from kuryr_kubernetes.cni.binding import vhostuser
 from kuryr_kubernetes import constants as k_const
@@ -178,6 +180,67 @@ class TestBridgeDriver(TestDriverMixin, test_base.TestCase):
 
     def test_disconnect(self):
         self._test_disconnect()
+
+
+class TestNestedDriver(TestDriverMixin, test_base.TestCase):
+    def setUp(self):
+        super(TestNestedDriver, self).setUp()
+        ifaces = {
+            'lo': {'flags': 0x8, 'ipaddr': (('127.0.0.1', 8),)},
+            'first': {'flags': 0, 'ipaddr': (('192.168.0.1', 8),)},
+            'kubelet': {'flags': 0, 'ipaddr': (('192.168.1.1', 8),)},
+            'bridge': {'flags': 0, 'ipaddr': (('192.168.2.1', 8),)},
+        }
+        self.h_ipdb = mock.Mock(interfaces=ifaces)
+        self.h_ipdb_loopback = mock.Mock(interfaces=ifaces)
+        self.sconn = collections.namedtuple(
+            'sconn', ['fd', 'family', 'type', 'laddr', 'raddr', 'status',
+                      'pid'])
+        self.addr = collections.namedtuple('addr', ['ip', 'port'])
+
+    @mock.patch.multiple(nested.NestedDriver, __abstractmethods__=set())
+    def test_detect_config(self):
+        driver = nested.NestedDriver()
+        self.addCleanup(CONF.clear_override, 'link_iface', group='binding')
+        CONF.set_override('link_iface', 'bridge', group='binding')
+        iface = driver._detect_iface_name(self.h_ipdb)
+        self.assertEqual('bridge', iface)
+
+    @mock.patch.multiple(nested.NestedDriver, __abstractmethods__=set())
+    @mock.patch('psutil.net_connections')
+    def test_detect_kubelet_port(self, m_net_connections):
+        driver = nested.NestedDriver()
+        m_net_connections.return_value = [
+            self.sconn(-1, 2, 2, laddr=self.addr(ip='192.168.1.1', port=53),
+                       raddr=(), status='LISTEN', pid=None),
+            self.sconn(-1, 2, 2, laddr=self.addr(ip='192.168.1.1', port=10250),
+                       raddr=(), status='ESTABLISHED', pid=None),
+            self.sconn(-1, 2, 2, laddr=self.addr(ip='192.168.1.1', port=10250),
+                       raddr=(), status='LISTEN', pid=None),
+        ]
+        iface = driver._detect_iface_name(self.h_ipdb)
+        self.assertEqual('kubelet', iface)
+
+    @mock.patch.multiple(nested.NestedDriver, __abstractmethods__=set())
+    @mock.patch('psutil.net_connections')
+    def test_detect_non_loopback(self, m_net_connections):
+        driver = nested.NestedDriver()
+        m_net_connections.return_value = []
+
+        iface = driver._detect_iface_name(self.h_ipdb)
+        self.assertEqual('first', iface)
+
+    @mock.patch.multiple(nested.NestedDriver, __abstractmethods__=set())
+    @mock.patch('psutil.net_connections')
+    def test_detect_none(self, m_net_connections):
+        driver = nested.NestedDriver()
+        m_net_connections.return_value = []
+
+        self.h_ipdb.interfaces = {
+            'lo': {'flags': 0x8, 'ipaddr': (('127.0.0.1', 8),)},
+        }
+        self.assertRaises(exceptions.CNIBindingFailure,
+                          driver._detect_iface_name, self.h_ipdb)
 
 
 class TestNestedVlanDriver(TestDriverMixin, test_base.TestCase):
