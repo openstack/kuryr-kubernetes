@@ -123,7 +123,7 @@ class ControllerPrometheusExporter(object):
             ' on Subnet', labelnames={'subnet_id', 'subnet_name'},
             registry=self.registry)
 
-        buckets = (10, 20, 30, 40, 50, 60, _INF)
+        buckets = (10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, _INF)
         self.pod_creation_latency = prometheus_client.Histogram(
             'kuryr_pod_creation_latency', 'Time taken for a pod to have'
             ' Kuryr annotations set', buckets=buckets, registry=self.registry)
