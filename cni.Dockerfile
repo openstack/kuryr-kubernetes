@@ -3,8 +3,9 @@ LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redh
 
 ARG UPPER_CONSTRAINTS_FILE="https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt"
 ARG OSLO_LOCK_PATH=/var/kuryr-lock
+ARG PKG_YUM_REPO=https://rdoproject.org/repos/openstack-rocky/rdo-release-rocky-0.noarch.rpm
 
-RUN yum install -y epel-release https://rdoproject.org/repos/rdo-release.rpm \
+RUN yum install -y epel-release $PKG_YUM_REPO \
     && yum install -y --setopt=tsflags=nodocs python-pip iproute bridge-utils openvswitch sudo jq \
     && yum install -y --setopt=tsflags=nodocs gcc python-devel git \
     && pip install -U setuptools
