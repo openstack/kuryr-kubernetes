@@ -42,7 +42,9 @@ VALID_MULTI_POD_POOLS_OPTS = {'noop': ['neutron-vif',
                               'nested': ['nested-vlan'],
                               }
 DEFAULT_TIMEOUT = 500
-DEFAULT_INTERVAL = 3
+DEFAULT_INTERVAL = 1
+DEFAULT_JITTER = 3
+MAX_BACKOFF = 60
 MAX_ATTEMPTS = 10
 
 subnet_caching_opts = [
@@ -110,18 +112,15 @@ def check_suitable_multi_pool_driver_opt(pool_driver, pod_driver):
     return pod_driver in VALID_MULTI_POD_POOLS_OPTS.get(pool_driver, [])
 
 
-def exponential_sleep(deadline, attempt, interval=DEFAULT_INTERVAL):
+def exponential_sleep(deadline, attempt, interval=DEFAULT_INTERVAL,
+                      max_backoff=MAX_BACKOFF, jitter=DEFAULT_JITTER):
     """Sleep for exponential duration.
-
-    This implements a variation of exponential backoff algorithm [1] and
-    ensures that there is a minimal time `interval` to sleep.
-    (expected backoff E(c) = interval * 2 ** c / 2).
-
-    [1] https://en.wikipedia.org/wiki/Exponential_backoff
 
     :param deadline: sleep timeout duration in seconds.
     :param attempt: attempt count of sleep function.
     :param interval: minimal time interval to sleep
+    :param max_backoff: maximum time to sleep
+    :param jitter: max value of jitter added to the sleep time
     :return: the actual time that we've slept
     """
     now = time.time()
@@ -130,7 +129,8 @@ def exponential_sleep(deadline, attempt, interval=DEFAULT_INTERVAL):
     if seconds_left <= 0:
         return 0
 
-    to_sleep = exponential_backoff(attempt, interval)
+    to_sleep = exponential_backoff(attempt, interval, max_backoff=max_backoff,
+                                   jitter=jitter)
 
     if to_sleep > seconds_left:
         to_sleep = seconds_left
@@ -142,16 +142,27 @@ def exponential_sleep(deadline, attempt, interval=DEFAULT_INTERVAL):
     return to_sleep
 
 
-def exponential_backoff(attempt, interval=DEFAULT_INTERVAL, min_backoff=1,
-                        max_backoff=None):
+def exponential_backoff(attempt, interval=DEFAULT_INTERVAL,
+                        max_backoff=MAX_BACKOFF, jitter=DEFAULT_JITTER):
+    """Return exponential backoff duration with jitter.
+
+    This implements a variation of exponential backoff algorithm [1] (expected
+    backoff E(c) = interval * 2 ** attempt / 2).
+
+    [1] https://en.wikipedia.org/wiki/Exponential_backoff
+    """
+
     if attempt >= MAX_ATTEMPTS:
         # No need to calculate very long intervals
         attempt = MAX_ATTEMPTS
 
-    backoff = random.randint(min_backoff, 2 ** attempt - 1) * interval
+    backoff = 2 ** attempt * interval
 
     if max_backoff is not None and backoff > max_backoff:
         backoff = max_backoff
+
+    if jitter:
+        backoff += random.randint(0, jitter)
 
     return backoff
 

@@ -50,9 +50,8 @@ class TestRetryHandler(test_base.TestCase):
             'kuryr_kubernetes.clients.get_kubernetes_client'))
         f_k8s.mock.return_value = self.k8s
 
-    @mock.patch('random.randint')
     @mock.patch('time.sleep')
-    def test_should_not_sleep(self, m_sleep, m_randint):
+    def test_should_not_sleep(self, m_sleep):
         deadline = self.now - 1
         retry = h_retry.Retry(mock.Mock())
 
@@ -60,28 +59,25 @@ class TestRetryHandler(test_base.TestCase):
 
         self.assertFalse(ret)
         m_sleep.assert_not_called()
-        m_randint.assert_not_called()
 
     def _test_should_sleep(self, seconds_left, slept):
-        attempt = 5
+        attempt = 2
         timeout = 20
         interval = 3
-        randint = 2
         deadline = self.now + seconds_left
         retry = h_retry.Retry(mock.Mock(), timeout=timeout, interval=interval)
 
         with mock.patch('random.randint') as m_randint, \
                 mock.patch('time.sleep') as m_sleep:
-            m_randint.return_value = randint
+            m_randint.return_value = 0  # Assume 0 as jitter
 
             ret = retry._sleep(deadline, attempt, _EX2())
 
             self.assertEqual(slept, ret)
-            m_randint.assert_called_once_with(1, 2 ** attempt - 1)
             m_sleep.assert_called_once_with(slept)
 
     def test_should_sleep(self):
-        self._test_should_sleep(7, 6)
+        self._test_should_sleep(20, 12)
 
     def test_should_sleep_last(self):
         self._test_should_sleep(5, 5)

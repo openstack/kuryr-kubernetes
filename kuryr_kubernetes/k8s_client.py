@@ -33,10 +33,6 @@ from kuryr_kubernetes import utils
 CONF = config.CONF
 LOG = logging.getLogger(__name__)
 
-# Hardcoding 60 seconds as I don't see a scenario when we want to wait more
-# than a minute for reconnection.
-MAX_BACKOFF = 60
-
 
 class K8sClient(object):
     # REVISIT(ivc): replace with python-k8sclient if it could be extended
@@ -298,8 +294,7 @@ class K8sClient(object):
                             resource_version = m.get('resourceVersion', None)
             except (requests.ReadTimeout, requests.ConnectionError,
                     ssl.SSLError, requests.exceptions.ChunkedEncodingError):
-                t = utils.exponential_backoff(attempt, min_backoff=0,
-                                              max_backoff=MAX_BACKOFF)
+                t = utils.exponential_backoff(attempt)
                 log = LOG.debug
                 if attempt > 0:
                     # Only make it a warning if it's happening again, no need
