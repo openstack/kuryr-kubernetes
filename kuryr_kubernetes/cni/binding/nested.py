@@ -16,6 +16,7 @@ import abc
 import errno
 
 from oslo_log import log as logging
+import psutil
 import pyroute2
 
 from kuryr_kubernetes.cni.binding import base as b_base
@@ -27,6 +28,7 @@ from kuryr_kubernetes import utils
 VLAN_KIND = 'vlan'
 MACVLAN_KIND = 'macvlan'
 MACVLAN_MODE_BRIDGE = 'bridge'
+KUBELET_PORT = 10250
 
 LOG = logging.getLogger(__name__)
 
@@ -40,6 +42,44 @@ class NestedDriver(health.HealthHandler, b_base.BaseBindingDriver,
     @abc.abstractmethod
     def _get_iface_create_args(self, vif):
         raise NotImplementedError()
+
+    def _detect_iface_name(self, h_ipdb):
+        # Let's try config first
+        if config.CONF.binding.link_iface in h_ipdb.interfaces:
+            LOG.debug(f'Using configured interface '
+                      f'{config.CONF.binding.link_iface} as bridge interface.')
+            return config.CONF.binding.link_iface
+
+        # Then let's try choosing the one where kubelet listens to
+        conns = [x for x in psutil.net_connections()
+                 if x.status == psutil.CONN_LISTEN
+                 and x.laddr.port == KUBELET_PORT]
+        if len(conns) == 1:
+            lookup_addr = conns[0].laddr.ip
+            for name, iface in h_ipdb.interfaces.items():
+                if type(name) is int:  # Skip ones duplicated by id
+                    continue
+
+                for addr in iface['ipaddr']:
+                    if addr[0] == lookup_addr:
+                        LOG.debug(f'Using kubelet bind interface {name} as '
+                                  f'bridge interface.')
+                        return name
+
+        # Alright, just try the first non-loopback interface
+        for name, iface in h_ipdb.interfaces.items():
+            if type(name) is int:  # Skip ones duplicated by id
+                continue
+
+            if iface['flags'] & pyroute2.netlink.rtnl.ifinfmsg.IFF_LOOPBACK:
+                continue  # Skip loopback
+
+            LOG.debug(f'Using interface {name} as bridge interface.')
+            return name
+
+        raise exceptions.CNIBindingFailure('Cannot find bridge interface for '
+                                           'nested driver to use. Please set '
+                                           '[binding]link_iface option.')
 
     def connect(self, vif, ifname, netns, container_id):
         # NOTE(vikasc): Ideally 'ifname' should be used here but instead a
@@ -67,7 +107,7 @@ class NestedDriver(health.HealthHandler, b_base.BaseBindingDriver,
             with b_base.get_ipdb() as h_ipdb:
                 # TODO(vikasc): evaluate whether we should have stevedore
                 #               driver for getting the link device.
-                vm_iface_name = config.CONF.binding.link_iface
+                vm_iface_name = self._detect_iface_name(h_ipdb)
                 mtu = h_ipdb.interfaces[vm_iface_name].mtu
                 if mtu != vif.network.mtu:
                     # NOTE(dulek): This might happen if Neutron and DHCP agent
