@@ -524,15 +524,12 @@ class TestNetworkPolicyDriver(test_base.TestCase):
 
         m_get_ports.assert_called_with(resources[0], port)
 
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
-                'create_security_group_rule_body')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_create_sg_rules_with_container_ports')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports')
     def test__create_sg_rule_body_on_text_port_egress_all(self,
                                                           m_get_ports,
-                                                          m_create_sgr_cont,
-                                                          m_create_sgr):
+                                                          m_create_sgr_cont):
         port = {'protocol': 'TCP', 'port': 22}
         container_ports = mock.sentinel.ports
         resources = [{'spec': 'foo'}]
@@ -552,9 +549,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                                        allow_all=True)
 
         m_get_ports.assert_called_with(resources[0], port)
-        m_create_sgr.assert_called_once_with('egress', None, cidr=mock.ANY,
-                                             protocol='TCP')
-        self.assertEqual(len(crd_rules), 1)
+        self.assertEqual(len(crd_rules), 0)
 
     @mock.patch('kuryr_kubernetes.utils.get_subnet_cidr')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
@@ -600,14 +595,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         calls = [mock.call(direction, container_ports[0][1],
                            protocol=port['protocol'], ethertype=e,
                            pods='foo') for e in ('IPv4', 'IPv6')]
-        calls.append(mock.call(direction, container_ports[0][1],
-                               protocol=port['protocol'],
-                               cidr='10.0.0.128/26'))
         m_create_sgr.assert_has_calls(calls)
-
-        # NOTE(gryf): there are 3 rules created in case of egress direction,
-        # since additional one is created for specific cidr in service subnet.
-        self.assertEqual(len(crd_rules), 3)
+        self.assertEqual(len(crd_rules), 2)
 
     def test__create_all_pods_sg_rules(self):
         port = {'protocol': 'TCP', 'port': 22}
