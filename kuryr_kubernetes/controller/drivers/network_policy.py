@@ -334,11 +334,10 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 if sg_rule not in crd_rules:
                     crd_rules.append(sg_rule)
                 if direction == 'egress':
-                    rules = self._create_svc_egress_sg_rule(
-                        sg_id, policy_namespace, resource=resource,
-                        port=container_port,
+                    self._create_svc_egress_sg_rule(
+                        sg_id, policy_namespace, crd_rules,
+                        resource=resource, port=container_port,
                         protocol=port.get('protocol'))
-                    crd_rules.extend(rules)
 
     def _create_sg_rule_body_on_text_port(self, sg_id, direction, port,
                                           resources, crd_rules, pod_selector,
@@ -395,10 +394,9 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     pods=pods)
                 crd_rules.append(sg_rule)
             if direction == 'egress':
-                rules = self._create_svc_egress_sg_rule(
-                    sg_id, policy_namespace, port=container_port,
-                    protocol=port.get('protocol'))
-                crd_rules.extend(rules)
+                self._create_svc_egress_sg_rule(
+                    sg_id, policy_namespace, crd_rules,
+                    port=container_port, protocol=port.get('protocol'))
 
     def _create_sg_rule_on_number_port(self, allowed_resources, sg_id,
                                        direction, port, sg_rule_body_list,
@@ -418,10 +416,10 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     namespace=ns))
             sg_rule_body_list.append(sg_rule)
             if direction == 'egress':
-                rule = self._create_svc_egress_sg_rule(
-                    sg_id, policy_namespace, resource=resource,
-                    port=port.get('port'), protocol=port.get('protocol'))
-                sg_rule_body_list.extend(rule)
+                self._create_svc_egress_sg_rule(
+                    sg_id, policy_namespace, sg_rule_body_list,
+                    resource=resource, port=port.get('port'),
+                    protocol=port.get('protocol'))
 
     def _create_all_pods_sg_rules(self, port, sg_id, direction,
                                   sg_rule_body_list, pod_selector,
@@ -439,10 +437,10 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     protocol=port.get('protocol')))
             sg_rule_body_list.append(sg_rule)
             if direction == 'egress':
-                rule = self._create_svc_egress_sg_rule(
-                    sg_id, policy_namespace, port=port.get('port'),
+                self._create_svc_egress_sg_rule(
+                    sg_id, policy_namespace, sg_rule_body_list,
+                    port=port.get('port'),
                     protocol=port.get('protocol'))
-                sg_rule_body_list.extend(rule)
 
     def _create_default_sg_rule(self, sg_id, direction, sg_rule_body_list):
         default_rule = {
@@ -565,17 +563,18 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                         namespace=namespace)
                     sg_rule_body_list.append(rule)
                     if direction == 'egress':
-                        rule = self._create_svc_egress_sg_rule(
-                            sg_id, policy_namespace, resource=resource)
-                        sg_rule_body_list.extend(rule)
+                        self._create_svc_egress_sg_rule(
+                            sg_id, policy_namespace, sg_rule_body_list,
+                            resource=resource)
                 if allow_all:
                     rule = driver_utils.create_security_group_rule_body(
                         sg_id, direction,
                         port_range_min=1,
                         port_range_max=65535)
+                    sg_rule_body_list.append(rule)
                     if direction == 'egress':
-                        rule = self._create_svc_egress_sg_rule(
-                            sg_id, policy_namespace)
+                        self._create_svc_egress_sg_rule(
+                            sg_id, policy_namespace, sg_rule_body_list)
                         sg_rule_body_list.extend(rule)
                     sg_rule_body_list.append(rule)
             else:
@@ -586,17 +585,17 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                            'policy': policy['metadata']['selfLink']})
 
     def _create_svc_egress_sg_rule(self, sg_id, policy_namespace,
-                                   resource=None, port=None,
-                                   protocol=None):
-        sg_rule_body_list = []
+                                   sg_rule_body_list, resource=None,
+                                   port=None, protocol=None):
         services = driver_utils.get_services()
         if not resource:
             svc_subnet = utils.get_subnet_cidr(
                 CONF.neutron_defaults.service_subnet)
             rule = driver_utils.create_security_group_rule_body(
                 sg_id, 'egress', port, protocol=protocol, cidr=svc_subnet)
-            sg_rule_body_list.append(rule)
-            return sg_rule_body_list
+            if rule not in sg_rule_body_list:
+                sg_rule_body_list.append(rule)
+            return
 
         for service in services.get('items'):
             if self._is_pod(resource):
@@ -629,8 +628,8 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             rule = driver_utils.create_security_group_rule_body(
                 sg_id, 'egress', port, protocol=protocol,
                 cidr=cluster_ip)
-            sg_rule_body_list.append(rule)
-        return sg_rule_body_list
+            if rule not in sg_rule_body_list:
+                sg_rule_body_list.append(rule)
 
     def _pods_in_ip_block(self, pods, resource):
         for pod in pods:
