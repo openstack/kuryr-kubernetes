@@ -203,7 +203,7 @@ function _cidr_range {
 import sys
 from netaddr import IPAddress, IPNetwork
 n = IPNetwork(sys.argv[1])
-print("%s\\t%s" % (IPAddress(n.first + 1), IPAddress(n.last - 1)))
+print("%s\\t%s\\t%s" % (IPAddress(n.first + 1), IPAddress(n.first + 2), IPAddress(n.last - 1)))
 EOF
 }
 
@@ -795,8 +795,12 @@ function run_k8s_kubelet {
     fi
 
     if is_service_enabled coredns; then
-        local k8s_resolv_conf
-        command+=" --cluster-dns=${HOST_IP} --cluster-domain=cluster.local"
+        service_cidr=$(openstack --os-cloud devstack-admin \
+                                 --os-region "$REGION_NAME" \
+                                 subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
+                                 -c cidr -f value)
+        export KURYR_COREDNS_CLUSTER_IP=$(_cidr_range "$service_cidr" | cut -f2)
+        command+=" --cluster-dns=${KURYR_COREDNS_CLUSTER_IP} --cluster-domain=cluster.local"
     fi
 
     wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
@@ -816,14 +820,13 @@ metadata:
 data:
   Corefile: |
     .:53 {
-        bind ${HOST_IP}
         errors
         kubernetes cluster.local in-addr.arpa ip6.arpa {
            pods insecure
            upstream
            fallthrough in-addr.arpa ip6.arpa
         }
-        proxy . /etc/resolv.conf
+        forward . 8.8.8.8:53
         cache 30
         loop
         reload
@@ -860,10 +863,9 @@ spec:
         scheduler.alpha.kubernetes.io/critical-pod: ''
         scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly", "operator":"Exists"}]'
     spec:
-      hostNetwork: true
       containers:
       - name: coredns
-        image: coredns/coredns:1.4.0
+        image: coredns/coredns:1.5.0
         imagePullPolicy: Always
         args: [ "-conf", "/etc/coredns/Corefile" ]
         volumeMounts:
@@ -880,6 +882,7 @@ spec:
 EOF
 
     /usr/local/bin/kubectl apply -f ${output_dir}/coredns.yml
+    /usr/local/bin/kubectl expose deploy/coredns --port=53 --target-port=53 --protocol=UDP -n kube-system --cluster-ip=${KURYR_COREDNS_CLUSTER_IP}
 }
 
 
@@ -1137,12 +1140,8 @@ elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
         fi
 
         if is_service_enabled coredns; then
-            #Open port 53 so pods can reach the DNS server
-            sudo iptables -I INPUT 1 -p udp -m udp --dport 53 -j ACCEPT
-
             run_coredns "${DATA_DIR}/kuryr-kubernetes"
         fi
-
         # Needs kuryr to be running
         if is_service_enabled openshift-dns; then
             configure_and_run_registry

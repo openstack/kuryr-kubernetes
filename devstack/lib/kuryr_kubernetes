@@ -278,7 +278,7 @@ function create_k8s_subnet {
     local allocation_start
     local allocation_end
     local allocation_subnet
-    router_ip=$(_cidr_range "$subnet_cidr" | cut -f2)
+    router_ip=$(_cidr_range "$subnet_cidr" | cut -f3)
     if [[ "$split_allocation" == "True" ]]; then
         allocation_subnet=$(split_subnet "$subnet_cidr" | cut -f2)
         allocation_start=$(_allocation_range "$allocation_subnet" end | cut -f1)
