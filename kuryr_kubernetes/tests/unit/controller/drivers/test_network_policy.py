@@ -699,6 +699,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                              cidr=mock.ANY, protocol='TCP')
         self.assertEqual(len(crd_rules), 1)
 
+    @mock.patch('kuryr_kubernetes.utils.get_subnet_cidr')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'create_security_group_rule_body')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_ports')
@@ -706,7 +707,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
     def test__create_sg_rule_body_on_text_port_egress_match(self,
                                                             m_get_pods,
                                                             m_get_ports,
-                                                            m_create_sgr):
+                                                            m_create_sgr,
+                                                            m_get_subnet_cidr):
 
         def _create_sgr_cont(container_ports, allow_all, resource,
                              matched_pods, crd_rules, sg_id, direction, port,
@@ -722,6 +724,9 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         namespace = mock.sentinel.namespace
         direction = 'egress'
         self._driver._create_sg_rules_with_container_ports = _create_sgr_cont
+        m_get_subnet_cidr.return_value = '10.0.0.128/26'
+        m_create_sgr.side_effect = [mock.sentinel.sgr1, mock.sentinel.sgr2,
+                                    mock.sentinel.sgr3]
 
         m_get_pods.return_value = {'items': [pod]}
         m_get_ports.return_value = container_ports
@@ -736,12 +741,14 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                                        allow_all=True)
 
         m_get_ports.assert_called_with(resources[0], port)
-
         calls = [mock.call(self._sg_id, direction, container_ports[0][1],
                            protocol=port['protocol'], ethertype=e,
                            pods='foo') for e in ('IPv4', 'IPv6')]
-
+        calls.append(mock.call(self._sg_id, direction, container_ports[0][1],
+                               protocol=port['protocol'],
+                               cidr='10.0.0.128/26'))
         m_create_sgr.assert_has_calls(calls)
+
         # NOTE(gryf): there are 3 rules created in case of egress direction,
         # since additional one is created for specific cidr in service subnet.
         self.assertEqual(len(crd_rules), 3)
