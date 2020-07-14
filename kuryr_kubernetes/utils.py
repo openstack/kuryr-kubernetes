@@ -43,6 +43,7 @@ VALID_MULTI_POD_POOLS_OPTS = {'noop': ['neutron-vif',
                               }
 DEFAULT_TIMEOUT = 500
 DEFAULT_INTERVAL = 3
+MAX_ATTEMPTS = 10
 
 subnet_caching_opts = [
     cfg.BoolOpt('caching', default=True),
@@ -129,7 +130,7 @@ def exponential_sleep(deadline, attempt, interval=DEFAULT_INTERVAL):
     if seconds_left <= 0:
         return 0
 
-    to_sleep = random.randint(1, 2 ** attempt - 1) * interval
+    to_sleep = exponential_backoff(attempt, interval)
 
     if to_sleep > seconds_left:
         to_sleep = seconds_left
@@ -139,6 +140,20 @@ def exponential_sleep(deadline, attempt, interval=DEFAULT_INTERVAL):
 
     time.sleep(to_sleep)
     return to_sleep
+
+
+def exponential_backoff(attempt, interval=DEFAULT_INTERVAL, min_backoff=1,
+                        max_backoff=None):
+    if attempt >= MAX_ATTEMPTS:
+        # No need to calculate very long intervals
+        attempt = MAX_ATTEMPTS
+
+    backoff = random.randint(min_backoff, 2 ** attempt - 1) * interval
+
+    if max_backoff is not None and backoff > max_backoff:
+        backoff = max_backoff
+
+    return backoff
 
 
 def get_node_name():
@@ -233,8 +248,12 @@ def has_limit(quota):
 
 def is_available(resource, resource_quota):
     availability = resource_quota['limit'] - resource_quota['used']
-    if availability <= 0:
-        LOG.error("Quota exceeded for resource: %s", resource)
+    if availability <= 3:
+        LOG.warning("Neutron quota low for %s. Used %d out of %d limit.",
+                    resource, resource_quota['limit'], resource_quota['used'])
+    elif availability <= 0:
+        LOG.error("Neutron quota exceeded for %s. Used %d out of %d limit.",
+                  resource, resource_quota['limit'], resource_quota['used'])
         return False
     return True
 
@@ -243,9 +262,11 @@ def has_kuryr_crd(crd_url):
     k8s = clients.get_kubernetes_client()
     try:
         k8s.get(crd_url, json=False, headers={'Connection': 'close'})
+    except exceptions.K8sResourceNotFound:
+        LOG.error('CRD %s does not exists.', crd_url)
     except exceptions.K8sClientException:
-        LOG.exception("Kubernetes Client Exception fetching"
-                      " CRD. %s" % exceptions.K8sClientException)
+        LOG.exception('Error fetching CRD %s, assuming it does not exist.',
+                      crd_url)
         return False
     return True
 

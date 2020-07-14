@@ -144,9 +144,11 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
             raise
 
     def is_ready(self, quota):
-        if not utils.has_kuryr_crd(constants.K8S_API_CRD_KURYRNETS):
+        if not (utils.has_kuryr_crd(constants.K8S_API_CRD_KURYRNETS) and
+                self._check_quota(quota)):
+            LOG.error('Marking NamespaceHandler as not ready.')
             return False
-        return self._check_quota(quota)
+        return True
 
     def _check_quota(self, quota):
         resources = ('subnets', 'networks', 'security_groups')

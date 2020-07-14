@@ -112,5 +112,7 @@ class VIFOpenVSwitchDriver(BaseBridgeDriver):
                 h_ipdb.interfaces[bridge_name]
             return True
         except Exception:
-            LOG.debug("Reporting Driver not healthy.")
+            LOG.error("The configured ovs_bridge=%s integration interface "
+                      "does not exists. Reporting that driver is not healthy.",
+                      bridge_name)
             return False
