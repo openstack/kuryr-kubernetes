@@ -89,5 +89,6 @@
       args:
         chdir: ~/kubernetes
       environment:
+        GINKGO_NO_COLOR: "y"
         KUBECONFIG: "{{ ansible_env.HOME }}/.kube/config"
         PATH: "{{ ansible_env.PATH }}:/usr/local/go/bin:{{ ansible_env.HOME }}/go/bin"
