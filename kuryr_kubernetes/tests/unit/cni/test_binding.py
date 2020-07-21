@@ -470,10 +470,9 @@ class TestSriovDriver(TestDriverMixin, test_base.TestCase):
                                                          self.netns))
 
         m_driver._get_vf_info.assert_called_once_with(self.pci, new_driver)
-        m_driver._move_to_netns.assert_called_once_with(self.pci, self.ifname,
+        m_driver._move_to_netns.assert_called_once_with(self.ifname,
                                                         self.netns, self.vif,
-                                                        vf_name, vf_index, pf,
-                                                        self.pci_info)
+                                                        vf_name, vf_index, pf)
         m_driver._annotate_device.assert_called_once_with(self.vif.pod_link,
                                                           self.pci, new_driver,
                                                           new_driver,
