@@ -30,6 +30,7 @@ ENABLED_SERVICES=""
 enable_service neutron
 enable_service q-dhcp
 enable_service q-svc
+enable_service q-meta
 
 # LBaaSv2 service and Haproxy agent
 enable_plugin neutron-lbaas \
