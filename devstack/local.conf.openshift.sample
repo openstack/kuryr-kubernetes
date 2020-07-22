@@ -32,6 +32,7 @@ enable_service q-agt
 enable_service q-dhcp
 enable_service q-l3
 enable_service q-svc
+enable_service q-meta
 
 # OCTAVIA
 # Uncomment it to use L2 communication between loadbalancer and member pods
