@@ -36,7 +36,7 @@
         # OVN already builds from source by default
         Q_BUILD_OVS_FROM_GIT: false
         KURYR_NEUTRON_DEFAULT_ROUTER: kuryr-router
-        OVN_BRANCH: branch-20.03
+        OVN_BRANCH: branch-20.06
       devstack_services:
         ovn-northd: true
         ovn-controller: true
@@ -137,7 +137,7 @@
         PHYSICAL_NETWORK: public
         OVN_L3_CREATE_PUBLIC_NETWORK: true
         ENABLE_CHASSIS_AS_GW: true
-        OVN_BRANCH: branch-20.03
+        OVN_BRANCH: branch-20.06
         KURYR_NEUTRON_DEFAULT_ROUTER: kuryr-router
         KURYR_EP_DRIVER_OCTAVIA_PROVIDER: ovn
         KURYR_K8S_OCTAVIA_MEMBER_MODE: L2
