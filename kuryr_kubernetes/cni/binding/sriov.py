@@ -66,32 +66,28 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
         pr_client = clients.get_pod_resources_client()
         pod_resources_list = pr_client.list()
         resources = pod_resources_list.pod_resources
-        pod_name = vif.pod_name
-        pod_link = vif.pod_link
-        physnet = vif.physnet
-        resource_name = self._get_resource_by_physnet(physnet)
+        resource_name = self._get_resource_by_physnet(vif.physnet)
         driver = self._get_driver_by_res(resource_name)
         resource = self._make_resource(resource_name)
         LOG.debug("Vif %s will correspond to pci device belonging to "
                   "resource %s", vif, resource)
-        pod_devices = self._get_pod_devices(pod_link)
+        pod_devices = self._get_pod_devices(vif.pod_link)
         pod_resource = None
         container_devices = None
         for res in resources:
-            if res.name == pod_name:
+            if res.name == vif.pod_name:
                 pod_resource = res
                 break
         if not pod_resource:
             raise exceptions.CNIError(
-                "No resources are discovered for pod {}".format(pod_name))
+                "No resources are discovered for pod {}".format(vif.pod_name))
         LOG.debug("Looking for PCI device used by kubelet service and not "
-                  "used by pod %s yet ...", pod_name)
+                  "used by pod %s yet ...", vif.pod_name)
         for container in pod_resource.containers:
             try:
                 container_devices = container.devices
             except Exception:
-                LOG.warning("No devices in container %s",
-                            container.name)
+                LOG.warning("No devices in container %s", container.name)
                 continue
 
             for dev in container_devices:
@@ -102,9 +98,8 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
                     if pci in pod_devices:
                         continue
                     LOG.debug("Appropriate PCI device %s is found", pci)
-                    pci_info = self._compute_pci(pci, driver,
-                                                 pod_link, vif,
-                                                 ifname, netns)
+                    pci_info = self._compute_pci(pci, driver, vif.pod_link,
+                                                 vif, ifname, netns)
                     return pci_info
 
     def _get_resource_by_physnet(self, physnet):
@@ -130,7 +125,6 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
         return driver
 
     def _compute_pci(self, pci, driver, pod_link, vif, ifname, netns):
-        port_id = vif.id
         vf_name, vf_index, pf, pci_info = self._get_vf_info(pci, driver)
         pci_info['physical_network'] = vif.physnet
         if driver in constants.USERSPACE_DRIVERS:
@@ -142,17 +136,15 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
                     vlan_id = vif.network.vlan
                     self._set_vf_vlan(pf, vf_index, vlan_id)
             old_driver = self._bind_device(pci, driver)
-            self._annotate_device(pod_link, pci, old_driver, driver, port_id)
         else:
             LOG.info("PCI device %s will be moved to container's net ns %s",
                      pci, netns)
-            pci_info = self._move_to_netns(pci, ifname, netns, vif, vf_name,
-                                           vf_index, pf, pci_info)
-            self._annotate_device(pod_link, pci, driver, driver, port_id)
+            self._move_to_netns(ifname, netns, vif, vf_name, vf_index, pf)
+            old_driver = driver
+        self._annotate_device(pod_link, pci, old_driver, driver, vif.id)
         return pci_info
 
-    def _move_to_netns(self, pci, ifname, netns, vif, vf_name, vf_index, pf,
-                       pci_info):
+    def _move_to_netns(self, ifname, netns, vif, vf_name, vf_index, pf):
         if vf_index and pf:
             if vif.network.should_provide_vlan:
                 vlan_id = vif.network.vlan
@@ -168,8 +160,6 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
                 iface.ifname = ifname
                 iface.mtu = vif.network.mtu
                 iface.up()
-
-        return pci_info
 
     def _get_vf_info(self, pci, driver):
         vf_sys_path = '/sys/bus/pci/devices/{}/net/'.format(pci)
@@ -187,7 +177,7 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
         if not os.path.exists(pfysfn_path):
             LOG.info("Current device %s is a virtual function which is "
                      "passed into VM. Getting it's pci info", vf_name)
-            pci_info = self._get_vf_pci_info(pci, vf_name)
+            pci_info = self._get_vf_pci_info(pci)
             return vf_name, None, None, pci_info
         pf_names = os.listdir(pfysfn_path)
         pf_name = pf_names[0]
@@ -203,7 +193,7 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
                 return vf_name, vf_index, pf_name, pci_info
         return None, None, None, None
 
-    def _get_vf_pci_info(self, pci, vf_name):
+    def _get_vf_pci_info(self, pci):
         vendor_path = '/sys/bus/pci/devices/{}/vendor'.format(pci)
         with open(vendor_path) as vendor_file:
             # vendor_full contains a hex value (e.g. 0x8086)
@@ -230,11 +220,11 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
         if old_driver not in constants.MELLANOX_DRIVERS:
             unbind_path = '/sys/bus/pci/drivers/{}/unbind'.format(old_driver)
             bind_path = '/sys/bus/pci/drivers/{}/bind'.format(driver)
+            override = "/sys/bus/pci/devices/{}/driver_override".format(pci)
 
             with open(unbind_path, 'w') as unbind_fd:
                 unbind_fd.write(pci)
 
-            override = "/sys/bus/pci/devices/{}/driver_override".format(pci)
             with open(override, 'w') as override_fd:
                 override_fd.write("\00")
 
@@ -249,14 +239,13 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
         return old_driver
 
     def _annotate_device(self, pod_link, pci, old_driver, new_driver, port_id):
-        old_driver_title = constants.K8S_ANNOTATION_OLD_DRIVER
-        current_driver_title = constants.K8S_ANNOTATION_CURRENT_DRIVER
-        neutron_port_title = constants.K8S_ANNOTATION_NEUTRON_PORT
         k8s = clients.get_kubernetes_client()
         pod_devices = self._get_pod_devices(pod_link)
-        pod_devices[pci] = {old_driver_title: old_driver,
-                            current_driver_title: new_driver,
-                            neutron_port_title: port_id}
+        pod_devices[pci] = {
+            constants.K8S_ANNOTATION_OLD_DRIVER: old_driver,
+            constants.K8S_ANNOTATION_CURRENT_DRIVER: new_driver,
+            constants.K8S_ANNOTATION_NEUTRON_PORT: port_id
+        }
         pod_devices = jsonutils.dumps(pod_devices)
 
         LOG.debug("Trying to annotate pod %s with pci %s, old driver %s "
@@ -279,26 +268,22 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
         return devices
 
     def _return_device_driver(self, vif):
-        neutron_port_title = constants.K8S_ANNOTATION_NEUTRON_PORT
-        old_driver_title = constants.K8S_ANNOTATION_OLD_DRIVER
-        current_driver_title = constants.K8S_ANNOTATION_CURRENT_DRIVER
         if not hasattr(vif, 'pod_link'):
             return
-        pod_link = vif.pod_link
-        pod_devices = self._get_pod_devices(pod_link)
+        pod_devices = self._get_pod_devices(vif.pod_link)
         for pci, info in pod_devices.items():
-            if info[neutron_port_title] == vif.id:
-                if info[old_driver_title] != info[current_driver_title]:
+            if info[constants.K8S_ANNOTATION_NEUTRON_PORT] == vif.id:
+                if (info[constants.K8S_ANNOTATION_OLD_DRIVER] !=
+                        info[constants.K8S_ANNOTATION_CURRENT_DRIVER]):
                     LOG.debug("Driver of device %s should be changed back",
                               pci)
-                    self._bind_device(pci,
-                                      info[old_driver_title],
-                                      info[current_driver_title])
+                    self._bind_device(
+                        pci,
+                        info[constants.K8S_ANNOTATION_OLD_DRIVER],
+                        info[constants.K8S_ANNOTATION_CURRENT_DRIVER]
+                    )
 
     def _get_pci_info(self, pf, vf_index):
-        pci_slot = ''
-        pci_vendor_info = ''
-
         vendor_path = '/sys/class/net/{}/device/virtfn{}/vendor'.format(
             pf, vf_index)
         with open(vendor_path) as vendor_file:
@@ -321,27 +306,25 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
 
     def _save_pci_info(self, neutron_port, port_pci_info):
         k8s = clients.get_kubernetes_client()
-        annot_name = constants.K8S_ANNOTATION_NODE_PCI_DEVICE_INFO
-        annot_name = annot_name.replace('/', '~1')
-        annot_name = annot_name + '-' + neutron_port
-        LOG.info('annot_name = %s', annot_name)
+        annot_name = self._make_annotation_name(neutron_port)
         nodename = utils.get_node_name()
-
         LOG.info("Trying to annotate node %s with pci info %s",
                  nodename, port_pci_info)
         k8s.patch_node_annotations(nodename, annot_name, port_pci_info)
 
     def _remove_pci_info(self, neutron_port):
         k8s = clients.get_kubernetes_client()
-        annot_name = constants.K8S_ANNOTATION_NODE_PCI_DEVICE_INFO
-        annot_name = annot_name.replace('/', '~1')
-        annot_name = annot_name + '-' + neutron_port
-        LOG.info('annot_name = %s', annot_name)
+        annot_name = self._make_annotation_name(neutron_port)
         nodename = utils.get_node_name()
-
         LOG.info("Trying to delete pci info for port %s on node %s",
                  neutron_port, nodename)
         k8s.remove_node_annotations(nodename, annot_name)
+
+    def _make_annotation_name(self, neutron_port):
+        annot_name = constants.K8S_ANNOTATION_NODE_PCI_DEVICE_INFO
+        annot_name = annot_name.replace('/', '~1')
+        annot_name = annot_name + '-' + neutron_port
+        return annot_name
 
     def _acquire(self, path):
         if self._lock and self._lock.acquired:
