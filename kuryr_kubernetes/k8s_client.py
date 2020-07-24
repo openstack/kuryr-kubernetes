@@ -81,6 +81,8 @@ class K8sClient(object):
     def _raise_from_response(self, response):
         if response.status_code == requests.codes.not_found:
             raise exc.K8sResourceNotFound(response.text)
+        if response.status_code == requests.codes.conflict:
+            raise exc.K8sConflict(response.text)
         if not response.ok:
             raise exc.K8sClientException(response.text)
 
@@ -210,6 +212,86 @@ class K8sClient(object):
                                        headers=header)
         self._raise_from_response(response)
         return response.json()
+
+    # TODO(dulek): add_finalizer() and remove_finalizer() have some code
+    #              duplication, but I don't see a nice way to avoid it.
+    def add_finalizer(self, obj, finalizer):
+        if finalizer in obj['metadata'].get('finalizers', []):
+            return obj
+
+        path = obj['metadata']['selfLink']
+        LOG.debug(f"Add finalizer {finalizer} to {path}")
+        url, headers = self._get_url_and_header(
+            path, 'application/merge-patch+json')
+
+        for i in range(3):  # Let's make sure it's not infinite loop
+            finalizers = obj['metadata'].get('finalizers', []).copy()
+            finalizers.append(finalizer)
+
+            data = {
+                'metadata': {
+                    'finalizers': finalizers,
+                    'resourceVersion': obj['metadata']['resourceVersion'],
+                },
+            }
+
+            response = self.session.patch(url, json=data, headers=headers,
+                                          cert=self.cert,
+                                          verify=self.verify_server)
+
+            if response.ok:
+                return response.json()
+
+            try:
+                self._raise_from_response(response)
+            except exc.K8sConflict:
+                obj = self.get(path)
+                if finalizer in obj['metadata'].get('finalizers', []):
+                    # Finalizer is there, return.
+                    return obj
+
+        # If after 3 iterations there's still conflict, just raise.
+        self._raise_from_response(response)
+
+    def remove_finalizer(self, obj, finalizer):
+        path = obj['metadata']['selfLink']
+        LOG.debug(f"Remove finalizer {finalizer} from {path}")
+        url, headers = self._get_url_and_header(
+            path, 'application/merge-patch+json')
+
+        for i in range(3):  # Let's make sure it's not infinite loop
+            finalizers = obj['metadata'].get('finalizers', []).copy()
+            try:
+                finalizers.remove(finalizer)
+            except ValueError:
+                # Finalizer is not there, return.
+                return obj
+
+            data = {
+                'metadata': {
+                    'finalizers': finalizers,
+                    'resourceVersion': obj['metadata']['resourceVersion'],
+                },
+            }
+
+            response = self.session.patch(url, json=data, headers=headers,
+                                          cert=self.cert,
+                                          verify=self.verify_server)
+
+            if response.ok:
+                return response.json()
+
+            try:
+                try:
+                    self._raise_from_response(response)
+                except exc.K8sConflict:
+                    obj = self.get(path)
+            except exc.K8sResourceNotFound:
+                # Object is gone already, stop.
+                return None
+
+        # If after 3 iterations there's still conflict, just raise.
+        self._raise_from_response(response)
 
     def annotate(self, path, annotations, resource_version=None):
         """Pushes a resource annotation to the K8s API resource

@@ -119,10 +119,8 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
         kubernetes = clients.get_kubernetes_client()
         LOG.debug('Removing finalizer for KuryrNet CRD %s', kuryrnet_crd)
         try:
-            kubernetes.patch_crd('metadata',
-                                 kuryrnet_crd['metadata']['selfLink'],
-                                 'finalizers',
-                                 action='remove')
+            kubernetes.remove_finalizer(kuryrnet_crd,
+                                        constants.KURYRNETWORK_FINALIZER)
         except k_exc.K8sClientException:
             LOG.exception('Error removing kuryrnetwork CRD finalizer for %s',
                           kuryrnet_crd)

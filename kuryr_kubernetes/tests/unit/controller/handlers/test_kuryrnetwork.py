@@ -210,7 +210,7 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         self._delete_ns_sg_rules.assert_called_once()
         m_get_svc.assert_called_once()
         self._handler._update_services.assert_called_once()
-        kubernetes.patch_crd.assert_called_once()
+        kubernetes.remove_finalizer.assert_called_once()
 
     @mock.patch.object(driver_utils, 'get_services')
     def test_on_finalize_no_network(self, m_get_svc):
@@ -228,7 +228,7 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         self._delete_ns_sg_rules.assert_called_once()
         m_get_svc.assert_called_once()
         self._handler._update_services.assert_called_once()
-        kubernetes.patch_crd.assert_called_once()
+        kubernetes.remove_finalizer.assert_called_once()
 
     @mock.patch.object(driver_utils, 'get_services')
     def test_on_finalize_no_sg_enforce(self, m_get_svc):
@@ -254,7 +254,7 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         self._delete_ns_sg_rules.assert_called_once()
         m_get_svc.assert_not_called()
         self._handler._update_services.assert_not_called()
-        kubernetes.patch_crd.assert_called_once()
+        kubernetes.remove_finalizer.assert_called_once()
 
     @mock.patch.object(driver_utils, 'get_services')
     def test_on_finalize_finalizer_exception(self, m_get_svc):
@@ -266,7 +266,7 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         self._delete_ns_sg_rules.return_value = [crd_selector]
         m_get_svc.return_value = []
         kubernetes = self.useFixture(k_fix.MockK8sClient()).client
-        kubernetes.patch_crd.side_effect = k_exc.K8sClientException
+        kubernetes.remove_finalizer.side_effect = k_exc.K8sClientException
 
         self.assertRaises(
             k_exc.K8sClientException,
@@ -278,4 +278,4 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         self._delete_ns_sg_rules.assert_called_once()
         m_get_svc.assert_called_once()
         self._handler._update_services.assert_called_once()
-        kubernetes.patch_crd.assert_called_once()
+        kubernetes.remove_finalizer.assert_called_once()

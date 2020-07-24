@@ -34,6 +34,11 @@ class K8sResourceNotFound(K8sClientException):
                                                   "found: %r" % resource)
 
 
+class K8sConflict(K8sClientException):
+    def __init__(self, message):
+        super(K8sConflict, self).__init__("Conflict: %r" % message)
+
+
 class InvalidKuryrNetworkAnnotation(Exception):
     pass
 
