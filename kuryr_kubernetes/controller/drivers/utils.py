@@ -317,7 +317,7 @@ def get_kuryrnetworkpolicy_crds(namespace=None):
         LOG.debug("Returning KuryrNetworkPolicies %s", knps)
     except k_exc.K8sResourceNotFound:
         LOG.exception("KuryrNetworkPolicy CRD not found")
-        raise
+        return []
     except k_exc.K8sClientException:
         LOG.exception("Kubernetes Client Exception")
         raise

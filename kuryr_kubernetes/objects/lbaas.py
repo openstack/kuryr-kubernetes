@@ -147,3 +147,18 @@ class LBaaSServiceSpec(k_obj.KuryrK8sObjectBase):
         'type': obj_fields.StringField(nullable=True, default=None),
         'lb_ip': obj_fields.IPAddressField(nullable=True, default=None),
     }
+
+
+def flatten_object(ovo_primitive):
+    if type(ovo_primitive) is dict:
+        d = {}
+        for k, v in ovo_primitive['versioned_object.data'].items():
+            d[k] = flatten_object(v)
+        return d
+    elif type(ovo_primitive) is list:
+        ls = []
+        for v in ovo_primitive:
+            ls.append(flatten_object(v))
+        return ls
+    else:
+        return ovo_primitive
