@@ -27,12 +27,13 @@ IDENTITY_API_VERSION=3
 ENABLED_SERVICES=""
 
 # Neutron services
-enable_service neutron
+enable_plugin neutron https://opendev.org/openstack/neutron
 enable_service q-agt
 enable_service q-dhcp
 enable_service q-l3
-enable_service q-svc
+enable_service q-api
 enable_service q-meta
+enable_service q-svc
 
 # VAR RUN PATH
 # =============
