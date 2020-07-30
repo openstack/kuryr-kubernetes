@@ -99,7 +99,7 @@
     vars:
       devstack_localrc:
         DOCKER_CGROUP_DRIVER: "systemd"
-        KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace,pod_label,policy,kuryrnetpolicy,kuryrnetwork
+        KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace,pod_label,policy,kuryrnetpolicy,kuryrnetwork,kuryrport
         KURYR_SG_DRIVER: policy
         KURYR_SUBNET_DRIVER: namespace
       devstack_services:
@@ -120,7 +120,7 @@
     vars:
       devstack_localrc:
         KURYR_SUBNET_DRIVER: namespace
-        KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace,pod_label,policy,kuryrnetpolicy,kuryrnetwork
+        KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace,pod_label,policy,kuryrnetpolicy,kuryrnetwork,kuryrport
         KURYR_SG_DRIVER: policy
         KURYR_USE_PORT_POOLS: true
         KURYR_POD_VIF_DRIVER: neutron-vif
@@ -134,7 +134,7 @@
     parent: kuryr-kubernetes-tempest-containerized
     vars:
       devstack_localrc:
-        KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace,pod_label,policy,kuryrnetpolicy,kuryrnetwork
+        KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace,pod_label,policy,kuryrnetpolicy,kuryrnetwork,kuryrport
         KURYR_SG_DRIVER: policy
         KURYR_SUBNET_DRIVER: namespace
 

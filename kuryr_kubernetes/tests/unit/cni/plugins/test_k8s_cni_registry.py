@@ -29,10 +29,11 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
         self.k8s_mock = self.useFixture(kuryr_fixtures.MockK8sClient()).client
         self.default_iface = 'baz'
         self.additional_iface = 'eth1'
-        self.pod = {'metadata': {'name': 'foo', 'uid': 'bar',
-                                 'namespace': 'default', 'selfLink': 'baz'}}
-        self.vifs = fake._fake_vifs_dict()
-        registry = {'default/foo': {'pod': self.pod, 'vifs': self.vifs,
+        self.kp = {'metadata': {'name': 'foo', 'uid': 'bar',
+                                'namespace': 'default', 'selfLink': 'baz'},
+                   'spec': {'podUid': 'bar'}}
+        self.vifs = fake._fake_vifs()
+        registry = {'default/foo': {'kp': self.kp, 'vifs': self.vifs,
                                     'containerid': None,
                                     'vif_unplugged': False,
                                     'del_received': False}}
@@ -46,7 +47,7 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
     @mock.patch('oslo_concurrency.lockutils.lock')
     @mock.patch('kuryr_kubernetes.cni.binding.base.connect')
     def test_add_present(self, m_connect, m_lock):
-        self.k8s_mock.get.return_value = self.pod
+        self.k8s_mock.get.return_value = self.kp
 
         self.plugin.add(self.params)
 
@@ -99,7 +100,7 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
 
     @mock.patch('kuryr_kubernetes.cni.binding.base.disconnect')
     def test_del_wrong_container_id(self, m_disconnect):
-        registry = {'default/foo': {'pod': self.pod, 'vifs': self.vifs,
+        registry = {'default/foo': {'kp': self.kp, 'vifs': self.vifs,
                                     'containerid': 'different'}}
         healthy = mock.Mock()
         self.plugin = k8s_cni_registry.K8sCNIRegistryPlugin(registry, healthy)
@@ -112,11 +113,11 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
     @mock.patch('kuryr_kubernetes.cni.binding.base.connect')
     def test_add_present_on_5_try(self, m_connect, m_lock):
         se = [KeyError] * 5
-        se.append({'pod': self.pod, 'vifs': self.vifs, 'containerid': None,
+        se.append({'kp': self.kp, 'vifs': self.vifs, 'containerid': None,
                    'vif_unplugged': False, 'del_received': False})
-        se.append({'pod': self.pod, 'vifs': self.vifs, 'containerid': None,
+        se.append({'kp': self.kp, 'vifs': self.vifs, 'containerid': None,
                    'vif_unplugged': False, 'del_received': False})
-        se.append({'pod': self.pod, 'vifs': self.vifs, 'containerid': None,
+        se.append({'kp': self.kp, 'vifs': self.vifs, 'containerid': None,
                    'vif_unplugged': False, 'del_received': False})
         m_getitem = mock.Mock(side_effect=se)
         m_setitem = mock.Mock()
@@ -127,7 +128,7 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
 
         m_lock.assert_called_with('default/foo', external=True)
         m_setitem.assert_called_once_with('default/foo',
-                                          {'pod': self.pod,
+                                          {'kp': self.kp,
                                            'vifs': self.vifs,
                                            'containerid': 'cont_id',
                                            'vif_unplugged': False,

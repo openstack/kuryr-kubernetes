@@ -17,18 +17,20 @@ import abc
 
 from os_vif import objects as obj_vif
 from oslo_log import log as logging
-from oslo_serialization import jsonutils
 
+from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants as k_const
+from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import dispatch as k_dis
 from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes import utils
+
 
 LOG = logging.getLogger(__name__)
 
 
 class CNIHandlerBase(k8s_base.ResourceEventHandler, metaclass=abc.ABCMeta):
-    OBJECT_KIND = k_const.K8S_OBJ_POD
+    OBJECT_KIND = k_const.K8S_OBJ_KURYRPORT
 
     def __init__(self, cni, on_done):
         self._cni = cni
@@ -59,16 +61,18 @@ class CNIHandlerBase(k8s_base.ResourceEventHandler, metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     def _get_vifs(self, pod):
-        # TODO(ivc): same as VIFHandler._get_vif
+        k8s = clients.get_kubernetes_client()
         try:
-            annotations = pod['metadata']['annotations']
-            state_annotation = annotations[k_const.K8S_ANNOTATION_VIF]
-        except KeyError:
+            kuryrport_crd = k8s.get(f'{k_const.K8S_API_CRD_NAMESPACES}/'
+                                    f'{pod["metadata"]["namespace"]}/'
+                                    f'kuryrports/{pod["metadata"]["name"]}')
+            LOG.debug("Got CRD: %r", kuryrport_crd)
+        except k_exc.K8sClientException:
             return {}
-        state_annotation = jsonutils.loads(state_annotation)
-        state = utils.extract_pod_annotation(state_annotation)
-        vifs_dict = state.vifs
-        LOG.debug("Got VIFs from annotation: %r", vifs_dict)
+
+        vifs_dict = utils.get_vifs_from_crd(kuryrport_crd)
+        LOG.debug("Got vifs: %r", vifs_dict)
+
         return vifs_dict
 
     def _get_inst(self, pod):
@@ -81,31 +85,32 @@ class CallbackHandler(CNIHandlerBase):
     def __init__(self, on_vif, on_del=None):
         super(CallbackHandler, self).__init__(None, on_vif)
         self._del_callback = on_del
-        self._pod = None
+        self._kuryrport = None
         self._callback_vifs = None
 
-    def should_callback(self, pod, vifs):
+    def should_callback(self, kuryrport, vifs):
         """Called after all vifs have been processed
 
-        Calls callback if there was at least one vif in the Pod
+        Calls callback if there was at least one vif in the CRD
 
-        :param pod: dict containing Kubernetes Pod object
+        :param kuryrport: dict containing Kubernetes KuryrPort CRD object
         :param vifs: dict containing os_vif VIF objects and ifnames
         :returns True/False
         """
-        self._pod = pod
+        self._kuryrport = kuryrport
         self._callback_vifs = vifs
         if vifs:
             return True
         return False
 
     def callback(self):
-        self._callback(self._pod, self._callback_vifs)
+        self._callback(self._kuryrport, self._callback_vifs)
 
-    def on_deleted(self, pod):
-        LOG.debug("Got pod %s deletion event.", pod['metadata']['name'])
+    def on_deleted(self, kuryrport):
+        LOG.debug("Got kuryrport %s deletion event.",
+                  kuryrport['metadata']['name'])
         if self._del_callback:
-            self._del_callback(pod)
+            self._del_callback(kuryrport)
 
 
 class CNIPipeline(k_dis.EventPipeline):

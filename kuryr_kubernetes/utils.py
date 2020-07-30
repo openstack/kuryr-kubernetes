@@ -97,15 +97,15 @@ def convert_netns(netns):
         return netns
 
 
-def get_pod_unique_name(pod):
-    """Returns a unique name for the pod.
+def get_res_unique_name(resource):
+    """Returns a unique name for the resource like pod or CRD.
 
-    It returns a pod unique name for the pod composed of its name and the
+    It returns a unique name for the resource composed of its name and the
     namespace it is running on.
 
-    :returns: String with namespace/name of the pod
+    :returns: String with namespace/name of the resource
     """
-    return "%(namespace)s/%(name)s" % pod['metadata']
+    return "%(namespace)s/%(name)s" % resource['metadata']
 
 
 def check_suitable_multi_pool_driver_opt(pool_driver, pod_driver):
@@ -250,6 +250,15 @@ def extract_pod_annotation(annotation):
         obj = vif.PodState(default_vif=obj)
 
     return obj
+
+
+def get_vifs_from_crd(crd):
+    result = {}
+    for ifname in crd['spec']['vifs']:
+        result[ifname] = (objects.base.VersionedObject
+                          .obj_from_primitive(crd['spec']['vifs']
+                                              [ifname]['vif']))
+    return result
 
 
 def has_limit(quota):

@@ -15,6 +15,7 @@
 
 import os
 
+from os_vif import objects
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
@@ -23,7 +24,6 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes.cni.binding import base as b_base
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.handlers import health
-from kuryr_kubernetes import utils
 
 from kuryr.lib._i18n import _
 
@@ -143,42 +143,46 @@ class DpdkDriver(health.HealthHandler, b_base.BaseBindingDriver):
 
     def _set_vif(self, vif):
         # TODO(ivc): extract annotation interactions
-        state, labels, resource_version = self._get_pod_details(
+        vifs, labels, resource_version, kp_link = self._get_pod_details(
             vif.port_profile.selflink)
-        for ifname, vif_ex in state.vifs.items():
-            if vif.id == vif_ex.id:
-                state.vifs[ifname] = vif
+        for ifname, data in vifs.items():
+            if vif.id == data['vif'].id:
+                vifs[ifname] = data
                 break
-        self._set_pod_details(state, vif.port_profile.selflink, labels,
-                              resource_version)
+        self._set_pod_details(vifs, vif.port_profile.selflink, labels,
+                              resource_version, kp_link)
 
     def _get_pod_details(self, selflink):
         k8s = clients.get_kubernetes_client()
         pod = k8s.get(selflink)
-        annotations = pod['metadata']['annotations']
+        kp = k8s.get(f'{constants.K8S_API_CRD_NAMESPACES}/'
+                     f'{pod["metadata"]["namespace"]}/kuryrports/'
+                     f'{pod["metadata"]["name"]}')
+
+        try:
+            vifs = {k: {'default': v['default'],
+                        'vif': objects.base.VersionedObject
+                        .obj_from_primitive(v['vif'])}
+                    for k, v in kp['spec']['vifs'].items()}
+        except (KeyError, AttributeError):
+            LOG.exception(f"No vifs found on KuryrPort: {kp}")
+            raise
+        LOG.info(f"Got VIFs from Kuryrport: {vifs}")
+
         resource_version = pod['metadata']['resourceVersion']
         labels = pod['metadata'].get('labels')
-        try:
-            annotations = annotations[constants.K8S_ANNOTATION_VIF]
-            state_annotation = jsonutils.loads(annotations)
-            state = utils.extract_pod_annotation(state_annotation)
-        except KeyError:
-            LOG.exception("No annotations %s", constants.K8S_ANNOTATION_VIF)
-            raise
-        except ValueError:
-            LOG.exception("Unable encode annotations")
-            raise
-        LOG.info("Got VIFs from annotation: %s", state.vifs)
-        return state, labels, resource_version
+        return vifs, labels, resource_version, kp['metadata']['selflink']
 
-    def _set_pod_details(self, state, selflink, labels, resource_version):
-        if not state:
-            LOG.info("Removing VIFs annotation: %r", state)
-            annotation = None
-        else:
-            state_dict = state.obj_to_primitive()
-            annotation = jsonutils.dumps(state_dict, sort_keys=True)
-            LOG.info("Setting VIFs annotation: %r", annotation)
+    def _set_pod_details(self, vifs, selflink, labels, resource_version,
+                         kp_link):
+        k8s = clients.get_kubernetes_client()
+        if vifs:
+            spec = {k: {'default': v['default'],
+                        'vif': v['vif'].obj_to_primitive()}
+                    for k, v in vifs.items()}
+
+            LOG.info("Setting VIFs in KuryrPort %r", spec)
+            k8s.patch_crd('spec', kp_link, {'vifs': spec})
 
         if not labels:
             LOG.info("Removing Label annotation: %r", labels)
@@ -187,8 +191,6 @@ class DpdkDriver(health.HealthHandler, b_base.BaseBindingDriver):
             labels_annotation = jsonutils.dumps(labels, sort_keys=True)
             LOG.info("Setting Labels annotation: %r", labels_annotation)
 
-        k8s = clients.get_kubernetes_client()
         k8s.annotate(selflink,
-                     {constants.K8S_ANNOTATION_VIF: annotation,
-                      constants.K8S_ANNOTATION_LABEL: labels_annotation},
+                     {constants.K8S_ANNOTATION_LABEL: labels_annotation},
                      resource_version=resource_version)

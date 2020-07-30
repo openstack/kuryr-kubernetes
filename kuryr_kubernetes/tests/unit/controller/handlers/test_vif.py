@@ -16,6 +16,7 @@
 from unittest import mock
 
 from os_vif import objects as os_obj
+from oslo_serialization import jsonutils
 
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes.controller.drivers import base as drivers
@@ -43,14 +44,29 @@ class TestVIFHandler(test_base.TestCase):
         self._pod_version = mock.sentinel.pod_version
         self._pod_link = mock.sentinel.pod_link
         self._pod_namespace = mock.sentinel.namespace
+        self._pod_uid = mock.sentinel.pod_uid
+        self._pod_name = 'pod1'
         self._pod = {
             'metadata': {'resourceVersion': self._pod_version,
                          'selfLink': self._pod_link,
+                         'name': self._pod_name,
                          'namespace': self._pod_namespace},
             'status': {'phase': k_const.K8S_POD_STATUS_PENDING},
             'spec': {'hostNetwork': False,
                      'nodeName': 'hostname'}
         }
+
+        self._kp_version = mock.sentinel.kp_version
+        self._kp_link = mock.sentinel.kp_link
+        self._kp = {'apiVersion': 'openstack.org/v1',
+                    'kind': 'KuryrPort',
+                    'metadata': {'resourceVersion': self._kp_version,
+                                 'selfLink': mock.sentinel.kp_link,
+                                 'namespace': self._pod_namespace,
+                                 'labels': mock.ANY},
+                    'spec': {'podUid': self._pod_uid,
+                             'podNodeName': 'hostname',
+                             'vifs': {}}}
 
         self._handler = mock.MagicMock(spec=h_vif.VIFHandler)
         self._handler._drv_project = mock.Mock(spec=drivers.PodProjectDriver)
@@ -68,7 +84,7 @@ class TestVIFHandler(test_base.TestCase):
         self._request_vif = self._handler._drv_vif_pool.request_vif
         self._release_vif = self._handler._drv_vif_pool.release_vif
         self._activate_vif = self._handler._drv_vif_pool.activate_vif
-        self._set_pod_state = self._handler._set_pod_state
+        self._matc = self._handler._move_annotations_to_crd
         self._is_pod_scheduled = self._handler._is_pod_scheduled
         self._is_pod_completed = self._handler._is_pod_completed
         self._request_additional_vifs = \
@@ -152,224 +168,183 @@ class TestVIFHandler(test_base.TestCase):
         self.assertTrue(h_vif.VIFHandler._is_pod_completed({'status': {'phase':
                         k_const.K8S_POD_STATUS_FAILED}}))
 
-    @mock.patch('oslo_config.cfg.CONF')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
-                'update_port_pci_info')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_present(self, m_get_pod_state, m_host_network, m_update_pci,
-                        m_conf):
-        m_get_pod_state.return_value = self._state
-        m_host_network.return_value = False
-        self._vif.plugin = 'sriov'
-        m_conf.sriov.enable_node_annotations = True
-        h_vif.VIFHandler.on_present(self._handler, self._pod)
-
-        m_get_pod_state.assert_called_once_with(self._pod)
-        m_update_pci.assert_called_once_with(self._pod, self._vif)
-        self._request_vif.assert_not_called()
-        self._request_additional_vifs.assert_not_called()
-        self._activate_vif.assert_not_called()
-        self._set_pod_state.assert_not_called()
-
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_present_host_network(self, m_get_pod_state, m_host_network):
-        m_get_pod_state.return_value = self._state
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_kuryrport')
+    def test_on_present_host_network(self, m_get_kuryrport, m_host_network):
+        m_get_kuryrport.return_value = self._kp
         m_host_network.return_value = True
+        self._matc.return_value = False
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
-        m_get_pod_state.assert_called_once()
+        self._matc.assert_called_once_with(self._pod)
+        m_get_kuryrport.assert_called_once()
         self._request_vif.assert_not_called()
         self._request_additional_vifs.assert_not_called()
         self._activate_vif.assert_not_called()
-        self._set_pod_state.assert_not_called()
 
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_present_not_pending(self, m_get_pod_state, m_host_network):
-        m_get_pod_state.return_value = self._state
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_kuryrport')
+    def test_on_present_not_pending(self, m_get_kuryrport, m_host_network):
+        m_get_kuryrport.return_value = self._kp
         m_host_network.return_value = False
         self._is_pod_scheduled.return_value = False
+        self._matc.return_value = False
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
-        m_get_pod_state.assert_called_once()
+        self._matc.assert_called_once_with(self._pod)
+        m_get_kuryrport.assert_called_once()
         self._request_vif.assert_not_called()
         self._request_additional_vifs.assert_not_called()
         self._activate_vif.assert_not_called()
-        self._set_pod_state.assert_not_called()
 
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_present_on_completed_with_annotation(self, m_get_pod_state):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_kuryrport')
+    def test_on_present_on_completed_with_annotation(self, m_get_kuryrport):
         self._is_pod_completed.return_value = True
-        m_get_pod_state.return_value = self._state
+        m_get_kuryrport.return_value = self._kp
+        self._matc.return_value = False
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
-        self._handler.on_deleted.assert_called_once_with(self._pod)
-        self._set_pod_state.assert_called_once_with(self._pod, None)
+        self._matc.assert_called_once_with(self._pod)
+        self._handler.on_finalize.assert_called_once_with(self._pod)
         self._request_vif.assert_not_called()
         self._request_additional_vifs.assert_not_called()
         self._activate_vif.assert_not_called()
 
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_present_on_completed_without_annotation(self, m_get_pod_state):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_kuryrport')
+    def test_on_present_on_completed_without_annotation(self, m_get_kuryrport):
         self._is_pod_completed.return_value = True
-        m_get_pod_state.return_value = None
+        m_get_kuryrport.return_value = None
+        self._matc.return_value = False
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
-        self._handler.on_deleted.assert_not_called()
-
-        self._set_pod_state.assert_not_called()
+        self._matc.assert_called_once_with(self._pod)
+        self._handler.on_finalize.assert_not_called()
         self._request_vif.assert_not_called()
         self._request_additional_vifs.assert_not_called()
         self._activate_vif.assert_not_called()
 
-    @mock.patch('oslo_config.cfg.CONF')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
-                'update_port_pci_info')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_present_activate(self, m_get_pod_state, m_host_network,
-                                 m_get_services, m_update_pci, m_conf):
-        m_get_pod_state.return_value = self._state
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_kuryrport')
+    def test_on_present_create(self, m_get_kuryrport, m_host_network,
+                               m_get_k8s_client):
+        m_get_kuryrport.return_value = None
         m_host_network.return_value = False
-        m_get_services.return_value = {"items": []}
-        self._vif.active = False
-        self._vif.plugin = 'sriov'
-        m_conf.sriov.enable_node_annotations = True
+        self._matc.return_value = False
+        k8s = mock.MagicMock()
+        m_get_k8s_client.return_value = k8s
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
-        m_get_pod_state.assert_called_once_with(self._pod)
-        m_update_pci.assert_called_once_with(self._pod, self._vif)
-        self._activate_vif.assert_called_once_with(self._vif)
-        self._set_pod_state.assert_called_once_with(self._pod, self._state)
-        self._request_vif.assert_not_called()
-        self._request_additional_vifs.assert_not_called()
+        m_get_kuryrport.assert_called_once_with(self._pod)
+        self._matc.assert_called_once_with(self._pod)
+        self._handler._add_kuryrport_crd.assert_called_once_with(self._pod)
+        k8s.add_finalizer.assert_called_once_with(self._pod,
+                                                  k_const.POD_FINALIZER)
 
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_present_create(self, m_get_pod_state, m_host_network):
-        m_get_pod_state.return_value = None
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_kuryrport')
+    def test_on_present_update(self, m_get_kuryrport, m_host_network):
+        m_get_kuryrport.return_value = self._kp
         m_host_network.return_value = False
+        self._matc.return_value = False
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
-        m_get_pod_state.assert_called_once_with(self._pod)
-        self._request_vif.assert_called_once_with(
-            self._pod, self._project_id, self._subnets, self._security_groups)
-        self._request_additional_vifs.assert_called_once_with(
-            self._pod, self._project_id, self._security_groups)
-        self._set_pod_state.assert_called_once_with(self._pod, self._state)
-        self._activate_vif.assert_not_called()
-
-    @mock.patch('oslo_config.cfg.CONF')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_present_create_with_additional_vifs(self, m_get_pod_state,
-                                                    m_host_network, m_conf):
-        m_get_pod_state.return_value = None
-        m_host_network.return_value = False
-        ifname_prefix = 'baz'
-        m_conf.kubernetes.additional_ifname_prefix = ifname_prefix
-        additional_vif = os_obj.vif.VIFBase()
-        self._state.additional_vifs = {ifname_prefix+'1': additional_vif}
-        self._request_additional_vifs.return_value = [additional_vif]
-
-        h_vif.VIFHandler.on_present(self._handler, self._pod)
-
-        m_get_pod_state.assert_called_once_with(self._pod)
-        self._request_vif.assert_called_once_with(
-            self._pod, self._project_id, self._subnets, self._security_groups)
-        self._request_additional_vifs.assert_called_once_with(
-            self._pod, self._project_id, self._security_groups)
-        self._set_pod_state.assert_called_once_with(self._pod, self._state)
-        self._activate_vif.assert_not_called()
+        self._matc.assert_called_once_with(self._pod)
+        m_get_kuryrport.assert_called_once_with(self._pod)
+        self._handler._add_kuryrport_crd.assert_not_called()
 
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_present_rollback(self, m_get_pod_state, m_host_network):
-        m_get_pod_state.return_value = None
-        m_host_network.return_value = False
-        self._set_pod_state.side_effect = k_exc.K8sClientException
-
-        h_vif.VIFHandler.on_present(self._handler, self._pod)
-
-        m_get_pod_state.assert_called_once_with(self._pod)
-        self._request_vif.assert_called_once_with(
-            self._pod, self._project_id, self._subnets, self._security_groups)
-        self._request_additional_vifs.assert_called_once_with(
-            self._pod, self._project_id, self._security_groups)
-        self._set_pod_state.assert_called_once_with(self._pod, self._state)
-        self._release_vif.assert_called_once_with(self._pod, self._vif,
-                                                  self._project_id,
-                                                  self._security_groups)
-        self._activate_vif.assert_not_called()
-
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_deleted(self, m_get_pod_state, m_host_network, m_get_services):
-        m_get_pod_state.return_value = self._state
-        m_host_network.return_value = False
-        m_get_services.return_value = {"items": []}
-        h_vif.VIFHandler.on_deleted(self._handler, self._pod)
-
-        m_get_pod_state.assert_called_once_with(self._pod)
-        self._release_vif.assert_called_once_with(self._pod, self._vif,
-                                                  self._project_id,
-                                                  self._security_groups)
-
-    @mock.patch('oslo_config.cfg.CONF')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_deleted_with_additional_vifs(self, m_get_pod_state,
-                                             m_host_network, m_get_services,
-                                             m_conf):
-        additional_vif = os_obj.vif.VIFBase()
-        ifname_prefix = 'bar'
-        m_conf.kubernetes.additional_ifname_prefix = ifname_prefix
-        self._state.additional_vifs = {ifname_prefix+'1': additional_vif}
-        m_get_pod_state.return_value = self._state
-        m_host_network.return_value = False
-        m_get_services.return_value = {"items": []}
-
-        h_vif.VIFHandler.on_deleted(self._handler, self._pod)
-
-        self._release_vif.assert_any_call(self._pod, self._vif,
-                                          self._project_id,
-                                          self._security_groups)
-        self._release_vif.assert_any_call(self._pod, additional_vif,
-                                          self._project_id,
-                                          self._security_groups)
-
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_deleted_host_network(self, m_get_pod_state, m_host_network):
-        m_get_pod_state.return_value = self._state
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_kuryrport')
+    def test_on_present_upgrade(self, m_get_kuryrport, m_host_network):
+        m_get_kuryrport.return_value = self._kp
         m_host_network.return_value = True
+        self._matc.return_value = True
 
-        h_vif.VIFHandler.on_deleted(self._handler, self._pod)
+        h_vif.VIFHandler.on_present(self._handler, self._pod)
 
-        m_get_pod_state.assert_not_called()
-        self._release_vif.assert_not_called()
+        self._matc.assert_called_once_with(self._pod)
+        m_get_kuryrport.assert_not_called()
+        self._request_vif.assert_not_called()
+        self._request_additional_vifs.assert_not_called()
+        self._activate_vif.assert_not_called()
 
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_state')
-    def test_on_deleted_no_annotation(self, m_get_pod_state, m_host_network,
-                                      m_get_services):
-        m_get_pod_state.return_value = None
-        m_host_network.return_value = False
-        m_get_services.return_value = {"items": []}
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_kuryrport')
+    def test_on_finalize_crd(self, m_get_kuryrport, m_get_k8s_client):
+        m_get_kuryrport.return_value = self._kp
+        k8s = mock.MagicMock()
+        m_get_k8s_client.return_value = k8s
 
-        h_vif.VIFHandler.on_deleted(self._handler, self._pod)
+        h_vif.VIFHandler.on_finalize(self._handler, self._pod)
 
-        m_get_pod_state.assert_called_once_with(self._pod)
-        self._release_vif.assert_not_called()
+        k8s.delete.assert_called_once_with(
+            h_vif.KURYRPORT_URI.format(
+                ns=self._pod["metadata"]["namespace"],
+                crd=self._pod["metadata"]["name"]))
+
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_kuryrport')
+    def test_on_finalize_crd_exception(self, m_get_kuryrport,
+                                       m_get_k8s_client):
+        m_get_kuryrport.return_value = self._kp
+        k8s = mock.MagicMock()
+        m_get_k8s_client.return_value = k8s
+        k8s.delete.side_effect = k_exc.K8sClientException
+
+        self.assertRaises(k_exc.ResourceNotReady, h_vif.VIFHandler
+                          .on_finalize, self._handler, self._pod)
+
+        k8s.delete.assert_called_once_with(
+            h_vif.KURYRPORT_URI.format(
+                ns=self._pod["metadata"]["namespace"],
+                crd=self._pod["metadata"]["name"]))
+
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_kuryrport')
+    def test_on_finalize_crd_not_found(self, m_get_kuryrport,
+                                       m_get_k8s_client):
+        m_get_kuryrport.return_value = self._kp
+        k8s = mock.MagicMock()
+        m_get_k8s_client.return_value = k8s
+        k8s.delete.side_effect = k_exc.K8sResourceNotFound(self._pod)
+
+        h_vif.VIFHandler.on_finalize(self._handler, self._pod)
+
+        k8s.delete.assert_called_once_with(
+            h_vif.KURYRPORT_URI.format(
+                ns=self._pod["metadata"]["namespace"],
+                crd=self._pod["metadata"]["name"]))
+        (k8s.remove_finalizer
+         .assert_called_once_with(self._pod, k_const.POD_FINALIZER))
+
+    def test_move_annotations_to_crd_no_annotations(self):
+        res = h_vif.VIFHandler._move_annotations_to_crd(self._handler,
+                                                        self._pod)
+        self.assertFalse(res)
+
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    def test_move_annotations_to_crd_with_annotations(self, m_get_k8s_client):
+        vifobj = os_obj.vif.VIFOpenVSwitch()
+        state = vif.PodState(default_vif=vifobj)
+        annotation = jsonutils.dumps(state.obj_to_primitive())
+        self._pod['metadata']['annotations'] = {
+            k_const.K8S_ANNOTATION_VIF: annotation}
+        vifs = {'eth0': {'default': True, 'vif': vifobj.obj_to_primitive()}}
+        k8s = mock.MagicMock()
+        m_get_k8s_client.return_value = k8s
+
+        res = h_vif.VIFHandler._move_annotations_to_crd(self._handler,
+                                                        self._pod)
+        self.assertTrue(res)
+        self._handler._add_kuryrport_crd.assert_called_once_with(self._pod,
+                                                                 vifs)
+
+        m_get_k8s_client.assert_called_once()
+        k8s.remove_annotations.assert_called_once_with(
+            self._pod['metadata']['selfLink'], k_const.K8S_ANNOTATION_VIF)

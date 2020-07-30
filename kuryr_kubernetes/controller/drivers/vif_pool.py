@@ -27,7 +27,6 @@ from oslo_concurrency import lockutils
 from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 from oslo_log import versionutils
-from oslo_serialization import jsonutils
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
@@ -280,16 +279,9 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
         in_use_ports = []
         running_pods = kubernetes.get(constants.K8S_API_BASE + '/pods')
         for pod in running_pods['items']:
-            try:
-                annotations = jsonutils.loads(pod['metadata']['annotations'][
-                    constants.K8S_ANNOTATION_VIF])
-                pod_state = utils.extract_pod_annotation(annotations)
-            except KeyError:
-                LOG.debug("Skipping pod without kuryr VIF annotation: %s",
-                          pod)
-            else:
-                for vif in pod_state.vifs.values():
-                    in_use_ports.append(vif.id)
+            vifs = c_utils.get_vifs(pod)
+            for data in vifs.values():
+                in_use_ports.append(data.id)
         return in_use_ports
 
     def list_pools(self):

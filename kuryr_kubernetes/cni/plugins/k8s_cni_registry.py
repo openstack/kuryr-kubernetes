@@ -15,7 +15,6 @@
 import retrying
 
 from os_vif import objects as obj_vif
-from os_vif.objects import base
 from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -31,12 +30,14 @@ LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
 RETRY_DELAY = 1000  # 1 second in milliseconds
 
-# TODO(dulek): Another corner case is (and was) when pod is deleted before it's
-#              annotated by controller or even noticed by any watcher. Kubelet
-#              will try to delete such vif, but we will have no data about it.
-#              This is currently worked around by returning successfully in
-#              case of timing out in delete. To solve this properly we need
-#              to watch for pod deletes as well.
+# TODO(dulek, gryf): Another corner case is (and was) when pod is deleted
+# before it's corresponding CRD was created and populated by vifs by
+# controller or even noticed by any watcher. Kubelet will try to delete such
+# vif, but we will have no data about it. This is currently worked around by
+# returning successfully in case of timing out in delete. To solve this
+# properly we need to watch for pod deletes as well, or perhaps create
+# finalizer for the pod as soon, as we know, that kuryrport CRD will be
+# created.
 
 
 class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
@@ -45,32 +46,32 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
         self.registry = registry
         self.k8s = clients.get_kubernetes_client()
 
-    def _get_pod_name(self, params):
+    def _get_obj_name(self, params):
         return "%(namespace)s/%(name)s" % {
             'namespace': params.args.K8S_POD_NAMESPACE,
             'name': params.args.K8S_POD_NAME}
 
     def add(self, params):
-        pod_name = self._get_pod_name(params)
+        kp_name = self._get_obj_name(params)
         timeout = CONF.cni_daemon.vif_annotation_timeout
 
-        # Try to confirm if pod in the registry is not stale cache. If it is,
+        # Try to confirm if CRD in the registry is not stale cache. If it is,
         # remove it.
-        with lockutils.lock(pod_name, external=True):
-            if pod_name in self.registry:
-                cached_pod = self.registry[pod_name]['pod']
+        with lockutils.lock(kp_name, external=True):
+            if kp_name in self.registry:
+                cached_kp = self.registry[kp_name]['kp']
                 try:
-                    pod = self.k8s.get(cached_pod['metadata']['selfLink'])
+                    kp = self.k8s.get(cached_kp['metadata']['selfLink'])
                 except Exception:
-                    LOG.exception('Error when getting pod %s', pod_name)
-                    raise exceptions.ResourceNotReady(pod_name)
+                    LOG.exception('Error when getting KuryrPort %s', kp_name)
+                    raise exceptions.ResourceNotReady(kp_name)
 
-                if pod['metadata']['uid'] != cached_pod['metadata']['uid']:
-                    LOG.warning('Stale pod %s detected in cache. (API '
+                if kp['metadata']['uid'] != cached_kp['metadata']['uid']:
+                    LOG.warning('Stale KuryrPort %s detected in cache. (API '
                                 'uid=%s, cached uid=%s). Removing it from '
-                                'cache.', pod_name, pod['metadata']['uid'],
-                                cached_pod['metadata']['uid'])
-                    del self.registry[pod_name]
+                                'cache.', kp_name, kp['metadata']['uid'],
+                                cached_kp['metadata']['uid'])
+                    del self.registry[kp_name]
 
         vifs = self._do_work(params, b_base.connect, timeout)
 
@@ -78,70 +79,68 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
         #              requests that we should ignore. We need a lock to
         #              prevent race conditions and replace whole object in the
         #              dict for multiprocessing.Manager to notice that.
-        with lockutils.lock(pod_name, external=True):
-            d = self.registry[pod_name]
+        with lockutils.lock(kp_name, external=True):
+            d = self.registry[kp_name]
             d['containerid'] = params.CNI_CONTAINERID
-            self.registry[pod_name] = d
-            LOG.debug('Saved containerid = %s for pod %s',
-                      params.CNI_CONTAINERID, pod_name)
+            self.registry[kp_name] = d
+            LOG.debug('Saved containerid = %s for CRD %s',
+                      params.CNI_CONTAINERID, kp_name)
 
         # Wait for timeout sec, 1 sec between tries, retry when even one
         # vif is not active.
         @retrying.retry(stop_max_delay=timeout * 1000, wait_fixed=RETRY_DELAY,
                         retry_on_result=utils.any_vif_inactive)
-        def wait_for_active(pod_name):
-            return {
-                ifname: base.VersionedObject.obj_from_primitive(vif_obj) for
-                ifname, vif_obj in self.registry[pod_name]['vifs'].items()
-            }
+        def wait_for_active(kp_name):
+            return self.registry[kp_name]['vifs']
 
-        vifs = wait_for_active(pod_name)
+        vifs = wait_for_active(kp_name)
         for vif in vifs.values():
             if not vif.active:
                 LOG.error("Timed out waiting for vifs to become active")
-                raise exceptions.ResourceNotReady(pod_name)
+                raise exceptions.ResourceNotReady(kp_name)
 
         return vifs[k_const.DEFAULT_IFNAME]
 
     def delete(self, params):
-        pod_name = self._get_pod_name(params)
+        kp_name = self._get_obj_name(params)
         try:
-            reg_ci = self.registry[pod_name]['containerid']
-            LOG.debug('Read containerid = %s for pod %s', reg_ci, pod_name)
+            reg_ci = self.registry[kp_name]['containerid']
+            LOG.debug('Read containerid = %s for KuryrPort %s', reg_ci,
+                      kp_name)
             if reg_ci and reg_ci != params.CNI_CONTAINERID:
                 # NOTE(dulek): This is a DEL request for some older (probably
                 #              failed) ADD call. We should ignore it or we'll
                 #              unplug a running pod.
                 LOG.warning('Received DEL request for unknown ADD call for '
-                            'pod %s (CNI_CONTAINERID=%s). Ignoring.', pod_name,
-                            params.CNI_CONTAINERID)
+                            'Kuryrport %s (CNI_CONTAINERID=%s). Ignoring.',
+                            kp_name, params.CNI_CONTAINERID)
                 return
         except KeyError:
             pass
 
         # Passing arbitrary 5 seconds as timeout, as it does not make any sense
-        # to wait on CNI DEL. If pod got deleted from API - VIF info is gone.
-        # If pod got the annotation removed - it is now gone too. The number's
-        # not 0, because we need to anticipate for restarts and delay before
-        # registry is populated by watcher.
+        # to wait on CNI DEL. If kuryrport got deleted from API - VIF info is
+        # gone. If kuryrport got the vif info removed - it is now gone too.
+        # The number's not 0, because we need to anticipate for restarts and
+        # delay before registry is populated by watcher.
         self._do_work(params, b_base.disconnect, 5)
 
         # NOTE(ndesh): We need to lock here to avoid race condition
         #              with the deletion code in the watcher to ensure that
         #              we delete the registry entry exactly once
         try:
-            with lockutils.lock(pod_name, external=True):
-                if self.registry[pod_name]['del_received']:
-                    del self.registry[pod_name]
+            with lockutils.lock(kp_name, external=True):
+                if self.registry[kp_name]['del_received']:
+                    del self.registry[kp_name]
                 else:
-                    pod_dict = self.registry[pod_name]
-                    pod_dict['vif_unplugged'] = True
-                    self.registry[pod_name] = pod_dict
+                    kp_dict = self.registry[kp_name]
+                    kp_dict['vif_unplugged'] = True
+                    self.registry[kp_name] = kp_dict
         except KeyError:
-            # This means the pod was removed before vif was unplugged. This
-            # shouldn't happen, but we can't do anything about it now
-            LOG.debug('Pod %s not found registry while handling DEL request. '
-                      'Ignoring.', pod_name)
+            # This means the kuryrport was removed before vif was unplugged.
+            # This shouldn't happen, but we can't do anything about it now
+            LOG.debug('KuryrPort %s not found registry while handling DEL '
+                      'request. Ignoring.', kp_name)
             pass
 
     def report_drivers_health(self, driver_healthy):
@@ -151,25 +150,22 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
                 self.healthy.value = driver_healthy
 
     def _do_work(self, params, fn, timeout):
-        pod_name = self._get_pod_name(params)
+        kp_name = self._get_obj_name(params)
 
         # In case of KeyError retry for `timeout` s, wait 1 s between tries.
         @retrying.retry(stop_max_delay=timeout * 1000, wait_fixed=RETRY_DELAY,
                         retry_on_exception=lambda e: isinstance(e, KeyError))
         def find():
-            return self.registry[pod_name]
+            return self.registry[kp_name]
 
         try:
             d = find()
-            pod = d['pod']
-            vifs = {
-                ifname: base.VersionedObject.obj_from_primitive(vif_obj) for
-                ifname, vif_obj in d['vifs'].items()
-            }
+            kp = d['kp']
+            vifs = d['vifs']
         except KeyError:
-            LOG.error("Timed out waiting for requested pod to appear in "
+            LOG.error("Timed out waiting for requested KuryrPort to appear in "
                       "registry")
-            raise exceptions.ResourceNotReady(pod_name)
+            raise exceptions.ResourceNotReady(kp_name)
 
         for ifname, vif in vifs.items():
             is_default_gateway = (ifname == k_const.DEFAULT_IFNAME)
@@ -178,12 +174,13 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
                 # use the ifname supplied in the CNI ADD request
                 ifname = params.CNI_IFNAME
 
-            fn(vif, self._get_inst(pod), ifname, params.CNI_NETNS,
+            fn(vif, self._get_inst(kp), ifname, params.CNI_NETNS,
                 report_health=self.report_drivers_health,
                 is_default_gateway=is_default_gateway,
                 container_id=params.CNI_CONTAINERID)
         return vifs
 
-    def _get_inst(self, pod):
-        return obj_vif.instance_info.InstanceInfo(
-            uuid=pod['metadata']['uid'], name=pod['metadata']['name'])
+    def _get_inst(self, kp):
+        return (obj_vif.instance_info
+                .InstanceInfo(uuid=kp['spec']['podUid'],
+                              name=kp['metadata']['name']))

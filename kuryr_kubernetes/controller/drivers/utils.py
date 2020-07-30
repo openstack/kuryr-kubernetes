@@ -17,6 +17,7 @@ import urllib
 
 import netaddr
 from openstack import exceptions as os_exc
+from os_vif import objects
 from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
@@ -24,7 +25,6 @@ from oslo_serialization import jsonutils
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
 from kuryr_kubernetes import exceptions as k_exc
-from kuryr_kubernetes import utils
 
 
 OPERATORS_WITH_VALUES = [constants.K8S_OPERATOR_IN,
@@ -59,15 +59,23 @@ def get_host_id(pod):
     return pod['spec']['nodeName']
 
 
-def get_pod_state(pod):
+def get_kuryrport(pod):
+    k8s = clients.get_kubernetes_client()
     try:
-        annotations = pod['metadata']['annotations']
-        state_annotation = annotations[constants.K8S_ANNOTATION_VIF]
-    except KeyError:
+        return k8s.get(f'{constants.K8S_API_CRD_NAMESPACES}/'
+                       f'{pod["metadata"]["namespace"]}/kuryrports/'
+                       f'{pod["metadata"]["name"]}')
+    except k_exc.K8sResourceNotFound:
         return None
-    state_annotation = jsonutils.loads(state_annotation)
-    state = utils.extract_pod_annotation(state_annotation)
-    return state
+
+
+def get_vifs(pod):
+    kp = get_kuryrport(pod)
+    try:
+        return {k: objects.base.VersionedObject.obj_from_primitive(v['vif'])
+                for k, v in kp['spec']['vifs'].items()}
+    except (KeyError, AttributeError, TypeError):
+        return {}
 
 
 def is_host_network(pod):
@@ -274,19 +282,17 @@ def create_security_group_rule_body(
 
 def get_pod_ip(pod):
     try:
-        pod_metadata = pod['metadata']['annotations']
-        vif = pod_metadata[constants.K8S_ANNOTATION_VIF]
-    except KeyError:
+        kp = get_kuryrport(pod)
+        vif = [x['vif'] for x in kp['spec']['vifs'].values()
+               if x['default']][0]
+    except (KeyError, TypeError, IndexError):
         return None
-    vif = jsonutils.loads(vif)
-    vif = vif['versioned_object.data']['default_vif']
-    network = (vif['versioned_object.data']['network']
-                  ['versioned_object.data'])
-    first_subnet = (network['subnets']['versioned_object.data']
-                    ['objects'][0]['versioned_object.data'])
-    first_subnet_ip = (first_subnet['ips']['versioned_object.data']
-                       ['objects'][0]['versioned_object.data']['address'])
-    return first_subnet_ip
+    return (vif['versioned_object.data']['network']
+            ['versioned_object.data']['subnets']
+            ['versioned_object.data']['objects'][0]
+            ['versioned_object.data']['ips']
+            ['versioned_object.data']['objects'][0]
+            ['versioned_object.data']['address'])
 
 
 def get_annotations(resource, annotation):

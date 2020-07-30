@@ -20,7 +20,6 @@ import ddt
 import munch
 from openstack import exceptions as os_exc
 from oslo_config import cfg as oslo_cfg
-from oslo_serialization import jsonutils
 
 from os_vif.objects import vif as osv_vif
 
@@ -29,7 +28,6 @@ from kuryr_kubernetes.controller.drivers import nested_vlan_vif
 from kuryr_kubernetes.controller.drivers import neutron_vif
 from kuryr_kubernetes.controller.drivers import vif_pool
 from kuryr_kubernetes import exceptions
-from kuryr_kubernetes.objects import vif
 from kuryr_kubernetes import os_vif_util as ovu
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests import fake
@@ -276,7 +274,8 @@ class BaseVIFPool(test_base.TestCase):
 
         m_driver._return_ports_to_pool.assert_not_called()
 
-    def test__get_in_use_ports(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_vifs')
+    def test__get_in_use_ports(self, get_vifs):
         cls = vif_pool.BaseVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
@@ -284,30 +283,13 @@ class BaseVIFPool(test_base.TestCase):
         pod = get_pod_obj()
         port_id = str(uuid.uuid4())
         pod_vif = osv_vif.VIFBase(id=port_id)
-        pod_state = vif.PodState(default_vif=pod_vif)
-
-        pod['metadata']['annotations'][constants.K8S_ANNOTATION_VIF] = (
-            jsonutils.dumps(pod_state.obj_to_primitive()))
+        get_vifs.return_value = {'eth0': pod_vif}
         items = [pod]
         kubernetes.get.return_value = {'items': items}
 
         resp = cls._get_in_use_ports(m_driver)
 
         self.assertEqual(resp, [port_id])
-
-    def test__get_in_use_ports_exception(self):
-        cls = vif_pool.BaseVIFPool
-        m_driver = mock.MagicMock(spec=cls)
-
-        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
-        pod = get_pod_obj()
-        del pod['metadata']['annotations'][constants.K8S_ANNOTATION_VIF]
-        items = [pod]
-        kubernetes.get.return_value = {'items': items}
-
-        resp = cls._get_in_use_ports(m_driver)
-
-        self.assertEqual(resp, [])
 
     def test__get_in_use_ports_empty(self):
         cls = vif_pool.BaseVIFPool
