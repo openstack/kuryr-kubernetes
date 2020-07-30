@@ -23,7 +23,6 @@ from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import dispatch as k_dis
 from kuryr_kubernetes.handlers import k8s_base
-from kuryr_kubernetes import utils
 
 
 LOG = logging.getLogger(__name__)
@@ -70,7 +69,9 @@ class CNIHandlerBase(k8s_base.ResourceEventHandler, metaclass=abc.ABCMeta):
         except k_exc.K8sClientException:
             return {}
 
-        vifs_dict = utils.get_vifs_from_crd(kuryrport_crd)
+        vifs_dict = {k: obj_vif.base.VersionedObject
+                     .obj_from_primitive(v['vif'])
+                     for k, v in kuryrport_crd['status']['vifs'].items()}
         LOG.debug("Got vifs: %r", vifs_dict)
 
         return vifs_dict

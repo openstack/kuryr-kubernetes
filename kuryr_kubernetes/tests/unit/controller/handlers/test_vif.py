@@ -65,8 +65,8 @@ class TestVIFHandler(test_base.TestCase):
                                  'namespace': self._pod_namespace,
                                  'labels': mock.ANY},
                     'spec': {'podUid': self._pod_uid,
-                             'podNodeName': 'hostname',
-                             'vifs': {}}}
+                             'podNodeName': 'hostname'},
+                    'status': {'vifs': {}}}
 
         self._handler = mock.MagicMock(spec=h_vif.VIFHandler)
         self._handler._drv_project = mock.Mock(spec=drivers.PodProjectDriver)

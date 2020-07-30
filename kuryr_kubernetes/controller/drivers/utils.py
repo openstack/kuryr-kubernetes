@@ -74,13 +74,13 @@ def get_vifs(pod):
     kp = get_kuryrport(pod)
     try:
         return {k: objects.base.VersionedObject.obj_from_primitive(v['vif'])
-                for k, v in kp['spec']['vifs'].items()}
+                for k, v in kp['status']['vifs'].items()}
     except (KeyError, AttributeError, TypeError):
         return {}
 
 
 def is_host_network(pod):
-    return pod['spec'].get('hostNetwork', False)
+    return pod['status'].get('hostNetwork', False)
 
 
 def get_pods(selector, namespace=None):
@@ -277,7 +277,7 @@ def create_security_group_rule_body(
 def get_pod_ip(pod):
     try:
         kp = get_kuryrport(pod)
-        vif = [x['vif'] for x in kp['spec']['vifs'].values()
+        vif = [x['vif'] for x in kp['status']['vifs'].values()
                if x['default']][0]
     except (KeyError, TypeError, IndexError):
         return None

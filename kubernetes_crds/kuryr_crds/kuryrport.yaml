@@ -24,12 +24,16 @@ spec:
               required:
                 - podUid
                 - podNodeName
-                - vifs
               properties:
                 podUid:
                   type: string
                 podNodeName:
                   type: string
+            status:
+              type: object
+              required:
+                - vifs
+              properties:
                 vifs:
                   type: object
                   x-kubernetes-preserve-unknown-fields: true

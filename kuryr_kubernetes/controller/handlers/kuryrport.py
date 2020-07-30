@@ -58,7 +58,7 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
         self.k8s = clients.get_kubernetes_client()
 
     def on_present(self, kuryrport_crd):
-        if not kuryrport_crd['spec']['vifs']:
+        if not kuryrport_crd['status']['vifs']:
             # Get vifs
             if not self.get_vifs(kuryrport_crd):
                 # Ignore this event, according to one of the cases logged in
@@ -68,7 +68,7 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
         vifs = {ifname: {'default': data['default'],
                          'vif': objects.base.VersionedObject
                          .obj_from_primitive(data['vif'])}
-                for ifname, data in kuryrport_crd['spec']['vifs'].items()}
+                for ifname, data in kuryrport_crd['status']['vifs'].items()}
 
         if all([v['vif'].active for v in vifs.values()]):
             return
@@ -167,7 +167,7 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
             # properly released.
             security_groups = []
 
-        for data in kuryrport_crd['spec']['vifs'].values():
+        for data in kuryrport_crd['status']['vifs'].values():
             vif = objects.base.VersionedObject.obj_from_primitive(data['vif'])
             self._drv_vif_pool.release_vif(pod, vif, project_id,
                                            security_groups)
@@ -243,14 +243,14 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
 
     def _update_kuryrport_crd(self, kuryrport_crd, vifs):
         LOG.debug('Updatting CRD %s', kuryrport_crd["metadata"]["name"])
-        spec = {}
+        vif_dict = {}
         for ifname, data in vifs.items():
             data['vif'].obj_reset_changes(recursive=True)
-            spec[ifname] = {'default': data['default'],
-                            'vif': data['vif'].obj_to_primitive()}
+            vif_dict[ifname] = {'default': data['default'],
+                                'vif': data['vif'].obj_to_primitive()}
 
-        self.k8s.patch_crd('spec', kuryrport_crd['metadata']['selfLink'],
-                           {'vifs': spec})
+        self.k8s.patch_crd('status', kuryrport_crd['metadata']['selfLink'],
+                           {'vifs': vif_dict})
 
     def _is_network_policy_enabled(self):
         enabled_handlers = oslo_cfg.CONF.kubernetes.enabled_handlers

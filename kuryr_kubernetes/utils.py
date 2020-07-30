@@ -252,15 +252,6 @@ def extract_pod_annotation(annotation):
     return obj
 
 
-def get_vifs_from_crd(crd):
-    result = {}
-    for ifname in crd['spec']['vifs']:
-        result[ifname] = (objects.base.VersionedObject
-                          .obj_from_primitive(crd['spec']['vifs']
-                                              [ifname]['vif']))
-    return result
-
-
 def has_limit(quota):
     NO_LIMIT = -1
     return quota['limit'] != NO_LIMIT
