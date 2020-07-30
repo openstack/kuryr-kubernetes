@@ -44,7 +44,6 @@ Design documents
    kuryr_kubernetes_ingress_design
    high_availability
    kuryr_kubernetes_versions
-   port_crd_usage
    network_policy
    updating_pod_resources_api
 

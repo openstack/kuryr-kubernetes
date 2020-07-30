@@ -27,11 +27,24 @@ Kuryr-Kubernetes Controller.
 VIF-Handler
 -----------
 
-VIF-handler is intended to handle VIFs. The main aim of VIF-handler is to get
-the pod object, send it to 1) the VIF-driver for the default network, 2)
-enabled Multi-VIF drivers for the additional networks, and get VIF objects
-from both. After that VIF-handler is able to activate, release or update VIFs.
-VIF-handler should stay clean whereas parsing of specific pod information
+VIV-handler was intended to handle VIFs. Currently it is responsible for
+reacting on Pod object events, and for creating/deleting corresponding
+KuryrPort CRD object.
+
+
+KuryrPort-handler
+-----------------
+
+KuryrPort is responsible for taking care about associated Pod VIFs. The main
+aim of this handler is to get the KuryrPort CRD object, created by the
+VIF-handler, send it to the:
+
+- VIF-driver for the default network,
+- enabled Multi-VIF drivers for the additional networks,
+- and get VIF objects from both.
+
+After that KuryrPort-handler is able to activate, release or update VIFs.
+KuryrPort-handler should stay clean whereas parsing of specific pod information
 should be done by Multi-VIF drivers.
 
 
