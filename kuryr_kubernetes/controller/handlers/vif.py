@@ -63,6 +63,14 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                 drivers.ServiceSecurityGroupsDriver.get_instance())
 
     def on_present(self, pod):
+        if (driver_utils.is_host_network(pod) or
+                not self._is_pod_scheduled(pod)):
+            # REVISIT(ivc): consider an additional configurable check that
+            # would allow skipping pods to enable heterogeneous environments
+            # where certain pods/namespaces/nodes can be managed by other
+            # networking solutions/CNI drivers.
+            return
+
         # NOTE(gryf): Set the finalizer as soon, as we have pod created. On
         # subsequent updates of the pod, add_finalizer will ignore this if
         # finalizer exists.
@@ -80,14 +88,6 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             else:
                 LOG.debug("Pod has completed execution, no KuryrPort found."
                           " Skipping")
-            return
-
-        if (driver_utils.is_host_network(pod) or
-                not self._is_pod_scheduled(pod)):
-            # REVISIT(ivc): consider an additional configurable check that
-            # would allow skipping pods to enable heterogeneous environments
-            # where certain pods/namespaces/nodes can be managed by other
-            # networking solutions/CNI drivers.
             return
 
         LOG.debug("Got KuryrPort: %r", kp)
