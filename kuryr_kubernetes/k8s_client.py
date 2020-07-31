@@ -83,6 +83,10 @@ class K8sClient(object):
             raise exc.K8sResourceNotFound(response.text)
         if response.status_code == requests.codes.conflict:
             raise exc.K8sConflict(response.text)
+        if response.status_code == requests.codes.forbidden:
+            if 'because it is being terminated' in response.json()['message']:
+                raise exc.K8sNamespaceTerminating(response.text)
+            raise exc.K8sForbidden(response.text)
         if not response.ok:
             raise exc.K8sClientException(response.text)
 
