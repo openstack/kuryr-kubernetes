@@ -379,24 +379,27 @@ def get_endpoints_link(service):
     return "/".join(link_parts)
 
 
-def has_port_changes(service, lbaas_spec):
+def has_port_changes(service, loadbalancer_crd):
+    if not loadbalancer_crd:
+        return False
     link = service['metadata']['selfLink']
+    svc_port_set = service['spec'].get('ports')
 
-    fields = obj_lbaas.LBaaSPortSpec.fields
-    svc_port_set = {tuple(port[attr] for attr in fields)
-                    for port in get_service_ports(service)}
-
-    spec_port_set = {tuple(getattr(port, attr)
-                     for attr in fields
-                     if port.obj_attr_is_set(attr))
-                     for port in lbaas_spec.ports}
-
-    if svc_port_set != spec_port_set:
-        LOG.debug("LBaaS spec ports %(spec_ports)s != %(svc_ports)s "
-                  "for %(link)s" % {'spec_ports': spec_port_set,
-                                    'svc_ports': svc_port_set,
-                                    'link': link})
-    return svc_port_set != spec_port_set
+    for port in svc_port_set:
+        port['targetPort'] = str(port['targetPort'])
+    spec_port_set = loadbalancer_crd['spec'].get('ports', [])
+    if spec_port_set:
+        if len(svc_port_set) != len(spec_port_set):
+            return True
+        pairs = zip(svc_port_set, spec_port_set)
+        diff = any(x != y for x, y in pairs)
+        if diff:
+            LOG.debug("LBaaS spec ports %(spec_ports)s != %(svc_ports)s "
+                      "for %(link)s" % {'spec_ports': spec_port_set,
+                                        'svc_ports': svc_port_set,
+                                        'link': link})
+        return diff
+    return False
 
 
 def get_service_ports(service):
