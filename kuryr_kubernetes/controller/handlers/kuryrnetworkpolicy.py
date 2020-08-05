@@ -215,7 +215,12 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
                         self._is_service_affected(service, pods_to_update)):
                     continue
                 sgs = self._drv_svc_sg.get_security_groups(service, project_id)
-                self._drv_lbaas.update_lbaas_sg(service, sgs)
+                try:
+                    self._drv_lbaas.update_lbaas_sg(service, sgs)
+                except exceptions.ResourceNotReady:
+                    # We can ignore LB that's being created - its SGs will get
+                    # handled when members will be getting created.
+                    pass
 
         self._patch_kuryrnetworkpolicy_crd(knp, 'status',
                                            {'podSelector': current_sel})
