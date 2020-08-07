@@ -30,6 +30,53 @@ spec:
           spec:
             type: object
             properties:
+              endpointSlices:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    endpoints:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          addresses:
+                            type: array
+                            items:
+                              type: string
+                          conditions:
+                            type: object
+                            properties:
+                              ready:
+                                type: boolean
+                          hostname:
+                            type: string
+                          targetRef:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                              name:
+                                type: string
+                              namespace:
+                                type: string
+                              resourceVersion:
+                                type: string
+                              uid:
+                                type: string
+                          topology:
+                            type: object
+                    ports:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          port:
+                            type: integer
+                          protocol:
+                            type: string
               ip:
                 type: string
               lb_ip:
@@ -61,48 +108,6 @@ spec:
                 type: string
               type:
                 type: string
-              subsets:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    addresses:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          hostname:
-                            type: string
-                          ip:
-                            type: string
-                          nodeName:
-                            type: string
-                          targetRef:
-                            type: object
-                            properties:
-                              apiVersion:
-                                type: string
-                              kind:
-                                type: string
-                              name:
-                                type: string
-                              namespace:
-                                type: string
-                              resourceVersion:
-                                type: string
-                              uid:
-                                type: string
-                    ports:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          name:
-                            type: string
-                          port:
-                            type: integer
-                          protocol:
-                            type: string
           status:
             type: object
             properties:

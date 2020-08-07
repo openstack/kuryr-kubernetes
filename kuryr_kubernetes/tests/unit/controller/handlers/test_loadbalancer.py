@@ -57,12 +57,11 @@ def get_lb_crd():
                     "31d7b8c2-75f1-4125-9565-8c15c5cf046c"
                 ],
                 "subnet_id": "123456789120",
-                "subsets": [
+                "endpointSlices": [
                     {
-                        "addresses": [
+                        "endpoints": [
                             {
-                                "ip": "1.1.1.1",
-                                "nodeName": "sarka-devstack",
+                                "addresses": ["1.1.1.1"],
                                 "targetRef": {
                                     "kind": "Pod",
                                     "name": "test-f87976f9c-thjbk",
