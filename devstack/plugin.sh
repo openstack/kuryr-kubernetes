@@ -518,20 +518,20 @@ function prepare_kubernetes_files {
     sudo groupadd -f -r kube-cert
 
     # hostname -I gets the ip of the node
-    sudo CERT_DIR=${KURYR_HYPERKUBE_DATA_DIR} /tmp/make-ca-cert.sh $(hostname -I | awk '{print $1}') "IP:${HOST_IP},IP:${k8s_api_clusterip},DNS:kubernetes,DNS:kubernetes.default,DNS:kubernetes.default.svc,DNS:kubernetes.default.svc.cluster.local"
+    sudo CERT_DIR=${KURYR_KUBERNETES_DATA_DIR} /tmp/make-ca-cert.sh $(hostname -I | awk '{print $1}') "IP:${HOST_IP},IP:${k8s_api_clusterip},DNS:kubernetes,DNS:kubernetes.default,DNS:kubernetes.default.svc,DNS:kubernetes.default.svc.cluster.local"
 
     # Create basic token authorization
-    sudo bash -c "echo 'admin,admin,admin' > $KURYR_HYPERKUBE_DATA_DIR/basic_auth.csv"
+    sudo bash -c "echo 'admin,admin,admin' > $KURYR_KUBERNETES_DATA_DIR/basic_auth.csv"
 
     # Create known tokens for service accounts
-    sudo bash -c "echo '$(create_token),admin,admin' >> ${KURYR_HYPERKUBE_DATA_DIR}/known_tokens.csv"
-    sudo bash -c "echo '$(create_token),kubelet,kubelet' >> ${KURYR_HYPERKUBE_DATA_DIR}/known_tokens.csv"
-    sudo bash -c "echo '$(create_token),kube_proxy,kube_proxy' >> ${KURYR_HYPERKUBE_DATA_DIR}/known_tokens.csv"
+    sudo bash -c "echo '$(create_token),admin,admin' >> ${KURYR_KUBERNETES_DATA_DIR}/known_tokens.csv"
+    sudo bash -c "echo '$(create_token),kubelet,kubelet' >> ${KURYR_KUBERNETES_DATA_DIR}/known_tokens.csv"
+    sudo bash -c "echo '$(create_token),kube_proxy,kube_proxy' >> ${KURYR_KUBERNETES_DATA_DIR}/known_tokens.csv"
 
     # Copy certs for Kuryr services to use
-    sudo install -m 644 "${KURYR_HYPERKUBE_DATA_DIR}/kubecfg.crt" "${KURYR_HYPERKUBE_DATA_DIR}/kuryr.crt"
-    sudo install -m 644 "${KURYR_HYPERKUBE_DATA_DIR}/kubecfg.key" "${KURYR_HYPERKUBE_DATA_DIR}/kuryr.key"
-    sudo install -m 644 "${KURYR_HYPERKUBE_DATA_DIR}/ca.crt" "${KURYR_HYPERKUBE_DATA_DIR}/kuryr-ca.crt"
+    sudo install -m 644 "${KURYR_KUBERNETES_DATA_DIR}/kubecfg.crt" "${KURYR_KUBERNETES_DATA_DIR}/kuryr.crt"
+    sudo install -m 644 "${KURYR_KUBERNETES_DATA_DIR}/kubecfg.key" "${KURYR_KUBERNETES_DATA_DIR}/kuryr.key"
+    sudo install -m 644 "${KURYR_KUBERNETES_DATA_DIR}/ca.crt" "${KURYR_KUBERNETES_DATA_DIR}/kuryr-ca.crt"
 
     # FIXME(ivc): replace 'sleep' with a strict check (e.g. wait_for_files)
     # 'kubernetes-api' fails if started before files are generated.
@@ -603,10 +603,23 @@ function get_k8s_log_level {
   fi
 }
 
+function setup_k8s_binaries() {
+    tmp_path=$1
+    binary_name=$2
+    binary_path=$3
+
+    curl -o "${tmp_path}" "${KURYR_KUBERNETES_BINARIES}/${binary_name}"
+    sudo install -o "$STACK_USER" -m 0555 -D "${tmp_path}" "${binary_path}"
+}
+
 function run_k8s_api {
     local service_cidr
     local cluster_ip_range
     local command
+    local tmp_kube_apiserver_path="/tmp/kube-apiserver"
+    local binary_name="kube-apiserver"
+
+    setup_k8s_binaries $tmp_kube_apiserver_path $binary_name $KURYR_KUBE_APISERVER_BINARY
 
     # Runs Hyperkube's Kubernetes API Server
     wait_for "etcd" "http://${SERVICE_HOST}:${ETCD_PORT}/v2/machines"
@@ -621,117 +634,84 @@ function run_k8s_api {
         cluster_ip_range="$service_cidr"
     fi
 
-    command=(--net=host
-             --volume=${KURYR_HYPERKUBE_DATA_DIR}:/srv/kubernetes:rw)
-    if [[ ${CONTAINER_ENGINE} == 'docker' ]]; then
-        command+=(--restart=on-failure)
-    fi
-    command+=(${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}
-              /hyperkube kube-apiserver
-                --service-cluster-ip-range=${cluster_ip_range}
-                --insecure-bind-address=0.0.0.0
-                --insecure-port=${KURYR_K8S_API_PORT}
-                --etcd-servers=http://${SERVICE_HOST}:${ETCD_PORT}
-                --client-ca-file=/srv/kubernetes/ca.crt
-                --basic-auth-file=/srv/kubernetes/basic_auth.csv
-                --min-request-timeout=300
-                --tls-cert-file=/srv/kubernetes/server.cert
-                --tls-private-key-file=/srv/kubernetes/server.key
-                --token-auth-file=/srv/kubernetes/known_tokens.csv
-                --allow-privileged=true
-                --v=$(get_k8s_log_level)
-                --logtostderr=true)
+    command="${KURYR_KUBE_APISERVER_BINARY} \
+                --service-cluster-ip-range=${cluster_ip_range} \
+                --insecure-bind-address=0.0.0.0 \
+                --insecure-port=${KURYR_K8S_API_PORT} \
+                --etcd-servers=http://${SERVICE_HOST}:${ETCD_PORT} \
+                --client-ca-file=${KURYR_KUBERNETES_DATA_DIR}/ca.crt \
+                --basic-auth-file=${KURYR_KUBERNETES_DATA_DIR}/basic_auth.csv \
+                --min-request-timeout=300 \
+                --tls-cert-file=${KURYR_KUBERNETES_DATA_DIR}/server.cert \
+                --tls-private-key-file=${KURYR_KUBERNETES_DATA_DIR}/server.key \
+                --token-auth-file=${KURYR_KUBERNETES_DATA_DIR}/known_tokens.csv \
+                --allow-privileged=true \
+                --v=$(get_k8s_log_level) \
+                --logtostderr=true"
 
-    run_container kubernetes-api "${command[@]}"
+    run_process kubernetes-api "$command" root root
 }
 
 function run_k8s_controller_manager {
     local command
+    local tmp_kube_controller_manager="/tmp/kube-controller-manager"
+    local binary_name="kube-controller-manager"
+
+    setup_k8s_binaries $tmp_kube_controller_manager $binary_name $KURYR_KUBE_CONTROLLER_MANAGER_BINARY
 
     # Runs Hyperkube's Kubernetes controller manager
     wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
 
-    command=(--net=host
-             --volume=${KURYR_HYPERKUBE_DATA_DIR}:/srv/kubernetes:rw)
-    if [[ ${CONTAINER_ENGINE} == 'docker' ]]; then
-        command+=(--restart=on-failure)
-    fi
-    command+=(${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}
-              /hyperkube kube-controller-manager
-                --master=$KURYR_K8S_API_URL
-                --service-account-private-key-file=/srv/kubernetes/server.key
-                --root-ca-file=/srv/kubernetes/ca.crt
-                --min-resync-period=3m
-                --v=$(get_k8s_log_level)
-                --logtostderr=true)
+    command="${KURYR_KUBE_CONTROLLER_MANAGER_BINARY} \
+                --master=$KURYR_K8S_API_URL \
+                --service-account-private-key-file=${KURYR_KUBERNETES_DATA_DIR}/server.key \
+                --root-ca-file=${KURYR_KUBERNETES_DATA_DIR}/ca.crt \
+                --min-resync-period=3m \
+                --v=$(get_k8s_log_level) \
+                --logtostderr=true"
 
-    run_container kubernetes-controller-manager "${command[@]}"
+    run_process kubernetes-controller-manager "$command" root root
 }
 
 function run_k8s_scheduler {
     local command
+    local tmp_kube_scheduler="/tmp/kube-scheduler"
+    local binary_name="kube-scheduler"
 
-    # Runs Hyperkube's Kubernetes scheduler
+    setup_k8s_binaries $tmp_kube_scheduler $binary_name $KURYR_KUBE_SCHEDULER_BINARY
+
+    # Runs Kubernetes scheduler
     wait_for "Kubernetes API Server" "$KURYR_K8S_API_URL"
 
-    command=(--net=host
-             --volume=${KURYR_HYPERKUBE_DATA_DIR}:/srv/kubernetes:rw)
-    if [[ ${CONTAINER_ENGINE} == 'docker' ]]; then
-        command+=(--restart=on-failure)
-    fi
-    command+=(${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}
-              /hyperkube kube-scheduler
-                --master=$KURYR_K8S_API_URL
-                --v=$(get_k8s_log_level)
-                --logtostderr=true)
+    command="${KURYR_KUBE_SCHEDULER_BINARY} \
+                --master=${KURYR_K8S_API_URL} \
+                --v=$(get_k8s_log_level) \
+                --logtostderr=true"
 
-    run_container kubernetes-scheduler "${command[@]}"
+    run_process kubernetes-scheduler "$command" root root
 }
 
 function prepare_kubeconfig {
-    $KURYR_HYPERKUBE_BINARY kubectl config set-cluster devstack-cluster \
+    $KURYR_KUBECTL_BINARY config set-cluster devstack-cluster \
         --server="${KURYR_K8S_API_URL}"
-    $KURYR_HYPERKUBE_BINARY kubectl config set-context devstack \
-        --cluster=devstack-cluster
-    $KURYR_HYPERKUBE_BINARY kubectl config use-context devstack
+    $KURYR_KUBECTL_BINARY config set-credentials stack
+    $KURYR_KUBECTL_BINARY config set-context devstack \
+        --cluster=devstack-cluster --user=stack
+    $KURYR_KUBECTL_BINARY config use-context devstack
 }
 
-function extract_hyperkube {
-    local hyperkube_container
-    local tmp_hyperkube_path
+function extract_k8s_binaries {
+    local tmp_kubectl_path="/tmp/kubectl"
+    local tmp_kubelet_path="/tmp/kubelet"
+    local tmp_loopback_cni_path="/tmp/loopback"
+    local kubectl_binary_name="kubectl"
+    local kubelet_binary_name="kubelet"
 
-    tmp_hyperkube_path="/tmp/hyperkube"
-    tmp_loopback_cni_path="/tmp/loopback"
-    tmp_nsenter_path="/tmp/nsenter"
+    setup_k8s_binaries $tmp_kubectl_path $kubectl_binary_name $KURYR_KUBECTL_BINARY
+    setup_k8s_binaries $tmp_kubelet_path $kubelet_binary_name $KURYR_KUBELET_BINARY
 
-    hyperkube_container=$(container_runtime run -d \
-        --net host \
-       "${KURYR_HYPERKUBE_IMAGE}:${KURYR_HYPERKUBE_VERSION}" \
-       /bin/false)
-    if [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
-        mnt=`container_runtime mount "${hyperkube_container}"`
-        sudo cp "${mnt}/hyperkube" "$tmp_hyperkube_path"
-        sudo cp "${mnt}/opt/cni/bin/loopback" "$tmp_loopback_cni_path"
-        sudo cp "${mnt}/usr/bin/nsenter" "$tmp_nsenter_path"
-        container_runtime umount ${hyperkube_container}
-    else
-        container_runtime cp "${hyperkube_container}:/hyperkube" "$tmp_hyperkube_path"
-        container_runtime cp "${hyperkube_container}:/opt/cni/bin/loopback" \
-            "$tmp_loopback_cni_path"
-        container_runtime cp "${hyperkube_container}:/usr/bin/nsenter" "$tmp_nsenter_path"
-    fi
-
-    container_runtime rm --force "$hyperkube_container"
-    sudo install -o "$STACK_USER" -m 0555 -D "$tmp_hyperkube_path" \
-        "$KURYR_HYPERKUBE_BINARY"
-    sudo install -o "$STACK_USER" -m 0555 -D "$tmp_loopback_cni_path" \
-        "${CNI_BIN_DIR}/loopback"
-    sudo install -o "root" -m 0555 -D "$tmp_nsenter_path" \
-        "/usr/local/bin/nsenter"
-
-    # Convenience kubectl executable for development
-    sudo install -o "$STACK_USER" -m 555 -D "${KURYR_HOME}/devstack/kubectl" \
-        "$(dirname $KURYR_HYPERKUBE_BINARY)/kubectl"
+    sudo mkdir -p "$CNI_BIN_DIR"
+    curl -L "${KURYR_CNI_PLUGINS}" | sudo tar -C "${CNI_BIN_DIR}" -xzvf - ./loopback
 }
 
 function prepare_kubelet {
@@ -754,8 +734,8 @@ function run_k8s_kubelet {
     local command
     local minor_version
 
-    sudo mkdir -p "${KURYR_HYPERKUBE_DATA_DIR}/"{kubelet,kubelet.cert}
-    command="$KURYR_HYPERKUBE_BINARY kubelet\
+    sudo mkdir -p "${KURYR_KUBERNETES_DATA_DIR}/"{kubelet,kubelet.cert}
+    command="$KURYR_KUBELET_BINARY \
         --kubeconfig=${HOME}/.kube/config \
         --v=2 \
         --address=0.0.0.0 \
@@ -763,8 +743,8 @@ function run_k8s_kubelet {
         --network-plugin=cni \
         --cni-bin-dir=$CNI_BIN_DIR \
         --cni-conf-dir=$CNI_CONF_DIR \
-        --cert-dir=${KURYR_HYPERKUBE_DATA_DIR}/kubelet.cert \
-        --root-dir=${KURYR_HYPERKUBE_DATA_DIR}/kubelet"
+        --cert-dir=${KURYR_KUBERNETES_DATA_DIR}/kubelet.cert \
+        --root-dir=${KURYR_KUBERNETES_DATA_DIR}/kubelet"
 
     if [[ ${CONTAINER_ENGINE} == 'docker' ]]; then
         command+=" --cgroup-driver $(docker info|awk '/Cgroup/ {print $NF}')"
@@ -783,14 +763,14 @@ function run_k8s_kubelet {
     fi
 
     declare -r min_not_require_kubeconfig_ver="1.10.0"
-    if [[ "$KURYR_HYPERKUBE_VERSION" == "$(echo -e "${KURYR_HYPERKUBE_VERSION}\n${min_not_require_kubeconfig_ver}" | sort -V | head -n 1)" ]]; then
+    if [[ "$KURYR_KUBERNETES_VERSION" == "$(echo -e "${KURYR_KUBERNETES_VERSION}\n${min_not_require_kubeconfig_ver}" | sort -V | head -n 1)" ]]; then
         # Version 1.10 did away with that config option
         command+=" --require-kubeconfig"
     fi
 
     # Kubernetes 1.8+ requires additional option to work in the gate.
     declare -r min_no_swap_ver="1.8.0"
-    if [[ "$min_no_swap_ver" == "$(echo -e "${KURYR_HYPERKUBE_VERSION}\n${min_no_swap_ver}" | sort -V | head -n 1)" ]]; then
+    if [[ "$min_no_swap_ver" == "$(echo -e "${KURYR_KUBERNETES_VERSION}\n${min_no_swap_ver}" | sort -V | head -n 1)" ]]; then
         command="$command --fail-swap-on=false"
     fi
 
@@ -894,9 +874,9 @@ function run_kuryr_kubernetes {
             "${OPENSHIFT_DATA_DIR}/master/ca.crt" 1200
     else
         wait_for_ok_health "Kubernetes API Server" "${KURYR_K8S_API_ROOT}/healthz" \
-            "${KURYR_HYPERKUBE_DATA_DIR}/kuryr-ca.crt" \
-            "${KURYR_HYPERKUBE_DATA_DIR}/kuryr.key" \
-            "${KURYR_HYPERKUBE_DATA_DIR}/kuryr.crt" \
+            "${KURYR_KUBERNETES_DATA_DIR}/kuryr-ca.crt" \
+            "${KURYR_KUBERNETES_DATA_DIR}/kuryr.key" \
+            "${KURYR_KUBERNETES_DATA_DIR}/kuryr.crt" \
             1200
     fi
 
@@ -1071,7 +1051,7 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
        || is_service_enabled kubernetes-controller-manager \
        || is_service_enabled kubernetes-scheduler \
        || is_service_enabled kubelet; then
-        get_container "$KURYR_HYPERKUBE_IMAGE" "$KURYR_HYPERKUBE_VERSION"
+        get_container "$KURYR_KUBERNETES_IMAGE" "$KURYR_KUBERNETES_VERSION"
         prepare_kubernetes_files
     fi
 
@@ -1089,7 +1069,7 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
 
     if is_service_enabled kubelet; then
         prepare_kubelet
-        extract_hyperkube
+        extract_k8s_binaries
         prepare_kubeconfig
         run_k8s_kubelet
         KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE=$(trueorfalse True KURYR_CONFIGURE_BAREMETAL_KUBELET_IFACE)
@@ -1159,14 +1139,14 @@ if [[ "$1" == "unstack" ]]; then
     KURYR_K8S_CONTAINERIZED_DEPLOYMENT=$(trueorfalse False KURYR_K8S_CONTAINERIZED_DEPLOYMENT)
     if is_service_enabled kuryr-kubernetes; then
         if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
-            $KURYR_HYPERKUBE_BINARY kubectl delete deploy/kuryr-controller
+            kubectl delete deploy/kuryr-controller
         fi
         stop_process kuryr-kubernetes
     elif is_service_enabled kubelet; then
-         $KURYR_HYPERKUBE_BINARY kubectl delete nodes ${HOSTNAME}
+        kubectl delete nodes ${HOSTNAME}
     fi
     if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "True" ]; then
-        $KURYR_HYPERKUBE_BINARY kubectl delete ds/kuryr-cni-ds
+        kubectl delete ds/kuryr-cni-ds
     fi
     stop_process kuryr-daemon
 
