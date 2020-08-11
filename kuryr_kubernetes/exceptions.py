@@ -39,6 +39,19 @@ class K8sConflict(K8sClientException):
         super(K8sConflict, self).__init__("Conflict: %r" % message)
 
 
+class K8sForbidden(K8sClientException):
+    def __init__(self, message):
+        super(K8sForbidden, self).__init__("Forbidden: %r" % message)
+
+
+class K8sNamespaceTerminating(K8sForbidden):
+    # This is raised when K8s complains about operation failing because
+    # namespace is being terminated.
+    def __init__(self, message):
+        super(K8sNamespaceTerminating, self).__init__(
+            "Namespace already terminated: %r" % message)
+
+
 class InvalidKuryrNetworkAnnotation(Exception):
     pass
 

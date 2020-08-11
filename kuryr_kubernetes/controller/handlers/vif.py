@@ -63,6 +63,12 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                 drivers.ServiceSecurityGroupsDriver.get_instance())
 
     def on_present(self, pod):
+        # NOTE(gryf): Set the finalizer as soon, as we have pod created. On
+        # subsequent updates of the pod, add_finalizer will ignore this if
+        # finalizer exists.
+        k8s = clients.get_kubernetes_client()
+        k8s.add_finalizer(pod, constants.POD_FINALIZER)
+
         if self._move_annotations_to_crd(pod):
             return
 
@@ -88,13 +94,14 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         if not kp:
             try:
                 self._add_kuryrport_crd(pod)
+            except k_exc.K8sNamespaceTerminating:
+                # The underlying namespace is being terminated, we can
+                # ignore this and let `on_finalize` handle this now.
+                return
             except k_exc.K8sClientException as ex:
                 LOG.exception("Kubernetes Client Exception creating "
                               "KuryrPort CRD: %s", ex)
                 raise k_exc.ResourceNotReady(pod)
-
-            k8s = clients.get_kubernetes_client()
-            k8s.add_finalizer(pod, constants.POD_FINALIZER)
 
     def on_finalize(self, pod):
         k8s = clients.get_kubernetes_client()
@@ -193,6 +200,11 @@ class VIFHandler(k8s_base.ResourceEventHandler):
 
         try:
             self._add_kuryrport_crd(pod, vifs)
+        except k_exc.K8sNamespaceTerminating:
+            # The underlying namespace is being terminated, we can
+            # ignore this and let `on_finalize` handle this now. Still
+            # returning True to make sure `on_present` won't continue.
+            return True
         except k_exc.K8sClientException as ex:
             LOG.exception("Kubernetes Client Exception recreating "
                           "KuryrPort CRD from annotation: %s", ex)
