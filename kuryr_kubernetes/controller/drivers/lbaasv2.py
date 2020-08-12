@@ -376,7 +376,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
         # when enforcing sg rules on the lb sg, meaning octavia
         # Amphora provider is configured.
         if CONF.octavia_defaults.enforce_sg_rules:
-            sg_id = self._get_vip_port(loadbalancer).security_group_ids[0]
+            try:
+                sg_id = self._get_vip_port(loadbalancer).security_group_ids[0]
+            except AttributeError:
+                sg_id = None
             if sg_id:
                 rules = os_net.security_group_rules(security_group_id=sg_id,
                                                     description=listener[
