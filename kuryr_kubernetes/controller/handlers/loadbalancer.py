@@ -85,7 +85,7 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
             lb_ip = loadbalancer_crd['spec'].get('lb_ip')
             pub_info = loadbalancer_crd['status'].get(
                     'service_pub_ip_info')
-            if pub_info is None:
+            if pub_info is None and loadbalancer_crd['spec'].get('type'):
                 service_pub_ip_info = (
                     self._drv_service_pub_ip.acquire_service_pub_ip_info(
                         loadbalancer_crd['spec']['type'],
@@ -495,7 +495,7 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         for l in loadbalancer_crd['status']['listeners']:
             if l['id'] != pool['listener_id']:
                 continue
-            for port in loadbalancer_crd['spec'].get('ports'):
+            for port in loadbalancer_crd['spec'].get('ports', []):
                 if l['port'] == port['port'] and l['protocol'] == port[
                         'protocol']:
                     return True

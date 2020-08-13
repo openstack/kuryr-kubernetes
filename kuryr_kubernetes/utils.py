@@ -379,6 +379,18 @@ def get_endpoints_link(service):
     return "/".join(link_parts)
 
 
+def get_service_link(endpoints):
+    endpoints_link = endpoints['metadata']['selfLink']
+    link_parts = endpoints_link.split('/')
+
+    if link_parts[-2] != 'endpoints':
+        raise exceptions.IntegrityError(
+            f"Unsupported endpoints link: {endpoints_link}")
+    link_parts[-2] = 'services'
+
+    return "/".join(link_parts)
+
+
 def has_port_changes(service, loadbalancer_crd):
     if not loadbalancer_crd:
         return False

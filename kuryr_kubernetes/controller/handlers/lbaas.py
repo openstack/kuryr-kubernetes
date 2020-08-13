@@ -15,6 +15,7 @@
 
 from kuryr.lib._i18n import _
 from oslo_log import log as logging
+from oslo_serialization import jsonutils
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
@@ -47,11 +48,9 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         self._drv_sg = drv_base.ServiceSecurityGroupsDriver.get_instance()
 
     def on_present(self, service):
-        if self._should_ignore(service):
-            LOG.debug("Skipping Kubernetes service %s of an unsupported kind "
-                      "or without a selector as Kubernetes does not create "
-                      "an endpoint object for it.",
-                      service['metadata']['name'])
+        reason = self._should_ignore(service)
+        if reason:
+            LOG.debug(reason, service['metadata']['name'])
             return
 
         k8s = clients.get_kubernetes_client()
@@ -71,14 +70,26 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         spec = service['spec']
         return spec.get('type') in SUPPORTED_SERVICE_TYPES
 
+    def _has_spec_annotation(self, service):
+        return (k_const.K8S_ANNOTATION_LBAAS_SPEC in
+                service['metadata'].get('annotations', {}))
+
     def _get_service_ip(self, service):
         if self._is_supported_type(service):
             return service['spec'].get('clusterIP')
         return None
 
     def _should_ignore(self, service):
-        return (not(self._has_clusterip(service)) or
-                not(self._is_supported_type(service)))
+        if not self._has_clusterip(service):
+            return 'Skipping headless Service %s.'
+        elif not self._is_supported_type(service):
+            return 'Skipping service %s of unsupported type.'
+        elif self._has_spec_annotation(service):
+            return ('Skipping annotated service %s, waiting for it to be '
+                    'converted to KuryrLoadBalancer object and annotation '
+                    'removed.')
+        else:
+            return None
 
     def _patch_service_finalizer(self, service):
         k8s = clients.get_kubernetes_client()
@@ -255,6 +266,9 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
                 config.CONF.kubernetes.endpoints_driver_octavia_provider)
 
     def on_present(self, endpoints):
+        if self._move_annotations_to_crd(endpoints):
+            return
+
         k8s = clients.get_kubernetes_client()
         loadbalancer_crd = k8s.get_loadbalancer_crd(endpoints)
 
@@ -297,26 +311,27 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
                    for address in subset.get('addresses', [])
                    if address.get('targetRef', {}).get('kind') == 'Pod')
 
-    def _create_crd_spec(self, endpoints):
+    def _create_crd_spec(self, endpoints, spec=None, status=None):
         endpoints_name = endpoints['metadata']['name']
         namespace = endpoints['metadata']['namespace']
         kubernetes = clients.get_kubernetes_client()
 
         subsets = endpoints.get('subsets', [])
+        if not status:
+            status = {}
+        if not spec:
+            spec = {'subsets': subsets}
 
         loadbalancer_crd = {
             'apiVersion': 'openstack.org/v1',
             'kind': 'KuryrLoadBalancer',
             'metadata': {
                 'name': endpoints_name,
-                'finalizers': [k_const.KURYRLB_FINALIZER]
-                },
-            'spec': {
-                'subsets': subsets
-                },
-            'status': {
-                }
-            }
+                'finalizers': [k_const.KURYRLB_FINALIZER],
+            },
+            'spec': spec,
+            'status': status,
+        }
 
         try:
             kubernetes.post('{}/{}/kuryrloadbalancers'.format(
@@ -360,3 +375,73 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
                     'link': ep_link})
         link_parts[-2] = 'services'
         return "/".join(link_parts)
+
+    def _move_annotations_to_crd(self, endpoints):
+        """Support upgrade from annotations to KuryrLoadBalancer CRD."""
+        try:
+            spec = (endpoints['metadata']['annotations']
+                    [k_const.K8S_ANNOTATION_LBAAS_SPEC])
+        except KeyError:
+            spec = None
+
+        try:
+            state = (endpoints['metadata']['annotations']
+                     [k_const.K8S_ANNOTATION_LBAAS_STATE])
+        except KeyError:
+            state = None
+
+        if not state and not spec:
+            # No annotations, return
+            return False
+
+        if state or spec:
+            if state:
+                _dict = jsonutils.loads(state)
+                # This is strongly using the fact that annotation's o.vo
+                # and CRD has the same structure.
+                state = obj_lbaas.flatten_object(_dict)
+
+            # Endpoints should always have the spec in the annotation
+            spec_dict = jsonutils.loads(spec)
+            spec = obj_lbaas.flatten_object(spec_dict)
+
+            if state and state['service_pub_ip_info'] is None:
+                del state['service_pub_ip_info']
+            for spec_port in spec['ports']:
+                if not spec_port.get('name'):
+                    del spec_port['name']
+            if not spec['lb_ip']:
+                del spec['lb_ip']
+
+            try:
+                self._create_crd_spec(endpoints, spec, state)
+            except k_exc.ResourceNotReady:
+                LOG.info('KuryrLoadBalancer CRD %s already exists.',
+                         utils.get_res_unique_name(endpoints))
+            except k_exc.K8sClientException:
+                raise k_exc.ResourceNotReady(endpoints)
+
+            # In this step we only need to make sure all annotations are
+            # removed. It may happen that the Endpoints only had spec set,
+            # in which case we just remove it and let the normal flow handle
+            # creation of the LB.
+            k8s = clients.get_kubernetes_client()
+            service_link = utils.get_service_link(endpoints)
+            to_remove = [
+                (endpoints['metadata']['selfLink'],
+                 k_const.K8S_ANNOTATION_LBAAS_SPEC),
+                (service_link,
+                 k_const.K8S_ANNOTATION_LBAAS_SPEC),
+            ]
+            if state:
+                to_remove.append((endpoints['metadata']['selfLink'],
+                                  k_const.K8S_ANNOTATION_LBAAS_STATE))
+
+            for path, name in to_remove:
+                try:
+                    k8s.remove_annotations(path, name)
+                except k_exc.K8sClientException:
+                    LOG.warning('Error removing %s annotation from %s', name,
+                                path)
+
+        return True
