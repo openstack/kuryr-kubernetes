@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import eventlet
 import time
 
 from oslo_log import log as logging
@@ -22,13 +21,13 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes.controller.drivers import base as drv_base
-from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import k8s_base
-from kuryr_kubernetes.objects import lbaas as obj_lbaas
 from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
+
+OCTAVIA_DEFAULT_PROVIDERS = ['octavia', 'amphora']
 
 
 class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
@@ -54,18 +53,28 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         # Load Balancer creation flow.
         # We need to set the requested load balancer provider
         # according to 'endpoints_driver_octavia_provider' configuration.
-        self._lb_provider = None
-        if (config.CONF.kubernetes.endpoints_driver_octavia_provider
-                != 'default'):
-            self._lb_provider = (
-                config.CONF.kubernetes.endpoints_driver_octavia_provider)
-        eventlet.spawn(self._cleanup_leftover_lbaas)
 
     def on_present(self, loadbalancer_crd):
         if self._should_ignore(loadbalancer_crd):
             LOG.debug("Ignoring Kubernetes service %s",
                       loadbalancer_crd['metadata']['name'])
             return
+
+        crd_lb = loadbalancer_crd['status'].get('loadbalancer')
+        if crd_lb:
+            lb_provider = crd_lb.get('provider')
+            spec_lb_provider = loadbalancer_crd['spec'].get('provider')
+            # amphora to ovn upgrade
+            if not lb_provider or lb_provider in OCTAVIA_DEFAULT_PROVIDERS:
+                if (spec_lb_provider and
+                        spec_lb_provider not in OCTAVIA_DEFAULT_PROVIDERS):
+                    self._ensure_release_lbaas(loadbalancer_crd)
+
+            # ovn to amphora downgrade
+            elif lb_provider and lb_provider not in OCTAVIA_DEFAULT_PROVIDERS:
+                if (not spec_lb_provider or
+                        spec_lb_provider in OCTAVIA_DEFAULT_PROVIDERS):
+                    self._ensure_release_lbaas(loadbalancer_crd)
 
         try:
             name = loadbalancer_crd['metadata']['name']
@@ -703,7 +712,7 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                     security_groups_ids=loadbalancer_crd['spec'].get(
                         'security_groups_ids'),
                     service_type=loadbalancer_crd['spec'].get('type'),
-                    provider=self._lb_provider)
+                    provider=loadbalancer_crd['spec'].get('provider'))
                 loadbalancer_crd['status']['loadbalancer'] = lb
 
             kubernetes = clients.get_kubernetes_client()
@@ -721,47 +730,7 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
 
         return changed
 
-    def _cleanup_leftover_lbaas(self):
-        lbaas_client = clients.get_loadbalancer_client()
-        services = []
-        try:
-            services = driver_utils.get_services().get('items')
-        except k_exc.K8sClientException:
-            LOG.debug("Skipping cleanup of leftover lbaas. "
-                      "Error retriving Kubernetes services")
-            return
-        services_cluster_ip = {service['spec']['clusterIP']: service
-                               for service in services
-                               if service['spec'].get('clusterIP')}
-
-        services_without_selector = set(
-            service['spec']['clusterIP'] for service in services
-            if (service['spec'].get('clusterIP') and
-                not service['spec'].get('selector')))
-        lbaas_spec = {}
-        self._drv_lbaas.add_tags('loadbalancer', lbaas_spec)
-        loadbalancers = lbaas_client.load_balancers(**lbaas_spec)
-        for loadbalancer in loadbalancers:
-            if loadbalancer.vip_address not in services_cluster_ip.keys():
-                lb_obj = obj_lbaas.LBaaSLoadBalancer(**loadbalancer)
-                eventlet.spawn(self._ensure_release_lbaas, lb_obj)
-            else:
-                # check if the provider is the right one
-                if (loadbalancer.vip_address not in services_without_selector
-                        and self._lb_provider
-                        and self._lb_provider != loadbalancer.provider):
-                    LOG.debug("Removing loadbalancer with old provider: %s",
-                              loadbalancer)
-                    lb_obj = obj_lbaas.LBaaSLoadBalancer(**loadbalancer)
-                    eventlet.spawn(
-                        self._ensure_release_lbaas,
-                        lb_obj,
-                        services_cluster_ip[loadbalancer.vip_address])
-                    # NOTE(ltomasbo): give some extra time in between lbs
-                    # recreation actions
-                    time.sleep(1)
-
-    def _ensure_release_lbaas(self, lb_obj, svc=None):
+    def _ensure_release_lbaas(self, loadbalancer_crd):
         attempts = 0
         deadline = 0
         retry = True
@@ -773,32 +742,32 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                 if (attempts > 0 and
                         utils.exponential_sleep(deadline, attempts) == 0):
                     LOG.error("Failed releasing lbaas '%s': deadline exceeded",
-                              lb_obj.name)
+                              loadbalancer_crd['status']['loadbalancer'][
+                                  'name'])
                     return
-                self._drv_lbaas.release_loadbalancer(lb_obj)
+                self._drv_lbaas.release_loadbalancer(
+                    loadbalancer=loadbalancer_crd['status'].get('loadbalancer')
+                )
                 retry = False
             except k_exc.ResourceNotReady:
                 LOG.debug("Attempt (%s) of loadbalancer release %s failed."
                           " A retry will be triggered.", attempts,
-                          lb_obj.name)
+                          loadbalancer_crd['status']['loadbalancer']['name'])
                 attempts += 1
                 retry = True
-        if svc:
-            endpoints_link = utils.get_endpoints_link(svc)
+
+            loadbalancer_crd['status'] = {}
             k8s = clients.get_kubernetes_client()
             try:
-                endpoints = k8s.get(endpoints_link)
+                k8s.patch_crd('status', loadbalancer_crd['metadata'][
+                    'selfLink'], loadbalancer_crd['status'])
             except k_exc.K8sResourceNotFound:
-                LOG.debug("Endpoint not Found.")
-                return
-
-            lbaas = utils.get_lbaas_state(endpoints)
-            if lbaas:
-                lbaas.loadbalancer = None
-                lbaas.pools = []
-                lbaas.listeners = []
-                lbaas.members = []
-                # NOTE(ltomasbo): give some extra time to ensure the Load
-                # Balancer VIP is also released
-                time.sleep(1)
-                utils.set_lbaas_state(endpoints, lbaas)
+                LOG.debug('KuryrLoadbalancer CRD not found %s',
+                          loadbalancer_crd)
+            except k_exc.K8sClientException:
+                LOG.exception('Error updating KuryrLoadbalancer CRD %s',
+                              loadbalancer_crd)
+                raise
+            # NOTE(ltomasbo): give some extra time to ensure the Load
+            # Balancer VIP is also released
+            time.sleep(1)

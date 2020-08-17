@@ -79,7 +79,8 @@ def get_lb_crd():
                         ]
                     }
                 ],
-                "type": "LoadBalancer"
+                "type": "LoadBalancer",
+                "provider": "ovn"
                 },
             "status": {
                 "listeners": [
@@ -213,14 +214,12 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
         m_get_drv_service_pub_ip.return_value = mock.sentinel.drv_lb_ip
         m_get_svc_drv_project.return_value = mock.sentinel.drv_svc_project
         m_get_svc_sg_drv.return_value = mock.sentinel.drv_sg
-        m_cfg.kubernetes.endpoints_driver_octavia_provider = 'default'
         handler = h_lb.KuryrLoadBalancerHandler()
 
         self.assertEqual(mock.sentinel.drv_lbaas, handler._drv_lbaas)
         self.assertEqual(mock.sentinel.drv_project, handler._drv_pod_project)
         self.assertEqual(mock.sentinel.drv_subnets, handler._drv_pod_subnets)
         self.assertEqual(mock.sentinel.drv_lb_ip, handler._drv_service_pub_ip)
-        self.assertIsNone(handler._lb_provider)
 
     @mock.patch('kuryr_kubernetes.controller.drivers.base.'
                 'ServiceProjectDriver.get_instance')
@@ -245,14 +244,12 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
         m_get_drv_service_pub_ip.return_value = mock.sentinel.drv_lb_ip
         m_get_svc_drv_project.return_value = mock.sentinel.drv_svc_project
         m_get_svc_sg_drv.return_value = mock.sentinel.drv_sg
-        m_cfg.kubernetes.endpoints_driver_octavia_provider = 'ovn'
         handler = h_lb .KuryrLoadBalancerHandler()
 
         self.assertEqual(mock.sentinel.drv_lbaas, handler._drv_lbaas)
         self.assertEqual(mock.sentinel.drv_project, handler._drv_pod_project)
         self.assertEqual(mock.sentinel.drv_subnets, handler._drv_pod_subnets)
         self.assertEqual(mock.sentinel.drv_lb_ip, handler._drv_service_pub_ip)
-        self.assertEqual('ovn', handler._lb_provider)
 
     def test_on_present(self):
         m_drv_service_pub_ip = mock.Mock()

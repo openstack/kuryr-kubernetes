@@ -47,6 +47,7 @@ _OCTAVIA_TAGGING_VERSION = 2, 5
 # In order to make it simpler, we assume this is supported only from 2.13
 _OCTAVIA_DL_VERSION = 2, 13
 _OCTAVIA_ACL_VERSION = 2, 12
+_OCTAVIA_PROVIDER_VERSION = 2, 6
 
 
 class LBaaSv2Driver(base.LBaaSDriver):
@@ -58,6 +59,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         self._octavia_tags = False
         self._octavia_acls = False
         self._octavia_double_listeners = False
+        self._octavia_providers = False
         # Check if Octavia API supports tagging.
         # TODO(dulek): *Maybe* this can be replaced with
         #         lbaas.get_api_major_version(version=_OCTAVIA_TAGGING_VERSION)
@@ -80,9 +82,14 @@ class LBaaSv2Driver(base.LBaaSDriver):
                         'API %s does not support resource tagging. Kuryr '
                         'will put requested tags in the description field of '
                         'Octavia resources.', v_str)
+        if v >= _OCTAVIA_PROVIDER_VERSION:
+            self._octavia_providers = True
 
     def double_listeners_supported(self):
         return self._octavia_double_listeners
+
+    def providers_supported(self):
+        return self._octavia_providers
 
     def get_octavia_version(self):
         lbaas = clients.get_loadbalancer_client()
