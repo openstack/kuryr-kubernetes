@@ -117,7 +117,7 @@ Example run:
 
 .. code-block:: console
 
-   $ KURYR_K8S_API_ROOT="192.168.0.1:6443" ./tools/generate_k8s_resource_definitions /tmp
+   $ KURYR_K8S_API_ROOT="192.168.0.1:6443" ./tools/generate_k8s_resource_definitions.sh /tmp
 
 This should generate 5 files in your ``<output_dir>``:
 
