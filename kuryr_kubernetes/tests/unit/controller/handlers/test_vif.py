@@ -181,10 +181,9 @@ class TestVIFHandler(test_base.TestCase):
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
-        k8s.add_finalizer.assert_called_once_with(self._pod,
-                                                  k_const.POD_FINALIZER)
-        self._matc.assert_called_once_with(self._pod)
-        m_get_kuryrport.assert_called_once()
+        k8s.add_finalizer.assert_not_called()
+        self._matc.assert_not_called()
+        m_get_kuryrport.assert_not_called()
         self._request_vif.assert_not_called()
         self._request_additional_vifs.assert_not_called()
         self._activate_vif.assert_not_called()
@@ -192,8 +191,8 @@ class TestVIFHandler(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_kuryrport')
-    def test_on_present_not_pending(self, m_get_kuryrport, m_host_network,
-                                    m_get_k8s_client):
+    def test_on_present_not_scheduled(self, m_get_kuryrport, m_host_network,
+                                      m_get_k8s_client):
         m_get_kuryrport.return_value = self._kp
         m_host_network.return_value = False
         self._is_pod_scheduled.return_value = False
@@ -203,10 +202,9 @@ class TestVIFHandler(test_base.TestCase):
 
         h_vif.VIFHandler.on_present(self._handler, self._pod)
 
-        k8s.add_finalizer.assert_called_once_with(self._pod,
-                                                  k_const.POD_FINALIZER)
-        self._matc.assert_called_once_with(self._pod)
-        m_get_kuryrport.assert_called_once()
+        k8s.add_finalizer.assert_not_called()
+        self._matc.assert_not_called()
+        m_get_kuryrport.assert_not_called()
         self._request_vif.assert_not_called()
         self._request_additional_vifs.assert_not_called()
         self._activate_vif.assert_not_called()
@@ -295,7 +293,7 @@ class TestVIFHandler(test_base.TestCase):
     def test_on_present_upgrade(self, m_get_kuryrport, m_host_network,
                                 m_get_k8s_client):
         m_get_kuryrport.return_value = self._kp
-        m_host_network.return_value = True
+        m_host_network.return_value = False
         self._matc.return_value = True
         k8s = mock.MagicMock()
         m_get_k8s_client.return_value = k8s

@@ -135,10 +135,6 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
             self.k8s.remove_finalizer(kuryrport_crd, constants.POD_FINALIZER)
             raise
 
-        if (driver_utils.is_host_network(pod) or
-                not pod['spec'].get('nodeName')):
-            return
-
         project_id = self._drv_project.get_project(pod)
         try:
             crd_pod_selectors = self._drv_sg.delete_sg_rules(pod)
