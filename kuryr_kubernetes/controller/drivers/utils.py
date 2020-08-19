@@ -269,7 +269,7 @@ def create_security_group_rule_body(
         security_group_rule_body['namespace'] = namespace
     if pods:
         security_group_rule_body['affectedPods'] = [
-            {'podIP': ip, 'podNamespace': ns} for ip, ns in pods.items()]
+            {'podIP': ip, 'podNamespace': ns} for ip, ns in pods.items() if ip]
     LOG.debug("Creating sg rule body %s", security_group_rule_body)
     return security_group_rule_body
 
