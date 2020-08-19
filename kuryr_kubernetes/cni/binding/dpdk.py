@@ -163,7 +163,7 @@ class DpdkDriver(health.HealthHandler, b_base.BaseBindingDriver):
             vifs = {k: {'default': v['default'],
                         'vif': objects.base.VersionedObject
                         .obj_from_primitive(v['vif'])}
-                    for k, v in kp['spec']['vifs'].items()}
+                    for k, v in kp['status']['vifs'].items()}
         except (KeyError, AttributeError):
             LOG.exception(f"No vifs found on KuryrPort: {kp}")
             raise
@@ -177,12 +177,12 @@ class DpdkDriver(health.HealthHandler, b_base.BaseBindingDriver):
                          kp_link):
         k8s = clients.get_kubernetes_client()
         if vifs:
-            spec = {k: {'default': v['default'],
-                        'vif': v['vif'].obj_to_primitive()}
-                    for k, v in vifs.items()}
+            vif_dict = {k: {'default': v['default'],
+                            'vif': v['vif'].obj_to_primitive()}
+                        for k, v in vifs.items()}
 
-            LOG.info("Setting VIFs in KuryrPort %r", spec)
-            k8s.patch_crd('spec', kp_link, {'vifs': spec})
+            LOG.info("Setting VIFs in KuryrPort %r", vif_dict)
+            k8s.patch_crd('status', kp_link, {'vifs': vif_dict})
 
         if not labels:
             LOG.info("Removing Label annotation: %r", labels)

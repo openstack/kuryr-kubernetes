@@ -63,9 +63,9 @@ class TestKuryrPortHandler(test_base.TestCase):
             },
             'spec': {
                 'podUid': 'deadbeef',
-                'podNodeName': self._host,
-                'vifs': {}
-            }
+                'podNodeName': self._host
+            },
+            'status': {'vifs': {}}
         }
         self._vif1 = os_obj.vif.VIFBase()
         self._vif2 = os_obj.vif.VIFBase()
@@ -130,7 +130,7 @@ class TestKuryrPortHandler(test_base.TestCase):
                         update_crd, get_project):
         ged.return_value = [mock.MagicMock]
         kp = kuryrport.KuryrPortHandler()
-        self._kp['spec']['vifs'] = self._vifs_primitive
+        self._kp['status']['vifs'] = self._vifs_primitive
         get_project.return_value = self._project_id
 
         with mock.patch.object(kp, 'k8s') as k8s:
@@ -152,7 +152,7 @@ class TestKuryrPortHandler(test_base.TestCase):
         kp = kuryrport.KuryrPortHandler()
         self._vif1.active = True
         self._vif2.active = True
-        self._kp['spec']['vifs'] = {
+        self._kp['status']['vifs'] = {
             'eth0': {'default': True,
                      'vif': self._vif1.obj_to_primitive()},
             'eth1': {'default': False,
@@ -171,7 +171,7 @@ class TestKuryrPortHandler(test_base.TestCase):
                                        update_crd):
         ged.return_value = [self._driver]
         kp = kuryrport.KuryrPortHandler()
-        self._kp['spec']['vifs'] = self._vifs_primitive
+        self._kp['status']['vifs'] = self._vifs_primitive
         activate_vif.side_effect = os_exc.ResourceNotFound()
 
         kp.on_present(self._kp)
@@ -187,7 +187,7 @@ class TestKuryrPortHandler(test_base.TestCase):
     def test_on_present_pod_not_found(self, ged, get_k8s_client, activate_vif):
         ged.return_value = [self._driver]
         kp = kuryrport.KuryrPortHandler()
-        self._kp['spec']['vifs'] = self._vifs_primitive
+        self._kp['status']['vifs'] = self._vifs_primitive
 
         with mock.patch.object(kp, 'k8s') as k8s:
             k8s.get.side_effect = k_exc.K8sResourceNotFound(self._pod)
@@ -215,7 +215,7 @@ class TestKuryrPortHandler(test_base.TestCase):
                                         get_sg, release_vif):
         ged.return_value = [self._driver]
         kp = kuryrport.KuryrPortHandler()
-        self._kp['spec']['vifs'] = self._vifs_primitive
+        self._kp['status']['vifs'] = self._vifs_primitive
         update_crd.side_effect = k_exc.K8sResourceNotFound(self._kp)
         get_project.return_value = self._project_id
         get_sg.return_value = self._security_groups
@@ -246,7 +246,7 @@ class TestKuryrPortHandler(test_base.TestCase):
                                                     get_sg, release_vif):
         ged.return_value = [self._driver]
         kp = kuryrport.KuryrPortHandler()
-        self._kp['spec']['vifs'] = self._vifs_primitive
+        self._kp['status']['vifs'] = self._vifs_primitive
         update_crd.side_effect = k_exc.K8sClientException()
         get_project.return_value = self._project_id
         get_sg.return_value = self._security_groups
@@ -273,7 +273,7 @@ class TestKuryrPortHandler(test_base.TestCase):
         kp = kuryrport.KuryrPortHandler()
         self._vif2.plugin = constants.KURYR_VIF_TYPE_SRIOV
         self._vif2.active = True
-        self._kp['spec']['vifs'] = {
+        self._kp['status']['vifs'] = {
             'eth0': {'default': True,
                      'vif': self._vif2.obj_to_primitive()},
             'eth1': {'default': False,
@@ -313,7 +313,7 @@ class TestKuryrPortHandler(test_base.TestCase):
                            get_services, get_project):
         ged.return_value = [self._driver]
         kp = kuryrport.KuryrPortHandler()
-        self._kp['spec']['vifs'] = self._vifs_primitive
+        self._kp['status']['vifs'] = self._vifs_primitive
 
         with mock.patch.object(kp, 'k8s') as k8s:
             k8s.get.return_value = self._pod
@@ -333,7 +333,7 @@ class TestKuryrPortHandler(test_base.TestCase):
     def test_on_finalize_exception_on_pod(self, ged, k8s):
         ged.return_value = [self._driver]
         kp = kuryrport.KuryrPortHandler()
-        self._kp['spec']['vifs'] = self._vifs_primitive
+        self._kp['status']['vifs'] = self._vifs_primitive
 
         with mock.patch.object(kp, 'k8s') as k8s:
             k8s.get.side_effect = k_exc.K8sResourceNotFound(self._pod)
@@ -353,7 +353,7 @@ class TestKuryrPortHandler(test_base.TestCase):
                                                  is_host_network):
         ged.return_value = [self._driver]
         kp = kuryrport.KuryrPortHandler()
-        self._kp['spec']['vifs'] = self._vifs_primitive
+        self._kp['status']['vifs'] = self._vifs_primitive
         is_host_network.return_value = False
         _pod = dict(self._pod)
         del _pod['spec']['nodeName']
@@ -394,7 +394,7 @@ class TestKuryrPortHandler(test_base.TestCase):
                                            get_sg, release_vif):
         ged.return_value = [self._driver]
         kp = kuryrport.KuryrPortHandler()
-        self._kp['spec']['vifs'] = self._vifs_primitive
+        self._kp['status']['vifs'] = self._vifs_primitive
         is_host_network.return_value = False
         get_project.return_value = self._project_id
         delete_sg_rules.side_effect = k_exc.ResourceNotReady(self._pod)
@@ -447,7 +447,7 @@ class TestKuryrPortHandler(test_base.TestCase):
         self.addCleanup(CONF.clear_override, 'enforce_sg_rules',
                         group='octavia_defaults')
         kp = kuryrport.KuryrPortHandler()
-        self._kp['spec']['vifs'] = self._vifs_primitive
+        self._kp['status']['vifs'] = self._vifs_primitive
         is_host_network.return_value = False
         get_project.return_value = self._project_id
         selector = mock.sentinel.selector
@@ -686,10 +686,10 @@ class TestKuryrPortHandler(test_base.TestCase):
         vif2 = self._vif2.obj_to_primitive()
 
         kp.k8s.patch_crd.assert_called_once_with(
-            'spec', self._kp_link, {'vifs': {'eth0': {'default': True,
-                                                      'vif': vif1},
-                                             'eth1': {'default': False,
-                                                      'vif': vif2}}})
+            'status', self._kp_link, {'vifs': {'eth0': {'default': True,
+                                                        'vif': vif1},
+                                               'eth1': {'default': False,
+                                                        'vif': vif2}}})
 
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.controller.drivers.base.MultiVIFDriver.'
