@@ -30,7 +30,8 @@ OpenShift versions are supported at each Kuryr-Kubernetes release.
 ========================  ======================================    ========================
 Kuryr-Kubernetes version  Kubernetes version                        OpenShift Origin version
 ========================  ======================================    ========================
-master (Ussuri)           v1.14.x, v1.15.x, v1.16.x                 3.11, 4.2
+master (Victoria)         v1.16.x, v1.17.x, v1.18.x                 4.3, 4.4, 4.5
+2.0.0 (Ussuri)            v1.14.x, v1.15.x, v1.16.x                 3.11, 4.2
 1.1.0 (Train)             v1.13.x, v1.14.x, v1.15.x                 3.9, 3.10, 3.11, 4.2
 0.6.x, 1.0.0 (Stein)      v1.11.x, v1.12.x, v1.13.x                 3.9, 3.10, 3.11, 4.2
 0.5.2-3 (Rocky)           v1.9.x, v1.10.x, v1.11.x, v1.12.x         3.9, 3.10
