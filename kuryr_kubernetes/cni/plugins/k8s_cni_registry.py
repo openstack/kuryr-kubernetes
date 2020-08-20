@@ -123,7 +123,15 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
         # gone. If kuryrport got the vif info removed - it is now gone too.
         # The number's not 0, because we need to anticipate for restarts and
         # delay before registry is populated by watcher.
-        self._do_work(params, b_base.disconnect, 5)
+        try:
+            self._do_work(params, b_base.disconnect, 5)
+        except exceptions.ResourceNotReady:
+            # So the VIF info seems to be lost at this point, we don't even
+            # know what binding driver was used to plug it. Let's at least
+            # try to remove the interface we created from the netns to prevent
+            # possible VLAN ID conflicts.
+            b_base.cleanup(params.CNI_IFNAME, params.CNI_NETNS)
+            raise
 
         # NOTE(ndesh): We need to lock here to avoid race condition
         #              with the deletion code in the watcher to ensure that
