@@ -103,7 +103,10 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
 
         klb_crd_path = (f"{k_const.K8S_API_CRD_NAMESPACES}/"
                         f"{svc_namespace}/kuryrloadbalancers/{svc_name}")
-        k8s.delete(klb_crd_path)
+        try:
+            k8s.delete(klb_crd_path)
+        except k_exc.K8sResourceNotFound:
+            k8s.remove_finalizer(service, k_const.SERVICE_FINALIZER)
 
     def _has_clusterip(self, service):
         # ignore headless service, clusterIP is None
