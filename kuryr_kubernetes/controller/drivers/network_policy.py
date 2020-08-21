@@ -69,6 +69,8 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         if 'remote_ip_prefixes' in rule:
             result['affectedPods'] = []
             for ip, namespace in rule['remote_ip_prefixes']:
+                if not ip:
+                    continue
                 result['affectedPods'].append({
                     'podIP': ip,
                     'podNamespace': namespace,
