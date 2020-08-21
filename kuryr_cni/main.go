@@ -100,7 +100,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	vif := VIF{}
 	err = json.Unmarshal(body, &vif)
 	if err != nil {
-		return errors.Wrapf(err, "Error when reading response from kurry-daemon: %s", string(body))
+		return errors.Wrapf(err, "Error when reading response from kuryr-daemon: %s", string(body))
 	}
 
 	iface := current.Interface{}
