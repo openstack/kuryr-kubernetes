@@ -137,6 +137,15 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
                                       constants.KURYRPORT_FINALIZER)
             return
 
+        if 'deletionTimestamp' not in pod['metadata']:
+            # NOTE(gryf): Ignore deleting KuryrPort, since most likely it was
+            # removed manually, while we need vifs for corresponding pod
+            # object which apperantely is still running.
+            LOG.warning('Manually triggered KuryrPort %s removal. This '
+                        'action should be avoided, since KuryrPort CRDs are '
+                        'internal to Kuryr.', name)
+            return
+
         project_id = self._drv_project.get_project(pod)
         try:
             crd_pod_selectors = self._drv_sg.delete_sg_rules(pod)

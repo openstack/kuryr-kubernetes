@@ -48,6 +48,7 @@ class TestKuryrPortHandler(test_base.TestCase):
         self._pod = {'metadata': {'resourceVersion': self._pod_version,
                                   'selfLink': self._pod_link,
                                   'name': self._kp_name,
+                                  'deletionTimestamp': mock.sentinel.date,
                                   'namespace': self._kp_namespace},
                      'spec': {'nodeName': self._host}}
 
@@ -439,6 +440,22 @@ class TestKuryrPortHandler(test_base.TestCase):
         get_services.assert_called_once()
         update_services.assert_called_once_with(mock.sentinel.services,
                                                 selector, self._project_id)
+
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base.MultiVIFDriver.'
+                'get_enabled_drivers')
+    def test_on_finalize_pod_running(self, ged, k8s):
+        ged.return_value = [self._driver]
+        # copy, so it will not be affected by other tests run in parallel.
+        pod = dict(self._pod)
+        del(pod['metadata']['deletionTimestamp'])
+
+        kp = kuryrport.KuryrPortHandler()
+
+        with mock.patch.object(kp, 'k8s') as k8s:
+            k8s.get.return_value = pod
+            self.assertIsNone(kp.on_finalize(self._kp))
+            k8s.get.assert_called_once_with(self._pod_uri)
 
     @mock.patch('kuryr_kubernetes.controller.handlers.kuryrport.'
                 'KuryrPortHandler._update_kuryrport_crd')
