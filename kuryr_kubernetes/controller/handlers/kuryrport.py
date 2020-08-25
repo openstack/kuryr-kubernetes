@@ -129,11 +129,13 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
         try:
             pod = self.k8s.get(f"{constants.K8S_API_NAMESPACES}"
                                f"/{namespace}/pods/{name}")
-        except k_exc.K8sResourceNotFound as ex:
-            LOG.exception("Failed to get pod: %s", ex)
+        except k_exc.K8sResourceNotFound:
+            LOG.error("Pod %s/%s doesn't exists, deleting orphaned KuryrPort",
+                      namespace, name)
             # TODO(gryf): Free resources
-            self.k8s.remove_finalizer(kuryrport_crd, constants.POD_FINALIZER)
-            raise
+            self.k8s.remove_finalizer(kuryrport_crd,
+                                      constants.KURYRPORT_FINALIZER)
+            return
 
         project_id = self._drv_project.get_project(pod)
         try:

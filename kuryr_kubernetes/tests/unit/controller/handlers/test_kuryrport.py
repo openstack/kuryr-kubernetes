@@ -338,12 +338,11 @@ class TestKuryrPortHandler(test_base.TestCase):
         with mock.patch.object(kp, 'k8s') as k8s:
             k8s.get.side_effect = k_exc.K8sResourceNotFound(self._pod)
 
-            self.assertRaises(k_exc.K8sResourceNotFound, kp.on_finalize,
-                              self._kp)
+            self.assertIsNone(kp.on_finalize(self._kp))
 
             k8s.get.assert_called_once_with(self._pod_uri)
             k8s.remove_finalizer.assert_called_once_with(
-                self._kp, constants.POD_FINALIZER)
+                self._kp, constants.KURYRPORT_FINALIZER)
 
     @mock.patch('kuryr_kubernetes.controller.drivers.vif_pool.MultiVIFPool.'
                 'release_vif')
