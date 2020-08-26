@@ -668,7 +668,8 @@ function run_k8s_controller_manager {
                 --root-ca-file=${KURYR_KUBERNETES_DATA_DIR}/ca.crt \
                 --min-resync-period=3m \
                 --v=$(get_k8s_log_level) \
-                --logtostderr=true"
+                --logtostderr=true \
+                --leader-elect=false"
 
     run_process kubernetes-controller-manager "$command" root root
 }
@@ -686,7 +687,8 @@ function run_k8s_scheduler {
     command="${KURYR_KUBE_SCHEDULER_BINARY} \
                 --master=${KURYR_K8S_API_URL} \
                 --v=$(get_k8s_log_level) \
-                --logtostderr=true"
+                --logtostderr=true \
+                --leader-elect=false"
 
     run_process kubernetes-scheduler "$command" root root
 }
