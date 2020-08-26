@@ -117,13 +117,13 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         return not(self._has_pods(loadbalancer_crd))
 
     def _has_pods(self, loadbalancer_crd):
-        ep_subsets = loadbalancer_crd['spec'].get('subsets', [])
-        if not ep_subsets:
+        ep_slices = loadbalancer_crd['spec'].get('endpointSlices', [])
+        if not ep_slices:
             return False
         return any(True
-                   for subset in ep_subsets
-                   for address in subset.get('addresses', [])
-                   if address['targetRef'].get('kind', []) == 'Pod')
+                   for ep_slice in ep_slices
+                   for endpoint in ep_slice.get('endpoints', [])
+                   if endpoint['targetRef'].get('kind', []) == 'Pod')
 
     def on_finalize(self, loadbalancer_crd):
         LOG.debug("Deleting the loadbalancer CRD")
@@ -263,25 +263,25 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
             except KeyError:
                 continue
 
-        current_targets = {(str(m['ip']), m['port'], m['pool_id'])
+        current_targets = [(str(m['ip']), m['port'], m['pool_id'])
                            for m in loadbalancer_crd['status'].get(
-                               'members', [])}
+                               'members', [])]
 
-        for subset in loadbalancer_crd['spec']['subsets']:
-            subset_ports = subset.get('ports', [])
-            for subset_address in subset.get('addresses', []):
+        for ep_slice in loadbalancer_crd['spec']['endpointSlices']:
+            ep_slices_ports = ep_slice.get('ports', [])
+            for endpoint in ep_slice.get('endpoints', []):
                 try:
-                    target_ip = subset_address['ip']
-                    target_ref = subset_address['targetRef']
+                    target_ip = endpoint['addresses'][0]
+                    target_ref = endpoint['targetRef']
                     if target_ref['kind'] != k_const.K8S_OBJ_POD:
                         continue
                 except KeyError:
                     continue
                 if not pool_by_tgt_name:
                     continue
-                for subset_port in subset_ports:
-                    target_port = subset_port['port']
-                    port_name = subset_port.get('name')
+                for ep_slice_port in ep_slices_ports:
+                    target_port = ep_slice_port['port']
+                    port_name = ep_slice_port.get('name')
                     try:
                         pool = pool_by_tgt_name[port_name]
                     except KeyError:
@@ -392,14 +392,16 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                     port['name'] = None
                 spec_ports[port['name']] = pool['id']
 
-        subsets = loadbalancer_crd['spec'].get('subsets')
-        current_targets = {(a['ip'], a.get('targetRef', {}).get('name', ''),
-                            p['port'], spec_ports.get(p.get('name')))
-                           for s in subsets
-                           for a in s['addresses']
-                           for p in s['ports']
-                           if p.get('name') in spec_ports}
-
+        ep_slices = loadbalancer_crd['spec'].get('endpointSlices')
+        # NOTE(maysams): As we don't support dual-stack, we assume
+        # only one address is possible on the addresses field.
+        current_targets = [(ep['addresses'][0],
+                           ep.get('targetRef', {}).get('name', ''),
+                           p['port'], spec_ports.get(p.get('name')))
+                           for ep_slice in ep_slices
+                           for ep in ep_slice['endpoints']
+                           for p in ep_slice['ports']
+                           if p.get('name') in spec_ports]
         removed_ids = set()
 
         for member in loadbalancer_crd['status'].get('members', []):

@@ -281,29 +281,9 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
             return
 
         if loadbalancer_crd is None:
-            loadbalancer_crd = self._create_crd_spec(endpoints)
+            self._create_crd_spec(endpoints)
         else:
-            loadbalancer_crd = self._update_crd_spec(loadbalancer_crd,
-                                                     endpoints)
-
-    def _has_lbaas_spec_changes(self, endpoints, loadbalancer_crd):
-        return (self._has_ip_changes(endpoints, loadbalancer_crd) or
-                utils.has_port_changes(endpoints, loadbalancer_crd))
-
-    def _has_ip_changes(self, endpoints, loadbalancer_crd):
-        link = endpoints['metadata']['selfLink']
-        endpoint_ip = endpoints['subsets']['addresses'].get('ip')
-        endpoint_crd_ip = loadbalancer_crd['spec'].get('ip')
-
-        if endpoint_crd_ip != endpoint_ip:
-            LOG.debug("LBaaS spec IP %(endpoint_crd_ip)s !="
-                      " %(endpoint_ip)s for %(link)s"
-                      % {'endpoint_crd_ip': endpoint_crd_ip,
-                         'endpoint_ip': endpoint_ip,
-                         'link': link})
-            return True
-
-        return False
+            self._update_crd_spec(loadbalancer_crd, endpoints)
 
     def _has_pods(self, endpoints):
         ep_subsets = endpoints.get('subsets', [])
@@ -314,17 +294,48 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
                    for address in subset.get('addresses', [])
                    if address.get('targetRef', {}).get('kind') == 'Pod')
 
+    def _convert_subsets_to_endpointslice(self, endpoints_obj):
+        endpointslices = []
+        endpoints = []
+        subsets = endpoints_obj.get('subsets', [])
+        for subset in subsets:
+            addresses = subset.get('addresses', [])
+            ports = subset.get('ports', [])
+            for address in addresses:
+                ip = address.get('ip')
+                targetRef = address.get('targetRef')
+                endpoint = {
+                    'addresses': [ip],
+                    'conditions': {
+                        'ready': True
+                    },
+                    'targetRef': targetRef
+                }
+                endpoints.append(endpoint)
+            endpointslices.append({
+                'endpoints': endpoints,
+                'ports': ports,
+            })
+
+        return endpointslices
+
     def _create_crd_spec(self, endpoints, spec=None, status=None):
         endpoints_name = endpoints['metadata']['name']
         namespace = endpoints['metadata']['namespace']
         kubernetes = clients.get_kubernetes_client()
 
-        subsets = endpoints.get('subsets', [])
+        # TODO(maysams): Remove the convertion once we start handling
+        # Endpoint slices.
+        epslices = self._convert_subsets_to_endpointslice(endpoints)
         if not status:
             status = {}
         if not spec:
-            spec = {'subsets': subsets}
+            spec = {'endpointSlices': epslices}
 
+        # NOTE(maysams): As the spec may already contain a
+        # ports field from the Service, a new endpointslice
+        # field is introduced to also hold ports from the
+        # Endpoints under the spec.
         loadbalancer_crd = {
             'apiVersion': 'openstack.org/v1',
             'kind': 'KuryrLoadBalancer',
@@ -346,17 +357,17 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
                           "kuryrloadbalancer CRD. %s" %
                           k_exc.K8sClientException)
             raise
-        return loadbalancer_crd
 
     def _update_crd_spec(self, loadbalancer_crd, endpoints):
         kubernetes = clients.get_kubernetes_client()
-        subsets = endpoints.get('subsets')
-        lbaas_update_crd = {
-            'subsets': subsets
-            }
+        # TODO(maysams): Remove the convertion once we start handling
+        # Endpoint slices.
+        epslices = self._convert_subsets_to_endpointslice(endpoints)
         try:
-            kubernetes.patch_crd('spec', loadbalancer_crd['metadata'][
-                'selfLink'], lbaas_update_crd)
+            kubernetes.patch_crd(
+                'spec',
+                loadbalancer_crd['metadata']['selfLink'],
+                {'endpointSlices': epslices})
         except k_exc.K8sResourceNotFound:
             LOG.debug('KuryrLoadbalancer CRD not found %s', loadbalancer_crd)
         except k_exc.K8sConflict:
@@ -365,19 +376,6 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
             LOG.exception('Error updating KuryrLoadbalancer CRD %s',
                           loadbalancer_crd)
             raise
-
-        return loadbalancer_crd
-
-    def _get_service_link(self, endpoints):
-        ep_link = endpoints['metadata']['selfLink']
-        link_parts = ep_link.split('/')
-
-        if link_parts[-2] != 'endpoints':
-            raise k_exc.IntegrityError(_(
-                "Unsupported endpoints link: %(link)s") % {
-                    'link': ep_link})
-        link_parts[-2] = 'services'
-        return "/".join(link_parts)
 
     def _move_annotations_to_crd(self, endpoints):
         """Support upgrade from annotations to KuryrLoadBalancer CRD."""
