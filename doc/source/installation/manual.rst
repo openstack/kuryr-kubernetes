@@ -219,18 +219,22 @@ Link the CNI binary to CNI directory, where kubelet would find it:
    $ mkdir -p /opt/cni/bin
    $ ln -s $(which kuryr-cni) /opt/cni/bin/
 
-Create the CNI config file for kuryr-cni: ``/etc/cni/net.d/10-kuryr.conf``.
+Create the CNI config file for kuryr-cni: ``/etc/cni/net.d/10-kuryr.conflist``.
 Kubelet would only use the lexicographically first file in that directory, so
 make sure that it is kuryr's config file:
 
 .. code-block:: json
 
    {
-       "cniVersion": "0.3.1",
-       "name": "kuryr",
-       "type": "kuryr-cni",
-       "kuryr_conf": "/etc/kuryr/kuryr.conf",
-       "debug": true
+     "name": "kuryr",
+     "cniVersion": "0.3.1",
+     "plugins": [
+       {
+         "type": "kuryr-cni",
+         "kuryr_conf": "/etc/kuryr/kuryr.conf",
+         "debug": true
+       }
+     ]
    }
 
 Install ``os-vif`` and ``oslo.privsep`` libraries globally. These modules

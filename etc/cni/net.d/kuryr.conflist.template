@@ -1,0 +1,11 @@
+{
+  "name": "kuryr",
+  "cniVersion": "0.3.1",
+  "plugins": [
+    {
+      "type": "kuryr-cni",
+      "kuryr_conf": "/etc/kuryr/kuryr.conf",
+      "debug": true
+    }
+  ]
+}

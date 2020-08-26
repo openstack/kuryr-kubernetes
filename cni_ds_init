@@ -1,7 +1,7 @@
 #!/bin/bash -ex
 
 function cleanup() {
-    rm -f "/etc/cni/net.d/10-kuryr.conf"
+    rm -f "/etc/cni/net.d/10-kuryr.conflist"
     rm -f "/opt/cni/bin/kuryr-cni"
 }
 
@@ -9,7 +9,11 @@ function deploy() {
     # Copy the binary into the designated location
     cp /kuryr-cni "/opt/cni/bin/kuryr-cni"
     chmod +x /opt/cni/bin/kuryr-cni
-    cp /etc/kuryr-cni/* /etc/cni/net.d
+    if [ -f /etc/cni/net.d/kuryr.conflist.template ]; then
+      cp /etc/cni/net.d/kuryr.conflist.template /etc/cni/net.d/10-kuryr.conflist
+    else
+      cp /etc/kuryr-cni/kuryr.conflist.template /etc/cni/net.d/10-kuryr.conflist
+    fi
 }
 
 cleanup
