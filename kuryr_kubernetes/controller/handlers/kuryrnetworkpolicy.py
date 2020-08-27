@@ -56,6 +56,10 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
     def _convert_old_crds(self):
         try:
             netpolicies = self.k8s.get(constants.K8S_API_CRD_KURYRNETPOLICIES)
+        except exceptions.K8sResourceNotFound:
+            LOG.debug("%s resource not found.",
+                      constants.K8S_API_CRD_KURYRNETPOLICIES)
+            return
         except exceptions.K8sClientException:
             LOG.exception("Error when fetching old KuryrNetPolicy CRDs for "
                           "conversion.")
