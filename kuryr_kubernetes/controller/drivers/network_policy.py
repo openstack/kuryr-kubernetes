@@ -609,7 +609,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         try:
             self.os_net.delete_security_group(sg_id)
         except os_exc.ConflictException:
-            LOG.debug("Security Group already in use: %s", sg_id)
+            LOG.debug("Security Group %s still in use!", sg_id)
             # raising ResourceNotReady to retry this action in case ports
             # associated to affected pods are not updated on time, i.e.,
             # they are still using the security group to be removed

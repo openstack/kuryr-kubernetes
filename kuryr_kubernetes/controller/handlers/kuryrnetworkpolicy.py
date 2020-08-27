@@ -196,7 +196,11 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
             if driver_utils.is_host_network(pod):
                 continue
             pod_sgs = self._drv_pod_sg.get_security_groups(pod, project_id)
-            self._drv_vif_pool.update_vif_sgs(pod, pod_sgs)
+            try:
+                self._drv_vif_pool.update_vif_sgs(pod, pod_sgs)
+            except os_exc.NotFoundException:
+                # Pod got deleted in the meanwhile, should be safe to ignore.
+                pass
 
         # FIXME(dulek): We should not need this one day.
         policy = self._get_networkpolicy(knp['metadata']['annotations']
@@ -279,9 +283,8 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
                 try:
                     self._drv_vif_pool.update_vif_sgs(pod, pod_sgs)
                 except os_exc.NotFoundException:
-                    LOG.debug("Fail to update pod sgs."
-                              " Retrying policy deletion.")
-                    raise exceptions.ResourceNotReady(knp)
+                    # Pod got deleted in the meanwhile, safe to ignore.
+                    pass
 
             # ensure ports at the pool don't have the NP sg associated
             try:
