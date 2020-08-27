@@ -168,3 +168,10 @@ def disconnect(vif, instance_info, ifname, netns=None, report_health=None,
         report_health(driver.is_alive())
     driver.disconnect(vif, ifname, netns, container_id)
     os_vif.unplug(vif, instance_info)
+
+
+def cleanup(ifname, netns):
+    with get_ipdb(netns) as c_ipdb:
+        if ifname in c_ipdb.interfaces:
+            with c_ipdb.interfaces[ifname] as iface:
+                iface.remove()
