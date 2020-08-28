@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from kuryr.lib._i18n import _
+from kuryr.lib import constants as kl_const
 from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 
@@ -101,11 +102,13 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
         try:
             os_net.delete_network(net_id)
         except os_exc.ConflictException:
-
             LOG.exception("One or more ports in use on the network %s. "
                           "Deleting leftovers ports before retrying", net_id)
-            leftover_ports = os_net.ports(status='DOWN', network_id=net_id)
+            leftover_ports = os_net.ports(network_id=net_id)
             for leftover_port in leftover_ports:
+                if leftover_port.device_owner not in ['trunk:subport',
+                                                      kl_const.DEVICE_OWNER]:
+                    continue
                 try:
                     # NOTE(gryf): there is unlikely, that we get an exception
                     # like PortNotFound or something, since openstacksdk
@@ -114,10 +117,11 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
                     os_net.delete_port(leftover_port.id)
                 except os_exc.SDKException as e:
                     if "currently a subport for trunk" in str(e):
-                        LOG.warning("Port %s is in DOWN status but still "
-                                    "associated to a trunk. This should not "
-                                    "happen. Trying to delete it from the "
-                                    "trunk.", leftover_port.id)
+                        if leftover_port.status == "DOWN":
+                            LOG.warning("Port %s is in DOWN status but still "
+                                        "associated to a trunk. This should "
+                                        "not happen. Trying to delete it from "
+                                        "the trunk.", leftover_port.id)
                         # Get the trunk_id from the error message
                         trunk_id = (
                             str(e).split('trunk')[1].split('.')[0].strip())

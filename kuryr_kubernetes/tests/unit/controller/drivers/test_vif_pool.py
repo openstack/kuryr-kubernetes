@@ -87,6 +87,7 @@ class BaseVIFPool(test_base.TestCase):
         vif = mock.sentinel.vif
 
         m_driver._get_port_from_pool.return_value = vif
+        m_driver._recovered_pools = True
         oslo_cfg.CONF.set_override('ports_pool_min',
                                    5,
                                    group='vif_pool')
@@ -116,6 +117,7 @@ class BaseVIFPool(test_base.TestCase):
         network = ovu.neutron_to_osvif_network(_net)
         subnets = {subnet_id: network}
         security_groups = [mock.sentinel.security_groups]
+        m_driver._recovered_pools = True
         m_driver._get_port_from_pool.side_effect = (
             exceptions.ResourceNotReady(pod))
 
@@ -132,6 +134,7 @@ class BaseVIFPool(test_base.TestCase):
         subnets = mock.sentinel.subnets
         security_groups = [mock.sentinel.security_groups]
         m_driver._get_host_addr.side_effect = KeyError
+        m_driver._recovered_pools = True
 
         resp = cls.request_vif(m_driver, pod, project_id, subnets,
                                security_groups)
@@ -269,6 +272,7 @@ class BaseVIFPool(test_base.TestCase):
                                      network=network)
 
         m_driver._return_ports_to_pool.return_value = None
+        m_driver._recovered_pools = True
 
         cls.release_vif(m_driver, pod, vif, project_id, security_groups)
 
@@ -644,6 +648,7 @@ class NeutronVIFPool(test_base.TestCase):
 
         m_driver._recyclable_ports = {port_id: pool_key}
         m_driver._available_ports_pools = {}
+        m_driver._recovered_pools = True
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    max_pool,
                                    group='vif_pool')
@@ -685,6 +690,7 @@ class NeutronVIFPool(test_base.TestCase):
         port.security_group_ids = ['security_group']
         os_net.ports.return_value = (p for p in [port])
         m_driver._get_pool_size.return_value = pool_length
+        m_driver._recovered_pools = True
 
         cls._trigger_return_to_pool(m_driver)
 
@@ -705,6 +711,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver._recyclable_ports = {port_id: pool_key}
         m_driver._available_ports_pools = {}
         m_driver._existing_vifs = {port_id: vif}
+        m_driver._recovered_pools = True
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    10,
                                    group='vif_pool')
@@ -730,6 +737,7 @@ class NeutronVIFPool(test_base.TestCase):
 
         m_driver._recyclable_ports = {port_id: pool_key}
         m_driver._available_ports_pools = {}
+        m_driver._recovered_pools = True
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    0,
                                    group='vif_pool')
@@ -765,6 +773,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver._recyclable_ports = {port_id: pool_key}
         m_driver._available_ports_pools = {}
         m_driver._existing_vifs = {port_id: vif}
+        m_driver._recovered_pools = True
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    5,
                                    group='vif_pool')
@@ -791,6 +800,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver._recyclable_ports = {port_id: pool_key}
         m_driver._available_ports_pools = {}
         m_driver._existing_vifs = {}
+        m_driver._recovered_pools = True
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    5,
                                    group='vif_pool')
@@ -1195,6 +1205,7 @@ class NestedVIFPool(test_base.TestCase):
             munch.Munch({'id': port_id,
                          'security_group_ids': ['security_group_modified']})]
         m_driver._get_pool_size.return_value = pool_length
+        m_driver._recovered_pools = True
 
         cls._trigger_return_to_pool(m_driver)
 
@@ -1226,6 +1237,7 @@ class NestedVIFPool(test_base.TestCase):
         port.security_group_ids = ['security_group']
         os_net.ports.return_value = [port]
         m_driver._get_pool_size.return_value = pool_length
+        m_driver._recovered_pools = True
 
         cls._trigger_return_to_pool(m_driver)
 
@@ -1261,6 +1273,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._get_pool_size.return_value = pool_length
         m_driver._get_trunk_id.return_value = trunk_id
         m_driver._known_trunk_ids = {}
+        m_driver._recovered_pools = True
 
         cls._trigger_return_to_pool(m_driver)
 
@@ -1293,6 +1306,7 @@ class NestedVIFPool(test_base.TestCase):
         os_net.ports.return_value = [port]
         m_driver._get_pool_size.return_value = pool_length
         os_net.update_port.side_effect = os_exc.SDKException
+        m_driver._recovered_pools = True
 
         cls._trigger_return_to_pool(m_driver)
 
@@ -1327,6 +1341,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._get_pool_size.return_value = pool_length
         m_driver._get_trunk_id.return_value = trunk_id
         m_driver._known_trunk_ids = {}
+        m_driver._recovered_pools = True
 
         cls._trigger_return_to_pool(m_driver)
 
@@ -1361,6 +1376,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._get_pool_size.return_value = pool_length
         m_driver._known_trunk_ids = {}
         m_driver._get_trunk_id.return_value = trunk_id
+        m_driver._recovered_pools = True
 
         cls._trigger_return_to_pool(m_driver)
 
