@@ -105,16 +105,38 @@ class VIFHandler(k8s_base.ResourceEventHandler):
 
     def on_finalize(self, pod):
         k8s = clients.get_kubernetes_client()
+
         try:
-            k8s.delete(KURYRPORT_URI.format(ns=pod["metadata"]["namespace"],
-                                            crd=pod["metadata"]["name"]))
+            kp = k8s.get(KURYRPORT_URI.format(ns=pod["metadata"]["namespace"],
+                                              crd=pod["metadata"]["name"]))
         except k_exc.K8sResourceNotFound:
             k8s.remove_finalizer(pod, constants.POD_FINALIZER)
+            return
 
-        except k_exc.K8sClientException:
-            LOG.exception("Could not remove KuryrPort CRD for pod %s.",
-                          pod['metadata']['name'])
-            raise k_exc.ResourceNotReady(pod['metadata']['name'])
+        if 'deletionTimestamp' in kp['metadata']:
+            # NOTE(gryf): Seems like KP was manually removed. By using
+            # annotations, force an emition of event to trigger on_finalize
+            # method on the KuryrPort.
+            try:
+                k8s.annotate(kp['metadata']['selfLink'], {'KuryrTrigger': '1'})
+            except k_exc.K8sResourceNotFound:
+                LOG.error('Cannot annotate existing KuryrPort %s.',
+                          kp['metadata']['name'])
+                k8s.remove_finalizer(pod, constants.POD_FINALIZER)
+            except k_exc.K8sClientException:
+                raise k_exc.ResourceNotReady(pod['metadata']['name'])
+        else:
+            try:
+                k8s.delete(KURYRPORT_URI
+                           .format(ns=pod["metadata"]["namespace"],
+                                   crd=pod["metadata"]["name"]))
+            except k_exc.K8sResourceNotFound:
+                k8s.remove_finalizer(pod, constants.POD_FINALIZER)
+
+            except k_exc.K8sClientException:
+                LOG.exception("Could not remove KuryrPort CRD for pod %s.",
+                              pod['metadata']['name'])
+                raise k_exc.ResourceNotReady(pod['metadata']['name'])
 
     def is_ready(self, quota):
         if (utils.has_limit(quota.ports) and
