@@ -15,7 +15,6 @@
 from kuryr_kubernetes import config
 from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes.controller.drivers import public_ip
-from oslo_config import cfg
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
@@ -44,6 +43,15 @@ class FloatingIpServicePubIPDriver(base.ServicePubIpDriver):
         if spec_type != 'LoadBalancer':
             return None
 
+        # get public network/subnet ids from kuryr.conf
+        public_network_id = config.CONF.neutron_defaults.external_svc_net
+        public_subnet_id = config.CONF.neutron_defaults.external_svc_subnet
+        if not public_network_id:
+            LOG.warning('Skipping Floating IP allocation on port: %s. '
+                        'Missing value for external_svc_net config.',
+                        port_id_to_be_associated)
+            return None
+
         if spec_lb_ip:
             user_specified_ip = spec_lb_ip.format()
             res_id = self._drv_pub_ip.is_ip_available(user_specified_ip,
@@ -63,12 +71,6 @@ class FloatingIpServicePubIPDriver(base.ServicePubIpDriver):
         else:
             LOG.debug("Trying to allocate public ip from pool")
 
-        # get public network/subnet ids from kuryr.conf
-        public_network_id = config.CONF.neutron_defaults.external_svc_net
-        public_subnet_id = config.CONF.neutron_defaults.external_svc_subnet
-        if not public_network_id:
-            raise cfg.RequiredOptError('external_svc_net',
-                                       cfg.OptGroup('neutron_defaults'))
         try:
             res_id, alloc_ip_addr = (self._drv_pub_ip.allocate_ip(
                 public_network_id, project_id, pub_subnet_id=public_subnet_id,

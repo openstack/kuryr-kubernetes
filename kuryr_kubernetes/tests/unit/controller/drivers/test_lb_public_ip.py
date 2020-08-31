@@ -16,13 +16,16 @@ import munch
 from openstack import exceptions as os_exc
 from unittest import mock
 
+from oslo_config import cfg
+
 from kuryr_kubernetes.controller.drivers import lb_public_ip\
     as d_lb_public_ip
 from kuryr_kubernetes.controller.drivers import public_ip
 from kuryr_kubernetes.objects import lbaas as obj_lbaas
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
-from oslo_config import cfg
+
+CONF = cfg.CONF
 
 
 class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
@@ -52,6 +55,9 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         project_id = mock.sentinel.project_id
         spec_type = 'LoadBalancer'
         spec_lb_ip = '1.2.3.4'
+        CONF.set_override('external_svc_net',
+                          '9767e1bd-40a7-4294-8e59-29dd77edb0e3',
+                          group='neutron_defaults')
 
         expected_resp = {
             'ip_id': fip.id,
@@ -111,9 +117,9 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         spec_type = 'LoadBalancer'
         spec_lb_ip = None
 
-        self.assertRaises(cfg.RequiredOptError,
-                          driver.acquire_service_pub_ip_info,
-                          spec_type, spec_lb_ip, project_id)
+        result = driver.acquire_service_pub_ip_info(
+            spec_type, spec_lb_ip, project_id)
+        self.assertIsNone(result)
 
     @mock.patch('kuryr_kubernetes.config.CONF')
     def test_acquire_service_pub_ip_info_pool_subnet_is_none(self, m_cfg):
