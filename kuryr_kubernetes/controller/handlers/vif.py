@@ -97,6 +97,10 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             except k_exc.K8sNamespaceTerminating:
                 # The underlying namespace is being terminated, we can
                 # ignore this and let `on_finalize` handle this now.
+                LOG.warning('Namespace %s is being terminated, ignoring Pod '
+                            '%s in that namespace.',
+                            pod['metadata']['namespace'],
+                            pod['metadata']['name'])
                 return
             except k_exc.K8sClientException as ex:
                 LOG.exception("Kubernetes Client Exception creating "

@@ -62,9 +62,16 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
             raise
 
         if loadbalancer_crd is None:
-            loadbalancer_crd = self.create_crd_spec(service)
+            try:
+                self.create_crd_spec(service)
+            except k_exc.K8sNamespaceTerminating:
+                LOG.warning('Namespace %s is being terminated, ignoring '
+                            'Service %s in that namespace.',
+                            service['metadata']['namespace'],
+                            service['metadata']['name'])
+                return
         elif self._has_lbaas_spec_changes(service, loadbalancer_crd):
-            loadbalancer_crd = self._update_crd_spec(loadbalancer_crd, service)
+            self._update_crd_spec(loadbalancer_crd, service)
 
     def _is_supported_type(self, service):
         spec = service['spec']
@@ -281,7 +288,14 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
             return
 
         if loadbalancer_crd is None:
-            self._create_crd_spec(endpoints)
+            try:
+                self._create_crd_spec(endpoints)
+            except k_exc.K8sNamespaceTerminating:
+                LOG.warning('Namespace %s is being terminated, ignoring '
+                            'Endpoints %s in that namespace.',
+                            endpoints['metadata']['namespace'],
+                            endpoints['metadata']['name'])
+                return
         else:
             self._update_crd_spec(loadbalancer_crd, endpoints)
 
