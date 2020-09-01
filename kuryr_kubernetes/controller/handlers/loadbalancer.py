@@ -50,6 +50,8 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         self._drv_pod_project = drv_base.PodProjectDriver.get_instance()
         self._drv_pod_subnets = drv_base.PodSubnetsDriver.get_instance()
         self._drv_service_pub_ip = drv_base.ServicePubIpDriver.get_instance()
+        self._drv_svc_project = drv_base.ServiceProjectDriver.get_instance()
+        self._drv_sg = drv_base.ServiceSecurityGroupsDriver.get_instance()
         # Note(yboaron) LBaaS driver supports 'provider' parameter in
         # Load Balancer creation flow.
         # We need to set the requested load balancer provider
@@ -204,44 +206,43 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
 
         return changed
 
-    def _sync_lbaas_sgs(self, loadbalancer_crd):
-        # NOTE (maysams) Need to retrieve the LBaaS Spec again due to
-        # the possibility of it being updated after the LBaaS creation
-        # process has started.
-        lbaas_spec = loadbalancer_crd.get('spec')
-
-        lb = loadbalancer_crd['status'].get('loadbalancer')
+    def _sync_lbaas_sgs(self, klb_crd):
+        lb = klb_crd['status'].get('loadbalancer')
+        svc_name = klb_crd['metadata']['name']
+        svc_namespace = klb_crd['metadata']['namespace']
         if not lb:
+            LOG.debug("No LB created. Skipping lb %s sg sync.",
+                      svc_name)
             return
+        k8s = clients.get_kubernetes_client()
+        try:
+            service = k8s.get(
+                f'{k_const.K8S_API_NAMESPACES}/{svc_namespace}/'
+                f'services/{svc_name}')
+        except k_exc.K8sResourceNotFound:
+            LOG.debug('Service %s not found.', svc_name)
+            return
+        except k_exc.K8sClientException:
+            LOG.exception('Error retrieving Service %s.', svc_name)
+            raise
 
-        default_sgs = config.CONF.neutron_defaults.pod_security_groups
-        # NOTE(maysams) As the endpoint and svc are annotated with the
-        # 'lbaas_spec' in two separate k8s calls, it's possible that
-        # the endpoint got annotated and the svc haven't due to controller
-        # restarts. For this case, a resourceNotReady exception is raised
-        # till the svc gets annotated with a 'lbaas_spec'.
-        if lbaas_spec:
-            lbaas_spec_sgs = loadbalancer_crd['spec'].get(
-                'security_groups_ids', [])
-        else:
-            raise k_exc.ResourceNotReady(lbaas_spec_sgs)
-        if (lb.get('security_groups') and
-                lb.get('security_groups') != lbaas_spec_sgs):
-            sgs = [lb_sg for lb_sg in lb['security_groups']
-                   if lb_sg not in default_sgs]
-            if lbaas_spec_sgs != default_sgs:
-                sgs.extend(lbaas_spec_sgs)
-
-            # Check if this should update the CRD
-            lb['security_groups'] = sgs
+        project_id = self._drv_svc_project.get_project(service)
+        lb_sgs = self._drv_sg.get_security_groups(service, project_id)
+        try:
+            k8s.patch_crd('status/loadbalancer',
+                          klb_crd['metadata']['selfLink'],
+                          {'security_groups': lb_sgs})
+        except k_exc.K8sResourceNotFound:
+            LOG.debug('KuryrLoadBalancer %s not found', svc_name)
+        except k_exc.K8sClientException:
+            LOG.exception('Error syncing KuryrLoadBalancer'
+                          ' %s', svc_name)
+            raise
 
     def _add_new_members(self, loadbalancer_crd):
         changed = False
-        try:
-            self._sync_lbaas_sgs(loadbalancer_crd)
-        except k_exc.K8sResourceNotFound:
-            LOG.debug("The svc has been deleted while processing the endpoints"
-                      " update. No need to add new members.")
+
+        self._sync_lbaas_sgs(loadbalancer_crd)
 
         lsnr_by_id = {l['id']: l for l in loadbalancer_crd['status'].get(
             'listeners', [])}

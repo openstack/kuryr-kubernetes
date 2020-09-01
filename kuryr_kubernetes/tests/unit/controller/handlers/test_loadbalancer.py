@@ -412,6 +412,11 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
             for member in crd['status']['members'])
         return observed_targets
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.base.'
+                'ServiceSecurityGroupsDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base.'
+                'ServiceProjectDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.PodSubnetsDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
@@ -419,7 +424,8 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
     def test_sync_lbaas_members(self, m_get_drv_lbaas, m_get_drv_project,
-                                m_get_drv_subnets):
+                                m_get_drv_subnets, m_k8s, m_svc_project_drv,
+                                m_svc_sg_drv):
         # REVISIT(ivc): test methods separately and verify ensure/release
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
@@ -437,6 +443,11 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
         self.assertEqual(sorted(expected_targets.items()), observed_targets)
         self.assertEqual(expected_ip, str(crd['status']['loadbalancer']['ip']))
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.base.'
+                'ServiceSecurityGroupsDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base.'
+                'ServiceProjectDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.PodSubnetsDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
@@ -444,7 +455,8 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
     def test_sync_lbaas_members_udp(self, m_get_drv_lbaas,
-                                    m_get_drv_project, m_get_drv_subnets):
+                                    m_get_drv_project, m_get_drv_subnets,
+                                    m_k8s, m_svc_project_drv, m_svc_sg_drv):
         # REVISIT(ivc): test methods separately and verify ensure/release
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
@@ -463,6 +475,11 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
         self.assertEqual(sorted(expected_targets.items()), observed_targets)
         self.assertEqual(expected_ip, str(crd['status']['loadbalancer']['ip']))
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.base.'
+                'ServiceSecurityGroupsDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base.'
+                'ServiceProjectDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.PodSubnetsDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
@@ -470,7 +487,8 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
     def test_sync_lbaas_members_svc_listener_port_edit(
-            self, m_get_drv_lbaas, m_get_drv_project, m_get_drv_subnets):
+            self, m_get_drv_lbaas, m_get_drv_project, m_get_drv_subnets,
+            m_k8s, m_svc_project_drv, m_svc_sg_drv):
         # REVISIT(ivc): test methods separately and verify ensure/release
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
@@ -495,6 +513,11 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
 
         self.assertEqual(expected_ip, str(crd['status']['loadbalancer']['ip']))
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.base.'
+                'ServiceSecurityGroupsDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base.'
+                'ServiceProjectDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.PodSubnetsDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
@@ -502,7 +525,9 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
     def test_add_new_members_udp(self, m_get_drv_lbaas,
-                                 m_get_drv_project, m_get_drv_subnets):
+                                 m_get_drv_project, m_get_drv_subnets,
+                                 m_k8s, m_svc_project_drv,
+                                 m_svc_sg_drv):
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
         crd = get_lb_crd()
