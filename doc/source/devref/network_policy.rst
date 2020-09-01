@@ -115,14 +115,16 @@ for pods, namespaces or services based on different Network Policies.
 Modified handlers and drivers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The VIF handler
-+++++++++++++++
+The KuryrPort handler
++++++++++++++++++++++
 
 As network policy rules can be defined based on pod labels, this handler
 has been enhanced to trigger a security group rule creation or deletion,
 depending on the type of pod event, if the pod is affected by the network
 policy and if a new security group rule is needed. Also, it triggers the
-translation of the pod rules to the affected service.
+translation of the pod rules to the affected service. Note, that KuryrPort
+takes over most of the VIF handler functionality, although it has to be enabled
+together with VIF handler.
 
 
 The Namespace handler

@@ -13,7 +13,7 @@ the next steps are needed:
    .. code-block:: ini
 
       [kubernetes]
-      enabled_handlers=vif,lb,lbaasspec,namespace,kuryrnetwork
+      enabled_handlers=vif,lb,lbaasspec,namespace,kuryrnetwork,kuryrport
 
    Note that if you also want to enable prepopulation of ports pools upon new
    namespace creation, you need to also add the kuryrnetwork_population
@@ -22,7 +22,7 @@ the next steps are needed:
    .. code-block:: ini
 
       [kubernetes]
-      enabled_handlers=vif,lb,lbaasspec,namespace,kuryrnetwork,kuryrnetwork_population
+      enabled_handlers=vif,lb,lbaasspec,namespace,kuryrnetwork,kuryrport,kuryrnetwork_population
 
 #. Enable the namespace subnet driver by modifying the default
    pod_subnet_driver option at kuryr.conf:
@@ -73,7 +73,7 @@ to add the namespace handler and state the namespace subnet driver with:
 .. code-block:: console
 
    KURYR_SUBNET_DRIVER=namespace
-   KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,namespace,kuryrnetwork
+   KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,namespace,kuryrnetwork,kuryrport
 
 .. note::
 

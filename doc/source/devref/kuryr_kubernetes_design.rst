@@ -37,14 +37,13 @@ Overview
 --------
 
 In order to integrate Neutron into Kubernetes networking, 2 components are
-introduced: Controller and CNI Driver.
-Controller is a supervisor component responsible to maintain translation of
-networking relevant Kubernetes model into the OpenStack (i.e. Neutron) model.
-This can be considered as a centralized service (supporting HA mode in the
-future).
-CNI driver is responsible for binding Kubernetes pods on worker nodes into
-Neutron ports ensuring requested level of isolation.
-Please see below the component view of the integrated system:
+introduced: Controller and CNI Driver. Controller is a supervisor component
+responsible to maintain translation of networking relevant Kubernetes model
+into the OpenStack (i.e. Neutron) model. This can be considered as a
+centralized service (supporting HA mode in the future). CNI driver is
+responsible for binding Kubernetes pods on worker nodes into Neutron ports
+ensuring requested level of isolation. Please see below the component view of
+the integrated system:
 
 .. image:: ../../images/kuryr_k8s_components.png
    :alt: integration components
@@ -59,10 +58,10 @@ Design Principles
 #. Flexible deployment options to support different project, subnet and
    security groups assignment profiles.
 #. The communication of the pod binding data between Controller and CNI driver
-   should rely on existing communication channels, currently added to the pod
-   metadata via annotations.
+   should rely on existing communication channels, currently through the
+   KuryrPort CRDs.
 #. CNI Driver should not depend on Neutron. It gets all required details
-   from Kubernetes API server (currently through Kubernetes annotations),
+   from Kubernetes API server (currently through Kubernetes CRDs),
    therefore depending on Controller to perform its translation tasks.
 #. Allow different neutron backends to bind Kubernetes pods without code
    modification. This means that both Controller and CNI binding mechanism
@@ -76,8 +75,8 @@ Kuryr Controller Design
 
 Controller is responsible for watching Kubernetes API endpoints to make sure
 that the corresponding model is maintained in Neutron. Controller updates K8s
-resources  endpoints' annotations to keep neutron details required by the CNI
-driver as well as for the model mapping persistency.
+resources endpoints' annotations and/or CRDs to keep neutron details required
+by the CNI driver as well as for the model mapping persistency.
 
 Controller is composed from the following components:
 
@@ -178,6 +177,7 @@ currently includes the following:
   Handler             Kubernetes resource
 ================  =========================
 vif               Pod
+kuryrport         KuryrPort CRD
 lb                Endpoint
 lbaasspec         Service
 ================  =========================
@@ -188,8 +188,10 @@ following at kuryr.conf:
 .. code-block:: ini
 
    [kubernetes]
-   enabled_handlers=vif
+   enabled_handlers=vif,kuryrport
 
+Note, that we have to specify vif and kuryrport together, since currently those
+two plugins works together.
 
 Providers
 ~~~~~~~~~
@@ -252,13 +254,13 @@ response from the Daemon.
 Currently CNI Daemon consists of two processes i.e. Watcher and Server.
 Processes communicate between each other using Python's
 ``multiprocessing.Manager`` and a shared dictionary object. Watcher is
-responsible for extracting VIF annotations from Pod events and putting them
-into the shared dictionary. Server is a regular WSGI server that will answer
-CNI Driver calls. When a CNI request comes, Server is waiting for VIF object to
-appear in the shared dictionary. As annotations are read from kubernetes API
-and added to the registry by Watcher thread, Server will eventually get VIF it
-needs to connect for a given pod. Then it waits for the VIF to become active
-before returning to the CNI Driver.
+responsible for extracting VIF information from KuryrPort CRD events and
+putting them into the shared dictionary. Server is a regular WSGI server that
+will answer CNI Driver calls. When a CNI request comes, Server is waiting for
+VIF object to appear in the shared dictionary. As CRD data is read from
+kubernetes API and added to the registry by Watcher thread, Server will
+eventually get VIF it needs to connect for a given pod. Then it waits for the
+VIF to become active before returning to the CNI Driver.
 
 
 Communication
