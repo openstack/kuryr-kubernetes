@@ -173,10 +173,9 @@ function _allocation_range {
 import sys
 
 from netaddr import IPNetwork
-import six
 
 
-n = IPNetwork(six.text_type(sys.argv[1]))
+n = IPNetwork(str(sys.argv[1]))
 gateway_position = sys.argv[2]
 
 if gateway_position == 'beginning':
@@ -1064,10 +1063,9 @@ function split_subnet {
 import sys
 
 from netaddr import IPNetwork
-import six
 
 
-n = IPNetwork(six.text_type(sys.argv[1]))
+n = IPNetwork(str(sys.argv[1]))
 first, last = n.subnet(n.prefixlen+1)
 
 print("%s\\t%s" % (first, last))
