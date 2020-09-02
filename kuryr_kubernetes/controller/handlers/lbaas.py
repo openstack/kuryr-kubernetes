@@ -133,16 +133,7 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         svc_name = service['metadata']['name']
         svc_namespace = service['metadata']['namespace']
         kubernetes = clients.get_kubernetes_client()
-        svc_ip = self._get_service_ip(service)
-        spec_lb_ip = service['spec'].get('loadBalancerIP')
-        ports = service['spec'].get('ports')
-        for port in ports:
-            if type(port['targetPort']) == int:
-                port['targetPort'] = str(port['targetPort'])
-        project_id = self._drv_project.get_project(service)
-        sg_ids = self._drv_sg.get_security_groups(service, project_id)
-        subnet_id = self._get_subnet_id(service, project_id, svc_ip)
-        spec_type = service['spec'].get('type')
+        spec = self._build_kuryrloadbalancer_spec(service)
         loadbalancer_crd = {
             'apiVersion': 'openstack.org/v1',
             'kind': 'KuryrLoadBalancer',
@@ -150,20 +141,10 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
                 'name': svc_name,
                 'finalizers': [k_const.KURYRLB_FINALIZER],
                 },
-            'spec': {
-                'ip': svc_ip,
-                'ports': ports,
-                'project_id': project_id,
-                'security_groups_ids': sg_ids,
-                'subnet_id': subnet_id,
-                'type': spec_type
-                },
+            'spec': spec,
             'status': {
                 }
             }
-
-        if spec_lb_ip is not None:
-            loadbalancer_crd['spec']['lb_ip'] = spec_lb_ip
 
         try:
             kubernetes.post('{}/{}/kuryrloadbalancers'.format(
@@ -179,7 +160,25 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         return loadbalancer_crd
 
     def _update_crd_spec(self, loadbalancer_crd, service):
+        svc_name = service['metadata']['name']
+        kubernetes = clients.get_kubernetes_client()
+        spec = self._build_kuryrloadbalancer_spec(service)
+        LOG.debug('Patching KuryrLoadBalancer CRD %s', loadbalancer_crd)
+        try:
+            kubernetes.patch_crd('spec', loadbalancer_crd['metadata'][
+                'selfLink'], spec)
+        except k_exc.K8sResourceNotFound:
+            LOG.debug('KuryrLoadBalancer CRD not found %s', loadbalancer_crd)
+        except k_exc.K8sConflict:
+            raise k_exc.ResourceNotReady(svc_name)
+        except k_exc.K8sClientException:
+            LOG.exception('Error updating kuryrnet CRD %s', loadbalancer_crd)
+            raise
+        return loadbalancer_crd
+
+    def _build_kuryrloadbalancer_spec(self, service):
         svc_ip = self._get_service_ip(service)
+        spec_lb_ip = service['spec'].get('loadBalancerIP')
         ports = service['spec'].get('ports')
         for port in ports:
             if type(port['targetPort']) == int:
@@ -188,31 +187,19 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         sg_ids = self._drv_sg.get_security_groups(service, project_id)
         subnet_id = self._get_subnet_id(service, project_id, svc_ip)
         spec_type = service['spec'].get('type')
-        kubernetes = clients.get_kubernetes_client()
 
-        patch = {
-            'spec': {
+        spec = {
                 'ip': svc_ip,
                 'ports': ports,
                 'project_id': project_id,
                 'security_groups_ids': sg_ids,
                 'subnet_id': subnet_id,
                 'type': spec_type
-                }
             }
 
-        LOG.debug('Patching KuryrLoadBalancer CRD %s', loadbalancer_crd)
-        try:
-            kubernetes.patch_crd('spec', loadbalancer_crd['metadata'][
-                'selfLink'], patch['spec'])
-        except k_exc.K8sResourceNotFound:
-            LOG.debug('KuryrLoadBalancer CRD not found %s', loadbalancer_crd)
-        except k_exc.K8sConflict:
-            raise k_exc.ResourceNotReady(loadbalancer_crd)
-        except k_exc.K8sClientException:
-            LOG.exception('Error updating kuryrnet CRD %s', loadbalancer_crd)
-            raise
-        return loadbalancer_crd
+        if spec_lb_ip is not None:
+            spec['lb_ip'] = spec_lb_ip
+        return spec
 
     def _has_lbaas_spec_changes(self, service, loadbalancer_crd):
         return (self._has_ip_changes(service, loadbalancer_crd) or
