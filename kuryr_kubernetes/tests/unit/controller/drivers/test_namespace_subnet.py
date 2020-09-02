@@ -157,7 +157,7 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
 
         os_net.remove_interface_from_router.assert_called_once()
         os_net.delete_network.assert_called_once_with(net_id)
-        os_net.ports.assert_called_with(status='DOWN', network_id=net_id)
+        os_net.ports.assert_called_with(network_id=net_id)
 
     def test_create_network(self):
         cls = subnet_drv.NamespacePodSubnetDriver
