@@ -106,7 +106,9 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
                           "Deleting leftovers ports before retrying", net_id)
             leftover_ports = os_net.ports(network_id=net_id)
             for leftover_port in leftover_ports:
-                if leftover_port.device_owner not in ['trunk:subport',
+                # NOTE(dulek): '' is there because Neutron seems to unset
+                #              device_owner on detach.
+                if leftover_port.device_owner not in ['', 'trunk:subport',
                                                       kl_const.DEVICE_OWNER]:
                     continue
                 try:
