@@ -30,8 +30,6 @@ from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
 
-SUPPORTED_SERVICE_TYPES = ('ClusterIP', 'LoadBalancer')
-
 
 class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
     """LoadBalancerStatusHandler handles K8s Endpoints events.
@@ -83,7 +81,6 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         if self._sync_lbaas_members(loadbalancer_crd):
             # Note(yboaron) For LoadBalancer services, we should allocate FIP,
             # associate it to LB VIP and update K8S service status
-            # if loadbalancer_crd['status'].get('service_pub_ip_info') is None:
             lb_ip = loadbalancer_crd['spec'].get('lb_ip')
             pub_info = loadbalancer_crd['status'].get(
                     'service_pub_ip_info')
