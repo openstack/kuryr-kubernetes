@@ -721,8 +721,8 @@ function prepare_kubelet {
     kubelet_plugin_dir="/etc/cni/net.d/"
 
     sudo install -o "$STACK_USER" -m 0664 -D \
-        "${KURYR_HOME}${kubelet_plugin_dir}/10-kuryr.conf" \
-        "${CNI_CONF_DIR}/10-kuryr.conf"
+        "${KURYR_HOME}${kubelet_plugin_dir}/10-kuryr.conflist" \
+        "${CNI_CONF_DIR}/10-kuryr.conflist"
 }
 
 function run_k8s_kubelet {

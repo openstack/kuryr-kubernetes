@@ -20,7 +20,7 @@ import (
 const (
 	// FIXME(dulek): We don't really have a good way to fetch current URL:port binding here.
 	//               I'm hardcoding it for now, but in the future we should probably put it in
-	//               the JSON config in 10-kuryr.conf file that we will get passed on stdin.
+	//               the JSON config in 10-kuryr.conflist file that we will get passed on stdin.
 	urlBase = "http://localhost:5036/"
 	addPath = "addNetwork"
 	delPath = "delNetwork"
