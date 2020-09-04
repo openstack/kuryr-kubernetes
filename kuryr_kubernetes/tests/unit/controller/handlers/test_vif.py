@@ -309,6 +309,23 @@ class TestVIFHandler(test_base.TestCase):
         self._activate_vif.assert_not_called()
 
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
+    def test_on_present_pod_finalizer_exception(self, m_host_network,
+                                                m_get_k8s_client):
+        m_host_network.return_value = False
+        self._matc.return_value = True
+        k8s = mock.MagicMock()
+        k8s.add_finalizer.side_effect = k_exc.K8sClientException
+        m_get_k8s_client.return_value = k8s
+
+        self.assertRaises(k_exc.K8sClientException,
+                          h_vif.VIFHandler.on_present, self._handler,
+                          self._pod)
+
+        k8s.add_finalizer.assert_called_once_with(self._pod,
+                                                  k_const.POD_FINALIZER)
+
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_kuryrport')
     def test_on_finalize_crd(self, m_get_kuryrport, m_get_k8s_client):
         m_get_kuryrport.return_value = self._kp

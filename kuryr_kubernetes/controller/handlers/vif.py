@@ -75,7 +75,15 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         # subsequent updates of the pod, add_finalizer will ignore this if
         # finalizer exists.
         k8s = clients.get_kubernetes_client()
-        k8s.add_finalizer(pod, constants.POD_FINALIZER)
+
+        try:
+            if not k8s.add_finalizer(pod, constants.POD_FINALIZER):
+                # NOTE(gryf) It might happen that pod will be deleted even
+                # before we got here.
+                return
+        except k_exc.K8sClientException as ex:
+            LOG.exception("Failed to add finalizer to pod object: %s", ex)
+            raise
 
         if self._move_annotations_to_crd(pod):
             return
@@ -114,7 +122,11 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             kp = k8s.get(KURYRPORT_URI.format(ns=pod["metadata"]["namespace"],
                                               crd=pod["metadata"]["name"]))
         except k_exc.K8sResourceNotFound:
-            k8s.remove_finalizer(pod, constants.POD_FINALIZER)
+            try:
+                k8s.remove_finalizer(pod, constants.POD_FINALIZER)
+            except k_exc.K8sClientException as ex:
+                LOG.exception('Failed to remove finalizer from pod: %s', ex)
+                raise
             return
 
         if 'deletionTimestamp' in kp['metadata']:

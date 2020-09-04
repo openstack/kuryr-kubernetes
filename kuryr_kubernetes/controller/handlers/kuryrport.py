@@ -133,8 +133,13 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
             LOG.error("Pod %s/%s doesn't exists, deleting orphaned KuryrPort",
                       namespace, name)
             # TODO(gryf): Free resources
-            self.k8s.remove_finalizer(kuryrport_crd,
-                                      constants.KURYRPORT_FINALIZER)
+            try:
+                self.k8s.remove_finalizer(kuryrport_crd,
+                                          constants.KURYRPORT_FINALIZER)
+            except k_exc.K8sClientException as ex:
+                LOG.exception("Failed to remove finalizer from KuryrPort %s",
+                              ex)
+                raise
             return
 
         if 'deletionTimestamp' not in pod['metadata']:
