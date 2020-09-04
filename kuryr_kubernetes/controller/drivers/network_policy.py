@@ -676,6 +676,8 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 constants.K8S_API_CRD_NAMESPACES,
                 namespace)
             netpolicy_crd = self.kubernetes.post(url, netpolicy_crd)
+        except exceptions.K8sNamespaceTerminating:
+            raise
         except exceptions.K8sClientException:
             LOG.exception("Kubernetes Client Exception creating "
                           "KuryrNetworkPolicy CRD.")

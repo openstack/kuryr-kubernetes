@@ -16,6 +16,8 @@
 import itertools
 import time
 
+import requests
+
 from openstack import exceptions as os_exc
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -70,7 +72,8 @@ class Retry(base.EventHandler):
                                       "retry as the object %s has already "
                                       "been deleted.", obj_link)
                             return
-                        except exceptions.K8sClientException:
+                        except (exceptions.K8sClientException,
+                                requests.ConnectionError):
                             LOG.debug("Kubernetes client error getting the "
                                       "object. Continuing with handler "
                                       "execution.")

@@ -193,7 +193,7 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
 
     def request_vif(self, pod, project_id, subnets, security_groups):
         if not self._recovered_pools:
-            LOG.info("Kuryr-controller not yet ready to handle new pods.")
+            LOG.debug("Kuryr-controller not yet ready to handle new pods.")
             raise exceptions.ResourceNotReady(pod)
         try:
             host_addr = self._get_host_addr(pod)
@@ -206,22 +206,29 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
             return self._get_port_from_pool(pool_key, pod, subnets,
                                             tuple(sorted(security_groups)))
         except exceptions.ResourceNotReady:
-            LOG.debug("Ports pool does not have available ports: %s",
-                      pool_key)
+            LOG.debug("Ports pool does not have available ports: %s", pool_key)
+            # NOTE(dulek): We're passing raise_not_ready=False because this
+            #              will be run outside of handlers thread, so raising
+            #              it will only result in an ugly log from eventlet.
             eventlet.spawn(self._populate_pool, pool_key, pod, subnets,
-                           tuple(sorted(security_groups)))
+                           tuple(sorted(security_groups)),
+                           raise_not_ready=False)
             raise
 
     def _get_port_from_pool(self, pool_key, pod, subnets, security_groups):
         raise NotImplementedError()
 
-    def _populate_pool(self, pool_key, pod, subnets, security_groups):
+    def _populate_pool(self, pool_key, pod, subnets, security_groups,
+                       raise_not_ready=True):
         # REVISIT(ltomasbo): Drop the subnets parameter and get the information
         # from the pool_key, which will be required when multi-network is
         # supported
         if not self._recovered_pools:
-            LOG.info("Kuryr-controller not yet ready to populate pools.")
-            raise exceptions.ResourceNotReady(pod)
+            LOG.debug("Kuryr-controller not yet ready to populate pools.")
+            if raise_not_ready:
+                raise exceptions.ResourceNotReady(pod)
+            else:
+                return
         now = time.time()
         last_update = 0
         pool_updates = self._last_update.get(pool_key)
@@ -233,7 +240,7 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
                     LOG.info("Not enough time since the last pool update")
                     return
             except AttributeError:
-                LOG.info("Kuryr-controller not yet ready to populate pools")
+                LOG.debug("Kuryr-controller not yet ready to populate pools.")
                 return
         self._last_update[pool_key] = {security_groups: now}
 
@@ -258,7 +265,7 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
     def release_vif(self, pod, vif, project_id, security_groups,
                     host_addr=None):
         if not self._recovered_pools:
-            LOG.info("Kuryr-controller not yet ready to remove pods.")
+            LOG.debug("Kuryr-controller not yet ready to remove pods.")
             raise exceptions.ResourceNotReady(pod)
         if not host_addr:
             host_addr = self._get_host_addr(pod)
@@ -271,7 +278,7 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
                 self._existing_vifs[vif.id] = vif
             self._recyclable_ports[vif.id] = pool_key
         except AttributeError:
-            LOG.info("Kuryr-controller is not ready to handle the pools yet.")
+            LOG.debug("Kuryr-controller is not ready to handle the pools yet.")
             raise exceptions.ResourceNotReady(pod)
 
     def _return_ports_to_pool(self):
@@ -522,8 +529,8 @@ class NeutronVIFPool(BaseVIFPool):
     @lockutils.synchronized('return_to_pool_baremetal')
     def _trigger_return_to_pool(self):
         if not self._recovered_pools:
-            LOG.info("Kuryr-controller not yet ready to return ports to "
-                     "pools.")
+            LOG.debug("Kuryr-controller not yet ready to return ports to "
+                      "pools.")
             return
         os_net = clients.get_network_client()
         sg_current = {}
@@ -624,8 +631,8 @@ class NeutronVIFPool(BaseVIFPool):
 
     def delete_network_pools(self, net_id):
         if not self._recovered_pools:
-            LOG.info("Kuryr-controller not yet ready to delete network "
-                     "pools.")
+            LOG.debug("Kuryr-controller not yet ready to delete network "
+                      "pools.")
             raise exceptions.ResourceNotReady(net_id)
         os_net = clients.get_network_client()
 
@@ -690,7 +697,7 @@ class NestedVIFPool(BaseVIFPool):
 
     def release_vif(self, pod, vif, project_id, security_groups):
         if not self._recovered_pools:
-            LOG.info("Kuryr-controller not yet ready to remove pods.")
+            LOG.debug("Kuryr-controller not yet ready to remove pods.")
             raise exceptions.ResourceNotReady(pod)
         try:
             host_addr = self._get_host_addr(pod)
@@ -775,8 +782,8 @@ class NestedVIFPool(BaseVIFPool):
     @lockutils.synchronized('return_to_pool_nested')
     def _trigger_return_to_pool(self):
         if not self._recovered_pools:
-            LOG.info("Kuryr-controller not yet ready to return ports to "
-                     "pools.")
+            LOG.debug("Kuryr-controller not yet ready to return ports to "
+                      "pools.")
             return
         os_net = clients.get_network_client()
         sg_current = {}
@@ -942,7 +949,7 @@ class NestedVIFPool(BaseVIFPool):
     @lockutils.synchronized('return_to_pool_nested')
     def populate_pool(self, trunk_ip, project_id, subnets, security_groups):
         if not self._recovered_pools:
-            LOG.info("Kuryr-controller not yet ready to populate pools.")
+            LOG.debug("Kuryr-controller not yet ready to populate pools.")
             raise exceptions.ResourceNotReady(trunk_ip)
         pool_key = self._get_pool_key(trunk_ip, project_id, None, subnets)
         pools = self._available_ports_pools.get(pool_key)
@@ -990,8 +997,8 @@ class NestedVIFPool(BaseVIFPool):
 
     def delete_network_pools(self, net_id):
         if not self._recovered_pools:
-            LOG.info("Kuryr-controller not yet ready to delete network "
-                     "pools.")
+            LOG.debug("Kuryr-controller not yet ready to delete network "
+                      "pools.")
             raise exceptions.ResourceNotReady(net_id)
         os_net = clients.get_network_client()
         # NOTE(ltomasbo): Note the pods should already be deleted, but their

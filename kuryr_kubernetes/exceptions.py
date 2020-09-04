@@ -13,6 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from kuryr_kubernetes import utils
+
 
 class K8sClientException(Exception):
     pass
@@ -24,8 +26,16 @@ class IntegrityError(RuntimeError):
 
 class ResourceNotReady(Exception):
     def __init__(self, resource):
-        super(ResourceNotReady, self).__init__("Resource not ready: %r"
-                                               % resource)
+        msg = resource
+        if type(resource) == dict:
+            if resource.get('metadata', {}).get('name', None):
+                res_name = utils.get_res_unique_name(resource)
+                kind = resource.get('kind')
+                if kind:
+                    msg = f'{kind} {res_name}'
+                else:
+                    msg = res_name
+        super(ResourceNotReady, self).__init__("Resource not ready: %r" % msg)
 
 
 class K8sResourceNotFound(K8sClientException):
