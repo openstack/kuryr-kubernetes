@@ -52,7 +52,6 @@ def _bump_networkpolicy(knp):
             knp['metadata']['annotations']['networkPolicyLink'],
             {constants.K8S_ANNOTATION_POLICY: str(uuid.uuid4())})
     except exceptions.K8sResourceNotFound:
-        LOG.exception("NetworkPolicy not found")
         raise
     except exceptions.K8sClientException:
         LOG.exception("Kubernetes Client Exception")
@@ -321,7 +320,11 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
             e_matched = _parse_rules('egress', crd, spec, pod=pod)
 
             if i_matched or e_matched:
-                _bump_networkpolicy(crd)
+                try:
+                    _bump_networkpolicy(crd)
+                except exceptions.K8sResourceNotFound:
+                    # The NP got deleted, ignore it.
+                    continue
             if i_matched:
                 crd_pod_selectors.append(crd_selector)
         return crd_pod_selectors
@@ -346,7 +349,11 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
                 egress_rule_list, "egress", pod_ip)
 
             if i_matched or e_matched:
-                _bump_networkpolicy(crd)
+                try:
+                    _bump_networkpolicy(crd)
+                except exceptions.K8sResourceNotFound:
+                    # The NP got deleted, ignore it.
+                    continue
             if i_matched:
                 crd_pod_selectors.append(crd_selector)
         return crd_pod_selectors
@@ -376,7 +383,11 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
                 egress_rule_list, "egress", ns_name)
 
             if i_matched or e_matched:
-                _bump_networkpolicy(crd)
+                try:
+                    _bump_networkpolicy(crd)
+                except exceptions.K8sResourceNotFound:
+                    # The NP got deleted, ignore it.
+                    continue
             if i_matched:
                 crd_selectors.append(crd_selector)
         return crd_selectors
@@ -395,7 +406,11 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
             e_matched = _parse_rules('egress', crd, spec, namespace=namespace)
 
             if i_matched or e_matched:
-                _bump_networkpolicy(crd)
+                try:
+                    _bump_networkpolicy(crd)
+                except exceptions.K8sResourceNotFound:
+                    # The NP got deleted, ignore it.
+                    continue
             if i_matched:
                 crd_selectors.append(crd_selector)
         return crd_selectors
