@@ -526,7 +526,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
         loadbalancer = {
-            'name': 'TEST_NAME',
+            'name': 'test_namespace/test_name',
             'project_id': 'TEST_PROJECT',
             'subnet_id': 'D3FA400A-F543-4B91-9CD3-047AF0CE42D1',
             'ip': '1.2.3.4',

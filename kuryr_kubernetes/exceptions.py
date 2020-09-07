@@ -52,6 +52,12 @@ class K8sNamespaceTerminating(K8sForbidden):
             "Namespace already terminated: %r" % message)
 
 
+class K8sUnprocessableEntity(K8sClientException):
+    def __init__(self, message):
+        super(K8sUnprocessableEntity, self).__init__(
+            "Unprocessable: %r" % message)
+
+
 class InvalidKuryrNetworkAnnotation(Exception):
     pass
 

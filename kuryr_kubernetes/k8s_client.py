@@ -87,6 +87,8 @@ class K8sClient(object):
             if 'because it is being terminated' in response.json()['message']:
                 raise exc.K8sNamespaceTerminating(response.text)
             raise exc.K8sForbidden(response.text)
+        if response.status_code == requests.codes.unprocessable_entity:
+            raise exc.K8sUnprocessableEntity(response.text)
         if not response.ok:
             raise exc.K8sClientException(response.text)
 
@@ -133,10 +135,15 @@ class K8sClient(object):
             data = [{'op': action,
                      'path': f'/{field}/{data}'}]
         else:
-            data = [{'op': action,
-                     'path': f'/{field}/{crd_field}',
-                     'value': value}
-                    for crd_field, value in data.items()]
+            if data:
+                data = [{'op': action,
+                         'path': f'/{field}/{crd_field}',
+                         'value': value}
+                        for crd_field, value in data.items()]
+            else:
+                data = [{'op': action,
+                         'path': f'/{field}',
+                         'value': data}]
 
         LOG.debug("Patch %(path)s: %(data)s", {
             'path': path, 'data': data})

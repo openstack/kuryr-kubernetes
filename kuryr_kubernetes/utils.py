@@ -423,3 +423,18 @@ def get_service_subnet_version():
         LOG.exception("Service subnet %s not found", svc_subnet_id)
         raise
     return svc_subnet.ip_version
+
+
+def clean_lb_crd_status(loadbalancer_name):
+    namespace, name = loadbalancer_name.split('/')
+    k8s = clients.get_kubernetes_client()
+    try:
+        k8s.patch_crd('status', f'{constants.K8S_API_CRD_NAMESPACES}'
+                      f'/{namespace}/kuryrloadbalancers/{name}', {})
+    except exceptions.K8sResourceNotFound:
+        LOG.debug('KuryrLoadbalancer CRD not found %s',
+                  name)
+    except exceptions.K8sClientException:
+        LOG.exception('Error updating KuryrLoadbalancer CRD %s',
+                      name)
+        raise

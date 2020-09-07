@@ -502,6 +502,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
             loadbalancer['provider'] = os_lb.provider
             if os_lb.provisioning_status == 'ERROR':
                 self.release_loadbalancer(loadbalancer)
+                utils.clean_lb_crd_status(loadbalancer['name'])
                 return None
         except (KeyError, StopIteration):
             return None
@@ -537,8 +538,12 @@ class LBaaSv2Driver(base.LBaaSDriver):
         }
 
         # Wait for the loadbalancer to be ACTIVE
-        self._wait_for_provisioning(loadbalancer, _ACTIVATION_TIMEOUT,
-                                    _LB_STS_POLL_FAST_INTERVAL)
+        if not self._wait_for_provisioning(
+                loadbalancer, _ACTIVATION_TIMEOUT,
+                _LB_STS_POLL_FAST_INTERVAL):
+            LOG.debug('Skipping ACLs update. '
+                      'No Load Balancer Provisioned.')
+            return
 
         lbaas = clients.get_loadbalancer_client()
         try:
@@ -665,7 +670,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
                             interval=_LB_STS_POLL_FAST_INTERVAL):
         for remaining in self._provisioning_timer(_ACTIVATION_TIMEOUT,
                                                   interval):
-            self._wait_for_provisioning(loadbalancer, remaining, interval)
+            if not self._wait_for_provisioning(
+                    loadbalancer, remaining, interval):
+                return None
             try:
                 result = self._ensure(create, find, obj, loadbalancer)
                 if result:
@@ -684,7 +691,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
                     delete(*args, **kwargs)
                     return
                 except (os_exc.ConflictException, os_exc.BadRequestException):
-                    self._wait_for_provisioning(loadbalancer, remaining)
+                    if not self._wait_for_provisioning(
+                            loadbalancer, remaining):
+                        return
             except os_exc.NotFoundException:
                 return
 
@@ -695,17 +704,30 @@ class LBaaSv2Driver(base.LBaaSDriver):
         lbaas = clients.get_loadbalancer_client()
 
         for remaining in self._provisioning_timer(timeout, interval):
-            response = lbaas.get_load_balancer(loadbalancer['id'])
+            try:
+                response = lbaas.get_load_balancer(loadbalancer['id'])
+            except os_exc.ResourceNotFound:
+                LOG.debug("Cleaning CRD status for deleted "
+                          "loadbalancer %s", loadbalancer['name'])
+                utils.clean_lb_crd_status(loadbalancer['name'])
+                return None
+
             status = response.provisioning_status
             if status == 'ACTIVE':
                 LOG.debug("Provisioning complete for %(lb)s", {
                     'lb': loadbalancer})
-                return
+                return loadbalancer
             elif status == 'ERROR':
                 LOG.debug("Releasing loadbalancer %s with error status",
                           loadbalancer['id'])
                 self.release_loadbalancer(loadbalancer)
-                break
+                utils.clean_lb_crd_status(loadbalancer['name'])
+                return None
+            elif status == 'DELETED':
+                LOG.debug("Cleaning CRD status for deleted "
+                          "loadbalancer %s", loadbalancer['name'])
+                utils.clean_lb_crd_status(loadbalancer['name'])
+                return None
             else:
                 LOG.debug("Provisioning status %(status)s for %(lb)s, "
                           "%(rem).3gs remaining until timeout",
