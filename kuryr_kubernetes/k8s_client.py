@@ -227,7 +227,7 @@ class K8sClient(object):
     #              duplication, but I don't see a nice way to avoid it.
     def add_finalizer(self, obj, finalizer):
         if finalizer in obj['metadata'].get('finalizers', []):
-            return obj
+            return True
 
         path = obj['metadata']['selfLink']
         LOG.debug(f"Add finalizer {finalizer} to {path}")
@@ -250,15 +250,18 @@ class K8sClient(object):
                                           verify=self.verify_server)
 
             if response.ok:
-                return response.json()
+                return True
 
             try:
                 self._raise_from_response(response)
+            except (exc.K8sForbidden, exc.K8sResourceNotFound):
+                # Object is being deleting or gone. Return.
+                return False
             except exc.K8sConflict:
                 obj = self.get(path)
                 if finalizer in obj['metadata'].get('finalizers', []):
                     # Finalizer is there, return.
-                    return obj
+                    return True
 
         # If after 3 iterations there's still conflict, just raise.
         self._raise_from_response(response)
@@ -275,7 +278,7 @@ class K8sClient(object):
                 finalizers.remove(finalizer)
             except ValueError:
                 # Finalizer is not there, return.
-                return obj
+                return True
 
             data = {
                 'metadata': {
@@ -289,7 +292,7 @@ class K8sClient(object):
                                           verify=self.verify_server)
 
             if response.ok:
-                return response.json()
+                return True
 
             try:
                 try:
@@ -298,7 +301,7 @@ class K8sClient(object):
                     obj = self.get(path)
             except exc.K8sResourceNotFound:
                 # Object is gone already, stop.
-                return None
+                return False
 
         # If after 3 iterations there's still conflict, just raise.
         self._raise_from_response(response)

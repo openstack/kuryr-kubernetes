@@ -56,7 +56,8 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         k8s = clients.get_kubernetes_client()
         loadbalancer_crd = k8s.get_loadbalancer_crd(service)
         try:
-            self._patch_service_finalizer(service)
+            if not self._patch_service_finalizer(service):
+                return
         except k_exc.K8sClientException as ex:
             LOG.exception("Failed to set service finalizer: %s", ex)
             raise
@@ -100,7 +101,7 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
 
     def _patch_service_finalizer(self, service):
         k8s = clients.get_kubernetes_client()
-        k8s.add_finalizer(service, k_const.SERVICE_FINALIZER)
+        return k8s.add_finalizer(service, k_const.SERVICE_FINALIZER)
 
     def on_finalize(self, service):
         k8s = clients.get_kubernetes_client()
