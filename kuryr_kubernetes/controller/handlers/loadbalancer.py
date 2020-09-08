@@ -207,10 +207,6 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         lb = klb_crd['status'].get('loadbalancer')
         svc_name = klb_crd['metadata']['name']
         svc_namespace = klb_crd['metadata']['namespace']
-        if not lb:
-            LOG.debug("No LB created. Skipping lb %s sg sync.",
-                      svc_name)
-            return
         k8s = clients.get_kubernetes_client()
         try:
             service = k8s.get(
@@ -225,6 +221,8 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
 
         project_id = self._drv_svc_project.get_project(service)
         lb_sgs = self._drv_sg.get_security_groups(service, project_id)
+        lb['security_groups'] = lb_sgs
+
         try:
             k8s.patch_crd('status/loadbalancer',
                           klb_crd['metadata']['selfLink'],
@@ -236,10 +234,12 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                           ' %s', svc_name)
             raise
 
+        return klb_crd
+
     def _add_new_members(self, loadbalancer_crd):
         changed = False
-
-        self._sync_lbaas_sgs(loadbalancer_crd)
+        if loadbalancer_crd['status'].get('loadbalancer'):
+            loadbalancer_crd = self._sync_lbaas_sgs(loadbalancer_crd)
 
         lsnr_by_id = {l['id']: l for l in loadbalancer_crd['status'].get(
             'listeners', [])}
