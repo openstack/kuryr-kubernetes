@@ -72,7 +72,6 @@ OpenStack Octavia is a new project that provides advanced Load Balancing by
 using pre-existing OpenStack services. The OpenStack requirements that Octavia
 adds over the Neutron HAProxy agent are:
 
-* Barbican
 * Nova
 * Glance
 

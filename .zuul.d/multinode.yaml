@@ -21,7 +21,6 @@
     host-vars:
       controller:
         devstack_plugins:
-          barbican: https://opendev.org/openstack/barbican
           devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
           kuryr-kubernetes: https://opendev.org/openstack/kuryr-kubernetes
           octavia: https://opendev.org/openstack/octavia

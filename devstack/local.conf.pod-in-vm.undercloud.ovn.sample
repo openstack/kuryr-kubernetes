@@ -55,9 +55,6 @@ enable_service o-hk
 # OCTAVIA_AMP_IMAGE_FILE=/tmp/test-only-amphora-x64-haproxy-ubuntu-xenial.qcow2
 # OCTAVIA_AMP_IMAGE_SIZE=3
 # OCTAVIA_AMP_IMAGE_NAME=test-only-amphora-x64-haproxy-ubuntu-xenial
-### Image
-### Barbican
-enable_plugin barbican https://opendev.org/openstack/barbican
 ### Nova
 enable_service n-api
 enable_service n-api-meta

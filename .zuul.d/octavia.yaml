@@ -18,16 +18,13 @@
     description: |
       Kuryr-Kubernetes tempest job using octavia
     required-projects:
-      - openstack/barbican
       - openstack/octavia
-      - openstack/python-barbicanclient
       - openstack/python-octaviaclient
     pre-run: playbooks/get_amphora_tarball.yaml
     host-vars:
       controller:
         devstack_plugins:
           octavia: https://opendev.org/openstack/octavia
-          barbican: https://opendev.org/openstack/barbican
     vars:
       devstack_localrc:
         OCTAVIA_AMP_IMAGE_FILE: "/tmp/test-only-amphora-x64-haproxy-ubuntu-bionic.qcow2"
