@@ -58,6 +58,10 @@ class K8sUnprocessableEntity(K8sClientException):
             "Unprocessable: %r" % message)
 
 
+class K8sFieldValueForbidden(K8sUnprocessableEntity):
+    pass
+
+
 class InvalidKuryrNetworkAnnotation(Exception):
     pass
 

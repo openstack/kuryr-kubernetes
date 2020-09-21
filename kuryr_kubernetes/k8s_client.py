@@ -88,6 +88,12 @@ class K8sClient(object):
                 raise exc.K8sNamespaceTerminating(response.text)
             raise exc.K8sForbidden(response.text)
         if response.status_code == requests.codes.unprocessable_entity:
+            # NOTE(gryf): on k8s API code 422 is also Forbidden, but specified
+            # to FieldValueForbidden. Perhaps there are other usages for
+            # throwing unprocessable entity errors in different cases.
+            if ('FieldValueForbidden' in response.text and
+                    'Forbidden' in response.json()['message']):
+                raise exc.K8sFieldValueForbidden(response.text)
             raise exc.K8sUnprocessableEntity(response.text)
         if not response.ok:
             raise exc.K8sClientException(response.text)
@@ -261,7 +267,7 @@ class K8sClient(object):
 
             try:
                 self._raise_from_response(response)
-            except (exc.K8sForbidden, exc.K8sResourceNotFound):
+            except (exc.K8sFieldValueForbidden, exc.K8sResourceNotFound):
                 # Object is being deleting or gone. Return.
                 return False
             except exc.K8sConflict:
@@ -306,8 +312,8 @@ class K8sClient(object):
                     self._raise_from_response(response)
                 except exc.K8sConflict:
                     obj = self.get(path)
-            except exc.K8sResourceNotFound:
-                # Object is gone already, stop.
+            except (exc.K8sFieldValueForbidden, exc.K8sResourceNotFound):
+                # Object is being deleted or gone already, stop.
                 return False
 
         # If after 3 iterations there's still conflict, just raise.
