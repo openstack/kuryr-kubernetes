@@ -85,5 +85,5 @@ class TestDefaultNetworkPolicyProjectDriver(test_base.TestCase):
 
     def test_get_project_not_set(self):
         policy = mock.sentinel.policy
-        driver = default_project.DefaultNamespaceProjectDriver()
+        driver = default_project.DefaultNetworkPolicyProjectDriver()
         self.assertRaises(cfg.RequiredOptError, driver.get_project, policy)
