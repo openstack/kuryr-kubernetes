@@ -38,6 +38,10 @@
           $OCTAVIA_CONF:
             controller_worker:
               amp_active_retries: 9999
+            health_manager:
+              failover_threads: 2
+              health_update_threads: 2
+              stats_update_threads: 2
       devstack_services:
         octavia: true
         o-api: true
