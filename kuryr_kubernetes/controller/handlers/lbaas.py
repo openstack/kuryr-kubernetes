@@ -258,10 +258,12 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
         # We need to set the requested load balancer provider
         # according to 'endpoints_driver_octavia_provider' configuration.
         self._lb_provider = None
-        if (config.CONF.kubernetes.endpoints_driver_octavia_provider
-                != 'default'):
-            self._lb_provider = (
-                config.CONF.kubernetes.endpoints_driver_octavia_provider)
+        if self._drv_lbaas.providers_supported():
+            self._lb_provider = 'amphora'
+            if (config.CONF.kubernetes.endpoints_driver_octavia_provider
+                    != 'default'):
+                self._lb_provider = (
+                    config.CONF.kubernetes.endpoints_driver_octavia_provider)
 
     def on_present(self, endpoints):
         if self._move_annotations_to_crd(endpoints):
@@ -349,6 +351,9 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
             'status': status,
         }
 
+        if self._lb_provider:
+            loadbalancer_crd['spec']['provider'] = self._lb_provider
+
         try:
             kubernetes.post('{}/{}/kuryrloadbalancers'.format(
                 k_const.K8S_API_CRD_NAMESPACES, namespace), loadbalancer_crd)
@@ -365,11 +370,14 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
         # TODO(maysams): Remove the convertion once we start handling
         # Endpoint slices.
         epslices = self._convert_subsets_to_endpointslice(endpoints)
+        spec = {'endpointSlices': epslices}
+        if self._lb_provider:
+            spec['provider'] = self._lb_provider
         try:
             kubernetes.patch_crd(
                 'spec',
                 loadbalancer_crd['metadata']['selfLink'],
-                {'endpointSlices': epslices})
+                spec)
         except k_exc.K8sResourceNotFound:
             LOG.debug('KuryrLoadbalancer CRD not found %s', loadbalancer_crd)
         except k_exc.K8sConflict:
