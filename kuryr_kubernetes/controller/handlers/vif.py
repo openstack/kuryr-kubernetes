@@ -14,13 +14,11 @@
 #    under the License.
 
 from os_vif import objects
-from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
-from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import k8s_base
@@ -46,21 +44,6 @@ class VIFHandler(k8s_base.ResourceEventHandler):
 
     def __init__(self):
         super(VIFHandler, self).__init__()
-        self._drv_project = drivers.PodProjectDriver.get_instance()
-        self._drv_subnets = drivers.PodSubnetsDriver.get_instance()
-        self._drv_sg = drivers.PodSecurityGroupsDriver.get_instance()
-        # REVISIT(ltomasbo): The VIF Handler should not be aware of the pool
-        # directly. Due to the lack of a mechanism to load and set the
-        # VIFHandler driver, for now it is aware of the pool driver, but this
-        # will be reverted as soon as a mechanism is in place.
-        self._drv_vif_pool = drivers.VIFPoolDriver.get_instance(
-            specific_driver='multi_pool')
-        self._drv_vif_pool.set_vif_driver()
-        self._drv_multi_vif = drivers.MultiVIFDriver.get_enabled_drivers()
-        if self._is_network_policy_enabled():
-            self._drv_lbaas = drivers.LBaaSDriver.get_instance()
-            self._drv_svc_sg = (
-                drivers.ServiceSecurityGroupsDriver.get_instance())
 
     def on_present(self, pod):
         if (driver_utils.is_host_network(pod) or
@@ -178,20 +161,6 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                      constants.K8S_POD_STATUS_FAILED))
         except KeyError:
             return False
-
-    def _update_services(self, services, crd_pod_selectors, project_id):
-        for service in services.get('items'):
-            if not driver_utils.service_matches_affected_pods(
-                    service, crd_pod_selectors):
-                continue
-            sgs = self._drv_svc_sg.get_security_groups(service,
-                                                       project_id)
-            self._drv_lbaas.update_lbaas_sg(service, sgs)
-
-    def _is_network_policy_enabled(self):
-        enabled_handlers = oslo_cfg.CONF.kubernetes.enabled_handlers
-        svc_sg_driver = oslo_cfg.CONF.kubernetes.service_security_groups_driver
-        return ('policy' in enabled_handlers and svc_sg_driver == 'policy')
 
     def _add_kuryrport_crd(self, pod, vifs=None):
         LOG.debug('Adding CRD %s', pod["metadata"]["name"])

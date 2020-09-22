@@ -76,17 +76,6 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                         spec_lb_provider in OCTAVIA_DEFAULT_PROVIDERS):
                     self._ensure_release_lbaas(loadbalancer_crd)
 
-        try:
-            name = loadbalancer_crd['metadata']['name']
-            namespace = loadbalancer_crd['metadata']['namespace']
-            self._get_loadbalancer_crd(name, namespace)
-        except k_exc.K8sResourceNotFound:
-            LOG.debug('KuryrLoadbalancer CRD not found %s',
-                      loadbalancer_crd)
-        except KeyError:
-            LOG.debug('KuryrLoadbalancer CRD not found')
-            raise k_exc.ResourceNotReady(loadbalancer_crd)
-
         if self._sync_lbaas_members(loadbalancer_crd):
             # Note(yboaron) For LoadBalancer services, we should allocate FIP,
             # associate it to LB VIP and update K8S service status
@@ -136,10 +125,6 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
     def on_finalize(self, loadbalancer_crd):
         LOG.debug("Deleting the loadbalancer CRD")
 
-        if not loadbalancer_crd:
-            LOG.warning("Load Balancer CRD not present")
-            return
-
         if loadbalancer_crd['status'] != {}:
             # NOTE(ivc): deleting pool deletes its members
             self._drv_lbaas.release_loadbalancer(
@@ -171,8 +156,8 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
             service = kubernetes.get(f"{k_const.K8S_API_NAMESPACES}"
                                      f"/{namespace}/services/{name}")
         except k_exc.K8sResourceNotFound as ex:
-            LOG.exception("Failed to get service: %s", ex)
-            raise
+            LOG.warning("Failed to get service: %s", ex)
+            return
 
         LOG.debug('Removing finalizer from service %s',
                   service["metadata"]["name"])
@@ -182,19 +167,6 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
             LOG.exception('Error removing service finalizer '
                           'for %s', service["metadata"]["name"])
             raise
-
-    def _get_loadbalancer_crd(self, loadbalancer_crd_name, namespace):
-        k8s = clients.get_kubernetes_client()
-        try:
-            loadbalancer_crd = k8s.get('{}/{}/kuryrloadbalancers/{}'.format(
-                k_const.K8S_API_CRD_NAMESPACES, namespace,
-                loadbalancer_crd_name))
-        except k_exc.K8sResourceNotFound:
-            return None
-        except k_exc.K8sClientException:
-            LOG.exception("Kubernetes Client Exception.")
-            raise
-        return loadbalancer_crd
 
     def _sync_lbaas_members(self, loadbalancer_crd):
         changed = False
