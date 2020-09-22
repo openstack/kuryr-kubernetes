@@ -160,10 +160,10 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
                 loadbalancer_crd)
         except k_exc.K8sConflict:
             raise k_exc.ResourceNotReady(svc_name)
+        except k_exc.K8sNamespaceTerminating:
+            raise
         except k_exc.K8sClientException:
-            LOG.exception("Kubernetes Client Exception creating "
-                          "kuryrloadbalancer CRD. %s"
-                          % k_exc.K8sClientException)
+            LOG.exception("Exception when creating KuryrLoadBalancer CRD.")
             raise
         return loadbalancer_crd
 
@@ -354,10 +354,10 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
                 k_const.K8S_API_CRD_NAMESPACES, namespace), loadbalancer_crd)
         except k_exc.K8sConflict:
             raise k_exc.ResourceNotReady(loadbalancer_crd)
+        except k_exc.K8sNamespaceTerminating:
+            raise
         except k_exc.K8sClientException:
-            LOG.exception("Kubernetes Client Exception creating "
-                          "kuryrloadbalancer CRD. %s" %
-                          k_exc.K8sClientException)
+            LOG.exception("Exception when creating KuryrLoadBalancer CRD.")
             raise
 
     def _update_crd_spec(self, loadbalancer_crd, endpoints):

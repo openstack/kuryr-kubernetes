@@ -200,6 +200,27 @@ class BaseVIFPool(test_base.TestCase):
                           tuple(security_groups))
         m_driver._drv_vif.request_vifs.assert_not_called()
 
+    @ddt.data((neutron_vif.NeutronPodVIFDriver),
+              (nested_vlan_vif.NestedVlanPodVIFDriver))
+    def test__populate_pool_not_ready_dont_raise(self, m_vif_driver):
+        cls = vif_pool.BaseVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+
+        cls_vif_driver = m_vif_driver
+        vif_driver = mock.MagicMock(spec=cls_vif_driver)
+        m_driver._drv_vif = vif_driver
+
+        pod = mock.sentinel.pod
+        project_id = str(uuid.uuid4())
+        subnets = mock.sentinel.subnets
+        security_groups = 'test-sg'
+        pool_key = (mock.sentinel.host_addr, project_id)
+        m_driver._recovered_pools = False
+
+        cls._populate_pool(m_driver, pool_key, pod, subnets,
+                           tuple(security_groups), raise_not_ready=False)
+        m_driver._drv_vif.request_vifs.assert_not_called()
+
     @mock.patch('time.time', return_value=0)
     def test__populate_pool_no_update(self, m_time):
         cls = vif_pool.BaseVIFPool
