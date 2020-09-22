@@ -69,6 +69,8 @@ K8S_ANNOTATION_OLD_DRIVER = 'old_driver'
 K8S_ANNOTATION_CURRENT_DRIVER = 'current_driver'
 K8S_ANNOTATION_NEUTRON_PORT = 'neutron_id'
 
+K8S_ANNOTATION_HEADLESS_SERVICE = 'service.kubernetes.io/headless'
+
 POD_FINALIZER = KURYR_FQDN + '/pod-finalizer'
 KURYRNETWORK_FINALIZER = 'kuryrnetwork.finalizers.kuryr.openstack.org'
 KURYRLB_FINALIZER = 'kuryr.openstack.org/kuryrloadbalancer-finalizers'
