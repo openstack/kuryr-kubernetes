@@ -31,6 +31,8 @@
           devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
           kuryr-tempest-plugin: https://opendev.org/openstack/kuryr-tempest-plugin
     vars:
+      # Default swap size got shrinked to 1 GB, it's way too small for us.
+      configure_swap_size: 8192
       tempest_test_regex: '^(kuryr_tempest_plugin.tests.)'
       tox_envlist: 'all'
       devstack_localrc:
