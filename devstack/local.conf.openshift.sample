@@ -48,9 +48,6 @@ enable_service o-cw
 enable_service o-hm
 enable_service o-hk
 ## Octavia Deps
-### Image
-### Barbican
-enable_plugin barbican https://opendev.org/openstack/barbican
 ### Nova
 enable_service n-api
 enable_service n-api-meta

@@ -116,9 +116,7 @@
         Kuryr-Kubernetes job with OVN and Octavia provider OVN running k8s network policy e2e tests
     required-projects:
       - openstack/neutron
-      - openstack/barbican
       - openstack/octavia
-      - openstack/python-barbicanclient
       - openstack/python-octaviaclient
       - openstack/ovn-octavia-provider
     pre-run: playbooks/get_amphora_tarball.yaml
@@ -129,7 +127,6 @@
         devstack_plugins:
           neutron: https://opendev.org/openstack/neutron
           octavia: https://opendev.org/openstack/octavia
-          barbican: https://opendev.org/openstack/barbican
           ovn-octavia-provider: https://opendev.org/openstack/ovn-octavia-provider
     vars:
       devstack_localrc:
