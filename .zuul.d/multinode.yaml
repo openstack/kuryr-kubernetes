@@ -17,7 +17,7 @@
     parent: kuryr-kubernetes-tempest
     description: |
         Kuryr-Kubernetes tempest multinode job
-    nodeset: openstack-two-node-bionic
+    nodeset: openstack-two-node-focal
     host-vars:
       controller:
         devstack_plugins:
@@ -30,6 +30,8 @@
           devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
           kuryr-kubernetes: https://opendev.org/openstack/kuryr
         devstack_services:
+          # Need to disable dstat due to bug https://github.com/dstat-real/dstat/pull/162
+          dstat: false
           kuryr-kubernetes: false
           kubernetes-api: false
           kubernetes-controller-manager: false

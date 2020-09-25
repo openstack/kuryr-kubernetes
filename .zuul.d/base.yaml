@@ -45,6 +45,8 @@
       devstack_services:
         # TODO(dmellado):Temporary workaround until proper fix
         base: false
+        # Need to disable dstat due to bug https://github.com/dstat-real/dstat/pull/162
+        dstat: false
         s-account: false
         s-container: false
         s-object: false
@@ -111,6 +113,8 @@
       devstack_services:
         # TODO(dmellado):Temporary workaround until proper fix
         base: false
+        # Need to disable dstat due to bug https://github.com/dstat-real/dstat/pull/162
+        dstat: false
         s-account: false
         s-container: false
         s-object: false
