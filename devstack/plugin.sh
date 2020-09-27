@@ -654,7 +654,8 @@ function run_k8s_controller_manager {
                 --root-ca-file=/srv/kubernetes/ca.crt
                 --min-resync-period=3m
                 --v=$(get_k8s_log_level)
-                --logtostderr=true)
+                --logtostderr=true
+                --leader-elect=false)
 
     run_container kubernetes-controller-manager "${command[@]}"
 }
@@ -674,7 +675,8 @@ function run_k8s_scheduler {
               /hyperkube kube-scheduler
                 --master=$KURYR_K8S_API_URL
                 --v=$(get_k8s_log_level)
-                --logtostderr=true)
+                --logtostderr=true
+                --leader-elect=false)
 
     run_container kubernetes-scheduler "${command[@]}"
 }
