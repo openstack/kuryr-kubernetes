@@ -271,7 +271,11 @@ class K8sClient(object):
                 # Object is being deleting or gone. Return.
                 return False
             except exc.K8sConflict:
-                obj = self.get(path)
+                try:
+                    obj = self.get(path)
+                except exc.K8sResourceNotFound:
+                    # Object got removed before finalizer was set
+                    return False
                 if finalizer in obj['metadata'].get('finalizers', []):
                     # Finalizer is there, return.
                     return True
