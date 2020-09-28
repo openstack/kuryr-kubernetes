@@ -10,6 +10,7 @@ Contents
 
    README.rst
    unreleased
+   victoria
    ussuri
    train
    stein
