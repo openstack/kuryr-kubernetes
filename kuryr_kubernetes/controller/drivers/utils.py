@@ -319,8 +319,8 @@ def get_kuryrnetworkpolicy_crds(namespace=None):
         LOG.exception("KuryrNetworkPolicy CRD not found")
         return []
     except k_exc.K8sClientException:
-        LOG.exception("Kubernetes Client Exception")
-        raise
+        LOG.exception("Exception during fetch KuryrNetworkPolicies. Retrying.")
+        raise k_exc.ResourceNotReady(knp_path)
     return knps.get('items', [])
 
 
