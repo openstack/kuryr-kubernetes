@@ -165,7 +165,6 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         except k_exc.K8sClientException:
             LOG.exception("Exception when creating KuryrLoadBalancer CRD.")
             raise
-        return loadbalancer_crd
 
     def _update_crd_spec(self, loadbalancer_crd, service):
         svc_name = service['metadata']['name']
@@ -182,7 +181,6 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         except k_exc.K8sClientException:
             LOG.exception('Error updating kuryrnet CRD %s', loadbalancer_crd)
             raise
-        return loadbalancer_crd
 
     def _build_kuryrloadbalancer_spec(self, service):
         svc_ip = self._get_service_ip(service)
@@ -250,9 +248,6 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
     def __init__(self):
         super(EndpointsHandler, self).__init__()
         self._drv_lbaas = drv_base.LBaaSDriver.get_instance()
-        self._drv_pod_project = drv_base.PodProjectDriver.get_instance()
-        self._drv_pod_subnets = drv_base.PodSubnetsDriver.get_instance()
-        self._drv_service_pub_ip = drv_base.ServicePubIpDriver.get_instance()
         # Note(yboaron) LBaaS driver supports 'provider' parameter in
         # Load Balancer creation flow.
         # We need to set the requested load balancer provider
@@ -269,15 +264,15 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
         if self._move_annotations_to_crd(endpoints):
             return
 
-        k8s = clients.get_kubernetes_client()
-        loadbalancer_crd = k8s.get_loadbalancer_crd(endpoints)
-
         if (not self._has_pods(endpoints) or
                 k_const.K8S_ANNOTATION_HEADLESS_SERVICE
                 in endpoints['metadata'].get('labels', [])):
             LOG.debug("Ignoring Kubernetes endpoints %s",
                       endpoints['metadata']['name'])
             return
+
+        k8s = clients.get_kubernetes_client()
+        loadbalancer_crd = k8s.get_loadbalancer_crd(endpoints)
 
         if loadbalancer_crd is None:
             try:
