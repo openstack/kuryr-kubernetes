@@ -356,11 +356,12 @@ class LBaaSv2Driver(base.LBaaSDriver):
         # NOTE(maysams): When ovn-octavia provider is used
         # there is no need to set a security group for
         # the load balancer as it wouldn't be enforced.
-        if not CONF.octavia_defaults.enforce_sg_rules:
+        if not CONF.octavia_defaults.enforce_sg_rules and result:
             os_net = clients.get_network_client()
             vip_port = self._get_vip_port(loadbalancer)
-            os_net.update_port(vip_port.id, security_groups=[])
-            loadbalancer['security_groups'] = []
+            if vip_port:
+                os_net.update_port(vip_port.id, security_groups=[])
+                loadbalancer['security_groups'] = []
 
         return result
 
