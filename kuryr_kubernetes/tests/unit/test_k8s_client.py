@@ -74,9 +74,9 @@ class TestK8sClient(test_base.TestCase):
         m_exist.return_value = True
         self.assertRaises(RuntimeError, k8s_client.K8sClient, self.base_url)
 
-    @mock.patch('requests.sessions.Session.get')
+    @mock.patch('requests.sessions.Session.send')
     @mock.patch('kuryr_kubernetes.config.CONF')
-    def test_bearer_token(self, m_cfg, m_get):
+    def test_bearer_token(self, m_cfg, m_send):
         token_content = (
             "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3Nl"
             "cnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc"
@@ -102,11 +102,9 @@ class TestK8sClient(test_base.TestCase):
             path = '/test'
             client = k8s_client.K8sClient(self.base_url)
             client.get(path)
-            headers = {
-                'Authorization': 'Bearer {}'.format(token_content)}
-            m_get.assert_called_once_with(
-                self.base_url + path, cert=(None, None), headers=headers,
-                verify=False, timeout=(30, 60))
+
+            self.assertEqual(f'Bearer {token_content}',
+                             m_send.call_args[0][0].headers['Authorization'])
         finally:
             os.unlink(m_cfg.kubernetes.token_file)
 
@@ -121,9 +119,7 @@ class TestK8sClient(test_base.TestCase):
         m_get.return_value = m_resp
 
         self.assertEqual(ret, self.client.get(path))
-        m_get.assert_called_once_with(
-            self.base_url + path,
-            cert=(None, None), headers={}, verify=False, timeout=(30, 60))
+        m_get.assert_called_once_with(self.base_url + path, headers=None)
 
     @mock.patch('requests.sessions.Session.get')
     def test_get_exception(self, m_get):
@@ -154,9 +150,7 @@ class TestK8sClient(test_base.TestCase):
         self.assertEqual(annotations, self.client.annotate(
             path, annotations, resource_version=resource_version))
         m_patch.assert_called_once_with(self.base_url + path,
-                                        data=data, headers=mock.ANY,
-                                        cert=(None, None), verify=False,
-                                        timeout=(30, 60))
+                                        data=data, headers=mock.ANY)
 
     @mock.patch('itertools.count')
     @mock.patch('requests.sessions.Session.patch')
@@ -203,8 +197,7 @@ class TestK8sClient(test_base.TestCase):
         m_patch.assert_has_calls([
             mock.call(self.base_url + path,
                       data=conflicting_data,
-                      headers=mock.ANY,
-                      cert=(None, None), verify=False, timeout=(30, 60))])
+                      headers=mock.ANY)])
 
     @mock.patch('itertools.count')
     @mock.patch('requests.sessions.Session.patch')
@@ -243,12 +236,10 @@ class TestK8sClient(test_base.TestCase):
         m_patch.assert_has_calls([
             mock.call(self.base_url + path,
                       data=annotating_data,
-                      headers=mock.ANY,
-                      cert=(None, None), verify=False, timeout=(30, 60)),
+                      headers=mock.ANY),
             mock.call(self.base_url + path,
                       data=resolution_data,
-                      headers=mock.ANY,
-                      cert=(None, None), verify=False, timeout=(30, 60))])
+                      headers=mock.ANY)])
 
     @mock.patch('itertools.count')
     @mock.patch('requests.sessions.Session.patch')
@@ -287,12 +278,10 @@ class TestK8sClient(test_base.TestCase):
         m_patch.assert_has_calls([
             mock.call(self.base_url + path,
                       data=conflicting_data,
-                      headers=mock.ANY,
-                      cert=(None, None), verify=False, timeout=(30, 60)),
+                      headers=mock.ANY),
             mock.call(self.base_url + path,
                       data=good_data,
-                      headers=mock.ANY,
-                      cert=(None, None), verify=False, timeout=(30, 60))])
+                      headers=mock.ANY)])
 
     @mock.patch('itertools.count')
     @mock.patch('requests.sessions.Session.patch')
@@ -318,9 +307,7 @@ class TestK8sClient(test_base.TestCase):
                           resource_version=resource_version)
         m_patch.assert_called_once_with(self.base_url + path,
                                         data=annotate_data,
-                                        headers=mock.ANY,
-                                        cert=(None, None), verify=False,
-                                        timeout=(30, 60))
+                                        headers=mock.ANY)
 
     @mock.patch('requests.sessions.Session.get')
     def test_watch(self, m_get):
@@ -341,9 +328,8 @@ class TestK8sClient(test_base.TestCase):
 
         self.assertEqual(cycles, m_get.call_count)
         self.assertEqual(cycles, m_resp.close.call_count)
-        m_get.assert_called_with(self.base_url + path, headers={}, stream=True,
-                                 params={'watch': 'true'}, cert=(None, None),
-                                 verify=False, timeout=(30, 60))
+        m_get.assert_called_with(self.base_url + path, stream=True,
+                                 params={'watch': 'true'})
 
     @mock.patch('requests.sessions.Session.get')
     def test_watch_restart(self, m_get):
@@ -364,13 +350,10 @@ class TestK8sClient(test_base.TestCase):
         self.assertEqual(3, m_get.call_count)
         self.assertEqual(3, m_resp.close.call_count)
         m_get.assert_any_call(
-            self.base_url + path, headers={}, stream=True,
-            params={"watch": "true"}, cert=(None, None), verify=False,
-            timeout=(30, 60))
+            self.base_url + path, stream=True, params={"watch": "true"})
         m_get.assert_any_call(
-            self.base_url + path, headers={}, stream=True,
-            params={"watch": "true", "resourceVersion": 2}, cert=(None, None),
-            verify=False, timeout=(30, 60))
+            self.base_url + path, stream=True, params={"watch": "true",
+                                                       "resourceVersion": 2})
 
     @mock.patch('requests.sessions.Session.get')
     def test_watch_exception(self, m_get):
@@ -396,8 +379,7 @@ class TestK8sClient(test_base.TestCase):
 
         self.assertEqual(ret, self.client.post(path, body))
         m_post.assert_called_once_with(self.base_url + path, json=body,
-                                       headers=mock.ANY, cert=(None, None),
-                                       verify=False, timeout=(30, 60))
+                                       headers=mock.ANY)
 
     @mock.patch('requests.sessions.Session.post')
     def test_post_exception(self, m_post):
@@ -423,8 +405,7 @@ class TestK8sClient(test_base.TestCase):
 
         self.assertEqual(ret, self.client.delete(path))
         m_delete.assert_called_once_with(self.base_url + path,
-                                         headers=mock.ANY, cert=(None, None),
-                                         verify=False, timeout=(30, 60))
+                                         headers=mock.ANY)
 
     @mock.patch('requests.sessions.Session.delete')
     def test_delete_exception(self, m_delete):

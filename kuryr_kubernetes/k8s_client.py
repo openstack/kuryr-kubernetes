@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import contextlib
+import functools
 import itertools
 import os
 import ssl
@@ -78,12 +79,16 @@ class K8sClient(object):
             else:
                 self.verify_server = ca_crt_file
 
-        self._rq_params = {
-            'cert': self.cert,
-            'verify': self.verify_server,
-            'timeout': (CONF.kubernetes.watch_connection_timeout,
-                        CONF.kubernetes.watch_read_timeout),
-        }
+        # Let's setup defaults for our Session.
+        self.session.cert = self.cert
+        self.session.verify = self.verify_server
+        if self.token:
+            self.session.headers['Authorization'] = f'Bearer {self.token}'
+        # NOTE(dulek): Seems like this is the only way to set is globally.
+        self.session.request = functools.partial(
+            self.session.request, timeout=(
+                CONF.kubernetes.watch_connection_timeout,
+                CONF.kubernetes.watch_read_timeout))
 
     def _raise_from_response(self, response):
         if response.status_code == requests.codes.not_found:
@@ -108,12 +113,7 @@ class K8sClient(object):
     def get(self, path, json=True, headers=None):
         LOG.debug("Get %(path)s", {'path': path})
         url = self._base_url + path
-        header = {}
-        if self.token:
-            header.update({'Authorization': 'Bearer %s' % self.token})
-        if headers:
-            header.update(headers)
-        response = self.session.get(url, headers=header, **self._rq_params)
+        response = self.session.get(url, headers=headers)
         self._raise_from_response(response)
         result = response.json() if json else response.text
         return result
@@ -122,18 +122,14 @@ class K8sClient(object):
         url = self._base_url + path
         header = {'Content-Type': content_type,
                   'Accept': 'application/json'}
-        if self.token:
-            header.update({'Authorization': 'Bearer %s' % self.token})
 
         return url, header
 
     def patch(self, field, path, data):
-        LOG.debug("Patch %(path)s: %(data)s", {
-            'path': path, 'data': data})
+        LOG.debug("Patch %(path)s: %(data)s", {'path': path, 'data': data})
         content_type = 'application/merge-patch+json'
         url, header = self._get_url_and_header(path, content_type)
-        response = self.session.patch(url, json={field: data},
-                                      headers=header, **self._rq_params)
+        response = self.session.patch(url, json={field: data}, headers=header)
         self._raise_from_response(response)
         return response.json().get('status')
 
@@ -159,7 +155,7 @@ class K8sClient(object):
             'path': path, 'data': data})
 
         response = self.session.patch(url, data=jsonutils.dumps(data),
-                                      headers=header, **self._rq_params)
+                                      headers=header)
         self._raise_from_response(response)
         return response.json().get('status')
 
@@ -174,7 +170,7 @@ class K8sClient(object):
                  'value': value}]
 
         response = self.session.patch(url, data=jsonutils.dumps(data),
-                                      headers=header, **self._rq_params)
+                                      headers=header)
         self._raise_from_response(response)
         return response.json().get('status')
 
@@ -187,7 +183,7 @@ class K8sClient(object):
                  'path': '/metadata/annotations/{}'.format(annotation_name)}]
 
         response = self.session.patch(url, data=jsonutils.dumps(data),
-                                      headers=header, **self._rq_params)
+                                      headers=header)
         self._raise_from_response(response)
         return response.json().get('status')
 
@@ -206,7 +202,7 @@ class K8sClient(object):
         data = [{'op': 'remove',
                  'path': f'/metadata/annotations/{annotation_name}'}]
         response = self.session.patch(url, data=jsonutils.dumps(data),
-                                      headers=header, **self._rq_params)
+                                      headers=header)
         if response.ok:
             return response.json().get('status')
         raise exc.K8sClientException(response.text)
@@ -215,11 +211,8 @@ class K8sClient(object):
         LOG.debug("Post %(path)s: %(body)s", {'path': path, 'body': body})
         url = self._base_url + path
         header = {'Content-Type': 'application/json'}
-        if self.token:
-            header.update({'Authorization': 'Bearer %s' % self.token})
 
-        response = self.session.post(url, json=body, headers=header,
-                                     **self._rq_params)
+        response = self.session.post(url, json=body, headers=header)
         self._raise_from_response(response)
         return response.json()
 
@@ -227,10 +220,8 @@ class K8sClient(object):
         LOG.debug("Delete %(path)s", {'path': path})
         url = self._base_url + path
         header = {'Content-Type': 'application/json'}
-        if self.token:
-            header.update({'Authorization': 'Bearer %s' % self.token})
 
-        response = self.session.delete(url, headers=header, **self._rq_params)
+        response = self.session.delete(url, headers=header)
         self._raise_from_response(response)
         return response.json()
 
@@ -256,8 +247,7 @@ class K8sClient(object):
                 },
             }
 
-            response = self.session.patch(url, json=data, headers=headers,
-                                          **self._rq_params)
+            response = self.session.patch(url, json=data, headers=headers)
 
             if response.ok:
                 return True
@@ -297,8 +287,7 @@ class K8sClient(object):
                 },
             }
 
-            response = self.session.patch(url, json=data, headers=headers,
-                                          **self._rq_params)
+            response = self.session.patch(url, json=data, headers=headers)
 
             if response.ok:
                 return True
@@ -349,8 +338,7 @@ class K8sClient(object):
             if resource_version:
                 metadata['resourceVersion'] = resource_version
             data = jsonutils.dumps({"metadata": metadata}, sort_keys=True)
-            response = self.session.patch(url, data=data,
-                                          headers=header, **self._rq_params)
+            response = self.session.patch(url, data=data, headers=header)
             if response.ok:
                 return response.json()['metadata'].get('annotations', {})
             if response.status_code == requests.codes.conflict:
@@ -381,9 +369,6 @@ class K8sClient(object):
     def watch(self, path):
         url = self._base_url + path
         resource_version = None
-        header = {}
-        if self.token:
-            header.update({'Authorization': 'Bearer %s' % self.token})
 
         attempt = 0
         while True:
@@ -393,8 +378,7 @@ class K8sClient(object):
                     params['resourceVersion'] = resource_version
                 with contextlib.closing(
                         self.session.get(
-                            url, params=params, stream=True, headers=header,
-                            **self._rq_params)) as response:
+                            url, params=params, stream=True)) as response:
                     if not response.ok:
                         raise exc.K8sClientException(response.text)
                     attempt = 0
