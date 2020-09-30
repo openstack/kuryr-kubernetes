@@ -500,10 +500,22 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
         os_net = clients.get_network_client()
         tags = config.CONF.neutron_defaults.resource_tags
         if tags:
+            subnetpool_id = config.CONF.namespace_subnet.pod_subnet_pool
+            if subnetpool_id:
+                subnets = os_net.subnets(tags=tags,
+                                         subnetpool_id=subnetpool_id)
+                subnets_ids = [s.id for s in subnets]
+            else:
+                subnets_ids = [config.CONF.neutron_defaults.pod_subnet]
+
             # NOTE(ltomasbo): Detached subports gets their device_owner unset
             detached_subports = os_net.ports(
                 device_owner='', status='DOWN', tags=tags)
             for subport in detached_subports:
+                # check if port belonged to kuryr and it was a subport
+                # FIXME(ltomasbo): Assuming single stack
+                if subport.fixed_ips[0]['subnet_id'] not in subnets_ids:
+                    continue
                 try:
                     del self._existing_vifs[subport.id]
                 except KeyError:
