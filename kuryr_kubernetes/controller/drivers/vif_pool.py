@@ -509,12 +509,27 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
                 subnets_ids = [config.CONF.neutron_defaults.pod_subnet]
 
             # NOTE(ltomasbo): Detached subports gets their device_owner unset
-            detached_subports = os_net.ports(
-                device_owner='', status='DOWN', tags=tags)
+            detached_subports = os_net.ports(status='DOWN', tags=tags)
             for subport in detached_subports:
+                # FIXME(ltomasbo): Looking for trunk:subport is only needed
+                # due to a bug in neutron that does not reset the
+                # device_owner after the port is detached from the trunk
+                if subport.device_owner not in ['', 'trunk:subport']:
+                    continue
+                if subport.id not in previous_ports_to_remove:
+                    # FIXME(ltomasbo): Until the above problem is there,
+                    # we need to add protection for recently created ports
+                    # that are still being attached
+                    previous_ports_to_remove.append(subport.id)
+                    continue
                 # check if port belonged to kuryr and it was a subport
                 # FIXME(ltomasbo): Assuming single stack
-                if subport.fixed_ips[0]['subnet_id'] not in subnets_ids:
+                if len(subport.fixed_ips) != 1:
+                    # This should never happen as there is no option to create
+                    # ports without IPs in Neutron, yet we hit it. So adding
+                    # protection from it
+                    continue
+                if subport.fixed_ips[0].get('subnet_id') not in subnets_ids:
                     continue
                 try:
                     del self._existing_vifs[subport.id]
@@ -525,6 +540,8 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
                 except os_exc.SDKException:
                     LOG.debug("Problem deleting leftover port %s. "
                               "Skipping.", subport.id)
+                else:
+                    previous_ports_to_remove.remove(subport.id)
 
             # normal ports, or subports not yet attached
             existing_ports = os_net.ports(
@@ -554,7 +571,8 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
                 except os_exc.SDKException:
                     LOG.debug("Problem deleting leftover port %s. "
                               "Skipping.", port.id)
-                previous_ports_to_remove.remove(port.id)
+                else:
+                    previous_ports_to_remove.remove(port.id)
 
 
 class NeutronVIFPool(BaseVIFPool):
@@ -605,7 +623,14 @@ class NeutronVIFPool(BaseVIFPool):
                 oslo_cfg.CONF.vif_pool.ports_pool_min):
             eventlet.spawn(self._populate_pool, pool_key, pod, subnets,
                            security_groups)
-        return self._existing_vifs[port_id]
+        # Add protection from port_id not in existing_vifs
+        try:
+            port = self._existing_vifs[port_id]
+        except KeyError:
+            LOG.debug('Missing port on existing_vifs, this should not happen.'
+                      ' Retrying.')
+            raise exceptions.ResourceNotReady(pod)
+        return port
 
     def _return_ports_to_pool(self):
         """Recycle ports to be reused by future pods.
@@ -864,7 +889,14 @@ class NestedVIFPool(BaseVIFPool):
                 oslo_cfg.CONF.vif_pool.ports_pool_min):
             eventlet.spawn(self._populate_pool, pool_key, pod, subnets,
                            security_groups)
-        return self._existing_vifs[port_id]
+        # Add protection from port_id not in existing_vifs
+        try:
+            port = self._existing_vifs[port_id]
+        except KeyError:
+            LOG.debug('Missing port on existing_vifs, this should not happen.'
+                      ' Retrying.')
+            raise exceptions.ResourceNotReady(pod)
+        return port
 
     def _return_ports_to_pool(self):
         """Recycle ports to be reused by future pods.
