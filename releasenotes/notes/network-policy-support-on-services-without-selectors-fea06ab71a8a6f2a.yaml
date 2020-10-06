@@ -1,0 +1,7 @@
+---
+fixes:
+  - |
+    Kuryr can now handle egress Network Policy that allows
+    traffic to Pods being Pointed by a Service without Selector.
+    Also, ingress Network Policy is not enforced on Services
+    without Selectors when the Octavia provider is Amphora.

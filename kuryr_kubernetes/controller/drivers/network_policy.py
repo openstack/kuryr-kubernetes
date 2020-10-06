@@ -542,26 +542,39 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             return
 
         for service in services.get('items'):
+            svc_name = service['metadata']['name']
+            svc_namespace = service['metadata']['namespace']
             if self._is_pod(resource):
                 pod_labels = resource['metadata'].get('labels')
                 svc_selector = service['spec'].get('selector')
-                if not svc_selector or not pod_labels:
-                    continue
-                else:
+                if not svc_selector:
+                    targets = driver_utils.get_endpoints_targets(
+                            svc_name, svc_namespace)
+                    pod_ip = resource['status'].get('podIP')
+                    if pod_ip and pod_ip not in targets:
+                        continue
+                elif pod_labels:
                     if not driver_utils.match_labels(
                             svc_selector, pod_labels):
                         continue
             elif resource.get('cidr'):
                 # NOTE(maysams) Accounts for traffic to pods under
                 # a service matching an IPBlock rule.
-                svc_namespace = service['metadata']['namespace']
-                if svc_namespace != policy_namespace:
-                    continue
                 svc_selector = service['spec'].get('selector')
-                pods = driver_utils.get_pods({'selector': svc_selector},
-                                             svc_namespace).get('items')
-                if not self._pods_in_ip_block(pods, resource):
-                    continue
+                if not svc_selector:
+                    # Retrieving targets of services on any Namespace
+                    targets = driver_utils.get_endpoints_targets(
+                        svc_name, svc_namespace)
+                    if (not targets or
+                            not self._targets_in_ip_block(targets, resource)):
+                        continue
+                else:
+                    if svc_namespace != policy_namespace:
+                        continue
+                    pods = driver_utils.get_pods({'selector': svc_selector},
+                                                 svc_namespace).get('items')
+                    if not self._pods_in_ip_block(pods, resource):
+                        continue
             else:
                 ns_name = service['metadata']['namespace']
                 if ns_name != resource['metadata']['name']:
@@ -582,6 +595,13 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     in ipaddress.ip_network(resource.get('cidr'))):
                 return True
         return False
+
+    def _targets_in_ip_block(self, targets, resource):
+        for target in targets:
+            if (ipaddress.ip_address(target)
+                    not in ipaddress.ip_network(resource.get('cidr'))):
+                return False
+        return True
 
     def parse_network_policy_rules(self, policy):
         """Create security group rule bodies out of network policies.
