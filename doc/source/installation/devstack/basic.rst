@@ -133,7 +133,7 @@ To test kuryr-kubernetes itself try creating a Kubernetes pod:
 
 .. code-block:: console
 
-   $ kubectl run --image busybox test -- sleep 3600
+   $ kubectl create deployment --image busybox test -- sleep 3600
    $ kubectl get pods -o wide
    NAME                    READY     STATUS              RESTARTS   AGE       IP        NODE
    test-3202410914-1dp7g   0/1       ContainerCreating   0          7s        <none>    localhost

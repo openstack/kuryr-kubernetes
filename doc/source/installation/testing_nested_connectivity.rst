@@ -8,7 +8,7 @@ successful:
 
 .. code-block:: console
 
-   $ kubectl run demo --image=celebdor/kuryr-demo
+   $ kubectl create deployment demo --image=celebdor/kuryr-demo
    $ kubectl scale deploy/demo --replicas=2
    $ kubectl expose deploy/demo --port=80 --target-port=8080
 

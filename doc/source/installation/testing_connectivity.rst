@@ -27,7 +27,7 @@ deployment with:
 
 .. code-block:: console
 
-   $ kubectl run demo --image=celebdor/kuryr-demo
+   $ kubectl create deployment demo --image=celebdor/kuryr-demo
    deployment "demo" created
 
 After a few seconds, the container is up an running, and a neutron port was

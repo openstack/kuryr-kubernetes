@@ -10,7 +10,7 @@ We first create a deployment named demo:
 
 .. code-block:: console
 
-   $ kubectl run  --image=yboaron/kuryr-udp-demo demo
+   $ kubectl create deployment  --image=yboaron/kuryr-udp-demo demo
    deployment "demo" created
 
 As the next step, we will scale the deployment to 2 pods:

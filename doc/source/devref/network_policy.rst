@@ -255,7 +255,7 @@ Create the following pod with label ``role=monitoring``:
 
 .. code-block:: console
 
-   $ kubectl run  monitor --image=busybox --restart=Never --labels=role=monitoring
+   $ kubectl create deployment  monitor --image=busybox --restart=Never --labels=role=monitoring
 
 The generated CRD contains an ingress rule allowing traffic on port 8080 from
 the created pod, and an egress rule allowing traffic to everywhere, since no

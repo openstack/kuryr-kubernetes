@@ -118,10 +118,10 @@ Testing the network per namespace functionality
 
    .. code-block:: console
 
-      $ kubectl run -n test1 --image kuryr/demo demo
+      $ kubectl create deployment -n test1 --image kuryr/demo demo
       deployment "demo" created
 
-      $ kubectl run -n test2 --image kuryr/demo demo
+      $ kubectl create deployment -n test2 --image kuryr/demo demo
       deployment "demo" created
 
       $ kubectl -n test1 get pod -o wide
