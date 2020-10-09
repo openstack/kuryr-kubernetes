@@ -80,7 +80,7 @@ def get_vifs(pod):
 
 
 def is_host_network(pod):
-    return pod['status'].get('hostNetwork', False)
+    return pod['spec'].get('hostNetwork', False)
 
 
 def get_pods(selector, namespace=None):
