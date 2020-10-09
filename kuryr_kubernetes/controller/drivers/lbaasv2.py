@@ -170,11 +170,16 @@ class LBaaSv2Driver(base.LBaaSDriver):
         all_pod_rules = []
         add_default_rules = False
         os_net = clients.get_network_client()
+        sgs = []
 
         if new_sgs:
             sgs = new_sgs
-        else:
+        elif loadbalancer['security_groups']:
             sgs = loadbalancer['security_groups']
+        else:
+            # NOTE(gryf): in case there is no new SG rules and loadbalancer
+            # has the SG removed, just add default ones.
+            add_default_rules = True
 
         # Check if Network Policy allows listener on the pods
         for sg in sgs:
