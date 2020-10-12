@@ -41,7 +41,6 @@ Design documents
    port_manager
    vif_handler_drivers_design
    health_manager
-   kuryr_kubernetes_ingress_design
    high_availability
    kuryr_kubernetes_versions
    network_policy
