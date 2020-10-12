@@ -10,7 +10,9 @@ be found  at :doc:`./devstack/containerized`):
 .. code-block:: ini
 
    [kubernetes]
-   enabled_handlers=vif,lb,lbaasspec,policy,pod_label,namespace,kuryrnetwork,kuryrnetworkpolicy,kuryrport
+   enabled_handlers=vif,endpoints,service,kuryrloadbalancer,policy,
+                    pod_label,namespace,kuryrnetwork,kuryrnetworkpolicy,
+                    kuryrport
 
 Note that if you also want to enable prepopulation of ports pools upon new
 namespace creation, you need to also dd the kuryrnetwork_population handler
@@ -19,7 +21,9 @@ namespace creation, you need to also dd the kuryrnetwork_population handler
 .. code-block:: ini
 
    [kubernetes]
-   enabled_handlers=vif,lb,lbaasspec,policy,pod_label,namespace,kuryrnetworkpolicy,kuryrnetwork,kuryrnetwork_population,kuryrport
+   enabled_handlers=vif,endpoints,service,kuryrloadbalancer,policy,
+                    pod_label,namespace,kuryrnetworkpolicy,kuryrnetwork,
+                    kuryrport,kuryrnetwork_population
 
 After that, enable also the security group drivers for policies:
 
@@ -82,7 +86,7 @@ to add the policy, pod_label and namespace handler and drivers with:
 
 .. code-block:: bash
 
-   KURYR_ENABLED_HANDLERS=vif,lb,lbaasspec,policy,pod_label,namespace,kuryrnetworkpolicy,kuryrport
+   KURYR_ENABLED_HANDLERS=vif,endpoints,service,kuryrloadbalancer,policy,pod_label,namespace,kuryrnetworkpolicy,kuryrport
    KURYR_SG_DRIVER=policy
    KURYR_SUBNET_DRIVER=namespace
 

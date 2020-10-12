@@ -178,8 +178,8 @@ currently includes the following:
 ================  =========================
 vif               Pod
 kuryrport         KuryrPort CRD
-lb                Endpoint
-lbaasspec         Service
+endpoints         Endpoint
+service           Service
 ================  =========================
 
 For example, to enable only the 'vif' controller handler we should set the

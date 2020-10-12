@@ -160,7 +160,7 @@ enable_service kuryr-daemon
 # By default, some Kuryr Handlers are set for DevStack installation. This can be
 # further tweaked in order to enable additional ones such as Network Policy. If
 # you want to add additional handlers those can be set here:
-# KURYR_ENABLED_HANDLERS = vif,lb,lbaasspec
+# KURYR_ENABLED_HANDLERS = vif,endpoints,service,kuryrloadbalancer,kuryrport
 
 # Kuryr Ports Pools
 # =================

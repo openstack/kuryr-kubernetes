@@ -179,7 +179,8 @@ k8s_opts = [
     cfg.ListOpt('enabled_handlers',
                 help=_("The comma-separated handlers that should be "
                        "registered for watching in the pipeline."),
-                default=['vif', 'lb', 'lbaasspec']),
+                default=['vif', 'endpoints', 'service', 'kuryrloadbalancer',
+                         'kuryrport']),
     cfg.BoolOpt('controller_ha',
                 help=_('Enable kuryr-controller active/passive HA. Only '
                        'supported in containerized deployments on Kubernetes '
