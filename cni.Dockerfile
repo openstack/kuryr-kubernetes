@@ -18,8 +18,8 @@ RUN yum upgrade -y \
 
 COPY . /opt/kuryr-kubernetes
 
-RUN pip3 install -U pip \
-    && python3 -m pip install -c $UPPER_CONSTRAINTS_FILE /opt/kuryr-kubernetes \
+RUN pip3 --no-cache-dir install -U pip \
+    && python3 -m pip --no-cache-dir install -c $UPPER_CONSTRAINTS_FILE /opt/kuryr-kubernetes \
     && cp /opt/kuryr-kubernetes/cni_ds_init /usr/bin/cni_ds_init \
     && mkdir -p /etc/kuryr-cni \
     && cp /opt/kuryr-kubernetes/etc/cni/net.d/* /etc/kuryr-cni \

@@ -10,7 +10,7 @@ RUN yum upgrade -y \
 
 COPY . /opt/kuryr-kubernetes
 
-RUN pip3 install -U pip \
+RUN pip3 --no-cache-dir install -U pip \
     && python3 -m pip install -c $UPPER_CONSTRAINTS_FILE --no-cache-dir /opt/kuryr-kubernetes \
     && yum -y history undo last \
     && yum clean all \
