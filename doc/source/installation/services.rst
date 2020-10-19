@@ -3,7 +3,7 @@ Kubernetes services networking
 ==============================
 
 Kuryr-Kubernetes default handler for handling Kubernetes `services`_ and
-endpoints uses the OpenStack Neutron `LBaaS API`_ in order to have each service
+endpoints uses the OpenStack `Octavia API`_ in order to have each service
 be implemented in the following way:
 
 * **Service**: It is translated to a single **LoadBalancer** and as many
@@ -21,59 +21,32 @@ be implemented in the following way:
    corner are implemented in plain Kubernetes networking (top-right) and in
    Kuryr's default configuration (bottom)
 
-If you are paying attention and are familiar with the `LBaaS API`_ you probably
-noticed that we have separate pools for each exposed port in a service. This is
-probably not optimal and we would probably benefit from keeping a single
-Neutron pool that lists each of the per port listeners.  Since `LBaaS API`_
-doesn't support UDP load balancing, service exported UDP ports will be ignored.
+If you are paying attention and are familiar with the `Octavia API`_ you
+probably noticed that we have separate pools for each exposed port in a
+service. This is probably not optimal and we would probably benefit from
+keeping a single Neutron pool that lists each of the per port listeners.
 
-When installing you can decide to use the legacy Neutron HAProxy driver for
-LBaaSv2 or install and configure OpenStack Octavia, which as of Pike implements
-the whole API without need of the neutron-lbaas package.
+Kuryr-Kubernetes uses OpenStack Octavia as the load balancing solution for
+OpenStack and to provide connectivity to the Kubernetes Services.
 
-It is beyond the scope of this document to explain in detail the inner workings
-of these two possible Neutron LBaaSv2 backends thus, only a brief explanation
-will be offered on each.
-
-
-Legacy Neutron HAProxy agent
-----------------------------
-
-The requirements for running Kuryr with the legacy Neutron HAProxy agent are
-the following:
-
-* Keystone
-* Neutron
-* Neutron-lbaasv2 agent
-
-As you can see, the only addition from the minimal OpenStack deployment for
-Kuryr is the Neutron lbaasv2 agent.
-
-In order to use Neutron HAProxy as the Neutron LBaaSv2 implementation you
-should not only install the neutron-lbaas agent but also place this snippet in
-the *[service_providers]* section of neutron.conf in your network controller
-node:
-
-.. code-block:: ini
-
-   NEUTRON_LBAAS_SERVICE_PROVIDERV2="LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
-
-When Kuryr sees a service and creates a load balancer, the HAProxy agent will
-spawn a HAProxy process. The HAProxy will then configure the LoadBalancer as
-listeners and pools are added. Thus you should take into consideration the
-memory requirements that arise from having one HAProxy process per Kubernetes
-Service.
+It is beyond the scope of this document to explain in detail the inner
+workings of Openstack Octavia thus, only a brief explanation will be offered.
 
 
 Octavia
 -------
 
-OpenStack Octavia is a new project that provides advanced Load Balancing by
-using pre-existing OpenStack services. The OpenStack requirements that Octavia
-adds over the Neutron HAProxy agent are:
+OpenStack Octavia is a project that provides advanced Load Balancing by using
+pre-existing OpenStack services. The requirements for running Kuryr with
+OpenStack Octavia are the following:
 
 * Nova
+* Neutron
 * Glance
+* Barbican (if TLS offloading functionality is enabled)
+* Keystone
+* Rabbit
+* MySQL
 
 You can find a good explanation about the involved steps to install Octavia in
 the `Octavia installation docs`_.
@@ -787,5 +760,5 @@ Troubleshooting
 
 
 .. _services: https://kubernetes.io/docs/concepts/services-networking/service/
-.. _LBaaS API: https://wiki.openstack.org/wiki/Neutron/LBaaS/API_2.0
+.. _Octavia API: https://docs.openstack.org/api-ref/load-balancer/v2/
 .. _Octavia installation docs: https://docs.openstack.org/octavia/latest/contributor/guides/dev-quick-start.html
