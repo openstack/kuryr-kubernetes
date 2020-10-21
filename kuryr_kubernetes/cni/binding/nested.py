@@ -14,6 +14,7 @@
 
 import abc
 import errno
+import os
 
 from oslo_log import log as logging
 import psutil
@@ -103,39 +104,26 @@ class NestedDriver(health.HealthHandler, b_base.BaseBindingDriver,
         with b_base.get_ipdb() as h_ipdb:
             self._remove_ifaces(h_ipdb, (temp_name,))
 
-        try:
-            with b_base.get_ipdb() as h_ipdb:
-                # TODO(vikasc): evaluate whether we should have stevedore
-                #               driver for getting the link device.
-                vm_iface_name = self._detect_iface_name(h_ipdb)
-                mtu = h_ipdb.interfaces[vm_iface_name].mtu
-                if mtu != vif.network.mtu:
-                    # NOTE(dulek): This might happen if Neutron and DHCP agent
-                    # have different MTU settings. See
-                    # https://bugs.launchpad.net/kuryr-kubernetes/+bug/1863212
-                    raise exceptions.CNIBindingFailure(
-                        f'MTU of interface {vm_iface_name} ({mtu}) does not '
-                        f'match MTU of pod network {vif.network.id} '
-                        f'({vif.network.mtu}). Please make sure pod network '
-                        f'has the same MTU as node (VM) network.')
+        with b_base.get_ipdb() as h_ipdb:
+            # TODO(vikasc): evaluate whether we should have stevedore
+            #               driver for getting the link device.
+            vm_iface_name = self._detect_iface_name(h_ipdb)
+            mtu = h_ipdb.interfaces[vm_iface_name].mtu
+            if mtu != vif.network.mtu:
+                # NOTE(dulek): This might happen if Neutron and DHCP agent
+                # have different MTU settings. See
+                # https://bugs.launchpad.net/kuryr-kubernetes/+bug/1863212
+                raise exceptions.CNIBindingFailure(
+                    f'MTU of interface {vm_iface_name} ({mtu}) does not '
+                    f'match MTU of pod network {vif.network.id} '
+                    f'({vif.network.mtu}). Please make sure pod network '
+                    f'has the same MTU as node (VM) network.')
 
-                args = self._get_iface_create_args(vif)
-                with h_ipdb.create(ifname=temp_name,
-                                   link=h_ipdb.interfaces[vm_iface_name],
-                                   **args) as iface:
-                    iface.net_ns_fd = utils.convert_netns(netns)
-        except pyroute2.NetlinkError as e:
-            if e.code == errno.EEXIST:
-                # NOTE(dulek): This is related to bug 1854928. It's super-rare,
-                #              so aim of this piece is to gater any info useful
-                #              for determining when it happens.
-                LOG.exception(f'Creation of pod interface failed due to VLAN '
-                              f'ID (vlan_info={args}) conflict. Probably the '
-                              f'CRI had not cleaned up the network namespace '
-                              f'of deleted pods. This should not be a '
-                              f'permanent issue but may cause restart of '
-                              f'kuryr-cni pod.')
-            raise
+            args = self._get_iface_create_args(vif)
+            with h_ipdb.create(ifname=temp_name,
+                               link=h_ipdb.interfaces[vm_iface_name],
+                               **args) as iface:
+                iface.net_ns_fd = utils.convert_netns(netns)
 
         with b_base.get_ipdb(netns) as c_ipdb:
             with c_ipdb.interfaces[temp_name] as iface:
@@ -159,8 +147,42 @@ class VlanDriver(NestedDriver):
     def __init__(self):
         super(VlanDriver, self).__init__()
 
+    def connect(self, vif, ifname, netns, container_id):
+        try:
+            super().connect(vif, ifname, netns, container_id)
+        except pyroute2.NetlinkError as e:
+            if e.code == errno.EEXIST:
+                args = self._get_iface_create_args(vif)
+                LOG.warning(
+                    f'Creation of pod interface failed due to VLAN ID '
+                    f'(vlan_info={args}) conflict. Probably the CRI had not '
+                    f'cleaned up the network namespace of deleted pods. '
+                    f'Attempting to find and delete offending interface and '
+                    f'retry.')
+                self._cleanup_conflicting_vlan(netns, args['vlan_id'])
+                super().connect(vif, ifname, netns, container_id)
+            raise
+
     def _get_iface_create_args(self, vif):
         return {'kind': VLAN_KIND, 'vlan_id': vif.vlan_id}
+
+    def _cleanup_conflicting_vlan(self, netns, vlan_id):
+        if vlan_id is None:
+            # Better to not attempt that, might remove way to much.
+            return
+
+        netns_dir = os.path.dirname(netns)
+        for ns in os.listdir(netns_dir):
+            ns = os.fsdecode(ns)
+            with b_base.get_ipdb(ns) as c_ipdb:
+                for ifname, iface in c_ipdb.interfaces.items():
+                    if iface.vlan_id == vlan_id:
+                        LOG.warning(
+                            f'Found offending interface {ifname} with VLAN ID '
+                            f'{vlan_id} in netns {ns}. Trying to remove it.')
+                        with c_ipdb.interfaces[ifname] as iface:
+                            iface.remove()
+                        break
 
 
 class MacvlanDriver(NestedDriver):
