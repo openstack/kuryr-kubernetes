@@ -161,6 +161,7 @@ class VlanDriver(NestedDriver):
                     f'retry.')
                 self._cleanup_conflicting_vlan(netns, args['vlan_id'])
                 super().connect(vif, ifname, netns, container_id)
+                return
             raise
 
     def _get_iface_create_args(self, vif):
@@ -171,18 +172,61 @@ class VlanDriver(NestedDriver):
             # Better to not attempt that, might remove way to much.
             return
 
-        netns_dir = os.path.dirname(netns)
-        for ns in os.listdir(netns_dir):
-            ns = os.fsdecode(ns)
-            with b_base.get_ipdb(ns) as c_ipdb:
-                for ifname, iface in c_ipdb.interfaces.items():
-                    if iface.vlan_id == vlan_id:
-                        LOG.warning(
-                            f'Found offending interface {ifname} with VLAN ID '
-                            f'{vlan_id} in netns {ns}. Trying to remove it.')
-                        with c_ipdb.interfaces[ifname] as iface:
-                            iface.remove()
-                        break
+        netns_paths = []
+        handled_netns = set()
+        with b_base.get_ipdb() as h_ipdb:
+            vm_iface_name = self._detect_iface_name(h_ipdb)
+            vm_iface_index = h_ipdb.interfaces[vm_iface_name].index
+
+        if netns.startswith('/proc'):
+            # Paths have /proc/<pid>/ns/net pattern, we need to iterate
+            # over /proc.
+            netns_dir = utils.convert_netns('/proc')
+            for pid in os.listdir(netns_dir):
+                if not pid.isdigit():
+                    # Ignore all the non-pid stuff in /proc
+                    continue
+                netns_paths.append(os.path.join(netns_dir, pid, 'ns/net'))
+        else:
+            # cri-o manages netns, they're in /var/run/netns/* or similar.
+            netns_dir = os.path.dirname(netns)
+            netns_paths = os.listdir(netns_dir)
+            netns_paths = [os.path.join(netns_dir, netns_path)
+                           for netns_path in netns_paths]
+
+        for netns_path in netns_paths:
+            netns_path = os.fsdecode(netns_path)
+            try:
+                # NOTE(dulek): inode can be used to clearly distinguish the
+                #              netns' as `man namespaces` says:
+                #
+                # Since Linux 3.8, they appear as symbolic links.  If two
+                # processes are in the same namespace, then the device IDs and
+                # inode numbers of their /proc/[pid]/ns/xxx symbolic links will
+                # be the same; an application can check this using the
+                # stat.st_dev and stat.st_ino fields returned by stat(2).
+                netns_stat = os.stat(netns_path)
+                netns_id = netns_stat.st_dev, netns_stat.st_ino
+            except OSError:
+                continue
+            if netns_id in handled_netns:
+                continue
+            handled_netns.add(netns_id)
+
+            try:
+                with b_base.get_ipdb(netns_path) as c_ipdb:
+                    for ifname, iface in c_ipdb.interfaces.items():
+                        if (iface.vlan_id == vlan_id
+                                and iface.link == vm_iface_index):
+                            LOG.warning(
+                                f'Found offending interface {ifname} with '
+                                f'VLAN ID {vlan_id} in netns {netns_path}. '
+                                f'Trying to remove it.')
+                            with c_ipdb.interfaces[ifname] as found_iface:
+                                found_iface.remove()
+                            break
+            except OSError:
+                continue
 
 
 class MacvlanDriver(NestedDriver):
