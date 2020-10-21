@@ -71,10 +71,9 @@ ConfigMap to change the kuryr.conf files with:
 
    $ kubectl -n kube-system edit cm kuryr-config
 
-Then modify the kuryr.conf (not the kuryr-cni.conf) to modify the controller
-configuration regarding the pools. After that, to have the new configuration
-applied you need to restart the kuryr-controller just by killing the existing
-pod:
+Then modify the kuryr.conf to modify the controller configuration regarding
+the pools. After that, to have the new configuration applied you need to
+restart the kuryr-controller just by killing the existing pod:
 
 .. code-block:: console
 

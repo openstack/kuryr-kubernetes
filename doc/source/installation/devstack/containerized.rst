@@ -40,11 +40,8 @@ associated ConfigMap. On DevStack deployment this can be done using:
 
    $ kubectl -n kube-system edit cm kuryr-config
 
-Then the editor will appear that will let you edit the config map. Make sure to
-keep correct indentation when doing changes. Also note that there are two files
-present in the ConfigMap: kuryr.conf and kuryr-cni.conf. First one is attached
-to kuryr-controller and second to kuryr-cni. Make sure to modify both when
-doing changes important for both services.
+Then the editor will appear that will let you edit the ConfigMap. Make sure to
+keep correct indentation when doing changes.
 
 
 Restarting services
