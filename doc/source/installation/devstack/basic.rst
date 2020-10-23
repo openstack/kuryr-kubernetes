@@ -53,9 +53,6 @@ Now edit ``devstack/local.conf`` to set up some initial options:
 
 * If you have multiple network interfaces, you need to set ``HOST_IP`` variable
   to the IP on the interface you want to use as DevStack's primary.
-* ``KURYR_K8S_LBAAS_USE_OCTAVIA`` can be set to False if you want more
-  lightweight installation. In that case installation of Glance and Nova will
-  be omitted.
 * If you already have Docker installed on the machine, you can comment out line
   starting with ``enable_plugin devstack-plugin-container``.
 
