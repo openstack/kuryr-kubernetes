@@ -229,10 +229,6 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
 
         return False
 
-    def _generate_lbaas_port_specs(self, service):
-        return [obj_lbaas.LBaaSPortSpec(**port)
-                for port in utils.get_service_ports(service)]
-
 
 class EndpointsHandler(k8s_base.ResourceEventHandler):
     """EndpointsHandler handles K8s Endpoints events.

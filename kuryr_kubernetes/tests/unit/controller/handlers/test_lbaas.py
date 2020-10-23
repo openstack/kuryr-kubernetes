@@ -19,7 +19,6 @@ import os_vif.objects.network as osv_network
 import os_vif.objects.subnet as osv_subnet
 
 from kuryr_kubernetes.controller.handlers import lbaas as h_lbaas
-from kuryr_kubernetes.objects import lbaas as obj_lbaas
 from kuryr_kubernetes.tests import base as test_base
 
 _SUPPORTED_LISTENER_PROT = ('HTTP', 'HTTPS', 'TCP')
@@ -343,42 +342,6 @@ class TestServiceHandler(test_base.TestCase):
         ret = h_lbaas.ServiceHandler._has_ip_changes(
             m_handler, service, lb_crd)
         self.assertFalse(ret)
-
-    @mock.patch('kuryr_kubernetes.utils.get_service_ports')
-    def test_generate_lbaas_port_specs(self, m_get_service_ports):
-        m_handler = mock.Mock(spec=h_lbaas.ServiceHandler)
-        m_get_service_ports.return_value = [
-            {'port': 1, 'name': 'X', 'protocol': 'TCP'},
-            {'port': 2, 'name': 'Y', 'protocol': 'TCP'}
-        ]
-        expected_ports = [
-            obj_lbaas.LBaaSPortSpec(name='X', protocol='TCP', port=1),
-            obj_lbaas.LBaaSPortSpec(name='Y', protocol='TCP', port=2),
-        ]
-
-        ret = h_lbaas.ServiceHandler._generate_lbaas_port_specs(
-            m_handler, mock.sentinel.service)
-        self.assertEqual(expected_ports, ret)
-        m_get_service_ports.assert_called_once_with(
-            mock.sentinel.service)
-
-    @mock.patch('kuryr_kubernetes.utils.get_service_ports')
-    def test_generate_lbaas_port_specs_udp(self, m_get_service_ports):
-        m_handler = mock.Mock(spec=h_lbaas.ServiceHandler)
-        m_get_service_ports.return_value = [
-            {'port': 1, 'name': 'X', 'protocol': 'TCP'},
-            {'port': 2, 'name': 'Y', 'protocol': 'UDP'}
-        ]
-        expected_ports = [
-            obj_lbaas.LBaaSPortSpec(name='X', protocol='TCP', port=1),
-            obj_lbaas.LBaaSPortSpec(name='Y', protocol='UDP', port=2),
-        ]
-
-        ret = h_lbaas.ServiceHandler._generate_lbaas_port_specs(
-            m_handler, mock.sentinel.service)
-        self.assertEqual(expected_ports, ret)
-        m_get_service_ports.assert_called_once_with(
-            mock.sentinel.service)
 
     def test_set_lbaas_spec(self):
         self.skipTest("skipping until generalised annotation handling is "
