@@ -240,7 +240,7 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
             try:
                 if (now - oslo_cfg.CONF.vif_pool.ports_pool_update_frequency <
                         last_update):
-                    LOG.info("Not enough time since the last pool update")
+                    LOG.debug("Not enough time since the last pool update")
                     return
             except AttributeError:
                 LOG.debug("Kuryr-controller not yet ready to populate pools.")
