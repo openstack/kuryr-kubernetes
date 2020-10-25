@@ -177,8 +177,11 @@ function run_containerized_kuryr_resources {
         "${k8s_data_dir}/certificates_secret.yml" \
         || die $LINENO "Failed to create kuryr-kubernetes certificates Secret."
     /usr/local/bin/kubectl create -f \
-        "${k8s_data_dir}/service_account.yml" \
-        || die $LINENO "Failed to create kuryr-kubernetes ServiceAccount."
+        "${k8s_data_dir}/controller_service_account.yml" \
+        || die $LINENO "Failed to create kuryr-controller ServiceAccount."
+    /usr/local/bin/kubectl create -f \
+        "${k8s_data_dir}/cni_service_account.yml" \
+        || die $LINENO "Failed to create kuryr-cni ServiceAccount."
 
     if is_service_enabled openshift-master; then
         # NOTE(dulek): For OpenShift add privileged SCC to serviceaccount.
