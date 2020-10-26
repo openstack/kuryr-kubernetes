@@ -94,12 +94,19 @@ to add the policy, pod_label and namespace handler and drivers with:
 
    If the loadbalancer maintains the source IP (such as ovn-octavia driver),
    there is no need to enforce sg rules at the load balancer level. To disable
-   the enforcement, you need to set the following variable:
+   the enforcement, you need to set the following variable in DevStack's
+   local.conf:
 
    .. code-block:: bash
 
       KURYR_ENFORCE_SG_RULES=False
 
+   To set that directly in kuryr.conf, the config to be set is:
+
+   .. code-block:: ini
+
+      [octavia_defaults]
+      enforce_sg_rules=False
 
 Testing the network policy support functionality
 ------------------------------------------------
