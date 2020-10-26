@@ -421,7 +421,6 @@ EOF
 function generate_kuryr_service_account() {
     output_dir=$1
     mkdir -p "$output_dir"
-    rm -f ${output_dir}/service_account.yml
     rm -f ${output_dir}/controller_service_account.yml
     rm -f ${output_dir}/cni_service_account.yml
     cat >> "${output_dir}/controller_service_account.yml" << EOF
