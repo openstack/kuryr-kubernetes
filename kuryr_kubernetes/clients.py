@@ -103,7 +103,7 @@ def _create_ports(self, payload):
     response = self.post(os_port.Port.base_path, json=payload)
 
     if not response.ok:
-        raise os_exc.SDKException('Error when bulk creating ports: %s',
+        raise os_exc.SDKException('Error when bulk creating ports: %s' %
                                   response.text)
     return (os_port.Port(**item) for item in response.json()['ports'])
 

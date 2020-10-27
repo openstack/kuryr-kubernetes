@@ -15,6 +15,7 @@
 
 from unittest import mock
 
+from openstack import exceptions as os_exc
 from openstack.network.v2 import port as os_port
 
 from kuryr_kubernetes import clients
@@ -128,3 +129,27 @@ class TestOpenStackSDKHack(test_base.TestCase):
 
         clients._create_ports(m_osdk, payload)
         m_post.assert_called_once_with(os_port.Port.base_path, json=expected)
+
+    def test_create_ports_out_of_ports(self):
+        """Simulate error response from OpenStack SDK"""
+        m_response = mock.Mock()
+        m_response.text = ('{"NeutronError": {"type": "OverQuota", "message": '
+                           '"Quota exceeded for resources: [\'port\'].", '
+                           '"detail": ""}}')
+        m_response.ok = False
+        m_post = mock.Mock()
+        m_post.return_value = m_response
+        m_osdk = mock.Mock()
+        m_osdk.post = m_post
+
+        payload = {'ports': []}
+
+        try:
+            clients._create_ports(m_osdk, payload)
+        except os_exc.SDKException as ex:
+            # no additional params passed to the exception class
+            self.assertIsNone(ex.extra_data)
+            # no formatting placeholders in message
+            self.assertNotIn('%s', ex.message)
+
+        m_post.assert_called_once_with(os_port.Port.base_path, json=payload)
