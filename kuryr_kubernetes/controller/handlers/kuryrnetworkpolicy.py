@@ -298,6 +298,8 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
                 # Probably the network got removed already, we can ignore it.
                 pass
 
+            self._drv_policy.delete_np_sg(crd_sg)
+
             if (CONF.octavia_defaults.enforce_sg_rules and policy and
                     not self._is_egress_only_policy(policy)):
                 services = driver_utils.get_services(
@@ -306,15 +308,20 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
                     if (not svc['spec'].get('selector') or not
                             self._is_service_affected(svc, pods_to_update)):
                         continue
+
                     sgs = self._drv_svc_sg.get_security_groups(svc, project_id)
+
+                    if crd_sg in sgs:
+                        # Remove our crd_sg out of service groups since we
+                        # don't have it anymore
+                        sgs.remove(crd_sg)
+
                     try:
                         self._drv_lbaas.update_lbaas_sg(svc, sgs)
                     except exceptions.ResourceNotReady:
                         # We can ignore LB that's being created - its SGs will
                         # get handled when members will be getting created.
                         pass
-
-            self._drv_policy.delete_np_sg(crd_sg)
 
         LOG.debug("Removing finalizers from KuryrNetworkPolicy and "
                   "NetworkPolicy.")
