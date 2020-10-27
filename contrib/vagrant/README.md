@@ -14,18 +14,18 @@ Steps to try vagrant image:
  3. Run `cd kuryr-kubernetes/contrib/vagrant`
  4. Run `vagrant up`
     It will take from 10 to 60 minutes, depending on your internet speed.
-    Vagrant-cachier can speed up the process [2].
+    Vagrant-cachier can speed up the process [1].
  5. `vagrant ssh`
 
 At this point you should have experimental kubernetes (etcdv3, k8s-apiserver,
 k8s-controller-manager, k8s-scheduler, kubelet and kuryr-controller), docker,
-kuryr, neutron, keystone all up, running and pointing to each other. Pods and
-services orchestrated by kubernetes will be backed by kuryr+neutron. The
-architecture of the setup can be seen at [1].
+kuryr, neutron, keystone, placement, nova, octavia all up, running and pointing
+to each other. Pods and services orchestrated by kubernetes will be backed by
+kuryr+neutron and Octavia. The architecture of the setup can be seen at [2].
 
 References:
-[1] https://docs.openstack.org/developer/kuryr-kubernetes/devref/kuryr_kubernetes_design.html
-[2] http://fgrehm.viewdocs.io/vagrant-cachier/
+[1] http://fgrehm.viewdocs.io/vagrant-cachier/
+[2] https://docs.openstack.org/developer/kuryr-kubernetes/devref/kuryr_kubernetes_design.html
 
 Vagrant Options available
 -------------------------
@@ -34,22 +34,27 @@ You can set the following environment variables before running `vagrant up` to m
 the definition of the Virtual Machine spawned:
 
  * **VAGRANT\_KURYR\_VM\_BOX**: To change the Vagrant Box used. Should be available in
-   [atlas](http://atlas.hashicorp.com).
+   [atlas](https://app.vagrantup.com/).
 
        export VAGRANT_KURYR_VM_BOX=centos/7
 
    Could be an example of a rpm-based option.
 
- * **VAGRANT\_KURYR\_VM\_MEMORY**: To modify the RAM of the VM. Defaulted to: 4096
-   If you configure your local.conf to use Octavia, you should increase the
-   setting to at least 12288.
+ * **VAGRANT\_KURYR\_VM\_MEMORY**: To modify the RAM of the VM. Defaulted to: 6144.
+   If you mean to create multiple Kubernetes services on the setup and the Octavia
+   driver used is Amphora, you should increase this setting.
  * **VAGRANT\_KURYR\_VM\_CPU**: To modify the cpus of the VM. Defaulted to: 2.
-   If you configure your local.conf to use Octavia, you should increate this
-   setting to at least 4.
  * **VAGRANT\_KURYR\_RUN\_DEVSTACK**: Whether `vagrant up` should run devstack to
    have an environment ready to use. Set it to 'false' if you want to edit
    `local.conf` before run ./stack.sh manually in the VM. Defaulted to: true.
    See below for additional options for editing local.conf.
+
+For a lighter devstack installation, you can use the "local.conf"[1] that uses ovn
+and ovn-octavia, no VM will be created for each load-balancer as is done by the
+default Octavia provider (Amphora).
+
+References:
+[1] https://github.com/openstack/kuryr-kubernetes/blob/master/devstack/local.conf.ovn.sample
 
 Additional devstack configuration
 ---------------------------------
