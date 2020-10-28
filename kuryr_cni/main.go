@@ -14,7 +14,6 @@ import (
 	cni "github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -24,6 +23,9 @@ const (
 	urlBase = "http://localhost:5036/"
 	addPath = "addNetwork"
 	delPath = "delNetwork"
+
+	ErrVif     uint = 899
+	ErrParsing uint = 799
 )
 
 type KuryrDaemonData struct {
@@ -40,7 +42,12 @@ func transformData(args *skel.CmdArgs, command string) (KuryrDaemonData, error) 
 	var conf interface{}
 	err := json.Unmarshal(args.StdinData, &conf)
 	if err != nil {
-		return KuryrDaemonData{}, err
+		newErr := types.Error{
+			Code:    types.ErrDecodingFailure,
+			Msg:     fmt.Sprintf("Error when reading configuration: %v", err),
+			Details: "",
+		}
+		return KuryrDaemonData{}, &newErr
 	}
 
 	return KuryrDaemonData{
@@ -59,7 +66,11 @@ func makeDaemonRequest(data KuryrDaemonData, expectedCode int) ([]byte, error) {
 
 	b, err := json.Marshal(data)
 	if err != nil {
-		return []byte{}, errors.Wrapf(err, "Error when preparing payload for kuryr-daemon")
+		return []byte{}, &types.Error{
+			Code:    types.ErrInvalidNetworkConfig,
+			Msg:     fmt.Sprintf("Error when preparing payload for kuryr-daemon: %v", err),
+			Details: "",
+		}
 	}
 
 	url := ""
@@ -69,27 +80,43 @@ func makeDaemonRequest(data KuryrDaemonData, expectedCode int) ([]byte, error) {
 	case "DEL":
 		url = urlBase + delPath
 	default:
-		return []byte{}, errors.Errorf("Cannot handle command %s", data.Command)
+		return []byte{}, &types.Error{
+			Code:    types.ErrInvalidEnvironmentVariables,
+			Msg:     fmt.Sprintf("Cannot handle command %s", data.Command),
+			Details: "",
+		}
 	}
 
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(b))
 	if err != nil {
-		return []byte{}, errors.Wrapf(err, "Looks like %s cannot be reached. Is kuryr-daemon running?", url)
+		return []byte{}, &types.Error{
+			Code:    types.ErrTryAgainLater,
+			Msg:     fmt.Sprintf("Looks like %s cannot be reached. Is kuryr-daemon running?", url),
+			Details: fmt.Sprintf("%v", err),
+		}
 	}
 	defer resp.Body.Close()
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	if resp.StatusCode != expectedCode {
-		return []byte{}, errors.Errorf("CNI Daemon returned error %d %s", resp.StatusCode, body)
+		if len(body) > 1 {
+			var err types.Error
+			json.Unmarshal(body, &err)
+			return []byte{}, &err
+		}
+		return []byte{}, &types.Error{
+			Code:    uint(resp.StatusCode),
+			Msg:     fmt.Sprintf("CNI Daemon returned error %d %s", resp.StatusCode, body),
+			Details: "",
+		}
 	}
-
 	return body, nil
 }
 
 func cmdAdd(args *skel.CmdArgs) error {
 	data, err := transformData(args, "ADD")
 	if err != nil {
-		return errors.Wrap(err, "Error when reading configuration")
+		return err
 	}
 
 	body, err := makeDaemonRequest(data, 202)
@@ -98,9 +125,13 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 
 	vif := VIF{}
-	err = json.Unmarshal(body, &vif)
-	if err != nil {
-		return errors.Wrapf(err, "Error when reading response from kuryr-daemon: %s", string(body))
+	er := json.Unmarshal(body, &vif)
+	if er != nil {
+		return &types.Error{
+			Code:    ErrVif,
+			Msg:     fmt.Sprintf("Error when reading response from kuryr-daemon: %s", string(body)),
+			Details: fmt.Sprintf("%v", er),
+		}
 	}
 
 	iface := current.Interface{}
@@ -115,13 +146,19 @@ func cmdAdd(args *skel.CmdArgs) error {
 		addrStr := subnet.Ips[0].Address
 		addr := net.ParseIP(addrStr)
 		if addr == nil {
-			return errors.Errorf("Error when parsing IP address %s received from kuryr-daemon", addrStr)
-
+			return &types.Error{
+				Code:    ErrParsing,
+				Msg:     fmt.Sprintf("Error when parsing IP address %s received from kuryr-daemon", addrStr),
+				Details: "",
+			}
 		}
 		_, cidr, err := net.ParseCIDR(subnet.Cidr)
 		if err != nil {
-			return errors.Wrapf(err, "Error when parsing CIDR %s received from kuryr-daemon",
-				subnet.Cidr)
+			return &types.Error{
+				Code:    ErrParsing,
+				Msg:     fmt.Sprintf("Error when parsing CIDR %s received from kuryr-daemon", subnet.Cidr),
+				Details: fmt.Sprintf("%v", err),
+			}
 		}
 
 		ver := "4"
@@ -133,7 +170,11 @@ func cmdAdd(args *skel.CmdArgs) error {
 		ifaceCIDR := fmt.Sprintf("%s/%d", addr.String(), prefixSize)
 		ipAddress, err := cni.ParseCIDR(ifaceCIDR)
 		if err != nil {
-			return errors.Wrapf(err, "Error when parsing CIDR %s received from kuryr-daemon", ifaceCIDR)
+			return &types.Error{
+				Code:    ErrParsing,
+				Msg:     fmt.Sprintf("Error when parsing CIDR %s received from kuryr-daemon", ifaceCIDR),
+				Details: fmt.Sprintf("%v", err),
+			}
 		}
 		ifaceNum := 0
 
@@ -147,14 +188,20 @@ func cmdAdd(args *skel.CmdArgs) error {
 		for _, route := range subnet.Routes {
 			_, dst, err := net.ParseCIDR(route.Cidr)
 			if err != nil {
-				return errors.Wrapf(err, "Error when parsing CIDR %s received from kuryr-daemon",
-					route.Cidr)
+				return &types.Error{
+					Code:    ErrParsing,
+					Msg:     fmt.Sprintf("Error when parsing CIDR %s received from kuryr-daemon", route.Cidr),
+					Details: fmt.Sprintf("%v", err),
+				}
 			}
 
 			gw := net.ParseIP(route.Gateway)
 			if gw == nil {
-				return errors.Errorf("Error when parsing IP address %s received from kuryr-daemon",
-					route.Gateway)
+				return &types.Error{
+					Code:    ErrParsing,
+					Msg:     fmt.Sprintf("Error when parsing IP address %s received from kuryr-daemon", route.Gateway),
+					Details: "",
+				}
 			}
 
 			routes = append(routes, &types.Route{Dst: *dst, GW: gw})

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from ctypes import c_bool
+import errno
 from http import client as httplib
 import multiprocessing
 import os
@@ -25,6 +26,7 @@ import urllib3
 
 import cotyledon
 import flask
+import pyroute2
 from pyroute2.ipdb import transactional
 
 import os_vif
@@ -48,6 +50,9 @@ from kuryr_kubernetes import watcher as k_watcher
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
 HEALTH_CHECKER_DELAY = 5
+ErrInvalidEnvironmentVariables = 4
+ErrTryAgainLater = 11
+ErrInternal = 999
 
 
 class DaemonServer(object):
@@ -70,26 +75,64 @@ class DaemonServer(object):
                   params.CNI_COMMAND, params)
         return params
 
+    def _error(self, error_code, message, details=""):
+        template = {
+            "code": error_code,
+            "msg": message,
+            "details": details
+        }
+        data = jsonutils.dumps(template)
+        return data
+
     def add(self):
         try:
             params = self._prepare_request()
         except Exception:
             self._check_failure()
             LOG.exception('Exception when reading CNI params.')
-            return '', httplib.BAD_REQUEST, self.headers
+            error = self._error(ErrInvalidEnvironmentVariables,
+                                "Required CNI params missing.")
+            return error, httplib.BAD_REQUEST, self.headers
 
         try:
             vif = self.plugin.add(params)
             data = jsonutils.dumps(vif.obj_to_primitive())
-        except exceptions.ResourceNotReady:
+        except exceptions.ResourceNotReady as e:
             self._check_failure()
             LOG.error('Error when processing addNetwork request')
-            return '', httplib.GATEWAY_TIMEOUT, self.headers
+            error = self._error(ErrTryAgainLater,
+                                f"{e}. Try Again Later.")
+            return error, httplib.GATEWAY_TIMEOUT, self.headers
+        except pyroute2.NetlinkError as e:
+            if e.code == errno.EEXIST:
+                self._check_failure()
+                args = {'kind': 'vlan', 'vlan_id': vif.vlan_id}
+                LOG.warning(
+                    f'Creation of pod interface failed due to VLAN ID '
+                    f'(vlan_info={args}) conflict. Probably the CRI had not '
+                    f'cleaned up the network namespace of deleted pods. '
+                    f'Attempting to retry.')
+                error = self._error(ErrTryAgainLater,
+                                    "Creation of pod interface failed due to"
+                                    " vlan_id. Try Again Later",
+                                    f"vlan_id:{vif.vlan_id}")
+                return error, httplib.GATEWAY_TIMEOUT, self.headers
+            raise
         except Exception:
-            self._check_failure()
+            if not self.healthy.value:
+                error = self._error(ErrInternal,
+                                    "Maximum CNI ADD Failures Reached.",
+                                    "Error when processing addNetwork request."
+                                    " CNI Params: {}".format(params))
+            else:
+                self._check_failure()
+                error = self._error(ErrInternal,
+                                    "Error processing request",
+                                    "Failure processing addNetwork request. "
+                                    "CNI Params: {}".format(params))
             LOG.exception('Error when processing addNetwork request. CNI '
                           'Params: %s', params)
-            return '', httplib.INTERNAL_SERVER_ERROR, self.headers
+            return error, httplib.INTERNAL_SERVER_ERROR, self.headers
 
         return data, httplib.ACCEPTED, self.headers
 
@@ -98,7 +141,9 @@ class DaemonServer(object):
             params = self._prepare_request()
         except Exception:
             LOG.exception('Exception when reading CNI params.')
-            return '', httplib.BAD_REQUEST, self.headers
+            error = self._error(ErrInvalidEnvironmentVariables,
+                                "Required CNI params missing.")
+            return error, httplib.BAD_REQUEST, self.headers
 
         try:
             self.plugin.delete(params)
@@ -112,10 +157,20 @@ class DaemonServer(object):
                         'Ignoring this error, pod is most likely gone')
             return '', httplib.NO_CONTENT, self.headers
         except Exception:
-            self._check_failure()
+            if not self.healthy.value:
+                error = self._error(ErrInternal,
+                                    "Maximum CNI DEL Failures Reached.",
+                                    "Error processing delNetwork request. "
+                                    "CNI Params: {}".format(params))
+            else:
+                self._check_failure()
+                error = self._error(ErrInternal,
+                                    "Error processing request",
+                                    "Failure processing delNetwork request. "
+                                    "CNI Params: {}".format(params))
             LOG.exception('Error when processing delNetwork request. CNI '
                           'Params: %s.', params)
-            return '', httplib.INTERNAL_SERVER_ERROR, self.headers
+            return error, httplib.INTERNAL_SERVER_ERROR, self.headers
         return '', httplib.NO_CONTENT, self.headers
 
     def run(self):
