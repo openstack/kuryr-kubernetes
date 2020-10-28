@@ -39,12 +39,9 @@ class BaseBridgeDriver(health.HealthHandler, b_base.BaseBindingDriver):
         with b_base.get_ipdb() as h_ipdb:
             self._remove_ifaces(h_ipdb, (host_ifname,))
 
-        if vif.network.mtu:
-            interface_mtu = vif.network.mtu
-        else:
-            LOG.info("Default mtu %(mtu)s is used for interface, "
-                     "for mtu of network if configured with 0",
-                     {"mtu": CONF.neutron_defaults.network_device_mtu})
+        interface_mtu = vif.network.mtu
+        mtu_cfg = CONF.neutron_defaults.network_device_mtu
+        if mtu_cfg and mtu_cfg < interface_mtu:
             interface_mtu = CONF.neutron_defaults.network_device_mtu
 
         with b_base.get_ipdb(netns) as c_ipdb:

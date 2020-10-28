@@ -158,10 +158,13 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
         except StopIteration:
             LOG.debug('Network does not exist. Creating.')
 
+        mtu_cfg = oslo_cfg.CONF.neutron_defaults.network_device_mtu
+        attrs = {'name': net_name, 'project_id': project_id}
+        if mtu_cfg:
+            attrs['mtu'] = mtu_cfg
         # create network with namespace as name
         try:
-            neutron_net = os_net.create_network(name=net_name,
-                                                project_id=project_id)
+            neutron_net = os_net.create_network(**attrs)
             c_utils.tag_neutron_resources([neutron_net])
         except os_exc.SDKException:
             LOG.exception("Error creating neutron resources for the namespace "
