@@ -119,11 +119,12 @@ Example run:
 
    $ KURYR_K8S_API_ROOT="192.168.0.1:6443" ./tools/generate_k8s_resource_definitions.sh /tmp
 
-This should generate 5 files in your ``<output_dir>``:
+This should generate 6 files in your ``<output_dir>``:
 
 * config_map.yml
 * certificates_secret.yml
-* service_account.yml
+* controller_service_account.yml
+* cni_service_account.yml
 * controller_deployment.yml
 * cni_ds.yml
 
@@ -150,7 +151,8 @@ To deploy the files on your Kubernetes cluster run:
 
    $ kubectl apply -f config_map.yml -n kube-system
    $ kubectl apply -f certificates_secret.yml -n kube-system
-   $ kubectl apply -f service_account.yml -n kube-system
+   $ kubectl apply -f controller_service_account.yml -n kube-system
+   $ kubectl apply -f cni_service_account.yml -n kube-system
    $ kubectl apply -f controller_deployment.yml -n kube-system
    $ kubectl apply -f cni_ds.yml -n kube-system
 

@@ -417,11 +417,14 @@ data:
 EOF
 }
 
+# Generates kuryr-controller service account and kuryr-cni service account.
 function generate_kuryr_service_account() {
     output_dir=$1
     mkdir -p "$output_dir"
     rm -f ${output_dir}/service_account.yml
-    cat >> "${output_dir}/service_account.yml" << EOF
+    rm -f ${output_dir}/controller_service_account.yml
+    rm -f ${output_dir}/cni_service_account.yml
+    cat >> "${output_dir}/controller_service_account.yml" << EOF
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -480,6 +483,45 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: kuryr-controller
+  apiGroup: rbac.authorization.k8s.io
+EOF
+
+    cat >> "${output_dir}/cni_service_account.yml" << EOF
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kuryr-cni
+  namespace: kube-system
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kuryr-cni
+rules:
+- apiGroups:
+  - ""
+  verbs: ["*"]
+  resources:
+    - pods
+    - nodes
+- apiGroups:
+    - openstack.org
+  verbs: ["*"]
+  resources:
+    - kuryrports
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kuryr-cni-global
+subjects:
+- kind: ServiceAccount
+  name: kuryr-cni
+  namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: kuryr-cni
   apiGroup: rbac.authorization.k8s.io
 EOF
 }
@@ -622,7 +664,7 @@ spec:
       - key: "node.kubernetes.io/not-ready"
         operator: "Exists"
         effect: "NoSchedule"
-      serviceAccountName: kuryr-controller
+      serviceAccountName: kuryr-cni
       containers:
       - name: kuryr-cni
         image: kuryr/cni:latest
