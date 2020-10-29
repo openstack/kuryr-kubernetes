@@ -1,0 +1,7 @@
+---
+upgrade:
+  - |
+    In order to match the default value of MTU defined
+    in Neutron, regardless of the SDN used, the default
+    value ``[neutron_defaults]network_device_mtu`` is now
+    set to 0.
