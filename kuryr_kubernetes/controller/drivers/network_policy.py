@@ -341,7 +341,6 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     crd_rules, direction, port, pod_selector,
                     policy_namespace)
         if allow_all:
-            container_port = None
             for container_port, pods in matched_pods.items():
                 for ethertype in (constants.IPv4, constants.IPv6):
                     sg_rule = driver_utils.create_security_group_rule_body(
@@ -350,10 +349,6 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                         ethertype=ethertype,
                         pods=pods)
                     crd_rules.append(sg_rule)
-            if direction == 'egress':
-                self._create_svc_egress_sg_rule(
-                    policy_namespace, crd_rules,
-                    port=container_port, protocol=port.get('protocol'))
 
     def _create_sg_rule_on_number_port(self, allowed_resources,
                                        direction, port, sg_rule_body_list,
@@ -395,11 +390,6 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                         ethertype=ethertype,
                         protocol=port.get('protocol')))
                 sg_rule_body_list.append(sg_rule)
-                if direction == 'egress':
-                    self._create_svc_egress_sg_rule(
-                        policy_namespace, sg_rule_body_list,
-                        port=port.get('port'),
-                        protocol=port.get('protocol'))
 
     def _create_default_sg_rule(self, direction, sg_rule_body_list):
         for ethertype in (constants.IPv4, constants.IPv6):
@@ -532,9 +522,6 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                             port_range_max=65535,
                             ethertype=ethertype)
                         sg_rule_body_list.append(rule)
-                        if direction == 'egress':
-                            self._create_svc_egress_sg_rule(policy_namespace,
-                                                            sg_rule_body_list)
             else:
                 LOG.debug('This network policy specifies no %(direction)s '
                           '%(rule_direction)s and no ports: %(policy)s',
