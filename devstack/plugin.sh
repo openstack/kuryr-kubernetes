@@ -471,7 +471,6 @@ function configure_neutron_defaults {
     fi
     iniset "$KURYR_CONFIG" neutron_defaults external_svc_net "$ext_svc_net_id"
     iniset "$KURYR_CONFIG" octavia_defaults member_mode "$KURYR_K8S_OCTAVIA_MEMBER_MODE"
-    iniset "$KURYR_CONFIG" octavia_defaults sg_mode "$KURYR_K8S_OCTAVIA_SG_MODE"
     iniset "$KURYR_CONFIG" octavia_defaults enforce_sg_rules "$KURYR_ENFORCE_SG_RULES"
     iniset "$KURYR_CONFIG" octavia_defaults lb_algorithm "$KURYR_LB_ALGORITHM"
     # Octavia takes a very long time to start the LB in the gate. We need
