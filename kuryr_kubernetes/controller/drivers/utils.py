@@ -344,6 +344,22 @@ def get_networkpolicies(namespace=None):
     return nps.get('items', [])
 
 
+def zip_resources(xs, ys):
+    """Returns tuples of resources matched by namespace and name.
+
+    :param xs: List of objects x, first level of iteration.
+    :param ys: List of objects y.
+    :return: List of tuples of matching (x, y)
+    """
+    pairs = []
+    for x in xs:
+        for y in ys:
+            if utils.get_res_unique_name(x) == utils.get_res_unique_name(y):
+                pairs.append((x, y))
+                break
+    return pairs
+
+
 def zip_knp_np(knps, nps):
     """Returns tuples of matching KuryrNetworkPolicy and NetworkPolicy objs.
 
@@ -351,13 +367,7 @@ def zip_knp_np(knps, nps):
     :param nps: List of NetworkPolicy objects
     :return: List of tuples of matching (knp, np)
     """
-    pairs = []
-    for knp in knps:
-        for np in nps:
-            if utils.get_res_unique_name(knp) == utils.get_res_unique_name(np):
-                pairs.append((knp, np))
-                break
-    return pairs
+    return zip_resources(knps, nps)
 
 
 def match_expressions(expressions, labels):
