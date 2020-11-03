@@ -351,3 +351,27 @@ class TestUtils(test_base.TestCase):
         self.assertRaises(os_exc.ResourceNotFound, utils.get_subnet_cidr,
                           subnet_id)
         os_net.get_subnet.assert_called_once_with(subnet_id)
+
+    def test_get_current_endpoints_target_with_target_ref(self):
+        ep = {'addresses': ['10.0.2.107'], 'conditions': {'ready': True},
+              'targetRef': {'kind': 'Pod', 'name': 'test-868d9cbd68-xq2fl',
+                            'namespace': 'test2'}}
+        port = {'port': 8080, 'protocol': 'TCP'}
+        spec_ports = {None: '31d59e41-05db-4a39-8aca-6a9a572c83cd'}
+        ep_name = 'test'
+        target = utils.get_current_endpoints_target(
+                ep, port, spec_ports, ep_name)
+        self.assertEqual(
+            target, ('10.0.2.107', 'test-868d9cbd68-xq2fl', 8080,
+                     '31d59e41-05db-4a39-8aca-6a9a572c83cd'))
+
+    def test_get_current_endpoints_target_without_target_ref(self):
+        ep = {'addresses': ['10.0.1.208'], 'conditions': {'ready': True}}
+        port = {'port': 8080, 'protocol': 'TCP'}
+        spec_ports = {None: '4472fab1-f01c-46a7-b197-5cba4f2d7135'}
+        ep_name = 'test'
+        target = utils.get_current_endpoints_target(
+                ep, port, spec_ports, ep_name)
+        self.assertEqual(
+            target, ('10.0.1.208', 'test', 8080,
+                     '4472fab1-f01c-46a7-b197-5cba4f2d7135'))

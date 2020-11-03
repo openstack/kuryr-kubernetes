@@ -26,6 +26,7 @@ from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
+CONF = config.CONF
 
 OCTAVIA_DEFAULT_PROVIDERS = ['octavia', 'amphora']
 
@@ -49,10 +50,8 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         self._drv_service_pub_ip = drv_base.ServicePubIpDriver.get_instance()
         self._drv_svc_project = drv_base.ServiceProjectDriver.get_instance()
         self._drv_sg = drv_base.ServiceSecurityGroupsDriver.get_instance()
-        # Note(yboaron) LBaaS driver supports 'provider' parameter in
-        # Load Balancer creation flow.
-        # We need to set the requested load balancer provider
-        # according to 'endpoints_driver_octavia_provider' configuration.
+        self._nodes_subnet = utils.get_subnet_cidr(
+            CONF.pod_vif_nested.worker_nodes_subnet)
 
     def on_present(self, loadbalancer_crd):
         if self._should_ignore(loadbalancer_crd):
@@ -111,17 +110,15 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                         raise
 
     def _should_ignore(self, loadbalancer_crd):
-        return not(self._has_pods(loadbalancer_crd) or
-                   loadbalancer_crd.get('status'))
+        return (not(self._has_endpoints(loadbalancer_crd) or
+                    loadbalancer_crd.get('status')) or not
+                loadbalancer_crd['spec'].get('ip'))
 
-    def _has_pods(self, loadbalancer_crd):
+    def _has_endpoints(self, loadbalancer_crd):
         ep_slices = loadbalancer_crd['spec'].get('endpointSlices', [])
         if not ep_slices:
             return False
-        return any(True
-                   for ep_slice in ep_slices
-                   for endpoint in ep_slice.get('endpoints', [])
-                   if endpoint['targetRef'].get('kind', []) == 'Pod')
+        return True
 
     def on_finalize(self, loadbalancer_crd):
         LOG.debug("Deleting the loadbalancer CRD")
@@ -178,7 +175,7 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         if self._sync_lbaas_pools(loadbalancer_crd):
             changed = True
 
-        if (self._has_pods(loadbalancer_crd) and
+        if (self._has_endpoints(loadbalancer_crd) and
                 self._add_new_members(loadbalancer_crd)):
             changed = True
 
@@ -258,9 +255,18 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
             for endpoint in ep_slice.get('endpoints', []):
                 try:
                     target_ip = endpoint['addresses'][0]
-                    target_ref = endpoint['targetRef']
-                    if target_ref['kind'] != k_const.K8S_OBJ_POD:
-                        continue
+                    target_ref = endpoint.get('targetRef')
+                    target_namespace = None
+                    if target_ref:
+                        target_namespace = target_ref['namespace']
+                    # Avoid to point to a Pod on hostNetwork
+                    # that isn't the one to be added as Member.
+                    if not target_ref and utils.is_ip_on_subnet(
+                            self._nodes_subnet, target_ip):
+                        target_pod = {}
+                    else:
+                        target_pod = utils.get_pod_by_ip(
+                            target_ip, target_namespace)
                 except KeyError:
                     continue
                 if not pool_by_tgt_name:
@@ -276,25 +282,18 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
 
                     if (target_ip, target_port, pool['id']) in current_targets:
                         continue
-                    # TODO(apuimedo): Do not pass subnet_id at all when in
-                    # L3 mode once old neutron-lbaasv2 is not supported, as
-                    # octavia does not require it
-                    if (config.CONF.octavia_defaults.member_mode ==
-                            k_const.OCTAVIA_L2_MEMBER_MODE):
-                        try:
-                            member_subnet_id = self._get_pod_subnet(target_ref,
-                                                                    target_ip)
-                        except k_exc.K8sResourceNotFound:
-                            LOG.debug("Member namespace has been deleted. No "
-                                      "need to add the members as it is "
-                                      "going to be deleted")
-                            continue
-                    else:
-                        # We use the service subnet id so that the connectivity
-                        # from VIP to pods happens in layer 3 mode, i.e.,
-                        # routed.
-                        member_subnet_id = loadbalancer_crd['status'][
-                            'loadbalancer']['subnet_id']
+
+                    member_subnet_id = self._get_subnet_by_octavia_mode(
+                        target_pod, target_ip, loadbalancer_crd)
+
+                    if not member_subnet_id:
+                        LOG.warning("Skipping member creation for %s",
+                                    target_ip)
+                        continue
+
+                    target_name, target_namespace = self._get_target_info(
+                        target_ref, loadbalancer_crd)
+
                     first_member_of_the_pool = True
                     for member in loadbalancer_crd['status'].get(
                             'members', []):
@@ -313,8 +312,8 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                         subnet_id=member_subnet_id,
                         ip=target_ip,
                         port=target_port,
-                        target_ref_namespace=target_ref['namespace'],
-                        target_ref_name=target_ref['name'],
+                        target_ref_namespace=target_namespace,
+                        target_ref_name=target_name,
                         listener_port=listener_port)
                     if not member:
                         continue
@@ -341,11 +340,35 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                     changed = True
         return changed
 
-    def _get_pod_subnet(self, target_ref, ip):
-        # REVISIT(ivc): consider using true pod object instead
-        pod = {'kind': target_ref['kind'],
-               'metadata': {'name': target_ref['name'],
-                            'namespace': target_ref['namespace']}}
+    def _get_target_info(self, target_ref, loadbalancer_crd):
+        if target_ref:
+            target_namespace = target_ref['namespace']
+            target_name = target_ref['name']
+        else:
+            target_namespace = loadbalancer_crd['metadata']['namespace']
+            target_name = loadbalancer_crd['metadata']['name']
+        return target_name, target_namespace
+
+    def _get_subnet_by_octavia_mode(self, target_pod, target_ip, lb_crd):
+        # TODO(apuimedo): Do not pass subnet_id at all when in
+        # L3 mode once old neutron-lbaasv2 is not supported, as
+        # octavia does not require it
+        subnet_id = None
+        if (CONF.octavia_defaults.member_mode ==
+                k_const.OCTAVIA_L2_MEMBER_MODE):
+            if target_pod:
+                subnet_id = self._get_pod_subnet(
+                    target_pod, target_ip)
+            elif utils.is_ip_on_subnet(self._nodes_subnet, target_ip):
+                subnet_id = CONF.pod_vif_nested.worker_nodes_subnet
+        else:
+            # We use the service subnet id so that the connectivity
+            # from VIP to pods happens in layer 3 mode, i.e.,
+            # routed.
+            subnet_id = lb_crd['status']['loadbalancer']['subnet_id']
+        return subnet_id
+
+    def _get_pod_subnet(self, pod, ip):
         project_id = self._drv_pod_project.get_project(pod)
         subnets_map = self._drv_pod_subnets.get_subnets(pod, project_id)
         subnet_ids = [subnet_id for subnet_id, network in subnets_map.items()
@@ -371,6 +394,7 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         return None
 
     def _remove_unused_members(self, loadbalancer_crd):
+        lb_crd_name = loadbalancer_crd['metadata']['name']
         spec_ports = {}
         pools = loadbalancer_crd['status'].get('pools', [])
         for pool in pools:
@@ -380,26 +404,24 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                     port['name'] = None
                 spec_ports[port['name']] = pool['id']
 
-        ep_slices = loadbalancer_crd['spec'].get('endpointSlices')
-        # NOTE(maysams): As we don't support dual-stack, we assume
-        # only one address is possible on the addresses field.
-        current_targets = [(ep['addresses'][0],
-                           ep.get('targetRef', {}).get('name', ''),
-                           p['port'], spec_ports.get(p.get('name')))
+        ep_slices = loadbalancer_crd['spec'].get('endpointSlices', [])
+        current_targets = [utils.get_current_endpoints_target(
+                           ep, p, spec_ports, lb_crd_name)
                            for ep_slice in ep_slices
                            for ep in ep_slice['endpoints']
                            for p in ep_slice['ports']
                            if p.get('name') in spec_ports]
-        removed_ids = set()
 
+        removed_ids = set()
         for member in loadbalancer_crd['status'].get('members', []):
+            member_name = member.get('name', '')
             try:
-                member_name = member['name']
                 # NOTE: The member name is compose of:
                 # NAMESPACE_NAME/POD_NAME:PROTOCOL_PORT
                 pod_name = member_name.split('/')[1].split(':')[0]
             except AttributeError:
                 pod_name = ""
+
             if ((str(member['ip']), pod_name, member['port'], member[
                     'pool_id']) in current_targets):
                 continue
