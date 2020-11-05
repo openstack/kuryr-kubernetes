@@ -16,6 +16,7 @@
 import uuid
 
 from openstack.network.v2 import port as os_port
+from openstack.network.v2 import security_group_rule as os_sgr
 from os_vif import objects as osv_objects
 from os_vif.objects import vif as osv_vif
 from oslo_serialization import jsonutils
@@ -140,3 +141,23 @@ def get_port_obj(port_id='07cfe856-11cc-43d9-9200-ff4dc02d3620',
                  'updated_at': u'2019-12-04T15:06:09Z'}
     port_data.update(kwargs)
     return os_port.Port(**port_data)
+
+
+def get_sgr_obj(sgr_id='7621d1e0-a2d2-4496-94eb-ffd375d20877',
+                sg_id='cfb3dfc4-7a43-4ba1-b92d-b8b2650d7f88',
+                protocol='tcp', direction='ingress'):
+
+    sgr_data = {'description': '',
+                'direction': direction,
+                'ether_type': 'IPv4',
+                'id': sgr_id,
+                'port_range_max': 8080,
+                'port_range_min': 8080,
+                'project_id': '5ea46368c7fe436bb8732738c149fbce',
+                'protocol': protocol,
+                'remote_group_id': None,
+                'remote_ip_prefix': None,
+                'security_group_id': sg_id,
+                'tenant_id': '5ea46368c7fe436bb8732738c149fbce'}
+
+    return os_sgr.SecurityGroupRule(**sgr_data)

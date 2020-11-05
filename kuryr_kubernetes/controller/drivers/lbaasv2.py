@@ -227,7 +227,12 @@ class LBaaSv2Driver(base.LBaaSDriver):
         if CONF.octavia_defaults.enforce_sg_rules:
             vip_port = self._get_vip_port(loadbalancer)
             if vip_port:
-                lb_sg = vip_port.security_group_ids[0]
+                try:
+                    lb_sg = vip_port.security_group_ids[0]
+                except IndexError:
+                    LOG.warning("We still waiting for SG to be created for "
+                                "VIP %s", vip_port)
+                    raise k_exc.ResourceNotReady(listener_id)
         else:
             LOG.debug("Skipping sg update for lb %s", loadbalancer['name'])
             return
