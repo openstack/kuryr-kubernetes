@@ -410,14 +410,15 @@ def match_labels(crd_labels, labels):
 def match_selector(selector, labels):
     if selector is None:
         return True
+    if labels is None:
+        labels = {}
     crd_labels = selector.get('matchLabels', None)
     crd_expressions = selector.get('matchExpressions', None)
 
     match_exp = match_lb = True
     if crd_expressions:
-        match_exp = match_expressions(crd_expressions,
-                                      labels)
-    if crd_labels and labels:
+        match_exp = match_expressions(crd_expressions, labels)
+    if crd_labels:
         match_lb = match_labels(crd_labels, labels)
     return match_exp and match_lb
 
