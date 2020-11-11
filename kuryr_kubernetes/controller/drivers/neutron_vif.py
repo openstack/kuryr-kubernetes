@@ -15,6 +15,7 @@
 
 from kuryr.lib import constants as kl_const
 from openstack import exceptions as os_exc
+from oslo_config import cfg
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
@@ -28,9 +29,22 @@ from kuryr_kubernetes import os_vif_util as ovu
 
 LOG = logging.getLogger(__name__)
 
+CONF = cfg.CONF
+
 
 class NeutronPodVIFDriver(base.PodVIFDriver):
     """Manages normal Neutron ports to provide VIFs for Kubernetes Pods."""
+
+    def __init__(self):
+        super(NeutronPodVIFDriver, self).__init__()
+
+        self._tag_on_creation = utils.check_tag_on_creation()
+        if self._tag_on_creation:
+            LOG.info('Neutron supports tagging during bulk port creation.')
+        else:
+            LOG.warning('Neutron does not support tagging during bulk '
+                        'port creation. Kuryr will tag resources after '
+                        'port creation.')
 
     def request_vif(self, pod, project_id, subnets, security_groups):
         os_net = clients.get_network_client()
@@ -39,7 +53,8 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
         port = os_net.create_port(**rq)
 
         self._check_port_binding([port])
-        utils.tag_neutron_resources([port])
+        if not self._tag_on_creation:
+            utils.tag_neutron_resources([port])
         return ovu.neutron_to_osvif_vif(port.binding_vif_type, port, subnets)
 
     def request_vifs(self, pod, project_id, subnets, security_groups,
@@ -67,7 +82,8 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
             vif_plugin = port_info.binding_vif_type
 
         self._check_port_binding(ports)
-        utils.tag_neutron_resources(ports)
+        if not self._tag_on_creation:
+            utils.tag_neutron_resources(ports)
         vifs = []
         for port in ports:
             vif = ovu.neutron_to_osvif_vif(vif_plugin, port, subnets)
@@ -124,6 +140,11 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
 
         if security_groups:
             port_req_body['security_groups'] = security_groups
+
+        if self._tag_on_creation:
+            tags = CONF.neutron_defaults.resource_tags
+            if tags:
+                port_req_body['tags'] = tags
 
         return port_req_body
 

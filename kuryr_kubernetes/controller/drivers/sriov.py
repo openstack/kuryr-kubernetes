@@ -13,6 +13,7 @@
 #    under the License.
 
 from kuryr.lib import constants as kl_const
+from oslo_config import cfg
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
@@ -23,6 +24,7 @@ from kuryr_kubernetes.controller.drivers import utils as c_utils
 from kuryr_kubernetes import os_vif_util as ovu
 
 LOG = logging.getLogger(__name__)
+CONF = cfg.CONF
 
 
 def sriov_make_resource(prefix, res_name):
@@ -57,7 +59,8 @@ class SriovVIFDriver(neutron_vif.NeutronPodVIFDriver):
 
         port = os_net.create_port(**rq)
         self._check_port_binding([port])
-        c_utils.tag_neutron_resources([port])
+        if not self._tag_on_creation:
+            c_utils.tag_neutron_resources([port])
         vif = ovu.neutron_to_osvif_vif(vif_plugin, port, subnets)
         vif.physnet = physnet
         vif.pod_name = pod_name
@@ -177,5 +180,10 @@ class SriovVIFDriver(neutron_vif.NeutronPodVIFDriver):
 
         if security_groups:
             port_req_body['security_groups'] = security_groups
+
+        if self._tag_on_creation:
+            tags = CONF.neutron_defaults.resource_tags
+            if tags:
+                port_req_body['tags'] = tags
 
         return port_req_body
