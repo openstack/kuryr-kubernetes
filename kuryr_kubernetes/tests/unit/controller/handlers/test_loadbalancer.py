@@ -344,12 +344,25 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
     def test_should_ignore(self):
         m_handler = mock.Mock(spec=h_lb.KuryrLoadBalancerHandler)
         m_handler._has_pods.return_value = True
+        loadbalancer_crd = get_lb_crd()
+        loadbalancer_crd['status'] = {}
 
         ret = h_lb.KuryrLoadBalancerHandler._should_ignore(
-            m_handler, get_lb_crd())
+            m_handler, loadbalancer_crd)
         self.assertEqual(False, ret)
 
-        m_handler._has_pods.assert_called_once_with(get_lb_crd())
+        m_handler._has_pods.assert_called_once_with(loadbalancer_crd)
+
+    def test_should_ignore_member_scale_to_0(self):
+        m_handler = mock.Mock(spec=h_lb.KuryrLoadBalancerHandler)
+        m_handler._has_pods.return_value = False
+        loadbalancer_crd = get_lb_crd()
+
+        ret = h_lb.KuryrLoadBalancerHandler._should_ignore(
+            m_handler, loadbalancer_crd)
+        self.assertEqual(False, ret)
+
+        m_handler._has_pods.assert_called_once_with(loadbalancer_crd)
 
     def test_has_pods(self):
         crd = get_lb_crd()
