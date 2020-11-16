@@ -260,15 +260,16 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
         if self._move_annotations_to_crd(endpoints):
             return
 
-        if (not self._has_pods(endpoints) or
-                k_const.K8S_ANNOTATION_HEADLESS_SERVICE
+        k8s = clients.get_kubernetes_client()
+        loadbalancer_crd = k8s.get_loadbalancer_crd(endpoints)
+
+        if (not (self._has_pods(endpoints) or (loadbalancer_crd and
+                                               loadbalancer_crd.get('status')))
+                or k_const.K8S_ANNOTATION_HEADLESS_SERVICE
                 in endpoints['metadata'].get('labels', [])):
             LOG.debug("Ignoring Kubernetes endpoints %s",
                       endpoints['metadata']['name'])
             return
-
-        k8s = clients.get_kubernetes_client()
-        loadbalancer_crd = k8s.get_loadbalancer_crd(endpoints)
 
         if loadbalancer_crd is None:
             try:

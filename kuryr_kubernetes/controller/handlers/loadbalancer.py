@@ -111,7 +111,8 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                         raise
 
     def _should_ignore(self, loadbalancer_crd):
-        return not(self._has_pods(loadbalancer_crd))
+        return not(self._has_pods(loadbalancer_crd) or
+                   loadbalancer_crd.get('status'))
 
     def _has_pods(self, loadbalancer_crd):
         ep_slices = loadbalancer_crd['spec'].get('endpointSlices', [])
@@ -171,8 +172,7 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
     def _sync_lbaas_members(self, loadbalancer_crd):
         changed = False
 
-        if (self._has_pods(loadbalancer_crd) and
-                self._remove_unused_members(loadbalancer_crd)):
+        if (self._remove_unused_members(loadbalancer_crd)):
             changed = True
 
         if self._sync_lbaas_pools(loadbalancer_crd):
