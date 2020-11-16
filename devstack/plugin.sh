@@ -927,6 +927,7 @@ function update_tempest_conf_file {
     fi
     if [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes subnet_per_namespace True
+        iniset $TEMPEST_CONFIG kuryr_kubernetes kuryrnetworks True
     fi
     if [[ "$KURYR_K8S_SERIAL_TESTS" == "True" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes run_tests_serial True
@@ -936,6 +937,7 @@ function update_tempest_conf_file {
     fi
     if [[ "$KURYR_ENABLED_HANDLERS" =~ .*policy.* ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes network_policy_enabled True
+        iniset $TEMPEST_CONFIG kuryr_kubernetes new_kuryrnetworkpolicy_crd True
     fi
     # NOTE(yboaron): Services with protocol UDP are supported in Kuryr
     # starting from Stein release
@@ -956,10 +958,8 @@ function update_tempest_conf_file {
         iniset $TEMPEST_CONFIG kuryr_kubernetes ipv6 True
     fi
     iniset $TEMPEST_CONFIG kuryr_kubernetes validate_crd True
-    iniset $TEMPEST_CONFIG kuryr_kubernetes kuryrnetworks True
     iniset $TEMPEST_CONFIG kuryr_kubernetes kuryrports True
     iniset $TEMPEST_CONFIG kuryr_kubernetes kuryrloadbalancers True
-    iniset $TEMPEST_CONFIG kuryr_kubernetes new_kuryrnetworkpolicy_crd True
 }
 
 source $DEST/kuryr-kubernetes/devstack/lib/kuryr_kubernetes
