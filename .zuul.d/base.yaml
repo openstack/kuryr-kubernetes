@@ -22,6 +22,7 @@
       - openstack/kuryr-kubernetes
       - openstack/kuryr-tempest-plugin
       - openstack/tempest
+      - openstack/neutron
     timeout: 10800
     post-run: playbooks/copy-k8s-logs.yaml
     host-vars:
@@ -30,16 +31,18 @@
           kuryr-kubernetes: https://opendev.org/openstack/kuryr-kubernetes
           devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
           kuryr-tempest-plugin: https://opendev.org/openstack/kuryr-tempest-plugin
+          neutron: https://opendev.org/openstack/neutron
     vars:
       # Default swap size got shrinked to 1 GB, it's way too small for us.
       configure_swap_size: 8192
       tempest_test_regex: '^(kuryr_tempest_plugin.tests.)'
       tempest_test_timeout: 1800
       tox_envlist: 'all'
+      network_api_extensions_common:
+        - tag-ports-during-bulk-creation
       devstack_localrc:
         KURYR_K8S_API_PORT: 8080
         TEMPEST_PLUGINS: '/opt/stack/kuryr-tempest-plugin'
-        Q_BUILD_OVS_FROM_GIT: true
         KURYR_K8S_CLOUD_PROVIDER: false
         ETCD_USE_RAMDISK: true
         USE_PYTHON3: true
@@ -84,6 +87,7 @@
         kuryr-kubernetes: true
         kuryr-daemon: true
         coredns: false
+        neutron-tag-ports-during-bulk-creation: true
       zuul_copy_output:
         '{{ devstack_log_dir }}/kubernetes': 'logs'
     irrelevant-files:
@@ -99,13 +103,17 @@
     required-projects:
       - openstack/devstack-plugin-container
       - openstack/kuryr-kubernetes
+      - openstack/neutron
     post-run: playbooks/copy-k8s-logs.yaml
     host-vars:
       controller:
         devstack_plugins:
           kuryr-kubernetes: https://opendev.org/openstack/kuryr-kubernetes
           devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
+          neutron: https://opendev.org/openstack/neutron
     vars:
+      network_api_extensions_common:
+      - tag-ports-during-bulk-creation
       devstack_localrc:
         KURYR_K8S_API_PORT: 8080
         Q_BUILD_OVS_FROM_GIT: true
@@ -151,6 +159,7 @@
         kuryr-kubernetes: true
         kuryr-daemon: true
         coredns: true
+        neutron-tag-ports-during-bulk-creation: true
       zuul_copy_output:
         '{{ devstack_log_dir }}/kubernetes': 'logs'
     irrelevant-files:
