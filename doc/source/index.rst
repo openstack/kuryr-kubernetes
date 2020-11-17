@@ -13,6 +13,7 @@ Contents
    :maxdepth: 3
 
    readme
+   nested_vlan_mode
    installation/index
    usage
    contributor/index

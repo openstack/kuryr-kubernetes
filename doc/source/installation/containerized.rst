@@ -1,3 +1,5 @@
+.. _containerized:
+
 ================================================
 Kuryr installation as a Kubernetes network addon
 ================================================
