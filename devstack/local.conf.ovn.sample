@@ -35,6 +35,7 @@ Q_ML2_TENANT_NETWORK_TYPE=geneve
 enable_service ovn-northd
 enable_service ovn-controller
 enable_service q-ovn-metadata-agent
+enable_service neutron-tag-ports-during-bulk-creation
 
 # Neutron services
 enable_plugin neutron https://opendev.org/openstack/neutron
