@@ -564,6 +564,37 @@ class TestKuryrPortHandler(test_base.TestCase):
                                             mock.sentinel.subnets,
                                             self._security_groups)
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.vif_pool.MultiVIFPool.'
+                'request_vif')
+    @mock.patch('kuryr_kubernetes.controller.drivers.default_subnet.'
+                'DefaultPodSubnetDriver.get_subnets')
+    @mock.patch('kuryr_kubernetes.controller.drivers.default_security_groups.'
+                'DefaultPodSecurityGroupsDriver.get_security_groups')
+    @mock.patch('kuryr_kubernetes.controller.drivers.default_project.'
+                'DefaultPodProjectDriver.get_project')
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base.MultiVIFDriver.'
+                'get_enabled_drivers')
+    def test_get_vifs_resource_not_found(self, ged, k8s, get_project, get_sg,
+                                         get_subnets, request_vif):
+        ged.return_value = [self._driver]
+        kp = kuryrport.KuryrPortHandler()
+        kp.k8s.get.return_value = self._pod
+        get_sg.return_value = self._security_groups
+        get_project.return_value = self._project_id
+        get_subnets.return_value = mock.sentinel.subnets
+        request_vif.side_effect = os_exc.ResourceNotFound()
+
+        self.assertRaises(k_exc.ResourceNotReady, kp.get_vifs, self._kp)
+
+        kp.k8s.get.assert_called_once_with(self._pod_uri)
+        get_project.assert_called_once_with(self._pod)
+        get_sg.assert_called_once_with(self._pod, self._project_id)
+        get_subnets.assert_called_once_with(self._pod, self._project_id)
+        request_vif.assert_called_once_with(self._pod, self._project_id,
+                                            mock.sentinel.subnets,
+                                            self._security_groups)
+
     @mock.patch('kuryr_kubernetes.controller.handlers.kuryrport.'
                 'KuryrPortHandler._update_kuryrport_crd')
     @mock.patch('kuryr_kubernetes.controller.drivers.vif_pool.MultiVIFPool.'

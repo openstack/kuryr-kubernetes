@@ -225,8 +225,17 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
             return False
 
         # Request the default interface of pod
-        main_vif = self._drv_vif_pool.request_vif(
-            pod, project_id, subnets, security_groups)
+        try:
+            main_vif = self._drv_vif_pool.request_vif(pod, project_id,
+                                                      subnets,
+                                                      security_groups)
+        except os_exc.ResourceNotFound:
+            # NOTE(gryf): It might happen, that between getting security
+            # groups above and requesting VIF, network policy is deleted,
+            # hence we will get 404 from OpenStackSDK. Let's retry, to refresh
+            # information regarding SG.
+            LOG.warning("SG not found during VIF requesting. Retrying.")
+            raise k_exc.ResourceNotReady(pod['metadata']['name'])
 
         if not main_vif:
             pod_name = pod['metadata']['name']
