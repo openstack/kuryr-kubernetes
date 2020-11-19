@@ -1,12 +1,12 @@
 FROM centos:7
 LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redhat.com>"
 
-ARG UPPER_CONSTRAINTS_FILE="https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt"
+ARG UPPER_CONSTRAINTS_FILE="https://opendev.org/openstack/requirements/raw/branch/stable/rocky/upper-constraints.txt"
 
 RUN yum install -y epel-release \
     && yum install -y --setopt=tsflags=nodocs python-pip \
     && yum install --setopt=tsflags=nodocs --assumeyes inet-tools gcc python-devel wget git \
-    && pip install -U setuptools
+    && pip install -U setuptools==40.0.0
 
 COPY . /opt/kuryr-kubernetes
 
