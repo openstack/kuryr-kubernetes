@@ -234,7 +234,7 @@ Testing the network policy support functionality
 
    .. code-block:: console
 
-      $ kubectl create deployment --image kuryr/demo demo
+      $ kubectl create deployment --image quay.io/kuryr/demo demo
       deployment "demo" created
 
       $ kubectl get pod -o wide
@@ -365,7 +365,7 @@ Testing the network policy support functionality
         name: demo-pod
       spec:
         containers:
-        - image: kuryr/demo
+        - image: quay.io/kuryr/demo
           imagePullPolicy: Always
           name: demo-pod
 
