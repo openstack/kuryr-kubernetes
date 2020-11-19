@@ -308,7 +308,7 @@ the label `project: default` as stated on the policy namespaceSelector.
         name: demo-pod
       spec:
         containers:
-        - image: kuryr/demo
+        - image: quay.io/kuryr/demo
           imagePullPolicy: Always
           name: demo-pod
 
