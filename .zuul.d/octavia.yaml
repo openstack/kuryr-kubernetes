@@ -137,6 +137,7 @@
         KURYR_ENABLED_HANDLERS: vif,lb,lbaasspec,namespace,pod_label,policy,kuryrnetpolicy,kuryrnetwork
         KURYR_SG_DRIVER: policy
         KURYR_SUBNET_DRIVER: namespace
+    voting: false
 
 - job:
     name: kuryr-kubernetes-tempest-containerized-openshift
