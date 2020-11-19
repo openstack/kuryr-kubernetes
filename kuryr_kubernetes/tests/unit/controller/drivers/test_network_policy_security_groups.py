@@ -239,7 +239,7 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
                     'environment': 'production'}},
             'spec': {
                 'containers': [{
-                    'image': 'kuryr/demo',
+                    'image': 'quay.io/kuryr/demo',
                     'imagePullPolicy': 'Always',
                     'name': mock.sentinel.pod_name
                     }]
@@ -259,7 +259,7 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
                     '"run": "demo","environment": "development"}'}},
             'spec': {
                 'containers': [{
-                    'image': 'kuryr/demo',
+                    'image': 'quay.io/kuryr/demo',
                     'imagePullPolicy': 'Always',
                     'name': mock.sentinel.pod_name
                     }]
@@ -273,7 +273,7 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
                 'namespace': self._namespace},
             'spec': {
                 'containers': [{
-                    'image': 'kuryr/demo',
+                    'image': 'quay.io/kuryr/demo',
                     'imagePullPolicy': 'Always',
                     'name': mock.sentinel.pod_name
                     }]
@@ -296,7 +296,7 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
                     'openstack.org/kuryr-pod-label': '{"tier": "backend"}'}},
             'spec': {
                 'containers': [{
-                    'image': 'kuryr/demo',
+                    'image': 'quay.io/kuryr/demo',
                     'imagePullPolicy': 'Always',
                     'name': mock.sentinel.pod_name
                     }]},

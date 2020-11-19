@@ -121,10 +121,10 @@ Testing the network per namespace functionality
 
 3. Create a pod in the created namespaces::
 
-    $ kubectl run -n test1 --image kuryr/demo demo
+    $ kubectl run -n test1 --image quay.io/kuryr/demo demo
     deployment "demo" created
 
-    $ kubectl run -n test2 --image kuryr/demo demo
+    $ kubectl run -n test2 --image quay.io/kuryr/demo demo
     deployment "demo" created
 
     $ kubectl -n test1 get pod -o wide
