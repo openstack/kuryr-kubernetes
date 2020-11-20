@@ -98,7 +98,7 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         if not ip_addresses:
             raise k_exc.IntegrityError(
                 "Cannot add pair from the "
-                "allowed_address_pairs of port %s: missing IP address",
+                "allowed_address_pairs of port %s: missing IP address" %
                 port.id)
 
         mac = mac_address if mac_address else port.mac_address
@@ -111,7 +111,7 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                     raise k_exc.AllowedAddressAlreadyPresent(
                         "Pair %s already "
                         "present in the 'allowed_address_pair' list. This is "
-                        "due to a misconfiguration or a bug", pair)
+                        "due to a misconfiguration or a bug" % str(pair))
                 else:
                     LOG.warning(
                         "A pair with IP %s but different MAC address "
@@ -134,7 +134,7 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         if not ip_addresses:
             raise k_exc.IntegrityError(
                 "Cannot remove pair from the "
-                "allowed_address_pairs of port %s: missing IP address",
+                "allowed_address_pairs of port %s: missing IP address" %
                 port.id)
 
         mac = mac_address if mac_address else port.mac_address
