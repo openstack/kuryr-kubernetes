@@ -21,7 +21,8 @@
       - openstack/devstack-plugin-container
       - openstack/kuryr
       - openstack/kuryr-kubernetes
-      - openstack/kuryr-tempest-plugin
+      - name: openstack/kuryr-tempest-plugin
+        override-checkout: 0.5.0
       - openstack/neutron-lbaas
       - openstack/tempest
     post-run: playbooks/copy-k8s-logs.yaml
