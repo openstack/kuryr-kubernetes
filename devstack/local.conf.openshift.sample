@@ -34,6 +34,7 @@ enable_service q-l3
 enable_service q-api
 enable_service q-meta
 enable_service q-svc
+enable_service neutron-tag-ports-during-bulk-creation
 
 # OCTAVIA
 # Uncomment it to use L2 communication between loadbalancer and member pods
