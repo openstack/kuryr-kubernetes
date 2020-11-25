@@ -192,6 +192,7 @@ class FakeLBaaSDriver(drv_base.LBaaSDriver):
 
 class TestKuryrLoadBalancerHandler(test_base.TestCase):
 
+    @mock.patch('kuryr_kubernetes.utils.get_subnet_cidr')
     @mock.patch('kuryr_kubernetes.controller.drivers.base.'
                 'ServiceProjectDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base.'
@@ -207,10 +208,11 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
                 '.LBaaSDriver.get_instance')
     def test_init(self, m_get_drv_lbaas, m_get_drv_project,
                   m_get_drv_subnets, m_get_drv_service_pub_ip, m_cfg,
-                  m_get_svc_sg_drv, m_get_svc_drv_project):
+                  m_get_svc_sg_drv, m_get_svc_drv_project, m_get_cidr):
         m_get_drv_lbaas.return_value = mock.sentinel.drv_lbaas
         m_get_drv_project.return_value = mock.sentinel.drv_project
         m_get_drv_subnets.return_value = mock.sentinel.drv_subnets
+        m_get_cidr.return_value = '10.0.0.128/26'
         m_get_drv_service_pub_ip.return_value = mock.sentinel.drv_lb_ip
         m_get_svc_drv_project.return_value = mock.sentinel.drv_svc_project
         m_get_svc_sg_drv.return_value = mock.sentinel.drv_sg
@@ -221,6 +223,7 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
         self.assertEqual(mock.sentinel.drv_subnets, handler._drv_pod_subnets)
         self.assertEqual(mock.sentinel.drv_lb_ip, handler._drv_service_pub_ip)
 
+    @mock.patch('kuryr_kubernetes.utils.get_subnet_cidr')
     @mock.patch('kuryr_kubernetes.controller.drivers.base.'
                 'ServiceProjectDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base.'
@@ -236,8 +239,9 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
                 '.LBaaSDriver.get_instance')
     def test_init_provider_ovn(self, m_get_drv_lbaas, m_get_drv_project,
                                m_get_drv_subnets, m_get_drv_service_pub_ip,
-                               m_cfg,
-                               m_get_svc_sg_drv, m_get_svc_drv_project):
+                               m_cfg, m_get_svc_sg_drv, m_get_svc_drv_project,
+                               m_get_cidr):
+        m_get_cidr.return_value = '10.0.0.128/26'
         m_get_drv_lbaas.return_value = mock.sentinel.drv_lbaas
         m_get_drv_project.return_value = mock.sentinel.drv_project
         m_get_drv_subnets.return_value = mock.sentinel.drv_subnets
@@ -343,32 +347,32 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
 
     def test_should_ignore(self):
         m_handler = mock.Mock(spec=h_lb.KuryrLoadBalancerHandler)
-        m_handler._has_pods.return_value = True
         loadbalancer_crd = get_lb_crd()
         loadbalancer_crd['status'] = {}
+        m_handler._has_endpoints.return_value = True
 
         ret = h_lb.KuryrLoadBalancerHandler._should_ignore(
             m_handler, loadbalancer_crd)
         self.assertEqual(False, ret)
 
-        m_handler._has_pods.assert_called_once_with(loadbalancer_crd)
+        m_handler._has_endpoints.assert_called_once_with(loadbalancer_crd)
 
     def test_should_ignore_member_scale_to_0(self):
         m_handler = mock.Mock(spec=h_lb.KuryrLoadBalancerHandler)
-        m_handler._has_pods.return_value = False
+        m_handler._has_endpoints.return_value = False
         loadbalancer_crd = get_lb_crd()
 
         ret = h_lb.KuryrLoadBalancerHandler._should_ignore(
             m_handler, loadbalancer_crd)
         self.assertEqual(False, ret)
 
-        m_handler._has_pods.assert_called_once_with(loadbalancer_crd)
+        m_handler._has_endpoints.assert_called_once_with(loadbalancer_crd)
 
-    def test_has_pods(self):
+    def test_has_endpoints(self):
         crd = get_lb_crd()
         m_handler = mock.Mock(spec=h_lb.KuryrLoadBalancerHandler)
 
-        ret = h_lb.KuryrLoadBalancerHandler._has_pods(m_handler, crd)
+        ret = h_lb.KuryrLoadBalancerHandler._has_endpoints(m_handler, crd)
 
         self.assertEqual(True, ret)
 
@@ -422,6 +426,7 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
             for member in crd['status']['members'])
         return observed_targets
 
+    @mock.patch('kuryr_kubernetes.utils.get_subnet_cidr')
     @mock.patch('kuryr_kubernetes.controller.drivers.base.'
                 'ServiceSecurityGroupsDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base.'
@@ -435,8 +440,9 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
                 '.LBaaSDriver.get_instance')
     def test_sync_lbaas_members(self, m_get_drv_lbaas, m_get_drv_project,
                                 m_get_drv_subnets, m_k8s, m_svc_project_drv,
-                                m_svc_sg_drv):
+                                m_svc_sg_drv, m_get_cidr):
         # REVISIT(ivc): test methods separately and verify ensure/release
+        m_get_cidr.return_value = '10.0.0.128/26'
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
         expected_ip = '1.2.3.4'
@@ -453,6 +459,7 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
         self.assertEqual(sorted(expected_targets.items()), observed_targets)
         self.assertEqual(expected_ip, str(crd['status']['loadbalancer']['ip']))
 
+    @mock.patch('kuryr_kubernetes.utils.get_subnet_cidr')
     @mock.patch('kuryr_kubernetes.controller.drivers.base.'
                 'ServiceSecurityGroupsDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base.'
@@ -466,8 +473,10 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
                 '.LBaaSDriver.get_instance')
     def test_sync_lbaas_members_udp(self, m_get_drv_lbaas,
                                     m_get_drv_project, m_get_drv_subnets,
-                                    m_k8s, m_svc_project_drv, m_svc_sg_drv):
+                                    m_k8s, m_svc_project_drv, m_svc_sg_drv,
+                                    m_get_cidr):
         # REVISIT(ivc): test methods separately and verify ensure/release
+        m_get_cidr.return_value = '10.0.0.128/26'
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
         expected_ip = "1.2.3.4"
@@ -485,6 +494,7 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
         self.assertEqual(sorted(expected_targets.items()), observed_targets)
         self.assertEqual(expected_ip, str(crd['status']['loadbalancer']['ip']))
 
+    @mock.patch('kuryr_kubernetes.utils.get_subnet_cidr')
     @mock.patch('kuryr_kubernetes.controller.drivers.base.'
                 'ServiceSecurityGroupsDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base.'
@@ -498,8 +508,9 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
                 '.LBaaSDriver.get_instance')
     def test_sync_lbaas_members_svc_listener_port_edit(
             self, m_get_drv_lbaas, m_get_drv_project, m_get_drv_subnets,
-            m_k8s, m_svc_project_drv, m_svc_sg_drv):
+            m_k8s, m_svc_project_drv, m_svc_sg_drv, m_get_cidr):
         # REVISIT(ivc): test methods separately and verify ensure/release
+        m_get_cidr.return_value = '10.0.0.128/26'
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
         expected_ip = '1.2.3.4'
@@ -523,6 +534,7 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
 
         self.assertEqual(expected_ip, str(crd['status']['loadbalancer']['ip']))
 
+    @mock.patch('kuryr_kubernetes.utils.get_subnet_cidr')
     @mock.patch('kuryr_kubernetes.controller.drivers.base.'
                 'ServiceSecurityGroupsDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base.'
@@ -537,7 +549,8 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
     def test_add_new_members_udp(self, m_get_drv_lbaas,
                                  m_get_drv_project, m_get_drv_subnets,
                                  m_k8s, m_svc_project_drv,
-                                 m_svc_sg_drv):
+                                 m_svc_sg_drv, m_get_cidr):
+        m_get_cidr.return_value = '10.0.0.128/26'
         project_id = str(uuid.uuid4())
         subnet_id = str(uuid.uuid4())
         crd = get_lb_crd()

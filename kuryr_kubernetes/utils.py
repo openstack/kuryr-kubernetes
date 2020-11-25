@@ -10,6 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import ipaddress
 import random
 import socket
 import time
@@ -441,3 +442,71 @@ def clean_lb_crd_status(loadbalancer_name):
         LOG.exception('Error updating KuryrLoadbalancer CRD %s',
                       name)
         raise
+
+
+def is_kubernetes_default_resource(obj):
+    """Check if Object is a resource associated to the API
+
+    Verifies if the Object is on the default namespace
+    and has the name kubernetes. Those name and namespace
+    are given to Kubernetes Service and Endpoints for the API.
+
+    :param obj: Kubernetes object dict
+    :returns: True if is default resource for the API, false
+              otherwise.
+    """
+    return (obj['metadata']['name'] == 'kubernetes' and
+            obj['metadata']['namespace'] == 'default')
+
+
+def get_pod_by_ip(pod_ip, namespace=None):
+    k8s = clients.get_kubernetes_client()
+    pod = {}
+    try:
+        if namespace:
+            pods = k8s.get(f'{constants.K8S_API_BASE}/namespaces/{namespace}/'
+                           f'pods?fieldSelector=status.phase=Running,'
+                           f'status.podIP={pod_ip}')
+        else:
+            pods = k8s.get(f'{constants.K8S_API_BASE}/'
+                           f'pods?fieldSelector=status.phase=Running,'
+                           f'status.podIP={pod_ip}')
+    except exceptions.K8sClientException:
+        LOG.exception('Error retrieving Pod with IP %s', pod_ip)
+        raise
+    if pods.get('items'):
+        # Only one Pod should have the IP
+        return pods['items'][0]
+    return pod
+
+
+def get_current_endpoints_target(ep, port, spec_ports, ep_name):
+    """Retrieve details about one specific Endpoint target
+
+    Defines the details about the Endpoint target, such as the
+    target address, name, port value and the Pool ID. In case,
+    the Endpoints has no targetRef defined, the name of the
+    target will be the same as the Endpoint.
+
+    :param ep: Endpoint on the Endpoints object
+    :param port: Endpoint port
+    :param spec_ports: dict of port name associated to pool ID
+    :param ep_name: Name of the Endpoints object
+    :returns: Tuple with target address, target name, port number
+              and pool ID.
+    """
+    target_ref = ep.get('targetRef', {})
+    pod_name = ep_name
+    # NOTE(maysams): As we don't support dual-stack, we assume
+    # only one address is possible on the addresses field.
+    address = ep['addresses'][0]
+    if target_ref:
+        pod_name = target_ref.get('name', '')
+    return (address, pod_name, port['port'],
+            spec_ports.get(port.get('name')))
+
+
+def is_ip_on_subnet(nodes_subnet, target_ip):
+    return (nodes_subnet and
+            (ipaddress.ip_address(target_ip) in
+                ipaddress.ip_network(nodes_subnet)))

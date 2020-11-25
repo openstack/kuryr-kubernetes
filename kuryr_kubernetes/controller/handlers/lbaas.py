@@ -90,14 +90,16 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
     def _should_ignore(self, service):
         if not self._has_clusterip(service):
             return 'Skipping headless Service %s.'
-        elif not self._is_supported_type(service):
+        if not self._is_supported_type(service):
             return 'Skipping service %s of unsupported type.'
-        elif self._has_spec_annotation(service):
+        if self._has_spec_annotation(service):
             return ('Skipping annotated service %s, waiting for it to be '
                     'converted to KuryrLoadBalancer object and annotation '
                     'removed.')
-        else:
-            return None
+        if utils.is_kubernetes_default_resource(service):
+            # Avoid to handle default Kubernetes service as requires https.
+            return 'Skipping default service %s.'
+        return None
 
     def _patch_service_finalizer(self, service):
         k8s = clients.get_kubernetes_client()
@@ -257,6 +259,8 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
                     config.CONF.kubernetes.endpoints_driver_octavia_provider)
 
     def on_present(self, endpoints):
+        ep_name = endpoints['metadata']['name']
+        ep_namespace = endpoints['metadata']['namespace']
         if self._move_annotations_to_crd(endpoints):
             return
 
@@ -266,7 +270,8 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
         if (not (self._has_pods(endpoints) or (loadbalancer_crd and
                                                loadbalancer_crd.get('status')))
                 or k_const.K8S_ANNOTATION_HEADLESS_SERVICE
-                in endpoints['metadata'].get('labels', [])):
+                in endpoints['metadata'].get('labels', []) or
+                utils.is_kubernetes_default_resource(endpoints)):
             LOG.debug("Ignoring Kubernetes endpoints %s",
                       endpoints['metadata']['name'])
             return
@@ -277,8 +282,7 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
             except k_exc.K8sNamespaceTerminating:
                 LOG.warning('Namespace %s is being terminated, ignoring '
                             'Endpoints %s in that namespace.',
-                            endpoints['metadata']['namespace'],
-                            endpoints['metadata']['name'])
+                            ep_namespace, ep_name)
                 return
         else:
             self._update_crd_spec(loadbalancer_crd, endpoints)
@@ -289,8 +293,7 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
             return False
         return any(True
                    for subset in ep_subsets
-                   for address in subset.get('addresses', [])
-                   if address.get('targetRef', {}).get('kind') == 'Pod')
+                   if subset.get('addresses', []))
 
     def _convert_subsets_to_endpointslice(self, endpoints_obj):
         endpointslices = []
@@ -307,8 +310,9 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
                     'conditions': {
                         'ready': True
                     },
-                    'targetRef': targetRef
                 }
+                if targetRef:
+                    endpoint['targetRef'] = targetRef
                 endpoints.append(endpoint)
             endpointslices.append({
                 'endpoints': endpoints,
