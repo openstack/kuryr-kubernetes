@@ -31,6 +31,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         'kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif_nested_vlan')
     def test_request_vif(self, m_to_vif):
         cls = nested_vlan_vif.NestedVlanPodVIFDriver
+        cls._tag_on_creation = True
         m_driver = mock.Mock(spec=cls)
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
@@ -75,6 +76,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         'kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif_nested_vlan')
     def test_request_vifs(self, m_to_vif):
         cls = nested_vlan_vif.NestedVlanPodVIFDriver
+        cls._tag_on_creation = True
         m_driver = mock.Mock(spec=cls)
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
@@ -124,6 +126,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
 
     def test_request_vifs_no_vlans(self):
         cls = nested_vlan_vif.NestedVlanPodVIFDriver
+        cls._tag_on_creation = False
         m_driver = mock.Mock(spec=cls)
         self.useFixture(k_fix.MockNetworkClient()).client
 
@@ -155,6 +158,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
 
     def test_request_vifs_bulk_creation_exception(self):
         cls = nested_vlan_vif.NestedVlanPodVIFDriver
+        cls._tag_on_creation = True
         m_driver = mock.Mock(spec=cls)
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
@@ -195,6 +199,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
 
     def test_request_vifs_trunk_subports_conflict(self):
         cls = nested_vlan_vif.NestedVlanPodVIFDriver
+        cls._tag_on_creation = True
         m_driver = mock.Mock(spec=cls)
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
@@ -239,6 +244,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
 
     def test_request_vifs_trunk_subports_exception(self):
         cls = nested_vlan_vif.NestedVlanPodVIFDriver
+        cls._tag_on_creation = False
         m_driver = mock.Mock(spec=cls)
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
@@ -326,6 +332,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
                                m_get_network_id, m_get_port_name,
                                unbound=False):
         cls = nested_vlan_vif.NestedVlanPodVIFDriver
+        cls._tag_on_creation = True
         m_driver = mock.Mock(spec=cls)
 
         pod = mock.sentinel.pod

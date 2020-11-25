@@ -17,6 +17,7 @@ from kuryr.lib import constants as kl_const
 from kuryr.lib import exceptions as kl_exc
 from kuryr.lib import segmentation_type_drivers as seg_driver
 from openstack import exceptions as os_exc
+from oslo_config import cfg
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
@@ -33,6 +34,8 @@ LOG = logging.getLogger(__name__)
 DEFAULT_MAX_RETRY_COUNT = 3
 DEFAULT_RETRY_INTERVAL = 1
 
+CONF = cfg.CONF
+
 
 class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
     """Manages ports for nested-containers using VLANs to provide VIFs."""
@@ -45,7 +48,8 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         rq = self._get_port_request(pod, project_id, subnets, security_groups)
         port = os_net.create_port(**rq)
         self._check_port_binding([port])
-        utils.tag_neutron_resources([port])
+        if not self._tag_on_creation:
+            utils.tag_neutron_resources([port])
         vlan_id = self._add_subport(trunk_id, port.id)
 
         return ovu.neutron_to_osvif_vif_nested_vlan(port, subnets, vlan_id)
@@ -87,7 +91,8 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
             LOG.exception("Error creating bulk ports: %s", bulk_port_rq)
             raise
         self._check_port_binding(ports)
-        utils.tag_neutron_resources(ports)
+        if not self._tag_on_creation:
+            utils.tag_neutron_resources(ports)
 
         for index, port in enumerate(ports):
             subports_info[index]['port_id'] = port['id']
@@ -139,6 +144,11 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         if security_groups:
             port_req_body['security_groups'] = security_groups
 
+        if self._tag_on_creation:
+            tags = CONF.neutron_defaults.resource_tags
+            if tags:
+                port_req_body['tags'] = tags
+
         return port_req_body
 
     def _create_subports_info(self, pod, project_id, subnets,
@@ -149,7 +159,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         in_use_vlan_ids = self._get_in_use_vlan_ids_set(trunk_id)
         port_rq = self._get_port_request(pod, project_id, subnets,
                                          security_groups, unbound)
-        for i in range(num_ports):
+        for _ in range(num_ports):
             try:
                 vlan_id = seg_driver.allocate_segmentation_id(in_use_vlan_ids)
             except kl_exc.SegmentationIdAllocationFailure:
@@ -194,7 +204,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                 raise
             subport = [{'segmentation_id': vlan_id,
                         'port_id': subport,
-                       'segmentation_type': 'vlan'}]
+                        'segmentation_type': 'vlan'}]
             try:
                 os_net.add_trunk_subports(trunk_id, subport)
             except os_exc.ConflictException:

@@ -32,6 +32,7 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
         'kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif_nested_macvlan')
     def test_request_vif(self, m_to_vif):
         cls = nested_macvlan_vif.NestedMacvlanPodVIFDriver
+        cls._tag_on_creation = True
         m_driver = mock.Mock(spec=cls)
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
@@ -69,6 +70,7 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
         'kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif_nested_macvlan')
     def test_request_vif_port_create_failed(self, m_to_vif):
         cls = nested_macvlan_vif.NestedMacvlanPodVIFDriver
+        cls._tag_on_creation = True
         m_driver = mock.Mock(spec=cls)
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
@@ -93,6 +95,7 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
         'kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif_nested_macvlan')
     def test_request_vif_parent_not_found(self, m_to_vif):
         cls = nested_macvlan_vif.NestedMacvlanPodVIFDriver
+        cls._tag_on_creation = True
         m_driver = mock.Mock(spec=cls)
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 

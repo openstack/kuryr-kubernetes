@@ -47,7 +47,8 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
             if not container_port:
                 container_port = os_net.create_port(**req)
                 self._check_port_binding([container_port])
-            utils.tag_neutron_resources([container_port])
+            if not self._tag_on_creation:
+                utils.tag_neutron_resources([container_port])
 
             container_mac = container_port.mac_address
             container_ips = frozenset(entry['ip_address'] for entry in

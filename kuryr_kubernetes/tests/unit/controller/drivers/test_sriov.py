@@ -81,6 +81,7 @@ class TestSriovVIFDriver(test_base.TestCase):
     @mock.patch.object(ovu, 'neutron_to_osvif_vif')
     def test_request_vif(self, m_to_vif, m_to_fips):
         cls = drvs.SriovVIFDriver
+        cls._tag_on_creation = True
         m_driver = mock.Mock(spec=cls)
 
         os_net = self.useFixture(k_fix.MockNetworkClient()).client

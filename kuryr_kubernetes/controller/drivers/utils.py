@@ -208,6 +208,18 @@ def create_security_group_rule(body):
         raise
 
 
+def check_tag_on_creation():
+    """Checks if Neutron supports tagging during bulk port creation.
+
+    :param os_net: Network proxy object from Openstacksdk.
+    :return: Boolean
+    """
+    os_net = clients.get_network_client()
+    extension = os_net.find_extension(
+            name_or_id='tag-ports-during-bulk-creation')
+    return bool(extension)
+
+
 def delete_security_group_rule(security_group_rule_id):
     os_net = clients.get_network_client()
     try:

@@ -33,6 +33,7 @@ class NeutronPodVIFDriver(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif')
     def test_request_vif(self, m_to_vif):
         cls = neutron_vif.NeutronPodVIFDriver
+        cls._tag_on_creation = True
         m_driver = mock.Mock(spec=cls)
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
@@ -61,6 +62,7 @@ class NeutronPodVIFDriver(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif')
     def test_request_vifs(self, m_to_vif):
         cls = neutron_vif.NeutronPodVIFDriver
+        cls._tag_on_creation = True
         m_driver = mock.Mock(spec=cls)
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
@@ -94,6 +96,7 @@ class NeutronPodVIFDriver(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif')
     def test_request_vifs_unbound(self, m_to_vif):
         cls = neutron_vif.NeutronPodVIFDriver
+        cls._tag_on_creation = True
         m_driver = mock.Mock(spec=cls)
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
@@ -131,6 +134,7 @@ class NeutronPodVIFDriver(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.os_vif_util.neutron_to_osvif_vif')
     def test_request_vifs_exception(self, m_to_vif):
         cls = neutron_vif.NeutronPodVIFDriver
+        cls._tag_on_creation = False
         m_driver = mock.Mock(spec=cls)
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
@@ -227,6 +231,7 @@ class NeutronPodVIFDriver(test_base.TestCase):
                                m_get_device_id, m_get_port_name, m_get_host_id,
                                m_get_network_id, unbound=False):
         cls = neutron_vif.NeutronPodVIFDriver
+        cls._tag_on_creation = True
         m_driver = mock.Mock(spec=cls)
 
         pod = mock.sentinel.pod
@@ -258,6 +263,10 @@ class NeutronPodVIFDriver(test_base.TestCase):
 
         if security_groups:
             expected['security_groups'] = security_groups
+
+        tags = oslo_cfg.CONF.neutron_defaults.resource_tags
+        if cls._tag_on_creation and tags:
+            expected['tags'] = tags
 
         if unbound:
             expected['name'] = constants.KURYR_PORT_NAME

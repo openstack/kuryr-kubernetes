@@ -24,6 +24,7 @@ from kuryr_kubernetes.controller.drivers import multi_vif
 from kuryr_kubernetes.controller.handlers import kuryrport
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.tests import base as test_base
+from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
 
 
 CONF = cfg.CONF
@@ -87,6 +88,7 @@ class TestKuryrPortHandler(test_base.TestCase):
         self._pod_uri = (f"{constants.K8S_API_NAMESPACES}"
                          f"/{self._kp['metadata']['namespace']}/pods/"
                          f"{self._kp['metadata']['name']}")
+        self.useFixture(k_fix.MockNetworkClient())
         self._driver = multi_vif.NoopMultiVIFDriver()
 
     @mock.patch('kuryr_kubernetes.controller.handlers.kuryrport.'
