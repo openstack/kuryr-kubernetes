@@ -433,7 +433,6 @@ class NetworkPolicyServiceSecurityGroupsDriver(
         svc_namespace = service['metadata']['namespace']
         svc_selector = service['spec'].get('selector')
 
-        # skip is no selector
         if svc_selector:
             # get affected pods by svc selector
             pods = driver_utils.get_pods({'selector': svc_selector},
@@ -444,4 +443,11 @@ class NetworkPolicyServiceSecurityGroupsDriver(
             # to the first one.
             if pods:
                 return _get_pod_sgs(pods[0])
+        else:
+            # NOTE(maysams): Network Policy is not enforced on Services
+            # without selectors.
+            sg_list = config.CONF.neutron_defaults.pod_security_groups
+            if not sg_list:
+                raise cfg.RequiredOptError('pod_security_groups',
+                                           cfg.OptGroup('neutron_defaults'))
         return sg_list[:]

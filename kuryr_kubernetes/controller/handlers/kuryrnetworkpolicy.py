@@ -217,8 +217,8 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
             for service in services.get('items', []):
                 # TODO(ltomasbo): Skip other services that are not affected
                 #                 by the policy
-                # FIXME(dulek): Make sure to include svcs without selector when
-                #               we start supporting them.
+                # NOTE(maysams): Network Policy is not enforced on Services
+                # without selectors for Amphora Octavia provider.
                 if (not service['spec'].get('selector') or not
                         self._is_service_affected(service, pods_to_update)):
                     continue

@@ -296,7 +296,7 @@ restriction was enforced.
 Allow traffic from namespace
 ++++++++++++++++++++++++++++
 
-The following network policy only allows allowing ingress traffic
+The following network policy only allows ingress traffic
 from namespace with the label ``purpose=test``:
 
 .. code-block:: yaml
@@ -363,9 +363,94 @@ egress rule allowing traffic to everywhere.
 
 .. note::
 
-   The Service security groups need to be rechecked when a network policy
-   that affects ingress traffic is created, and also everytime
-   a pod or namespace is created.
+   Only when using Amphora Octavia provider and Services with selector,
+   the Load Balancer security groups need to be rechecked when a
+   network policy that affects ingress traffic is created, and
+   also everytime a pod or namespace is created. Network Policy
+   is not enforced on Services without Selectors.
+
+Allow traffic to a Pod in a Namespace
++++++++++++++++++++++++++++++++++++++
+
+The following network policy only allows egress traffic from Pods
+with the label ``app=demo`` at Namespace with label ``app=demo``:
+
+.. code-block:: yaml
+
+   apiVersion: networking.k8s.io/v1
+   kind: NetworkPolicy
+   metadata:
+     name: block-egress
+     namespace: client
+   spec:
+     podSelector:
+       matchLabels:
+         app: client
+     policyTypes:
+     - Egress
+     egress:
+       - from:
+         - namespaceSelector:
+             matchLabels:
+               app: demo
+           podSelector:
+             matchLabels:
+               app: demo
+
+The resulting CRD has an ingress rules allowing traffic
+from everywhere and egress rules to the selected Pod
+and the Service that points to it.
+
+.. code-block:: yaml
+
+   apiVersion: openstack.org/v1
+   kind: KuryrNetworkPolicy
+   metadata: ...
+   spec:
+   egressSgRules:
+   - namespace: demo
+   sgRule:
+     description: Kuryr-Kubernetes NetPolicy SG rule
+     direction: egress
+     ethertype: IPv4
+     port_range_max: 65535
+     port_range_min: 1
+     protocol: tcp
+     remote_ip_prefix: 10.0.2.120
+   - sgRule:
+     description: Kuryr-Kubernetes NetPolicy SG rule
+     direction: egress
+     ethertype: IPv4
+     port_range_max: 65535
+     port_range_min: 1
+     protocol: tcp
+     remote_ip_prefix: 10.0.0.144
+   ingressSgRules:
+   - sgRule:
+     description: Kuryr-Kubernetes NetPolicy SG rule
+     direction: ingress
+     ethertype: IPv4
+   - sgRule:
+     description: Kuryr-Kubernetes NetPolicy SG rule
+     direction: ingress
+     ethertype: IPv6
+   podSelector:
+   matchLabels:
+     app: client
+   policyTypes:
+   - Egress
+   status:
+   podSelector:
+   matchLabels:
+     app: client
+   securityGroupId: 322a347b-0684-4aea-945a-5f204361a64e
+   securityGroupRules: ...
+
+.. note::
+
+   A Network Policy egress rule creates a Security Group rule
+   corresponding to a Service(with or without selectors) that
+   points to the selected Pod.
 
 
 Create network policy flow

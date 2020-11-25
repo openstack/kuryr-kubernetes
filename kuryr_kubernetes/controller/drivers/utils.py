@@ -587,3 +587,24 @@ def get_port_annot_pci_info(nodename, neutron_port):
         LOG.exception('Exception when reading annotations '
                       '%s and converting from json', annot_name)
     return pci_info
+
+
+def get_endpoints_targets(name, namespace):
+    kubernetes = clients.get_kubernetes_client()
+    target_ips = []
+    try:
+        klb_crd = kubernetes.get(
+            f'{constants.K8S_API_CRD_NAMESPACES}/{namespace}/'
+            f'kuryrloadbalancers/{name}')
+    except k_exc.K8sResourceNotFound:
+        LOG.debug("KuryrLoadBalancer %s not found on Namespace %s.",
+                  name, namespace)
+        return target_ips
+    except k_exc.K8sClientException:
+        LOG.exception('Exception when getting K8s Endpoints.')
+        raise
+
+    for ep_slice in klb_crd['spec'].get('endpointSlices', []):
+        for endpoint in ep_slice.get('endpoints', []):
+            target_ips.extend(endpoint.get('addresses', []))
+    return target_ips
