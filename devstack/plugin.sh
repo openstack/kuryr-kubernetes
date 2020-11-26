@@ -856,7 +856,7 @@ spec:
       hostNetwork: true
       containers:
       - name: coredns
-        image: coredns/coredns:1.4.0
+        image: quay.io/kuryr/coredns:1.4.0
         imagePullPolicy: Always
         args: [ "-conf", "/etc/coredns/Corefile" ]
         volumeMounts:
