@@ -34,7 +34,7 @@ hosted VM workloads in Contrail SDN environments
 Use Case 2: Allow Kubernetes workloads to leverage advanced OpenContrail based
 networking
 
-Use Case 3: Enable Kuberentes to create virtual networks via Contrail
+Use Case 3: Enable Kubernetes to create virtual networks via Contrail
 
 Proposed Change
 ===============

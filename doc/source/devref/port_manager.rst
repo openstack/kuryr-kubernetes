@@ -24,7 +24,7 @@ capturing the design decision currently taken by the kuryr team.
 
 The main purpose of the Port Manager is to perform Neutron resources handling,
 i.e., ports creation and deletion. The main idea behind is to try to minimize
-the amount of calls to Neutron by ensuring port reusal as well as performing
+the amount of calls to Neutron by ensuring port reuse as well as performing
 bulk actions, e.g., creating/deleting several ports within the same Neutron
 call.
 
