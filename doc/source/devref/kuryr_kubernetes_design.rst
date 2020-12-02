@@ -173,14 +173,15 @@ handlers need to be included in kuryr.conf at the 'kubernetes' section.
 If not specified, Kuryr Controller will run the default handlers, which
 currently includes the following:
 
-================  =========================
-  Handler             Kubernetes resource
-================  =========================
-vif               Pod
-kuryrport         KuryrPort CRD
-endpoints         Endpoint
-service           Service
-================  =========================
+==================  =========================
+  Handler               Kubernetes resource
+==================  =========================
+vif                 Pod
+kuryrport           KuryrPort CRD
+endpoints           Endpoints
+service             Service
+kuryrloadbalancer   KuryrLoadBalancer CRD
+==================  =========================
 
 For example, to enable only the 'vif' controller handler we should set the
 following at kuryr.conf:
