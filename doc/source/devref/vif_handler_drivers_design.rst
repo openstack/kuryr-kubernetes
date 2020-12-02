@@ -27,7 +27,7 @@ Kuryr-Kubernetes Controller.
 VIF-Handler
 -----------
 
-VIV-handler was intended to handle VIFs. Currently it is responsible for
+VIF-handler was intended to handle VIFs. Currently it is responsible for
 reacting on Pod object events, and for creating/deleting corresponding
 KuryrPort CRD object.
 
@@ -146,7 +146,7 @@ Specific ports support
 ----------------------
 
 Specific ports support is enabled by default and will be a part of the drivers
-to implement it. It is possile to have manually precreated specific ports in
+to implement it. It is possible to have manually precreated specific ports in
 neutron and specify them in pod annotations as preferably used. This means that
 drivers will use specific ports if it is specified in pod annotations,
 otherwise it will create new ports by default. It is important that specific

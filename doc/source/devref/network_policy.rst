@@ -173,7 +173,7 @@ Use cases examples
 ~~~~~~~~~~~~~~~~~~
 
 This section describes some scenarios with a Network Policy being enforced,
-what Kuryr componenets gets triggered and what resources are created.
+what Kuryr components gets triggered and what resources are created.
 
 
 Deny all incoming traffic
