@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
+
 import munch
 from openstack import exceptions as os_exc
 from unittest import mock
@@ -74,7 +76,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         self._policy_name = 'np-test'
         self._policy_uid = mock.sentinel.policy_uid
         self._policy_link = mock.sentinel.policy_link
-        self._sg_id = mock.sentinel.sg_id
+        self._sg_id = 'test-sg-id'
         self._i_rules = [{'security_group_rule': {'id': ''}}]
         self._e_rules = [{'security_group_rule': {'id': ''}}]
 
@@ -122,7 +124,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                       'port_range_min': 5978,
                       'protocol': 'tcp',
                       'security_group_id': self._sg_id,
-                      'id': mock.sentinel.id
+                      'id': 'sgr-id-egress',
                       }}],
                 'ingressSgRules': [
                     {'security_group_rule':
@@ -133,7 +135,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                       'port_range_min': 6379,
                       'protocol': 'tcp',
                       'security_group_id': self._sg_id,
-                      'id': mock.sentinel.id
+                      'id': 'sgr-id-ingress',
                       }}],
                 'networkpolicy_spec': self._policy['spec'],
                 'securityGroupId': self._sg_id,
@@ -313,20 +315,28 @@ class TestNetworkPolicyDriver(test_base.TestCase):
             self._policy, self._project_id)
 
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'delete_security_group_rule')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'create_security_group_rule')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        'get_kuryrnetpolicy_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        'parse_network_policy_rules')
     def test_update_security_group_rules(self, m_parse, m_get_crd,
-                                         m_create_sgr):
-        policy = self._policy.copy()
+                                         m_create_sgr, m_delete_sgr):
+        policy = copy.deepcopy(self._policy)
         policy['spec']['podSelector'] = {'matchLabels': {'test': 'test'}}
-        m_get_crd.return_value = self._crd
-        m_parse.return_value = (self._i_rules, self._e_rules)
-        self._driver.update_security_group_rules_from_network_policy(
-            policy)
-        m_parse.assert_called_with(policy, self._sg_id)
+        crd = copy.deepcopy(self._crd)
+        sgr = crd['spec']['egressSgRules'][0]['security_group_rule']
+        sgr['port_range_min'] = 5977
+        m_get_crd.return_value = crd
+        m_parse.return_value = (self._crd['spec']['ingressSgRules'],
+                                self._crd['spec']['egressSgRules'])
+        self._driver.update_security_group_rules_from_network_policy(policy)
+        m_parse.assert_called_once_with(policy, self._sg_id)
+        m_delete_sgr.assert_called_once_with('sgr-id-egress')
+        m_create_sgr.assert_called_once_with(
+            self._crd['spec']['egressSgRules'][0])
 
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'create_security_group_rule')
