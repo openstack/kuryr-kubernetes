@@ -102,4 +102,4 @@ class TestControllerPrometheusExporter(base.TestCase):
         self.cls._record_ports_quota_per_subnet_metric(self.srv)
         self.srv.port_quota_per_subnet.labels.assert_called_with(
             **{'subnet_id': subnet_id, 'subnet_name': subnet_name})
-        self.srv.port_quota_per_subnet.labels().set.assert_called_with(508)
+        self.srv.port_quota_per_subnet.labels().set.assert_called_with(509)
