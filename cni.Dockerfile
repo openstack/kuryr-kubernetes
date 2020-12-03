@@ -1,10 +1,10 @@
-FROM golang:1.11 AS builder
+FROM quay.io/app-sre/golang:1.15 as builder
 
 WORKDIR /go/src/opendev.com/kuryr-kubernetes
 COPY . .
 RUN go build -o /go/bin/kuryr-cni ./kuryr_cni
 
-FROM centos:8
+FROM quay.io/app-sre/centos:8
 LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redhat.com>"
 
 ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/master"
