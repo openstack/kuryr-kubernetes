@@ -19,6 +19,7 @@ import os
 import ssl
 import time
 from urllib import parse
+import urllib3
 
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
@@ -396,7 +397,8 @@ class K8sClient(object):
                             m = line_dict.get('object', {}).get('metadata', {})
                             resource_version = m.get('resourceVersion', None)
             except (requests.ReadTimeout, requests.ConnectionError,
-                    ssl.SSLError, requests.exceptions.ChunkedEncodingError):
+                    ssl.SSLError, requests.exceptions.ChunkedEncodingError,
+                    urllib3.exceptions.SSLError):
                 t = utils.exponential_backoff(attempt)
                 log = LOG.debug
                 if attempt > 0:
