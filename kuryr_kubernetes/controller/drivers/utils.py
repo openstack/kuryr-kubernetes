@@ -83,6 +83,13 @@ def is_host_network(pod):
     return pod['spec'].get('hostNetwork', False)
 
 
+def is_pod_scheduled(pod):
+    try:
+        return bool(pod['spec']['nodeName'])
+    except KeyError:
+        return False
+
+
 def get_pods(selector, namespace=None):
     """Return a k8s object list with the pods matching the selector.
 
