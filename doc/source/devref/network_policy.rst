@@ -28,8 +28,8 @@ Overview
 
 Kubernetes supports a Network Policy object to express ingress and egress rules
 for pods. Network Policy reacts on labels to qualify multiple pods, and defines
-rules based on differents labeling and/or CIDRs. When combined with a
-networking plugin, those policy objetcs are enforced and respected.
+rules based on different labeling and/or CIDRs. When combined with a networking
+plugin, those policy objects are enforced and respected.
 
 
 Proposed Solution
@@ -198,7 +198,7 @@ The following CRD is the translation of policy rules to security group rules.
 No ingress rule was created, which means traffic is blocked, and since
 there is no restriction for egress traffic, it is allowed to everywhere. Note
 that the same happens when no ``policyType`` is defined, since all policies
-are assumed to assumed to affect Ingress.
+are assumed to affect Ingress.
 
 .. code-block:: yaml
 
@@ -389,7 +389,7 @@ with the label ``app=demo`` at Namespace with label ``app=demo``:
      policyTypes:
      - Egress
      egress:
-       - from:
+       - to:
          - namespaceSelector:
              matchLabels:
                app: demo
