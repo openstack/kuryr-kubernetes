@@ -760,7 +760,7 @@ function run_k8s_kubelet {
         --root-dir=${KURYR_HYPERKUBE_DATA_DIR}/kubelet"
 
     if [[ ${CONTAINER_ENGINE} == 'docker' ]]; then
-        command+=" --cgroup-driver $(docker info|awk '/Cgroup/ {print $NF}')"
+        command+=" --cgroup-driver $(docker info -f '{{.CgroupDriver}}')"
     elif [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
         local crio_conf
         crio_conf=/etc/crio/crio.conf
