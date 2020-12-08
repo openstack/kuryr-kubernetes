@@ -885,7 +885,7 @@ function run_openshift_node {
         --network-plugin=cni \
         --address=0.0.0.0 \
         --port=10250 \
-        --cgroup-driver $(docker info|awk '/Cgroup/ {print $NF}') \
+        --cgroup-driver $(docker info -f '{{.CgroupDriver}}') \
         --fail-swap-on=false \
         --allow-privileged=true \
         --v=2 \
