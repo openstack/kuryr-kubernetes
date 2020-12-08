@@ -25,13 +25,11 @@ eventlet==0.22.0
 extras==1.0.0
 fasteners==0.14.1
 fixtures==3.0.0
-flake8==2.5.5
 Flask==0.12.3
 future==0.16.0
 futurist==1.6.0
 greenlet==0.4.13
 grpcio==1.12.0
-hacking==0.12.0
 idna==2.6
 imagesize==1.0.0
 iso8601==0.1.12
@@ -45,8 +43,7 @@ kombu==4.1.0
 kuryr-lib==0.5.0
 linecache2==1.0.0
 Mako==1.0.7
-MarkupSafe==1.0
-mccabe==0.2.1
+MarkupSafe==1.1.0
 monotonic==1.4
 mox3==0.25.0
 msgpack==0.5.6
@@ -70,7 +67,7 @@ oslo.log==3.36.0
 oslo.messaging==5.36.0
 oslo.middleware==3.35.0
 oslo.policy==1.34.0
-oslo.privsep==1.28.0
+oslo.privsep==1.33.3
 oslo.reports==1.18.0
 oslo.serialization==2.18.0
 oslo.service==1.40.2
@@ -81,14 +78,12 @@ packaging==17.1
 Paste==2.0.3
 PasteDeploy==1.5.2
 pbr==2.0.0
-pep8==1.5.7
 pika==0.10.0
 pika-pool==0.1.3
 prettytable==0.7.2
 protobuf==3.6.0
 psutil==5.4.3
 pycparser==2.18
-pyflakes==0.8.1
 Pygments==2.2.0
 pyinotify==0.9.6
 pyparsing==2.2.0
@@ -103,7 +98,7 @@ python-subunit==1.0.0
 pytz==2018.3
 PyYAML==3.12
 repoze.lru==0.7
-requests==2.18.0
+requests==2.18.4
 requestsexceptions==1.4.0
 retrying==1.2.3
 rfc3986==1.1.0
