@@ -38,5 +38,6 @@ ML2 drivers.
    nested-dpdk
    odl_support
    ovn_support
+   ovn-octavia
    containerized
    ports-pool

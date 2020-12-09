@@ -72,6 +72,25 @@ would help avoiding extra hops if the amphorae were scheduled in the worker
 nodes, but how much significant that is, depends on your latency and throughput
 requirements.
 
+Octavia uses `Load Balancer drivers`_ to handle all communications with
+*Amphorae*. By default, Kuryr-Kubernetes uses the reference Octavia driver
+which is the `Amphora driver`_. Kuryr also supports the use of
+`OVN Octavia driver`_.
+
+
+OVN Octavia Provider Driver
+---------------------------
+
+Kuryr supports the creation of a load balancer with OVN provider driver. When
+'ovn' provider is enabled as one of the Octavia Load Balancer providers, the
+load balancing is executed by the virtual switch data-path engine and there is
+no need to create VMs. This means there is no additional overhead of VMs as is
+required when using Octavia with the default Amphora driver.
+
+You can find additional information about the driver, its limitations and how
+to create OVN-based load balancers in `OVN as Provider Driver for Octavia`_.
+
+
 .. _k8s_default_configuration:
 
 Default configuration
@@ -762,3 +781,7 @@ Troubleshooting
 .. _services: https://kubernetes.io/docs/concepts/services-networking/service/
 .. _Octavia API: https://docs.openstack.org/api-ref/load-balancer/v2/
 .. _Octavia installation docs: https://docs.openstack.org/octavia/latest/contributor/guides/dev-quick-start.html
+.. _Load Balancer drivers: https://docs.openstack.org/octavia/latest/
+.. _Amphora driver: https://docs.openstack.org/octavia/latest/
+.. _OVN Octavia driver: https://docs.openstack.org/ovn-octavia-provider/latest/
+.. _OVN as Provider Driver for Octavia: https://docs.openstack.org/networking-ovn/stein/admin/loadbalancer.html
