@@ -1,4 +1,4 @@
-FROM quay.io/app-sre/centos:8
+FROM registry.centos.org/centos:8
 LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redhat.com>"
 
 ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/ussuri"
