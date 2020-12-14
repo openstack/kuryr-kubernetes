@@ -147,9 +147,9 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         if CONF.octavia_defaults.enforce_sg_rules:
             default_cidrs.append(utils.get_subnet_cidr(
                 CONF.neutron_defaults.service_subnet))
-        worker_subnet_id = CONF.pod_vif_nested.worker_nodes_subnet
-        if worker_subnet_id:
-            default_cidrs.append(utils.get_subnet_cidr(worker_subnet_id))
+        worker_subnet_ids = CONF.pod_vif_nested.worker_nodes_subnets
+        default_cidrs.extend(utils.get_subnets_cidrs(worker_subnet_ids))
+
         for cidr in default_cidrs:
             ethertype = constants.IPv4
             if ipaddress.ip_network(cidr).version == constants.IP_VERSION_6:

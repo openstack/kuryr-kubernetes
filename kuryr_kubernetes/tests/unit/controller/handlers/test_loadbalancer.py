@@ -190,8 +190,9 @@ class FakeLBaaSDriver(drv_base.LBaaSDriver):
         }
 
 
+@mock.patch('kuryr_kubernetes.utils.get_subnets_id_cidrs',
+            mock.Mock(return_value=[('id', 'cidr')]))
 class TestKuryrLoadBalancerHandler(test_base.TestCase):
-
     @mock.patch('kuryr_kubernetes.utils.get_subnet_cidr')
     @mock.patch('kuryr_kubernetes.controller.drivers.base.'
                 'ServiceProjectDriver.get_instance')

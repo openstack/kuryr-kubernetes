@@ -1,0 +1,12 @@
+---
+features:
+  - |
+    Kuryr will now support nested mode with nodes VMs running in multiple
+    subnets. In order to use that functionality a new option
+    `[pod_vif_nested]worker_nodes_subnets` is introduced and will accept a list
+    of subnet IDs.
+deprecations:
+  - |
+    Option `[pod_vif_nested]worker_nodes_subnet` is deprecated in favor of
+    `[pod_vif_nested]worker_nodes_subnets` that accepts a list instead of a
+    single ID.

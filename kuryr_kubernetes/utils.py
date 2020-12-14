@@ -297,6 +297,24 @@ def get_subnet_cidr(subnet_id):
 
 
 @MEMOIZE
+def get_subnets_id_cidrs(subnet_ids):
+    os_net = clients.get_network_client()
+    subnets = os_net.subnets()
+    cidrs = [(subnet.id, subnet.cidr) for subnet in subnets
+             if subnet.id in subnet_ids]
+    if len(cidrs) != len(subnet_ids):
+        existing = {subnet.id for subnet in subnets}
+        missing = set(subnet_ids) - existing
+        LOG.exception("CIDRs of subnets %s not found!", missing)
+        raise os_exc.ResourceNotFound()
+    return cidrs
+
+
+def get_subnets_cidrs(subnet_ids):
+    return [x[1] for x in get_subnets_id_cidrs(subnet_ids)]
+
+
+@MEMOIZE
 def get_subnetpool_version(subnetpool_id):
     os_net = clients.get_network_client()
     try:
@@ -571,7 +589,10 @@ def get_current_endpoints_target(ep, port, spec_ports, ep_name):
             spec_ports.get(port.get('name')))
 
 
-def is_ip_on_subnet(nodes_subnet, target_ip):
-    return (nodes_subnet and
-            (ipaddress.ip_address(target_ip) in
-                ipaddress.ip_network(nodes_subnet)))
+def get_subnet_by_ip(nodes_subnets, target_ip):
+    ip = ipaddress.ip_address(target_ip)
+    for nodes_subnet in nodes_subnets:
+        if ip in ipaddress.ip_network(nodes_subnet[1]):
+            return nodes_subnet
+
+    return None

@@ -64,7 +64,7 @@ for the VM:
       .. code-block:: ini
 
          [pod_vif_nested]
-         worker_nodes_subnet = <UNDERCLOUD_SUBNET_WORKER_NODES_UUID>
+         worker_nodes_subnets = <UNDERCLOUD_SUBNET_WORKER_NODES_UUID>
 
    - Configure binding section:
 

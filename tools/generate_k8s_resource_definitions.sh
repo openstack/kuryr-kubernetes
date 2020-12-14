@@ -34,7 +34,7 @@ if [ -z $CONF_PATH ]; then
     pod_subnet_id=${KURYR_K8S_POD_SUBNET_ID}
     pod_sg=${KURYR_K8S_POD_SG}
     service_subnet_id=${KURYR_K8S_SERVICE_SUBNET_ID}
-    worker_nodes_subnet=${KURYR_K8S_WORKER_NODES_SUBNET}
+    worker_nodes_subnets=${KURYR_K8S_WORKER_NODES_SUBNETS:-${KURYR_K8S_WORKER_NODES_SUBNET}}
     binding_driver=${KURYR_K8S_BINDING_DRIVER:-kuryr.lib.binding.drivers.vlan}
     binding_iface=${KURYR_K8S_BINDING_IFACE:-eth0}
     pod_subnet_pool=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID}
@@ -86,7 +86,7 @@ EOF
     if [ ! -z $binding_driver ]; then
         cat >> $CONF_PATH << EOF
 [pod_vif_nested]
-worker_nodes_subnet = $worker_nodes_subnet
+worker_nodes_subnets = $worker_nodes_subnets
 [binding]
 driver = $binding_driver
 link_iface = $binding_iface
