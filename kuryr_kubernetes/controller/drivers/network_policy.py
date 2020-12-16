@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
+
 import ipaddress
 import netaddr
 
@@ -64,6 +66,17 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             self.create_security_group_rules_from_network_policy(policy,
                                                                  project_id)
 
+    def _compare_sg_rule(self, a, b):
+        """Compare SG rule properties ID"""
+        a = copy.deepcopy(a)
+        b = copy.deepcopy(b)
+        a['security_group_rule'].pop('id', None)
+        b['security_group_rule'].pop('id', None)
+        # We cannot just compare a == b because those objects may have
+        # `namespace` or `remote_ip_prefixes` elements and we need to preserve
+        # those.
+        return a['security_group_rule'] == b['security_group_rule']
+
     def update_security_group_rules_from_network_policy(self, policy):
         """Update security group rules
 
@@ -84,34 +97,44 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         # Parse network policy update and get new ruleset
         i_rules, e_rules = self.parse_network_policy_rules(policy, sg_id)
         current_sg_rules = i_rules + e_rules
-        # Get existing security group rules ids
-        sgr_ids = [x['security_group_rule'].pop('id') for x in
-                   existing_sg_rules]
-        # SG rules that are meant to be kept get their id back
-        sg_rules_to_keep = [existing_sg_rules.index(rule) for rule in
-                            existing_sg_rules if rule in current_sg_rules]
-        for sg_rule in sg_rules_to_keep:
-            sgr_id = sgr_ids[sg_rule]
-            existing_sg_rules[sg_rule]['security_group_rule']['id'] = sgr_id
-        # Delete SG rules that are no longer in the updated policy
-        sg_rules_to_delete = [existing_sg_rules.index(rule) for rule in
-                              existing_sg_rules if rule not in
-                              current_sg_rules]
-        for sg_rule in sg_rules_to_delete:
-            driver_utils.delete_security_group_rule(sgr_ids[sg_rule])
-        # Create new rules that weren't already on the security group
-        sg_rules_to_add = [rule for rule in current_sg_rules if rule not in
-                           existing_sg_rules]
+
+        sg_rules_to_delete = []
+        for existing_rule in existing_sg_rules:
+            for current_rule in current_sg_rules:
+                if self._compare_sg_rule(existing_rule, current_rule):
+                    ex_id = existing_rule['security_group_rule']['id']
+                    current_rule['security_group_rule']['id'] = ex_id
+                    break
+            else:
+                sg_rules_to_delete.append(existing_rule)
+
+        sg_rules_to_add = []
+        for current_rule in current_sg_rules:
+            for existing_rule in existing_sg_rules:
+                if self._compare_sg_rule(existing_rule, current_rule):
+                    break
+            else:
+                sg_rules_to_add.append(current_rule)
+
         for sg_rule in sg_rules_to_add:
             sgr_id = driver_utils.create_security_group_rule(sg_rule)
             if sg_rule['security_group_rule'].get('direction') == 'ingress':
                 for i_rule in i_rules:
-                    if sg_rule == i_rule:
+                    if self._compare_sg_rule(sg_rule, i_rule):
                         i_rule["security_group_rule"]["id"] = sgr_id
+                        break
             else:
                 for e_rule in e_rules:
-                    if sg_rule == e_rule:
+                    if self._compare_sg_rule(sg_rule, e_rule):
                         e_rule["security_group_rule"]["id"] = sgr_id
+                        break
+
+        # Only delete old rules after we created new ones to limit possible
+        # service interruptions when rule ranges get expanded.
+        for sg_rule in sg_rules_to_delete:
+            driver_utils.delete_security_group_rule(
+                sg_rule['security_group_rule']['id'])
+
         # Annotate kuryrnetpolicy CRD with current policy and ruleset
         pod_selector = policy['spec'].get('podSelector')
         driver_utils.patch_kuryrnetworkpolicy_crd(crd, i_rules, e_rules,
