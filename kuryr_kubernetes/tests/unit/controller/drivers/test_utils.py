@@ -63,3 +63,26 @@ class TestUtils(test_base.TestCase):
 
     def test_get_network_id_empty(self):
         self.assertRaises(exceptions.IntegrityError, utils.get_network_id, {})
+
+    def test_match_selector(self):
+        self.assertFalse(
+            utils.match_selector({'matchLabels': {'app': 'demo'}}, None))
+        self.assertFalse(
+            utils.match_selector({'matchLabels': {'app': 'demo'}}, {}))
+        self.assertFalse(
+            utils.match_selector({'matchLabels': {'app': 'demo'}},
+                                 {'app': 'foobar'}))
+        self.assertTrue(
+            utils.match_selector({'matchLabels': {'app': 'demo'}},
+                                 {'app': 'demo'}))
+        self.assertTrue(
+            utils.match_selector({'matchLabels': {'app': 'demo'}},
+                                 {'app': 'demo', 'foo': 'bar'}))
+        self.assertTrue(
+            utils.match_selector({'matchLabels': {'app': 'demo',
+                                                  'foo': 'bar'}},
+                                 {'app': 'demo', 'foo': 'bar'}))
+        self.assertFalse(
+            utils.match_selector({'matchLabels': {'app': 'demo',
+                                                  'foo': 'bar'}},
+                                 {'app': 'demo'}))
