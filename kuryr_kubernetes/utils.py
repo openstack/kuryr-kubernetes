@@ -424,7 +424,7 @@ def set_lbaas_state(endpoints, lbaas_state):
         annotation = jsonutils.dumps(lbaas_state.obj_to_primitive(),
                                      sort_keys=True)
     k8s = clients.get_kubernetes_client()
-    k8s.annotate(endpoints['metadata']['selfLink'],
+    k8s.annotate(get_res_link(endpoints),
                  {constants.K8S_ANNOTATION_LBAAS_STATE: annotation},
                  resource_version=endpoints['metadata']['resourceVersion'])
 
@@ -442,7 +442,7 @@ def get_endpoints_link(service):
 
 
 def get_service_link(endpoints):
-    endpoints_link = endpoints['metadata']['selfLink']
+    endpoints_link = get_res_link(endpoints)
     link_parts = endpoints_link.split('/')
 
     if link_parts[-2] != 'endpoints':
