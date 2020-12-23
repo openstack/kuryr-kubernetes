@@ -440,3 +440,25 @@ class TestUtils(test_base.TestCase):
         res = {'metadata': {'selfLink': '/foo'}}
 
         self.assertEqual(utils.get_res_link(res), '/foo')
+
+    @mock.patch('kuryr_kubernetes.clients.get_network_client')
+    def test_get_subnet_id(self, m_get_net):
+        m_net = mock.Mock()
+        m_get_net.return_value = m_net
+        subnets = (mock.Mock(id=mock.sentinel.subnet1),
+                   mock.Mock(id=mock.sentinel.subnet2))
+        m_net.subnets.return_value = iter(subnets)
+        filters = {'name': 'foo', 'tags': 'bar'}
+        sub = utils.get_subnet_id(**filters)
+        m_net.subnets.assert_called_with(**filters)
+        self.assertEqual(mock.sentinel.subnet1, sub)
+
+    @mock.patch('kuryr_kubernetes.clients.get_network_client')
+    def test_get_subnet_not_found(self, m_get_net):
+        m_net = mock.Mock()
+        m_get_net.return_value = m_net
+        m_net.subnets.return_value = iter(())
+        filters = {'name': 'foo', 'tags': 'bar'}
+        sub = utils.get_subnet_id(**filters)
+        m_net.subnets.assert_called_with(**filters)
+        self.assertIsNone(sub)
