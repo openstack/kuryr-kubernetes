@@ -75,9 +75,10 @@ cache.configure_cache_region(CONF, nodes_cache_region)
 
 RESOURCE_MAP = {'Endpoints': 'endpoints',
                 'KuryrLoadBalancer': 'kuryrloadbalancers',
-                'KuryrPort': 'kuryrports',
-                'KuryrNetworkPolicy': 'kuryrnetworkpolicies',
+                'KuryrNetPolicy': 'kuryrnetpolicies',
                 'KuryrNetwork': 'kuryrnetworks',
+                'KuryrNetworkPolicy': 'kuryrnetworkpolicies',
+                'KuryrPort': 'kuryrports',
                 'Namespace': 'namespaces',
                 'NetworkPolicy': 'networkpolicies',
                 'Node': 'nodes',

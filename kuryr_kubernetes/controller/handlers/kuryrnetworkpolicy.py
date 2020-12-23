@@ -77,7 +77,7 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
                             'converting KuryrNetPolicy %s. Ignoring.',
                             utils.get_res_unique_name(new_networkpolicy),
                             utils.get_res_unique_name(netpolicy))
-            self.k8s.delete(netpolicy['metadata']['selfLink'])
+            self.k8s.delete(utils.get_res_link(netpolicy))
 
     def _patch_kuryrnetworkpolicy_crd(self, knp, field, data,
                                       action='replace'):

@@ -422,18 +422,18 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     # NOTE(ltomasbo): add default rule to enable all ingress
                     # traffic as NP policy is not affecting ingress
                     LOG.debug('Applying default all open for ingress for '
-                              'policy %s', policy['metadata']['selfLink'])
+                              'policy %s', utils.get_res_link(policy))
                     self._create_default_sg_rule(direction, sg_rule_body_list)
             elif direction == 'egress':
                 if policy_types and 'Egress' not in policy_types:
                     # NOTE(ltomasbo): add default rule to enable all egress
                     # traffic as NP policy is not affecting egress
                     LOG.debug('Applying default all open for egress for '
-                              'policy %s', policy['metadata']['selfLink'])
+                              'policy %s', utils.get_res_link(policy))
                     self._create_default_sg_rule(direction, sg_rule_body_list)
             else:
                 LOG.warning('Not supported policyType at network policy %s',
-                            policy['metadata']['selfLink'])
+                            utils.get_res_link(policy))
             return
 
         policy_namespace = policy['metadata']['namespace']
@@ -445,7 +445,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
 
         if rule_list[0] == {}:
             LOG.debug('Applying default all open policy from %s',
-                      policy['metadata']['selfLink'])
+                      utils.get_res_link(policy))
             for ethertype in (constants.IPv4, constants.IPv6):
                 rule = driver_utils.create_security_group_rule_body(
                     direction, ethertype=ethertype)
@@ -527,7 +527,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                           '%(rule_direction)s and no ports: %(policy)s',
                           {'direction': direction,
                            'rule_direction': rule_direction,
-                           'policy': policy['metadata']['selfLink']})
+                           'policy': utils.get_res_link(policy)})
 
     def _create_svc_egress_sg_rule(self, policy_namespace, sg_rule_body_list,
                                    resource=None, port=None, protocol=None):
@@ -662,7 +662,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 'name': networkpolicy_name,
                 'namespace': namespace,
                 'annotations': {
-                    'networkPolicyLink': policy['metadata']['selfLink'],
+                    'networkPolicyLink': utils.get_res_link(policy)
                 },
                 'finalizers': [constants.NETWORKPOLICY_FINALIZER],
             },
