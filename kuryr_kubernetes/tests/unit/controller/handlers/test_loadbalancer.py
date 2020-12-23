@@ -207,9 +207,12 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
                 '.PodProjectDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
-    def test_init(self, m_get_drv_lbaas, m_get_drv_project,
-                  m_get_drv_subnets, m_get_drv_service_pub_ip, m_cfg,
-                  m_get_svc_sg_drv, m_get_svc_drv_project, m_get_cidr):
+    @mock.patch('kuryr_kubernetes.controller.drivers.base'
+                '.NodesSubnetsDriver.get_instance')
+    def test_init(self, m_get_drv_node_subnets, m_get_drv_lbaas,
+                  m_get_drv_project, m_get_drv_subnets,
+                  m_get_drv_service_pub_ip, m_cfg, m_get_svc_sg_drv,
+                  m_get_svc_drv_project, m_get_cidr):
         m_get_drv_lbaas.return_value = mock.sentinel.drv_lbaas
         m_get_drv_project.return_value = mock.sentinel.drv_project
         m_get_drv_subnets.return_value = mock.sentinel.drv_subnets
@@ -217,12 +220,15 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
         m_get_drv_service_pub_ip.return_value = mock.sentinel.drv_lb_ip
         m_get_svc_drv_project.return_value = mock.sentinel.drv_svc_project
         m_get_svc_sg_drv.return_value = mock.sentinel.drv_sg
+        m_get_drv_node_subnets.return_value = mock.sentinel.drv_node_subnets
         handler = h_lb.KuryrLoadBalancerHandler()
 
         self.assertEqual(mock.sentinel.drv_lbaas, handler._drv_lbaas)
         self.assertEqual(mock.sentinel.drv_project, handler._drv_pod_project)
         self.assertEqual(mock.sentinel.drv_subnets, handler._drv_pod_subnets)
         self.assertEqual(mock.sentinel.drv_lb_ip, handler._drv_service_pub_ip)
+        self.assertEqual(mock.sentinel.drv_node_subnets,
+                         handler._drv_nodes_subnets)
 
     @mock.patch('kuryr_kubernetes.utils.get_subnet_cidr')
     @mock.patch('kuryr_kubernetes.controller.drivers.base.'
@@ -238,9 +244,12 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
                 '.PodProjectDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
-    def test_init_provider_ovn(self, m_get_drv_lbaas, m_get_drv_project,
-                               m_get_drv_subnets, m_get_drv_service_pub_ip,
-                               m_cfg, m_get_svc_sg_drv, m_get_svc_drv_project,
+    @mock.patch('kuryr_kubernetes.controller.drivers.base'
+                '.NodesSubnetsDriver.get_instance')
+    def test_init_provider_ovn(self, m_get_drv_node_subnets, m_get_drv_lbaas,
+                               m_get_drv_project, m_get_drv_subnets,
+                               m_get_drv_service_pub_ip, m_cfg,
+                               m_get_svc_sg_drv, m_get_svc_drv_project,
                                m_get_cidr):
         m_get_cidr.return_value = '10.0.0.128/26'
         m_get_drv_lbaas.return_value = mock.sentinel.drv_lbaas
@@ -249,12 +258,15 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
         m_get_drv_service_pub_ip.return_value = mock.sentinel.drv_lb_ip
         m_get_svc_drv_project.return_value = mock.sentinel.drv_svc_project
         m_get_svc_sg_drv.return_value = mock.sentinel.drv_sg
+        m_get_drv_node_subnets.return_value = mock.sentinel.drv_node_subnets
         handler = h_lb .KuryrLoadBalancerHandler()
 
         self.assertEqual(mock.sentinel.drv_lbaas, handler._drv_lbaas)
         self.assertEqual(mock.sentinel.drv_project, handler._drv_pod_project)
         self.assertEqual(mock.sentinel.drv_subnets, handler._drv_pod_subnets)
         self.assertEqual(mock.sentinel.drv_lb_ip, handler._drv_service_pub_ip)
+        self.assertEqual(mock.sentinel.drv_node_subnets,
+                         handler._drv_nodes_subnets)
 
     def test_on_present(self):
         m_drv_service_pub_ip = mock.Mock()
@@ -439,6 +451,8 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
                 '.PodProjectDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base'
+                '.NodesSubnetsDriver.get_instance', mock.Mock())
     def test_sync_lbaas_members(self, m_get_drv_lbaas, m_get_drv_project,
                                 m_get_drv_subnets, m_k8s, m_svc_project_drv,
                                 m_svc_sg_drv, m_get_cidr):
@@ -472,6 +486,8 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
                 '.PodProjectDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base'
+                '.NodesSubnetsDriver.get_instance', mock.Mock())
     def test_sync_lbaas_members_udp(self, m_get_drv_lbaas,
                                     m_get_drv_project, m_get_drv_subnets,
                                     m_k8s, m_svc_project_drv, m_svc_sg_drv,
@@ -507,6 +523,8 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
                 '.PodProjectDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base'
+                '.NodesSubnetsDriver.get_instance', mock.Mock())
     def test_sync_lbaas_members_svc_listener_port_edit(
             self, m_get_drv_lbaas, m_get_drv_project, m_get_drv_subnets,
             m_k8s, m_svc_project_drv, m_svc_sg_drv, m_get_cidr):
@@ -547,6 +565,8 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
                 '.PodProjectDriver.get_instance')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
                 '.LBaaSDriver.get_instance')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base'
+                '.NodesSubnetsDriver.get_instance', mock.Mock())
     def test_add_new_members_udp(self, m_get_drv_lbaas,
                                  m_get_drv_project, m_get_drv_subnets,
                                  m_k8s, m_svc_project_drv,

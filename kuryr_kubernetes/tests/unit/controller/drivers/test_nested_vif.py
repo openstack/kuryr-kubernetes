@@ -16,6 +16,7 @@ from kuryr.lib import exceptions as kl_exc
 from oslo_config import cfg as oslo_cfg
 
 from kuryr_kubernetes.controller.drivers import nested_vif
+from kuryr_kubernetes.controller.drivers import node_subnets
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
 
@@ -42,7 +43,8 @@ class TestNestedPodVIFDriver(test_base.TestCase):
 
     def test_get_parent_port_by_host_ip(self):
         cls = nested_vif.NestedPodVIFDriver
-        m_driver = mock.Mock(spec=cls)
+        m_driver = mock.Mock(
+            spec=cls, nodes_subnets_driver=node_subnets.ConfigNodesSubnets())
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         node_subnet_id1 = 'node_subnet_id1'
@@ -66,7 +68,8 @@ class TestNestedPodVIFDriver(test_base.TestCase):
 
     def test_get_parent_port_by_host_ip_multiple(self):
         cls = nested_vif.NestedPodVIFDriver
-        m_driver = mock.Mock(spec=cls)
+        m_driver = mock.Mock(
+            spec=cls, nodes_subnets_driver=node_subnets.ConfigNodesSubnets())
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         node_subnet_id1 = 'node_subnet_id1'
@@ -91,7 +94,8 @@ class TestNestedPodVIFDriver(test_base.TestCase):
 
     def test_get_parent_port_by_host_ip_subnet_id_not_configured(self):
         cls = nested_vif.NestedPodVIFDriver
-        m_driver = mock.Mock(spec=cls)
+        m_driver = mock.Mock(
+            spec=cls, nodes_subnets_driver=node_subnets.ConfigNodesSubnets())
         self.useFixture(k_fix.MockNetworkClient()).client
         oslo_cfg.CONF.set_override('worker_nodes_subnets',
                                    '',
@@ -103,7 +107,8 @@ class TestNestedPodVIFDriver(test_base.TestCase):
 
     def test_get_parent_port_by_host_ip_trunk_not_found(self):
         cls = nested_vif.NestedPodVIFDriver
-        m_driver = mock.Mock(spec=cls)
+        m_driver = mock.Mock(
+            spec=cls, nodes_subnets_driver=node_subnets.ConfigNodesSubnets())
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         node_subnet_id = 'node_subnet_id'

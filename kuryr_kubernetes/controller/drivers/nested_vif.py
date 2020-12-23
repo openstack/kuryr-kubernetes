@@ -20,6 +20,7 @@ from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
+from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes.controller.drivers import neutron_vif
 
 
@@ -31,12 +32,14 @@ class NestedPodVIFDriver(neutron_vif.NeutronPodVIFDriver,
                          metaclass=abc.ABCMeta):
     """Skeletal handler driver for VIFs for Nested Pods."""
 
+    def __init__(self):
+        super().__init__()
+        self.nodes_subnets_driver = base.NodesSubnetsDriver.get_instance()
+
     def _get_parent_port_by_host_ip(self, node_fixed_ip):
         os_net = clients.get_network_client()
-        node_subnet_ids = oslo_cfg.CONF.pod_vif_nested.worker_nodes_subnets
-        if not node_subnet_ids:
-            raise oslo_cfg.RequiredOptError(
-                'worker_nodes_subnets', oslo_cfg.OptGroup('pod_vif_nested'))
+        node_subnet_ids = self.nodes_subnets_driver.get_nodes_subnets(
+            raise_on_empty=True)
 
         fixed_ips = ['ip_address=%s' % str(node_fixed_ip)]
         filters = {'fixed_ips': fixed_ips}

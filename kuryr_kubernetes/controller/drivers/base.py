@@ -751,3 +751,35 @@ class NetworkPolicyProjectDriver(DriverBase, metaclass=abc.ABCMeta):
         :returns: OpenStack project_id
         """
         raise NotImplementedError()
+
+
+class NodesSubnetsDriver(DriverBase, metaclass=abc.ABCMeta):
+    """Keeps list of subnet_ids of the OpenShift Nodes."""
+
+    ALIAS = 'nodes_subnets'
+
+    @abc.abstractmethod
+    def get_nodes_subnets(self, raise_on_empty=False):
+        """Gets list of subnet_ids of OpenShift Nodes.
+
+        :param raise_on_empty: whether it should raise if list is empty.
+        :return: list of subnets
+        """
+
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def add_node(self, node):
+        """Handles node addition.
+
+        :param node: Node object
+        """
+        pass
+
+    @abc.abstractmethod
+    def delete_node(self, node):
+        """Handles node removal
+
+        :param node: Node object
+        """
+        pass

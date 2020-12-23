@@ -50,8 +50,11 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         self._drv_service_pub_ip = drv_base.ServicePubIpDriver.get_instance()
         self._drv_svc_project = drv_base.ServiceProjectDriver.get_instance()
         self._drv_sg = drv_base.ServiceSecurityGroupsDriver.get_instance()
-        self._nodes_subnets = utils.get_subnets_id_cidrs(
-            CONF.pod_vif_nested.worker_nodes_subnets)
+        self._drv_nodes_subnets = drv_base.NodesSubnetsDriver.get_instance()
+
+    def _get_nodes_subnets(self):
+        return utils.get_subnets_id_cidrs(
+            self._drv_nodes_subnets.get_nodes_subnets())
 
     def on_present(self, loadbalancer_crd):
         if self._should_ignore(loadbalancer_crd):
@@ -262,7 +265,8 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                     # Avoid to point to a Pod on hostNetwork
                     # that isn't the one to be added as Member.
                     if not target_ref and utils.get_subnet_by_ip(
-                            self._nodes_subnets, target_ip):
+                            self._get_nodes_subnets(),
+                            target_ip):
                         target_pod = {}
                     else:
                         target_pod = utils.get_pod_by_ip(
@@ -359,7 +363,8 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
             if target_pod:
                 subnet_id = self._get_pod_subnet(target_pod, target_ip)
             else:
-                subnet = utils.get_subnet_by_ip(self._nodes_subnets, target_ip)
+                subnet = utils.get_subnet_by_ip(
+                    self._drv_nodes_subnets.get_nodes_subnets(), target_ip)
                 if subnet:
                     subnet_id = subnet[0]
         else:
@@ -381,13 +386,13 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
             # NOTE(ltomasbo): We are assuming that if IP is not on the
             # pod subnet it's because the member is using hostNetworking. In
             # this case we look for the IP in worker_nodes_subnets.
-            subnet = utils.get_subnet_by_ip(self._nodes_subnets, ip)
+            subnet = utils.get_subnet_by_ip(self._get_nodes_subnets(), ip)
             if subnet:
                 return subnet[0]
             else:
                 # This shouldn't ever happen but let's return just the first
                 # worker_nodes_subnet id.
-                return self._nodes_subnets[0][0]
+                return self._get_nodes_subnets()[0][0]
 
     def _get_port_in_pool(self, pool, loadbalancer_crd):
 
