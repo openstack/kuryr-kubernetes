@@ -67,7 +67,7 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
                     k8s.remove_annotations(ns['metadata']['selfLink'],
                                            constants.K8S_ANNOTATION_NET_CRD)
             try:
-                k8s.delete(net_crd['metadata']['selfLink'])
+                k8s.delete(utils.get_res_link(net_crd))
             except exceptions.K8sResourceNotFound:
                 LOG.debug('Kuryrnet object already deleted: %s', net_crd)
 
