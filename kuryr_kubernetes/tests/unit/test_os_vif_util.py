@@ -29,6 +29,7 @@ from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes import os_vif_util as ovu
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests import fake
+from kuryr_kubernetes import utils
 
 
 # REVISIT(ivc): move to kuryr-lib along with 'os_vif_util'
@@ -455,7 +456,7 @@ class TestOSVIFUtils(test_base.TestCase):
         m_mk_vif.return_value = vif
         m_mk_port_profile.return_value = port_profile
 
-        pod = mock.MagicMock()
+        pod = fake.get_k8s_pod()
 
         port = {'id': port_id,
                 'mac_address': mac_address,
@@ -471,7 +472,7 @@ class TestOSVIFUtils(test_base.TestCase):
         m_get_vif_name.assert_called_once_with(port)
         m_mk_port_profile.assert_called_once_with(
             l3_setup=False,
-            selflink=pod['metadata']['selfLink'])
+            selflink=utils.get_res_link(pod))
 
         m_mk_vif.assert_called_once_with(
             id=port_id,

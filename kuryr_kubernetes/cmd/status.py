@@ -34,6 +34,7 @@ from kuryr_kubernetes import constants
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes import objects
 from kuryr_kubernetes.objects import vif
+from kuryr_kubernetes import utils
 from kuryr_kubernetes import version
 
 CONF = config.CONF
@@ -173,7 +174,7 @@ class UpgradeCommands(object):
                             jsonutils.dumps(serialized)
                     }
                     self.k8s.annotate(
-                        pod['metadata']['selfLink'], ann,
+                        utils.get_res_link(pod), ann,
                         pod['metadata']['resourceVersion'])
                 except exceptions.K8sClientException:
                     print('Error when updating annotation for pod %s/%s' %

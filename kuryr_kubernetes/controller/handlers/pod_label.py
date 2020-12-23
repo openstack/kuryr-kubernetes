@@ -22,6 +22,7 @@ from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import k8s_base
+from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -97,7 +98,7 @@ class PodLabelHandler(k8s_base.ResourceEventHandler):
             LOG.debug("Setting info annotations: %r", annotation)
 
         k8s = clients.get_kubernetes_client()
-        k8s.annotate(pod['metadata']['selfLink'],
+        k8s.annotate(utils.get_res_link(pod),
                      {
                          constants.K8S_ANNOTATION_LABEL: annotation[0],
                          constants.K8S_ANNOTATION_IP: annotation[1]

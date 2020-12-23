@@ -240,7 +240,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             raise k_exc.ResourceNotReady(pod)
 
         k8s = clients.get_kubernetes_client()
-        k8s.remove_annotations(pod['metadata']['selfLink'],
+        k8s.remove_annotations(utils.get_res_link(pod),
                                constants.K8S_ANNOTATION_VIF)
 
         return True

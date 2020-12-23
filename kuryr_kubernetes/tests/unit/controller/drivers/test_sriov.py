@@ -17,6 +17,7 @@ import uuid
 
 from kuryr_kubernetes.controller.drivers import sriov as drvs
 from kuryr_kubernetes.tests import base as test_base
+from kuryr_kubernetes.tests import fake
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
 
 from kuryr_kubernetes import constants as k_const
@@ -49,23 +50,19 @@ class TestSriovVIFDriver(test_base.TestCase):
                          drvs.sriov_make_resource(k_const.K8S_SRIOV_PREFIX,
                                                   SRIOV_RESOURCE_NAME_B): (
                          str(AMOUNT_FOR_SUBNET_B))}
-
-        self._pod = {
-            'metadata': {
-                'resourceVersion': mock.sentinel.pod_version,
-                'selfLink': mock.sentinel.pod_link,
-                'name': 'podname'},
-            'status': {'phase': k_const.K8S_POD_STATUS_PENDING},
-            'spec': {
-                'hostNetwork': False,
-                'nodeName': 'hostname',
-                'containers': [{
+        self._pod = fake.get_k8s_pod()
+        self._pod['status'] = {'phase': k_const.K8S_POD_STATUS_PENDING}
+        self._pod['spec'] = {
+            'hostNetwork': False,
+            'nodeName': 'hostname',
+            'containers': [
+                {
                     'resources': {
                         'requests': sriov_request
-                        }
-                    }]
+                    }
                 }
-            }
+            ]
+        }
 
     def test_activate_vif(self):
         cls = drvs.SriovVIFDriver

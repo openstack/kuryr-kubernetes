@@ -22,6 +22,7 @@ from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import neutron_vif
 from kuryr_kubernetes.controller.drivers import utils as c_utils
 from kuryr_kubernetes import os_vif_util as ovu
+from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
@@ -64,7 +65,7 @@ class SriovVIFDriver(neutron_vif.NeutronPodVIFDriver):
         vif = ovu.neutron_to_osvif_vif(vif_plugin, port, subnets)
         vif.physnet = physnet
         vif.pod_name = pod_name
-        vif.pod_link = pod['metadata']['selfLink']
+        vif.pod_link = utils.get_res_link(pod)
 
         LOG.debug("{} vifs are available for the pod {}".format(
             amount, pod_name))

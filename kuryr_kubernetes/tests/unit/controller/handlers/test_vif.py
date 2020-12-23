@@ -24,6 +24,7 @@ from kuryr_kubernetes.controller.handlers import vif as h_vif
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.objects import vif
 from kuryr_kubernetes.tests import base as test_base
+from kuryr_kubernetes.tests import fake
 
 
 class TestVIFHandler(test_base.TestCase):
@@ -46,15 +47,9 @@ class TestVIFHandler(test_base.TestCase):
         self._pod_namespace = mock.sentinel.namespace
         self._pod_uid = mock.sentinel.pod_uid
         self._pod_name = 'pod1'
-        self._pod = {
-            'metadata': {'resourceVersion': self._pod_version,
-                         'selfLink': self._pod_link,
-                         'name': self._pod_name,
-                         'namespace': self._pod_namespace},
-            'status': {'phase': k_const.K8S_POD_STATUS_PENDING},
-            'spec': {'hostNetwork': False,
-                     'nodeName': 'hostname'}
-        }
+        self._pod = fake.get_k8s_pod()
+        self._pod['status'] = {'phase': k_const.K8S_POD_STATUS_PENDING}
+        self._pod['spec'] = {'hostNetwork': False, 'nodeName': 'hostname'}
 
         self._kp_version = mock.sentinel.kp_version
         self._kp_link = mock.sentinel.kp_link

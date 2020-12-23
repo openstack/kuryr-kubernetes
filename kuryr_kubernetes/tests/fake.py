@@ -161,3 +161,23 @@ def get_sgr_obj(sgr_id='7621d1e0-a2d2-4496-94eb-ffd375d20877',
                 'tenant_id': '5ea46368c7fe436bb8732738c149fbce'}
 
     return os_sgr.SecurityGroupRule(**sgr_data)
+
+
+def get_k8s_pod():
+
+    return {'apiVersion': 'v1',
+            'kind': 'Pod',
+            'metadata': {'creationTimestamp': '2020-12-22T09:04:29Z',
+                         'finalizers': ['kuryr.openstack.org/pod-finalizer'],
+                         'generateName': 'pod-5bb648d658-',
+                         'labels': {'app': 'pod',
+                                    'pod-template-hash': '5bb648d658'},
+                         'operation': 'Update',
+                         'name': 'pod-5bb648d658-55n76',
+                         'namespace': 'default',
+                         'resourceVersion': '19416',
+                         'selfLink': '/api/v1/namespaces/default/pods/'
+                         'pod-5bb648d658-55n76',
+                         'uid': '683da866-6bb1-4da2-bf6a-a5f4137c38e7'},
+            'spec': {},
+            'status': {}}

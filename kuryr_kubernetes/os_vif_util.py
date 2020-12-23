@@ -33,6 +33,7 @@ from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as const
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.objects import vif as k_vif
+from kuryr_kubernetes import utils
 
 
 LOG = logging.getLogger(__name__)
@@ -400,7 +401,7 @@ def neutron_to_osvif_vif_dpdk(os_port, subnets, pod):
     details = os_port.get('binding:vif_details', {})
     profile = osv_vif.VIFPortProfileK8sDPDK(
         l3_setup=False,
-        selflink=pod['metadata']['selfLink'])
+        selflink=utils.get_res_link(pod))
 
     return k_vif.VIFDPDKNested(
         id=os_port['id'],

@@ -161,11 +161,13 @@ class TestStatusCmd(test_base.TestCase):
         pods = {
             'items': [
                 {
+                    'apiVersion': 'v1',
+                    'kind': 'Pod',
                     'metadata': {
                         'annotations': {
                             constants.K8S_ANNOTATION_VIF: ann
                         },
-                        'selfLink': name,
+                        'name': name,
                         'resourceVersion': 1,
                     }
                 } for name, ann in ann_objs
@@ -178,8 +180,8 @@ class TestStatusCmd(test_base.TestCase):
 
     def test_update_annotations(self):
         self._test__convert_annotations(self.cmd.update_annotations,
-                                        [('bar', mock.ANY, 1)])
+                                        [('/api/v1/pods/bar', mock.ANY, 1)])
 
     def test_downgrade_annotations(self):
         self._test__convert_annotations(self.cmd.downgrade_annotations,
-                                        [('foo', mock.ANY, 1)])
+                                        [('/api/v1/pods/foo', mock.ANY, 1)])
