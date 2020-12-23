@@ -16,12 +16,13 @@
 import sys
 import time
 
+from oslo_config import cfg
+from oslo_log import log as logging
+
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.handlers import health
 from kuryr_kubernetes import utils
-from oslo_config import cfg
-from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
@@ -143,13 +144,6 @@ class Watcher(health.HealthHandler):
             return
 
         for resource in resources:
-            kind = response['kind']
-            # Strip List from e.g. PodList. For some reason `.items` of a list
-            # returned from API doesn't have `kind` set.
-            if kind.endswith('List'):
-                kind = kind[:-4]
-            resource['kind'] = kind
-
             event = {
                 'type': 'MODIFIED',
                 'object': resource,

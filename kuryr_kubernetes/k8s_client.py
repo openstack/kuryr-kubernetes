@@ -116,7 +116,34 @@ class K8sClient(object):
         url = self._base_url + path
         response = self.session.get(url, headers=headers)
         self._raise_from_response(response)
-        result = response.json() if json else response.text
+
+        if json:
+            result = response.json()
+            kind = result['kind']
+
+            api_version = result.get('apiVersion')
+            if not api_version:
+                api_version = utils.get_api_ver(path)
+
+            # Strip List from e.g. PodList. For some reason `.items` of a list
+            # returned from API doesn't have `kind` set.
+            # NOTE(gryf): Also, for the sake of calculating selfLink
+            # equivalent, we need to have both: kind and apiVersion, while the
+            # latter is not present on items list for core resources, while
+            # for custom resources there are both kind and apiVersion..
+            if kind.endswith('List'):
+                kind = kind[:-4]
+                for item in result['items']:
+                    if not item.get('kind'):
+                        item['kind'] = kind
+                    if not item.get('apiVersion'):
+                        item['apiVersion'] = api_version
+            else:
+                if not result.get('apiVersion'):
+                    result['apiVersion'] = api_version
+        else:
+            result = response.text
+
         return result
 
     def _get_url_and_header(self, path, content_type):

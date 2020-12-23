@@ -12,6 +12,7 @@
 
 import ipaddress
 import random
+import re
 import socket
 import time
 
@@ -71,6 +72,70 @@ nodes_cache_region = cache.create_region()
 MEMOIZE_NODE = cache.get_memoization_decorator(
     CONF, nodes_cache_region, "nodes_caching")
 cache.configure_cache_region(CONF, nodes_cache_region)
+
+RESOURCE_MAP = {'Endpoints': 'endpoints',
+                'KuryrLoadBalancer': 'kuryrloadbalancers',
+                'KuryrPort': 'kuryrports',
+                'KuryrNetworkPolicy': 'kuryrnetworkpolicies',
+                'KuryrNetwork': 'kuryrnetworks',
+                'Namespace': 'namespaces',
+                'NetworkPolicy': 'networkpolicies',
+                'Node': 'nodes',
+                'Pod': 'pods',
+                'Service': 'services'}
+API_RE = re.compile(r'v\d+')
+
+
+def get_res_link(obj):
+    """Return selfLink equivalent for provided resource"""
+    # First try, if we still have it
+    try:
+        return obj['metadata']['selfLink']
+    except KeyError:
+        pass
+
+    # If not, let's proceed with the path assembling.
+    try:
+        res_type = RESOURCE_MAP[obj['kind']]
+    except KeyError:
+        LOG.error('Unknown resource kind: %s', obj.get('kind'))
+        raise
+
+    namespace = ''
+    if obj['metadata'].get('namespace'):
+        namespace = f"/namespaces/{obj['metadata']['namespace']}"
+
+    try:
+        api = f"/apis/{obj['apiVersion']}"
+        if API_RE.match(obj['apiVersion']):
+            api = f"/api/{obj['apiVersion']}"
+    except KeyError:
+        LOG.error("Object doesn't have an apiVersion available: %s", obj)
+        raise
+
+    return f"{api}{namespace}/{res_type}/{obj['metadata']['name']}"
+
+
+def get_api_ver(path):
+    """Get apiVersion out of resource path.
+
+    Path usually is something simillar to:
+
+        /api/v1/namespaces/default/pods/pod-5bb648d658-55n76
+
+    in case of core resources, and:
+
+        /apis/openstack.org/v1/namespaces/default/kuryrloadbalancers/lb-324
+
+    in case of custom resoures.
+    """
+    if path.startswith('/api/'):
+        return path.split('/')[2]
+
+    if path.startswith('/apis/'):
+        return '/'.join(path.split('/')[2:4])
+
+    raise ValueError('Provided path is not Kubernetes api path: %s', path)
 
 
 def utf8_json_decoder(byte_data):
