@@ -97,7 +97,7 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         kubernetes = clients.get_kubernetes_client()
         LOG.debug('Patching KuryrNetwork CRD %s', kns_crd)
         try:
-            kubernetes.patch_crd('spec', kns_crd['metadata']['selfLink'],
+            kubernetes.patch_crd('spec', utils.get_res_link(kns_crd),
                                  {'nsLabels': ns_labels})
         except exceptions.K8sResourceNotFound:
             LOG.debug('KuryrNetwork CRD not found %s', kns_crd)

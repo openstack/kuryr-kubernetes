@@ -21,6 +21,7 @@ from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import k8s_base
+from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -146,11 +147,9 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
         try:
             if labels:
                 kubernetes.patch_crd('status',
-                                     kuryrnet_crd['metadata']['selfLink'],
-                                     status)
+                                     utils.get_res_link(kuryrnet_crd), status)
             else:
-                kubernetes.patch('status',
-                                 kuryrnet_crd['metadata']['selfLink'],
+                kubernetes.patch('status', utils.get_res_link(kuryrnet_crd),
                                  status)
         except k_exc.K8sResourceNotFound:
             LOG.debug('KuryrNetwork CRD not found %s', kuryrnet_crd)
