@@ -64,7 +64,7 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
                     LOG.debug('Namespace associated is not annotated: %s', ns)
                 else:
                     LOG.debug('Removing annotation: %', ns_net_annotations)
-                    k8s.remove_annotations(ns['metadata']['selfLink'],
+                    k8s.remove_annotations(utils.get_res_link(ns),
                                            constants.K8S_ANNOTATION_NET_CRD)
             try:
                 k8s.delete(utils.get_res_link(net_crd))
