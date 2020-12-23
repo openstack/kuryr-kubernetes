@@ -25,6 +25,7 @@ from kuryr_kubernetes.controller.handlers import kuryrport
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
+from kuryr_kubernetes import utils
 
 
 CONF = cfg.CONF
@@ -41,12 +42,13 @@ class TestKuryrPortHandler(test_base.TestCase):
         self._pod_version = mock.sentinel.pod_version
         self._pod_link = mock.sentinel.pod_link
         self._kp_version = mock.sentinel.kp_version
-        self._kp_link = mock.sentinel.kp_link
         self._kp_namespace = mock.sentinel.namespace
         self._kp_uid = mock.sentinel.kp_uid
         self._kp_name = 'pod1'
 
-        self._pod = {'metadata': {'resourceVersion': self._pod_version,
+        self._pod = {'apiVersion': 'v1',
+                     'kind': 'Pod',
+                     'metadata': {'resourceVersion': self._pod_version,
                                   'selfLink': self._pod_link,
                                   'name': self._kp_name,
                                   'deletionTimestamp': mock.sentinel.date,
@@ -54,9 +56,10 @@ class TestKuryrPortHandler(test_base.TestCase):
                      'spec': {'nodeName': self._host}}
 
         self._kp = {
+            'apiVersion': 'openstack.org/v1',
+            'kind': 'KuryrPort',
             'metadata': {
                 'resourceVersion': self._kp_version,
-                'selfLink': self._kp_link,
                 'name': self._kp_name,
                 'namespace': self._kp_namespace,
                 'labels': {
@@ -69,6 +72,7 @@ class TestKuryrPortHandler(test_base.TestCase):
             },
             'status': {'vifs': {}}
         }
+
         self._vif1 = os_obj.vif.VIFBase()
         self._vif2 = os_obj.vif.VIFBase()
         self._vif1.active = False
@@ -696,11 +700,11 @@ class TestKuryrPortHandler(test_base.TestCase):
         vif1 = self._vif1.obj_to_primitive()
         vif2 = self._vif2.obj_to_primitive()
 
-        kp.k8s.patch_crd.assert_called_once_with(
-            'status', self._kp_link, {'vifs': {'eth0': {'default': True,
-                                                        'vif': vif1},
-                                               'eth1': {'default': False,
-                                                        'vif': vif2}}})
+        arg = {'vifs': {'eth0': {'default': True, 'vif': vif1},
+                        'eth1': {'default': False, 'vif': vif2}}}
+        kp.k8s.patch_crd.assert_called_once_with('status',
+                                                 utils.get_res_link(self._kp),
+                                                 arg)
 
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.controller.drivers.base.MultiVIFDriver.'

@@ -61,7 +61,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                             f'{utils.get_res_unique_name(kuryrport)} created '
                             f'for host networking pod. Deleting it.')
                 try:
-                    k8s.delete(kuryrport['metadata']['selfLink'])
+                    k8s.delete(utils.get_res_link(kuryrport))
                 except k_exc.K8sResourceNotFound:
                     pass
 
@@ -137,7 +137,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             # annotations, force an emition of event to trigger on_finalize
             # method on the KuryrPort.
             try:
-                k8s.annotate(kp['metadata']['selfLink'], {'KuryrTrigger': '1'})
+                k8s.annotate(utils.get_res_link(kp), {'KuryrTrigger': '1'})
             except k_exc.K8sResourceNotFound:
                 LOG.error('Cannot annotate existing KuryrPort %s.',
                           kp['metadata']['name'])

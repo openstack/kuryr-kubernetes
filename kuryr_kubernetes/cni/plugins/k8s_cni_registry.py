@@ -25,6 +25,7 @@ from kuryr_kubernetes.cni.plugins import base as base_cni
 from kuryr_kubernetes.cni import utils
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes import exceptions
+from kuryr_kubernetes import utils as k_utils
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
@@ -61,7 +62,7 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
             if kp_name in self.registry:
                 cached_kp = self.registry[kp_name]['kp']
                 try:
-                    kp = self.k8s.get(cached_kp['metadata']['selfLink'])
+                    kp = self.k8s.get(k_utils.get_res_link(cached_kp))
                 except Exception:
                     LOG.exception('Error when getting KuryrPort %s', kp_name)
                     raise exceptions.ResourceNotReady(kp_name)

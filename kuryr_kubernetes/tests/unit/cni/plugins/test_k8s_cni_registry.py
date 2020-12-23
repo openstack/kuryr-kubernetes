@@ -29,7 +29,9 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
         self.k8s_mock = self.useFixture(kuryr_fixtures.MockK8sClient()).client
         self.default_iface = 'baz'
         self.additional_iface = 'eth1'
-        self.kp = {'metadata': {'name': 'foo', 'uid': 'bar',
+        self.kp = {'apiVersion': 'openstack.org/v1',
+                   'kind': 'KuryrPort',
+                   'metadata': {'name': 'foo', 'uid': 'bar',
                                 'namespace': 'default', 'selfLink': 'baz'},
                    'spec': {'podUid': 'bar'}}
         self.vifs = fake._fake_vifs()

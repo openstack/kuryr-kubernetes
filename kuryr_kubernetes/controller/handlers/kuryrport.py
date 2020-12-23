@@ -23,6 +23,7 @@ from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import k8s_base
+from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
 KURYRPORT_URI = constants.K8S_API_CRD_NAMESPACES + '/{ns}/kuryrports/{crd}'
@@ -274,7 +275,7 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
             vif_dict[ifname] = {'default': data['default'],
                                 'vif': data['vif'].obj_to_primitive()}
 
-        self.k8s.patch_crd('status', kuryrport_crd['metadata']['selfLink'],
+        self.k8s.patch_crd('status', utils.get_res_link(kuryrport_crd),
                            {'vifs': vif_dict})
 
     def _is_network_policy_enabled(self):
