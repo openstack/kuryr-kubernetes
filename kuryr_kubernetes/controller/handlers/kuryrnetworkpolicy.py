@@ -84,7 +84,7 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
         name = knp['metadata']['name']
         LOG.debug('Patching KuryrNet CRD %s', name)
         try:
-            status = self.k8s.patch_crd(field, knp['metadata']['selfLink'],
+            status = self.k8s.patch_crd(field, utils.get_res_link(knp),
                                         data, action=action)
         except exceptions.K8sResourceNotFound:
             LOG.debug('KuryrNetworkPolicy CRD not found %s', name)

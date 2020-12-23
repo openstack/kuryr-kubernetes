@@ -248,7 +248,7 @@ def patch_kuryrnetworkpolicy_crd(crd, i_rules, e_rules):
             'egressSgRules': e_rules,
         }
 
-        kubernetes.patch_crd('spec', crd['metadata']['selfLink'], spec)
+        kubernetes.patch_crd('spec', utils.get_res_link(crd), spec)
     except k_exc.K8sResourceNotFound:
         LOG.debug('KuryrNetworkPolicy CRD not found %s', crd_name)
     except k_exc.K8sClientException:
