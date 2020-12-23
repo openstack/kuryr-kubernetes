@@ -376,7 +376,7 @@ def set_lbaas_spec(service, lbaas_spec):
         LOG.debug("Setting LBaaSServiceSpec annotation: %r", lbaas_spec)
         annotation = jsonutils.dumps(lbaas_spec.obj_to_primitive(),
                                      sort_keys=True)
-    svc_link = service['metadata']['selfLink']
+    svc_link = get_res_link(service)
     ep_link = get_endpoints_link(service)
     k8s = clients.get_kubernetes_client()
 
@@ -430,7 +430,7 @@ def set_lbaas_state(endpoints, lbaas_state):
 
 
 def get_endpoints_link(service):
-    svc_link = service['metadata']['selfLink']
+    svc_link = get_res_link(service)
     link_parts = svc_link.split('/')
 
     if link_parts[-2] != 'services':
@@ -456,7 +456,7 @@ def get_service_link(endpoints):
 def has_port_changes(service, loadbalancer_crd):
     if not loadbalancer_crd:
         return False
-    link = service['metadata']['selfLink']
+    link = get_res_link(service)
     svc_port_set = service['spec'].get('ports')
 
     for port in svc_port_set:

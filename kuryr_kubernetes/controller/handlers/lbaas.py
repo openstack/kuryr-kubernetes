@@ -133,7 +133,7 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         if len(subnet_ids) != 1:
             raise k_exc.IntegrityError(_(
                 "Found %(num)s subnets for service %(link)s IP %(ip)s") % {
-                    'link': service['metadata']['selfLink'],
+                    'link': utils.get_res_link(service),
                     'ip': ip,
                     'num': len(subnet_ids)})
 
@@ -214,7 +214,7 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
                 utils.has_port_changes(service, loadbalancer_crd))
 
     def _has_ip_changes(self, service, loadbalancer_crd):
-        link = service['metadata']['selfLink']
+        link = utils.get_res_link(service)
         svc_ip = self._get_service_ip(service)
 
         if loadbalancer_crd['spec'].get('ip') is None:
