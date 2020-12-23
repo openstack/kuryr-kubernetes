@@ -30,6 +30,8 @@ _SUPPORTED_LISTENER_PROT = ('HTTP', 'HTTPS', 'TCP')
 
 def get_lb_crd():
     return {
+            'apiVersion': 'openstack.org/v1',
+            'kind': 'KuryrLoadBalancer',
             "metadata": {
                 "creationTimestamp": "2020-07-28T13:13:30Z",
                 "finalizers": [

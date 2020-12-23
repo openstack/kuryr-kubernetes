@@ -857,7 +857,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
         lb = klb['status']['loadbalancer']
         try:
-            k8s.patch_crd('status/loadbalancer', klb['metadata']['selfLink'],
+            k8s.patch_crd('status/loadbalancer', utils.get_res_link(klb),
                           {'security_groups': sgs})
         except k_exc.K8sResourceNotFound:
             LOG.debug('KuryrLoadBalancer CRD not found %s', lbaas_name)

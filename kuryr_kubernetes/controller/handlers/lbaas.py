@@ -174,8 +174,8 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         spec = self._build_kuryrloadbalancer_spec(service)
         LOG.debug('Patching KuryrLoadBalancer CRD %s', loadbalancer_crd)
         try:
-            kubernetes.patch_crd('spec', loadbalancer_crd['metadata'][
-                'selfLink'], spec)
+            kubernetes.patch_crd('spec', utils.get_res_link(loadbalancer_crd),
+                                 spec)
         except k_exc.K8sResourceNotFound:
             LOG.debug('KuryrLoadBalancer CRD not found %s', loadbalancer_crd)
         except k_exc.K8sConflict:
@@ -374,7 +374,7 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
         try:
             kubernetes.patch_crd(
                 'spec',
-                loadbalancer_crd['metadata']['selfLink'],
+                utils.get_res_link(loadbalancer_crd),
                 spec)
         except k_exc.K8sResourceNotFound:
             LOG.debug('KuryrLoadbalancer CRD not found %s', loadbalancer_crd)

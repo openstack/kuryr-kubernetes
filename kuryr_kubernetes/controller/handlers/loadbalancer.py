@@ -98,9 +98,8 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                     self._update_lb_status(loadbalancer_crd)
                     kubernetes = clients.get_kubernetes_client()
                     try:
-                        kubernetes.patch_crd('status', loadbalancer_crd[
-                            'metadata']['selfLink'], loadbalancer_crd[
-                                'status'])
+                        kubernetes.patch_crd('status', utils.get_res_link(
+                            loadbalancer_crd), loadbalancer_crd['status'])
                     except k_exc.K8sResourceNotFound:
                         LOG.debug('KuryrLoadbalancer CRD not found %s',
                                   loadbalancer_crd)
@@ -202,8 +201,7 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         lb['security_groups'] = lb_sgs
 
         try:
-            k8s.patch_crd('status/loadbalancer',
-                          klb_crd['metadata']['selfLink'],
+            k8s.patch_crd('status/loadbalancer', utils.get_res_link(klb_crd),
                           {'security_groups': lb_sgs})
         except k_exc.K8sResourceNotFound:
             LOG.debug('KuryrLoadBalancer %s not found', svc_name)
@@ -327,9 +325,8 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                             member)
                     kubernetes = clients.get_kubernetes_client()
                     try:
-                        kubernetes.patch_crd('status', loadbalancer_crd[
-                            'metadata']['selfLink'], loadbalancer_crd[
-                                'status'])
+                        kubernetes.patch_crd('status', utils.get_res_link(
+                            loadbalancer_crd), loadbalancer_crd['status'])
                     except k_exc.K8sResourceNotFound:
                         LOG.debug('KuryrLoadbalancer CRD not found %s',
                                   loadbalancer_crd)
@@ -440,9 +437,9 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
 
             kubernetes = clients.get_kubernetes_client()
             try:
-                kubernetes.patch_crd('status', loadbalancer_crd[
-                    'metadata']['selfLink'], loadbalancer_crd[
-                        'status'])
+                kubernetes.patch_crd('status',
+                                     utils.get_res_link(loadbalancer_crd),
+                                     loadbalancer_crd['status'])
             except k_exc.K8sResourceNotFound:
                 LOG.debug('KuryrLoadbalancer CRD not found %s',
                           loadbalancer_crd)
@@ -489,8 +486,9 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                     pool)
             kubernetes = clients.get_kubernetes_client()
             try:
-                kubernetes.patch_crd('status', loadbalancer_crd['metadata'][
-                    'selfLink'], loadbalancer_crd['status'])
+                kubernetes.patch_crd('status',
+                                     utils.get_res_link(loadbalancer_crd),
+                                     loadbalancer_crd['status'])
             except k_exc.K8sResourceNotFound:
                 LOG.debug('KuryrLoadbalancer CRD not found %s',
                           loadbalancer_crd)
@@ -535,9 +533,9 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
 
             kubernetes = clients.get_kubernetes_client()
             try:
-                kubernetes.patch_crd('status', loadbalancer_crd[
-                    'metadata']['selfLink'], loadbalancer_crd[
-                        'status'])
+                kubernetes.patch_crd('status',
+                                     utils.get_res_link(loadbalancer_crd),
+                                     loadbalancer_crd['status'])
             except k_exc.K8sResourceNotFound:
                 LOG.debug('KuryrLoadbalancer CRD not found %s',
                           loadbalancer_crd)
@@ -611,8 +609,9 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
 
                 kubernetes = clients.get_kubernetes_client()
                 try:
-                    kubernetes.patch_crd('status', loadbalancer_crd[
-                        'metadata']['selfLink'], loadbalancer_crd['status'])
+                    kubernetes.patch_crd('status',
+                                         utils.get_res_link(loadbalancer_crd),
+                                         loadbalancer_crd['status'])
                 except k_exc.K8sResourceNotFound:
                     LOG.debug('KuryrLoadbalancer CRD not found %s',
                               loadbalancer_crd)
@@ -641,9 +640,9 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
 
             kubernetes = clients.get_kubernetes_client()
             try:
-                kubernetes.patch_crd('status', loadbalancer_crd[
-                    'metadata']['selfLink'], loadbalancer_crd[
-                        'status'])
+                kubernetes.patch_crd('status',
+                                     utils.get_res_link(loadbalancer_crd),
+                                     loadbalancer_crd['status'])
             except k_exc.K8sResourceNotFound:
                 LOG.debug('KuryrLoadbalancer CRD not found %s',
                           loadbalancer_crd)
@@ -715,8 +714,9 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
 
             kubernetes = clients.get_kubernetes_client()
             try:
-                kubernetes.patch_crd('status', loadbalancer_crd['metadata'][
-                    'selfLink'], loadbalancer_crd['status'])
+                kubernetes.patch_crd('status',
+                                     utils.get_res_link(loadbalancer_crd),
+                                     loadbalancer_crd['status'])
             except k_exc.K8sResourceNotFound:
                 LOG.debug('KuryrLoadbalancer CRD not found %s',
                           loadbalancer_crd)
@@ -757,8 +757,8 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
             loadbalancer_crd['status'] = {}
             k8s = clients.get_kubernetes_client()
             try:
-                k8s.patch_crd('status', loadbalancer_crd['metadata'][
-                    'selfLink'], loadbalancer_crd['status'])
+                k8s.patch_crd('status', utils.get_res_link(loadbalancer_crd),
+                              loadbalancer_crd['status'])
             except k_exc.K8sResourceNotFound:
                 LOG.debug('KuryrLoadbalancer CRD not found %s',
                           loadbalancer_crd)
