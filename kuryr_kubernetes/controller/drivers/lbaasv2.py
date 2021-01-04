@@ -48,6 +48,7 @@ _OCTAVIA_TAGGING_VERSION = 2, 5
 _OCTAVIA_DL_VERSION = 2, 13
 _OCTAVIA_ACL_VERSION = 2, 12
 _OCTAVIA_PROVIDER_VERSION = 2, 6
+_OCTAVIA_SCTP_VERSION = 2, 23
 
 # HTTP Codes raised by Octavia when a Resource already exists
 OKAY_CODES = (409, 500)
@@ -63,6 +64,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
         self._octavia_acls = False
         self._octavia_double_listeners = False
         self._octavia_providers = False
+        self._octavia_sctp = False
         # Check if Octavia API supports tagging.
         # TODO(dulek): *Maybe* this can be replaced with
         #         lbaas.get_api_major_version(version=_OCTAVIA_TAGGING_VERSION)
@@ -79,6 +81,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
         if v >= _OCTAVIA_TAGGING_VERSION:
             LOG.info('Octavia supports resource tags.')
             self._octavia_tags = True
+        if v >= _OCTAVIA_SCTP_VERSION:
+            LOG.info('Octavia API supports SCTP protocol.')
+            self._octavia_sctp = True
         else:
             v_str = '%d.%d' % v
             LOG.warning('[neutron_defaults]resource_tags is set, but Octavia '
@@ -93,6 +98,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
     def providers_supported(self):
         return self._octavia_providers
+
+    def sctp_supported(self):
+        return self._octavia_sctp
 
     def get_octavia_version(self):
         lbaas = clients.get_loadbalancer_client()
@@ -362,9 +370,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 loadbalancer, listener, self._create_listener,
                 self._find_listener, interval=_LB_STS_POLL_SLOW_INTERVAL)
         except os_exc.SDKException:
-            LOG.exception("Listener creation failed, most probably because "
-                          "protocol %(prot)s is not supported",
-                          {'prot': protocol})
+            LOG.exception("Failed when creating listener for loadbalancer "
+                          "%r", loadbalancer['id'])
             return None
 
         # NOTE(maysams): When ovn-octavia provider is used
@@ -726,6 +733,14 @@ class LBaaSv2Driver(base.LBaaSDriver):
                     return result
             except os_exc.BadRequestException:
                 raise
+            except os_exc.HttpException as e:
+                if e.status_code == 501:
+                    LOG.exception("Listener creation failed, most probably "
+                                  "because protocol %(prot)s is not supported",
+                                  {'prot': obj['protocol']})
+                    return None
+                else:
+                    raise
             except os_exc.SDKException:
                 pass
 

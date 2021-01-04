@@ -383,6 +383,12 @@ function configure_neutron_defaults {
         --description "k8s service subnet UDP allowed" \
         --remote-ip "$service_cidr" --ethertype "$KURYR_ETHERTYPE" --protocol udp \
         "$service_pod_access_sg_id"
+    # Octavia supports SCTP load balancing, we need to also allow SCTP traffic
+    openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+        security group rule create --project "$project_id" \
+        --description "k8s service subnet SCTP allowed" \
+        --remote-ip "$service_cidr" --ethertype "$KURYR_ETHERTYPE" --protocol sctp \
+        "$service_pod_access_sg_id"
 
     if [[ "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L3" ]]; then
         if [ -n "$sg_ids" ]; then
@@ -417,6 +423,12 @@ function configure_neutron_defaults {
             security group rule create --project "$project_id" \
             --description "k8s pod subnet allowed from k8s-pod-subnet" \
             --remote-ip "$pod_cidr" --ethertype "$KURYR_ETHERTYPE" --protocol udp \
+            "$octavia_pod_access_sg_id"
+        # Octavia supports SCTP load balancing, we need to also support SCTP traffic
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            security group rule create --project "$project_id" \
+            --description "k8s pod subnet allowed from k8s-pod-subnet" \
+            --remote-ip "$pod_cidr" --ethertype "$KURYR_ETHERTYPE" --protocol sctp \
             "$octavia_pod_access_sg_id"
         if [ -n "$sg_ids" ]; then
             sg_ids+=",${octavia_pod_access_sg_id}"
