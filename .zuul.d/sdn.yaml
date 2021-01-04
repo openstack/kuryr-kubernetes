@@ -31,8 +31,8 @@
         Q_ML2_PLUGIN_MECHANISM_DRIVERS: ovn,logger
         Q_ML2_PLUGIN_TYPE_DRIVERS: local,flat,vlan,geneve
         Q_ML2_TENANT_NETWORK_TYPE: geneve
-        VAR_RUN_PATH: /usr/local/var/run
         Q_USE_PROVIDERNET_FOR_PUBLIC: true
+        VAR_RUN_PATH: /var/run
         PHYSICAL_NETWORK: public
         OVN_L3_CREATE_PUBLIC_NETWORK: true
         ENABLE_CHASSIS_AS_GW: true
@@ -138,8 +138,8 @@
         Q_ML2_PLUGIN_MECHANISM_DRIVERS: ovn,logger
         Q_ML2_PLUGIN_TYPE_DRIVERS: local,flat,vlan,geneve
         Q_ML2_TENANT_NETWORK_TYPE: geneve
-        VAR_RUN_PATH: /usr/local/var/run
         Q_USE_PROVIDERNET_FOR_PUBLIC: true
+        VAR_RUN_PATH: /var/run
         PHYSICAL_NETWORK: public
         OVN_L3_CREATE_PUBLIC_NETWORK: true
         ENABLE_CHASSIS_AS_GW: true

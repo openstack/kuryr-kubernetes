@@ -43,8 +43,8 @@ enable_service q-svc
 
 # VAR RUN PATH
 # =============
-# VAR_RUN_PATH=/var/run
-VAR_RUN_PATH=/usr/local/var/run
+# VAR_RUN_PATH=/usr/local/var/run
+VAR_RUN_PATH=/var/run
 
 # OCTAVIA
 # Uncomment it to use L2 communication between loadbalancer and member pods
