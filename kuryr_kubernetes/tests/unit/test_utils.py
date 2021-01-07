@@ -375,3 +375,66 @@ class TestUtils(test_base.TestCase):
         self.assertEqual(
             target, ('10.0.1.208', 'test', 8080,
                      '4472fab1-f01c-46a7-b197-5cba4f2d7135'))
+
+    def test_get_res_link_core_res(self):
+        res = {'apiVersion': 'v1',
+               'kind': 'Pod',
+               'metadata': {'name': 'pod-1',
+                            'namespace': 'default'}}
+        self.assertEqual(utils.get_res_link(res),
+                         '/api/v1/namespaces/default/pods/pod-1')
+
+    def test_get_res_link_no_existent(self):
+        res = {'apiVersion': 'customapi/v1',
+               'kind': 'ItsATrap!',
+               'metadata': {'name': 'pod-1',
+                            'namespace': 'default'}}
+        self.assertRaises(KeyError, utils.get_res_link, res)
+
+    def test_get_res_link_beta_res(self):
+        res = {'apiVersion': 'networking.k8s.io/v2beta2',
+               'kind': 'NetworkPolicy',
+               'metadata': {'name': 'np-1',
+                            'namespace': 'default'}}
+        self.assertEqual(utils.get_res_link(res), '/apis/networking.k8s.io/'
+                         'v2beta2/namespaces/default/networkpolicies/np-1')
+
+    def test_get_res_link_no_namespace(self):
+        res = {'apiVersion': 'v1',
+               'kind': 'Namespace',
+               'metadata': {'name': 'ns-1'}}
+
+        self.assertEqual(utils.get_res_link(res), '/api/v1/namespaces/ns-1')
+
+    def test_get_res_link_custom_api(self):
+        res = {'apiVersion': 'openstack.org/v1',
+               'kind': 'KuryrPort',
+               'metadata': {'name': 'kp-1',
+                            'namespace': 'default'}}
+
+        self.assertEqual(utils.get_res_link(res),
+                         '/apis/openstack.org/v1/namespaces/default/'
+                         'kuryrports/kp-1')
+
+    def test_get_res_link_no_apiversion(self):
+        res = {'kind': 'KuryrPort',
+               'metadata': {'name': 'kp-1',
+                            'namespace': 'default'}}
+        self.assertRaises(KeyError, utils.get_res_link, res)
+
+    def test_get_api_ver_core_api(self):
+        path = '/api/v1/namespaces/default/pods/pod-123'
+        self.assertEqual(utils.get_api_ver(path), 'v1')
+
+    def test_get_api_ver_custom_resource(self):
+        path = '/apis/openstack.org/v1/namespaces/default/kuryrport/pod-123'
+        self.assertEqual(utils.get_api_ver(path), 'openstack.org/v1')
+
+    def test_get_api_ver_random_path(self):
+        path = '/?search=foo'
+        self.assertRaises(ValueError, utils.get_api_ver, path)
+
+    def test_get_res_selflink_still_available(self):
+        res = {'metadata': {'selfLink': '/foo'}}
+
+        self.assertEqual(utils.get_res_link(res), '/foo')
