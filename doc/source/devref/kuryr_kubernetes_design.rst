@@ -284,7 +284,7 @@ For reference see updated pod creation flow diagram:
 
 **Function**: Is equivalent of running ``K8sCNIPlugin.add``.
 
-**Return code:** 201 Created
+**Return code:** 202 Accepted
 
 **Return body:** Returns VIF data in JSON form. This is serialized
 oslo.versionedobject from ``os_vif`` library. On the other side it can be
