@@ -133,12 +133,20 @@ class K8sClient(object):
             # for custom resources there are both kind and apiVersion..
             if kind.endswith('List'):
                 kind = kind[:-4]
+
+                # NOTE(gryf): In case we get null/None for items from the API,
+                # we need to convert it to the empty list, otherwise it might
+                # be propagated to the consumers of this method and sent back
+                # to the Kubernetes as is, and fail as a result.
+                if result['items'] is None:
+                    result['items'] = []
+
                 for item in result['items']:
                     if not item.get('kind'):
                         item['kind'] = kind
                     if not item.get('apiVersion'):
                         item['apiVersion'] = api_version
-            else:
+
                 if not result.get('apiVersion'):
                     result['apiVersion'] = api_version
         else:

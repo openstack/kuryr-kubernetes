@@ -143,6 +143,12 @@ class Watcher(health.HealthHandler):
             LOG.exception(f'Error getting path when reconciling.')
             return
 
+        # NOTE(gryf): For some resources (like pods) we could observe that
+        # 'items' is set to None. I'm not sure if that's a K8s issue, since
+        # accroding to the documentation is should be list.
+        if not resources:
+            return
+
         for resource in resources:
             event = {
                 'type': 'MODIFIED',

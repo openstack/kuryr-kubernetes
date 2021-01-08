@@ -155,6 +155,27 @@ class TestK8sClient(test_base.TestCase):
 
         self.assertRaises(exc.K8sClientException, self.client.get, path)
 
+    @mock.patch('requests.sessions.Session.get')
+    def test_get_null_on_items_list(self, m_get):
+        path = '/test'
+
+        req = {'kind': 'PodList',
+               'apiVersion': 'v1',
+               'metadata': {},
+               'items': None}
+
+        ret = {'kind': 'PodList',
+               'apiVersion': 'v1',
+               'metadata': {},
+               'items': []}
+
+        m_resp = mock.MagicMock()
+        m_resp.ok = True
+        m_resp.json.return_value = req
+        m_get.return_value = m_resp
+
+        self.assertEqual(self.client.get(path), ret)
+
     @mock.patch('itertools.count')
     @mock.patch('requests.sessions.Session.patch')
     def test_annotate(self, m_patch, m_count):
