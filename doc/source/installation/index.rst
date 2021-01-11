@@ -46,3 +46,4 @@ This section describes how you can install and configure kuryr-kubernetes
    sriov
    testing_udp_services
    testing_sriov_functional
+   testing_sctp_services
