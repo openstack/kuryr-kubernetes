@@ -591,6 +591,10 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                 LOG.warning("Skipping listener creation for %s as another one"
                             " already exists with port %s", name, port)
                 continue
+            if protocol == "SCTP" and not self._drv_lbaas.sctp_supported():
+                LOG.warning("Skipping listener creation as provider does"
+                            " not support %s protocol", protocol)
+                continue
             listener = self._drv_lbaas.ensure_listener(
                 loadbalancer=loadbalancer_crd['status'].get('loadbalancer'),
                 protocol=protocol,
