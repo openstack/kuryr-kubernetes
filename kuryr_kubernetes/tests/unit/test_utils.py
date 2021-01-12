@@ -116,7 +116,6 @@ class TestUtils(test_base.TestCase):
             "metadata": {
                 "continue": "",
                 "resourceVersion": "33018",
-                "selfLink": "/apis/openstack.org/v1/kuryrnets"
             }
         }
 
@@ -138,7 +137,6 @@ class TestUtils(test_base.TestCase):
             "metadata": {
                 "continue": "",
                 "resourceVersion": "34186",
-                "selfLink": "/apis/openstack.org/v1/kuryrnetpolicies"
             }
         }
         kubernetes = self.useFixture(k_fix.MockK8sClient()).client

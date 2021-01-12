@@ -60,10 +60,9 @@ class Retry(base.EventHandler):
                 obj = event.get('object')
                 if obj:
                     try:
-                        obj_link = obj['metadata']['selfLink']
+                        obj_link = utils.get_res_link(obj)
                     except KeyError:
-                        LOG.debug("Skipping object check as it does not have "
-                                  "selfLink: %s", obj)
+                        LOG.debug("Unknown object, skipping: %s", obj)
                     else:
                         try:
                             self._k8s.get(obj_link)

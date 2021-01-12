@@ -36,7 +36,6 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         self._kuryrnet_crd = {
             'metadata': {
                 'name': 'ns-test-namespace',
-                'selfLink': 'test-selfLink',
             },
             'spec': {
                 'nsName': 'test-namespace',

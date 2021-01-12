@@ -267,7 +267,7 @@ class K8sClient(object):
         if finalizer in obj['metadata'].get('finalizers', []):
             return True
 
-        path = obj['metadata']['selfLink']
+        path = utils.get_res_link(obj)
         LOG.debug(f"Add finalizer {finalizer} to {path}")
         url, headers = self._get_url_and_header(
             path, 'application/merge-patch+json')
@@ -307,7 +307,7 @@ class K8sClient(object):
         self._raise_from_response(response)
 
     def remove_finalizer(self, obj, finalizer):
-        path = obj['metadata']['selfLink']
+        path = utils.get_res_link(obj)
         LOG.debug(f"Remove finalizer {finalizer} from {path}")
         url, headers = self._get_url_and_header(
             path, 'application/merge-patch+json')

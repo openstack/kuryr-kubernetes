@@ -44,7 +44,7 @@ class TestVIFHandler(test_base.TestCase):
 
         self._pod_version = mock.sentinel.pod_version
         self._pod_link = mock.sentinel.pod_link
-        self._pod_namespace = mock.sentinel.namespace
+        self._pod_namespace = 'namespace1'
         self._pod_uid = mock.sentinel.pod_uid
         self._pod_name = 'pod1'
         self._pod = fake.get_k8s_pod()
@@ -351,4 +351,6 @@ class TestVIFHandler(test_base.TestCase):
 
         m_get_k8s_client.assert_called_once()
         k8s.remove_annotations.assert_called_once_with(
-            self._pod['metadata']['selfLink'], k_const.K8S_ANNOTATION_VIF)
+            f'/api/v1/namespaces/{self._pod["metadata"]["namespace"]}/'
+            f'pods/{self._pod["metadata"]["name"]}',
+            k_const.K8S_ANNOTATION_VIF)

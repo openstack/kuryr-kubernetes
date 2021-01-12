@@ -176,8 +176,6 @@ def get_k8s_pod():
                          'name': 'pod-5bb648d658-55n76',
                          'namespace': 'default',
                          'resourceVersion': '19416',
-                         'selfLink': '/api/v1/namespaces/default/pods/'
-                         'pod-5bb648d658-55n76',
                          'uid': '683da866-6bb1-4da2-bf6a-a5f4137c38e7'},
             'spec': {},
             'status': {}}

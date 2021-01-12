@@ -35,8 +35,7 @@ class TestNamespaceHandler(test_base.TestCase):
         self._namespace_name = 'ns-test'
         self._namespace = {
             'metadata': {'name': self._namespace_name,
-                         'resourceVersion': self._namespace_version,
-                         'selfLink': self._namespace_link},
+                         'resourceVersion': self._namespace_version},
             'status': {'phase': 'Active'}
         }
         self._crd_id = 'ns-' + self._namespace_name
@@ -57,7 +56,6 @@ class TestNamespaceHandler(test_base.TestCase):
         crd = {
             'kind': 'KuryrNet',
             'metadata': {
-                'selfLink': mock.sentinel.self_link,
                 'name': self._namespace_name,
                 'namespace': self._namespace_name,
             },

@@ -42,7 +42,6 @@ def get_pod_obj():
             'name': 'busybox-sleep1',
             'namespace': 'default',
             'resourceVersion': '53808',
-            'selfLink': '/api/v1/namespaces/default/pods/busybox-sleep1',
             'uid': '452176db-4a85-11e7-80bd-fa163e29dbbb',
             'annotations': {
                 'openstack.org/kuryr-vif': {},

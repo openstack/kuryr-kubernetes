@@ -182,7 +182,6 @@ Testing the network policy support functionality
         name: test-network-policy
         namespace: default
         resourceVersion: "2117"
-        selfLink: /apis/openstack.org/v1/namespaces/default/kuryrnetworkpolicies/test-network-policy
         uid: afb99326-c634-11e8-b63d-002564fdd760
       spec:
         egressSgRules:
@@ -269,7 +268,6 @@ Testing the network policy support functionality
         name: test-network-policy
         namespace: default
         resourceVersion: "1546"
-        selfLink: /apis/openstack.org/v1/namespaces/default/kuryrnetworkpolicies/np-test-network-policy
         uid: afb99326-c634-11e8-b63d-002564fdd760
       spec:
         egressSgRules:

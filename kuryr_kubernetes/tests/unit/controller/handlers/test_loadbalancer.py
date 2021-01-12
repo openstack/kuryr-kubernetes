@@ -41,7 +41,6 @@ def get_lb_crd():
                 "name": "test",
                 "namespace": "default",
                 "resourceVersion": "111871",
-                "selfLink": "test",
                 "uid": "584fe3ea-04dd-43f7-be2f-713e861694ec"
             },
             "spec": {

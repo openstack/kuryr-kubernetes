@@ -32,7 +32,7 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
         self.kp = {'apiVersion': 'openstack.org/v1',
                    'kind': 'KuryrPort',
                    'metadata': {'name': 'foo', 'uid': 'bar',
-                                'namespace': 'default', 'selfLink': 'baz'},
+                                'namespace': 'default'},
                    'spec': {'podUid': 'bar'}}
         self.vifs = fake._fake_vifs()
         registry = {'default/foo': {'kp': self.kp, 'vifs': self.vifs,

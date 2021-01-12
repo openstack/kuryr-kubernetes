@@ -41,7 +41,6 @@ def get_pod_obj():
             'name': 'busybox-sleep1',
             'namespace': 'default',
             'resourceVersion': '53808',
-            'selfLink': '/api/v1/namespaces/default/pods/busybox-sleep1',
             'uid': '452176db-4a85-11e7-80bd-fa163e29dbbb',
             'annotations': {
                 'openstack.org/kuryr-vif': {}
@@ -86,7 +85,6 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                 'creationTimestamp': '2018-09-18T14:09:51Z',
                 'namespace': 'default',
                 'annotations': {},
-                'selfLink': self._policy_link,
                 'uid': self._policy_uid
             },
             'spec': {
@@ -109,8 +107,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
 
         self.crd = {
             'metadata': {'name': 'foobar',
-                         'namespace': 'default',
-                         'selfLink': mock.sentinel.selfLink},
+                         'namespace': 'default'},
             'spec': {
                 'egressSgRules': [
                     {'sgRule':
@@ -142,8 +139,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
 
         self.old_crd = {
             'metadata': {'name': 'np-foobar',
-                         'namespace': 'default',
-                         'selfLink': mock.sentinel.selfLink},
+                         'namespace': 'default'},
             'spec': {
                 'egressSgRules': [
                     {'security_group_rule':
