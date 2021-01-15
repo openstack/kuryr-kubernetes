@@ -45,6 +45,8 @@ class TestServiceHandler(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     def test_on_present(self, get_k8s_client):
         svc_event = {
+            'apiVersion': 'v1',
+            'kind': 'Service',
             "metadata": {
                 "creationTimestamp": "2020-07-25T18:15:12Z",
                 "finalizers": [
@@ -56,7 +58,6 @@ class TestServiceHandler(test_base.TestCase):
                 "name": "test",
                 "namespace": "test",
                 "resourceVersion": "413753",
-                "selfLink": "",
                 "uid": "a026ae48-6141-4029-b743-bac48dae7f06"
             },
             "spec": {
@@ -120,6 +121,8 @@ class TestServiceHandler(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     def test_on_present_no_changes(self, get_k8s_client):
         svc_event = {
+            'apiVersion': 'v1',
+            'kind': 'Service',
             "metadata": {
                 "creationTimestamp": "2020-07-25T18:15:12Z",
                 "finalizers": [
@@ -131,7 +134,6 @@ class TestServiceHandler(test_base.TestCase):
                 "name": "test",
                 "namespace": "test",
                 "resourceVersion": "413753",
-                "selfLink": "",
                 "uid": "a026ae48-6141-4029-b743-bac48dae7f06"
             },
             "spec": {
@@ -232,7 +234,10 @@ class TestServiceHandler(test_base.TestCase):
 
     def test_has_ip_changes(self):
         m_handler = mock.Mock(spec=h_lbaas.ServiceHandler)
-        m_service = mock.MagicMock()
+        m_service = {'apiVersion': 'v1',
+                     'kind': 'Service',
+                     "metadata": {"name": "test",
+                                  "namespace": "test"}}
         m_handler._get_service_ip.return_value = '1.1.1.1'
         m_lbaas_spec = mock.MagicMock()
         m_lbaas_spec.ip.__str__.return_value = '2.2.2.2'
@@ -243,6 +248,8 @@ class TestServiceHandler(test_base.TestCase):
 
     def test_has_ip_changes__no_changes(self):
         service = {
+            'apiVersion': 'v1',
+            'kind': 'Service',
             "metadata": {
                 "creationTimestamp": "2020-07-25T18:15:12Z",
                 "finalizers": [
@@ -254,7 +261,6 @@ class TestServiceHandler(test_base.TestCase):
                 "name": "test",
                 "namespace": "test",
                 "resourceVersion": "413753",
-                "selfLink": "",
                 "uid": "a026ae48-6141-4029-b743-bac48dae7f06"
             },
             "spec": {
@@ -283,6 +289,8 @@ class TestServiceHandler(test_base.TestCase):
         m_handler = mock.Mock(spec=h_lbaas.ServiceHandler)
         m_handler._get_service_ip.return_value = '1.1.1.1'
         service = {
+            'apiVersion': 'v1',
+            'kind': 'Service',
             "metadata": {
                 "creationTimestamp": "2020-07-25T18:15:12Z",
                 "finalizers": [
@@ -294,7 +302,6 @@ class TestServiceHandler(test_base.TestCase):
                 "name": "test",
                 "namespace": "test",
                 "resourceVersion": "413753",
-                "selfLink": "",
                 "uid": "a026ae48-6141-4029-b743-bac48dae7f06"
             },
             "spec": {
@@ -314,6 +321,8 @@ class TestServiceHandler(test_base.TestCase):
     def test_has_ip_changes__no_nothing(self):
         m_handler = mock.Mock(spec=h_lbaas.ServiceHandler)
         service = {
+            'apiVersion': 'v1',
+            'kind': 'Service',
             "metadata": {
                 "creationTimestamp": "2020-07-25T18:15:12Z",
                 "finalizers": [
@@ -325,7 +334,6 @@ class TestServiceHandler(test_base.TestCase):
                 "name": "test",
                 "namespace": "test",
                 "resourceVersion": "413753",
-                "selfLink": "",
                 "uid": "a026ae48-6141-4029-b743-bac48dae7f06"
             },
             "spec": {
