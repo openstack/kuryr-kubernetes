@@ -437,13 +437,13 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
             k8s = clients.get_kubernetes_client()
             service_link = utils.get_service_link(endpoints)
             to_remove = [
-                (endpoints['metadata']['selfLink'],
+                (utils.get_res_link(endpoints),
                  k_const.K8S_ANNOTATION_LBAAS_SPEC),
                 (service_link,
                  k_const.K8S_ANNOTATION_LBAAS_SPEC),
             ]
             if state:
-                to_remove.append((endpoints['metadata']['selfLink'],
+                to_remove.append((utils.get_res_link(endpoints),
                                   k_const.K8S_ANNOTATION_LBAAS_STATE))
 
             for path, name in to_remove:
