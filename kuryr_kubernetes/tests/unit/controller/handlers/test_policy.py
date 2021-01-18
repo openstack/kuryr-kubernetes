@@ -41,7 +41,6 @@ class TestPolicyHandler(test_base.TestCase):
                 'creationTimestamp': '2018-09-18T14:09:51Z',
                 'namespace': 'default',
                 'annotations': {},
-                'selfLink': self._policy_link,
                 'uid': self._policy_uid
             },
             'spec': {

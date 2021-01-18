@@ -49,7 +49,6 @@ class TestKuryrPortHandler(test_base.TestCase):
         self._pod = {'apiVersion': 'v1',
                      'kind': 'Pod',
                      'metadata': {'resourceVersion': self._pod_version,
-                                  'selfLink': self._pod_link,
                                   'name': self._kp_name,
                                   'deletionTimestamp': mock.sentinel.date,
                                   'namespace': self._kp_namespace},

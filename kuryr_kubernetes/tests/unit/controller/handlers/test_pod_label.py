@@ -32,7 +32,6 @@ class TestPodLabelHandler(test_base.TestCase):
         self._pod_link = mock.sentinel.pod_link
         self._pod = {
             'metadata': {'resourceVersion': self._pod_version,
-                         'selfLink': self._pod_link,
                          'namespace': 'default'},
             'status': {'phase': k_const.K8S_POD_STATUS_PENDING},
             'spec': {'hostNetwork': False,

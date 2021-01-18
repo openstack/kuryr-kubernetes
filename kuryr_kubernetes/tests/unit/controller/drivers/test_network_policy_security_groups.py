@@ -30,8 +30,7 @@ def get_no_match_crd_namespace_obj():
                 "openstack.org/kuryr-net-crd": "ns-dev"
             },
             "labels": {"name": "prod"},
-            "name": "prod",
-            "selfLink": "/api/v1/namespaces/dev"}}
+            "name": "prod"}}
 
 
 def get_match_crd_namespace_obj():
@@ -45,8 +44,7 @@ def get_match_crd_namespace_obj():
             "labels": {
                 "name": "dev"
             },
-            "name": "dev",
-            "selfLink": "/api/v1/namespaces/dev"}}
+            "name": "dev"}}
 
 
 def get_match_crd_pod_obj():
@@ -155,8 +153,7 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
         self._sg_id2 = mock.sentinel._sg_id2
         self._namespace = 'default'
         self._crd = {
-            'metadata': {'name': mock.sentinel.name,
-                         'selfLink': mock.sentinel.selfLink},
+            'metadata': {'name': mock.sentinel.name},
             'spec': {
                 'egressSgRules': [
                     {'sgRule':
@@ -196,8 +193,7 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
         }
 
         self._crd2 = {
-            'metadata': {'name': mock.sentinel.name3,
-                         'selfLink': mock.sentinel.selfLink},
+            'metadata': {'name': mock.sentinel.name3},
             'spec': {
                 'ingressSgRules': [
                     {'sgRule':

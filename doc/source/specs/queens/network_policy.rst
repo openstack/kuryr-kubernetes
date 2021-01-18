@@ -240,7 +240,6 @@ that matched the named port.
       name: np-allow-client-a-via-named-port-ingress-rule
       namespace: default
       resourceVersion: "66522"
-      selfLink: /apis/openstack.org/v1/namespaces/default/kuryrnetpolicies/np-allow-client-a-via-named-port-ingress-rule
       uid: 66eee462-70d5-11e9-9986-fa163e6aa097
     spec:
       egressSgRules:

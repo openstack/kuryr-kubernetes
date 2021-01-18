@@ -103,14 +103,18 @@ class TestRetryHandler(test_base.TestCase):
     def test_call_outdated_event(self, m_sleep, m_count):
         m_handler = mock.Mock()
         m_count.return_value = list(range(1, 5))
-        obj = {'metadata': {'selfLink': mock.sentinel.selflink}}
+        self_link = '/api/v1/namespaces/ns1/services/srv1'
+        obj = {'apiVersion': 'v1',
+               'kind': 'Service',
+               'metadata': {'name': 'srv1',
+                            'namespace': 'ns1'}}
         event = {'type': 'MODIFIED', 'object': obj}
         self.k8s.get.side_effect = exceptions.K8sResourceNotFound(obj)
 
         retry = h_retry.Retry(m_handler)
         retry(event)
 
-        self.k8s.get.assert_called_once_with(obj['metadata']['selfLink'])
+        self.k8s.get.assert_called_once_with(self_link)
         m_handler.assert_not_called()
         m_sleep.assert_not_called()
 
