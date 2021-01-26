@@ -158,7 +158,7 @@
         kubelet: true
         kuryr-kubernetes: true
         kuryr-daemon: true
-        coredns: true
+        coredns: false
         neutron-tag-ports-during-bulk-creation: true
       zuul_copy_output:
         '{{ devstack_log_dir }}/kubernetes': 'logs'
