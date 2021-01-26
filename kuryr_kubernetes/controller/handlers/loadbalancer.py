@@ -50,8 +50,8 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         self._drv_service_pub_ip = drv_base.ServicePubIpDriver.get_instance()
         self._drv_svc_project = drv_base.ServiceProjectDriver.get_instance()
         self._drv_sg = drv_base.ServiceSecurityGroupsDriver.get_instance()
-        self._nodes_subnet = utils.get_subnet_cidr(
-            CONF.pod_vif_nested.worker_nodes_subnet)
+        self._nodes_subnets = utils.get_subnets_id_cidrs(
+            CONF.pod_vif_nested.worker_nodes_subnets)
 
     def on_present(self, loadbalancer_crd):
         if self._should_ignore(loadbalancer_crd):
@@ -259,8 +259,8 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                         target_namespace = target_ref['namespace']
                     # Avoid to point to a Pod on hostNetwork
                     # that isn't the one to be added as Member.
-                    if not target_ref and utils.is_ip_on_subnet(
-                            self._nodes_subnet, target_ip):
+                    if not target_ref and utils.get_subnet_by_ip(
+                            self._nodes_subnets, target_ip):
                         target_pod = {}
                     else:
                         target_pod = utils.get_pod_by_ip(
@@ -354,10 +354,11 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         if (CONF.octavia_defaults.member_mode ==
                 k_const.OCTAVIA_L2_MEMBER_MODE):
             if target_pod:
-                subnet_id = self._get_pod_subnet(
-                    target_pod, target_ip)
-            elif utils.is_ip_on_subnet(self._nodes_subnet, target_ip):
-                subnet_id = CONF.pod_vif_nested.worker_nodes_subnet
+                subnet_id = self._get_pod_subnet(target_pod, target_ip)
+            else:
+                subnet = utils.get_subnet_by_ip(self._nodes_subnets, target_ip)
+                if subnet:
+                    subnet_id = subnet[0]
         else:
             # We use the service subnet id so that the connectivity
             # from VIP to pods happens in layer 3 mode, i.e.,
@@ -374,10 +375,16 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         if subnet_ids:
             return subnet_ids[0]
         else:
-            # NOTE(ltomasbo): We are assuming that if ip is not on the
-            # pod subnet is because the member is using hostnetworking. In
-            # this worker_nodes_subnet will be used
-            return config.CONF.pod_vif_nested.worker_nodes_subnet
+            # NOTE(ltomasbo): We are assuming that if IP is not on the
+            # pod subnet it's because the member is using hostNetworking. In
+            # this case we look for the IP in worker_nodes_subnets.
+            subnet = utils.get_subnet_by_ip(self._nodes_subnets, ip)
+            if subnet:
+                return subnet[0]
+            else:
+                # This shouldn't ever happen but let's return just the first
+                # worker_nodes_subnet id.
+                return self._nodes_subnets[0][0]
 
     def _get_port_in_pool(self, pool, loadbalancer_crd):
 

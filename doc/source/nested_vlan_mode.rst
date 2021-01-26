@@ -51,8 +51,9 @@ You need to set several options in the kuryr.conf:
    vif_pool_driver = nested  # If using port pools.
 
    [pod_vif_nested]
-   # ID of the subnet in which worker node VMs are running.
-   worker_nodes_subnet = <id>
+   # ID of the subnet in which worker node VMs are running (if multiple join
+   # with a comma).
+   worker_nodes_subnets = <id>
 
 Also if you want to run several Kubernetes cluster in one OpenStack tenant you
 need to make sure Kuryr-Kubernetes instances are able to distinguish their own
