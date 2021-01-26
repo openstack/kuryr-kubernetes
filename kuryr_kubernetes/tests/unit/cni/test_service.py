@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import queue
 from unittest import mock
 
 from oslo_serialization import jsonutils
@@ -31,7 +32,7 @@ class TestDaemonServer(base.TestCase):
         self.k8s_mock = self.useFixture(kuryr_fixtures.MockK8sClient())
         self.plugin = k8s_cni_registry.K8sCNIRegistryPlugin({}, healthy)
         self.health_registry = mock.Mock()
-        self.metrics = dict()
+        self.metrics = queue.Queue()
         self.srv = service.DaemonServer(
             self.plugin, self.health_registry, self.metrics)
 
