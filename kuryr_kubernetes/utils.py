@@ -84,7 +84,8 @@ RESOURCE_MAP = {'Endpoints': 'endpoints',
                 'NetworkPolicy': 'networkpolicies',
                 'Node': 'nodes',
                 'Pod': 'pods',
-                'Service': 'services'}
+                'Service': 'services',
+                'Machine': 'machines'}
 API_RE = re.compile(r'v\d+')
 
 
@@ -296,6 +297,16 @@ def get_subnet_cidr(subnet_id):
         LOG.exception("Subnet %s CIDR not found!", subnet_id)
         raise
     return subnet_obj.cidr
+
+
+def get_subnet_id(**filters):
+    os_net = clients.get_network_client()
+    subnets = os_net.subnets(**filters)
+
+    try:
+        return next(subnets).id
+    except StopIteration:
+        return None
 
 
 @MEMOIZE
