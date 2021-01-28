@@ -535,7 +535,7 @@ function prepare_kubernetes_files {
     sudo CERT_DIR=${KURYR_KUBERNETES_DATA_DIR} /tmp/make-ca-cert.sh $(hostname -I | awk '{print $1}') "IP:${HOST_IP},IP:${k8s_api_clusterip},DNS:kubernetes,DNS:kubernetes.default,DNS:kubernetes.default.svc,DNS:kubernetes.default.svc.cluster.local"
 
     # Create basic token authorization
-    sudo bash -c "echo 'admin,admin,admin' > $KURYR_KUBERNETES_DATA_DIR/basic_auth.csv"
+    sudo bash -c "echo 'admin,admin,admin' > $KURYR_KUBERNETES_DATA_DIR/token_auth.csv"
 
     # Create known tokens for service accounts
     sudo bash -c "echo '$(create_token),admin,admin' >> ${KURYR_KUBERNETES_DATA_DIR}/known_tokens.csv"
@@ -654,7 +654,7 @@ function run_k8s_api {
                 --insecure-port=${KURYR_K8S_API_PORT} \
                 --etcd-servers=http://${SERVICE_HOST}:${ETCD_PORT} \
                 --client-ca-file=${KURYR_KUBERNETES_DATA_DIR}/ca.crt \
-                --basic-auth-file=${KURYR_KUBERNETES_DATA_DIR}/basic_auth.csv \
+                --token-auth-file=${KURYR_KUBERNETES_DATA_DIR}/token_auth.csv \
                 --min-request-timeout=300 \
                 --tls-cert-file=${KURYR_KUBERNETES_DATA_DIR}/server.cert \
                 --tls-private-key-file=${KURYR_KUBERNETES_DATA_DIR}/server.key \
