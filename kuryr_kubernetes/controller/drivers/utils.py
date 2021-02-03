@@ -261,13 +261,9 @@ def create_security_group_rule_body(
         ethertype='IPv4', cidr=None,
         description="Kuryr-Kubernetes NetPolicy SG rule", namespace=None,
         pods=None):
-    if not port_range_min:
-        port_range_min = 1
-        port_range_max = 65535
-    elif not port_range_max:
+
+    if port_range_min and not port_range_max:
         port_range_max = port_range_min
-    if not protocol:
-        protocol = 'TCP'
 
     if cidr and netaddr.IPNetwork(cidr).version == 6:
         ethertype = 'IPv6'
@@ -277,11 +273,13 @@ def create_security_group_rule_body(
             'ethertype': ethertype,
             'description': description,
             'direction': direction,
-            'protocol': protocol.lower(),
-            'port_range_min': port_range_min,
-            'port_range_max': port_range_max,
         }
     }
+    if port_range_min and port_range_max:
+        security_group_rule_body['sgRule']['port_range_min'] = port_range_min
+        security_group_rule_body['sgRule']['port_range_max'] = port_range_max
+    if protocol:
+        security_group_rule_body['sgRule']['protocol'] = protocol.lower()
     if cidr:
         security_group_rule_body['sgRule']['remote_ip_prefix'] = cidr
     if namespace:

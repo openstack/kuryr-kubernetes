@@ -206,8 +206,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
                     # with or without remote_ip_prefix.
                     if rule.remote_group_id:
                         continue
-                    if (rule.protocol == protocol.lower() and
-                            rule.direction == 'ingress'):
+                    if ((not rule.protocol or
+                         rule.protocol == protocol.lower())
+                            and rule.direction == 'ingress'):
                         # If listener port not in allowed range, skip
                         min_port = rule.port_range_min
                         max_port = rule.port_range_max
