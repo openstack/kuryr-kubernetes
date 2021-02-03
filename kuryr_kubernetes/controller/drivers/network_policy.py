@@ -581,7 +581,8 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 if ns_name != resource['metadata']['name']:
                     continue
             cluster_ip = service['spec'].get('clusterIP')
-            if not cluster_ip:
+            if not cluster_ip or cluster_ip == 'None':
+                # Headless services has 'None' as clusterIP.
                 continue
             rule = driver_utils.create_security_group_rule_body(
                 'egress', port, protocol=protocol,
