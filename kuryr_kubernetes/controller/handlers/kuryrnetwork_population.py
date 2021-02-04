@@ -39,6 +39,7 @@ class KuryrNetworkPopulationHandler(k8s_base.ResourceEventHandler):
         self._drv_vif_pool = drivers.VIFPoolDriver.get_instance(
             specific_driver='multi_pool')
         self._drv_vif_pool.set_vif_driver()
+        self._drv_nodes_subnets = drivers.NodesSubnetsDriver.get_instance()
 
     def on_added(self, kuryrnet_crd):
         subnet_id = kuryrnet_crd['status'].get('subnetId')
@@ -55,7 +56,9 @@ class KuryrNetworkPopulationHandler(k8s_base.ResourceEventHandler):
         # required
         subnets = self._drv_subnets.get_namespace_subnet(namespace, subnet_id)
 
-        nodes = utils.get_nodes_ips()
+        node_subnets = self._drv_nodes_subnets.get_nodes_subnets(
+            raise_on_empty=True)
+        nodes = utils.get_nodes_ips(node_subnets)
         # NOTE(ltomasbo): Patching the kuryrnet_crd here instead of after
         # populate_pool method to ensure initial repopulation is not happening
         # twice upon unexpected problems, such as neutron failing to

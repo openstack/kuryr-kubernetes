@@ -258,7 +258,7 @@ def get_leader_name():
 
 
 @MEMOIZE_NODE
-def get_nodes_ips():
+def get_nodes_ips(node_subnets):
     """Get the IPs of the trunk ports associated to the deployment."""
     trunk_ips = []
     os_net = clients.get_network_client()
@@ -270,7 +270,8 @@ def get_nodes_ips():
         # part of the kuryr deployment
         ports = os_net.ports(status='ACTIVE')
     for port in ports:
-        if port.trunk_details:
+        if (port.trunk_details and port.fixed_ips and
+                port.fixed_ips[0]['subnet_id'] in node_subnets):
             trunk_ips.append(port.fixed_ips[0]['ip_address'])
     return trunk_ips
 
