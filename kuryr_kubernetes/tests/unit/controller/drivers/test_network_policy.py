@@ -341,12 +341,8 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         self._driver._parse_network_policy_rules(policy)
         m_get_namespaces.assert_called()
         m_get_resource_details.assert_called()
-        calls = [mock.call('ingress', port_range_min=1,
-                           port_range_max=65535, cidr=subnet_cidr,
-                           namespace=namespace),
-                 mock.call('egress', port_range_min=1,
-                           port_range_max=65535, cidr=subnet_cidr,
-                           namespace=namespace)]
+        calls = [mock.call('ingress', cidr=subnet_cidr, namespace=namespace),
+                 mock.call('egress', cidr=subnet_cidr, namespace=namespace)]
         m_create.assert_has_calls(calls)
 
     @mock.patch.object(network_policy.NetworkPolicyDriver, 'namespaced_pods')
@@ -430,6 +426,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         pod_selector = {}
         namespace = mock.sentinel.namespace
         direction = 'ingress'
+        cidrs = ['0.0.0.0/0']
 
         m_get_pods.return_value = {'items': [pod]}
         m_get_ports.return_value = container_ports
@@ -440,7 +437,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                                        crd_rules,
                                                        pod_selector,
                                                        namespace,
-                                                       allow_all=True)
+                                                       allowed_cidrs=cidrs)
 
         m_get_pods.assert_called_with(pod_selector, namespace)
         m_get_ports.assert_called_with(pod, port)
@@ -468,6 +465,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         pod_selector = {}
         namespace = mock.sentinel.namespace
         direction = 'ingress'
+        cidrs = ['0.0.0.0/0']
         self._driver._create_sg_rules_with_container_ports = _create_sgr_cont
 
         m_get_pods.return_value = {'items': [pod]}
@@ -479,17 +477,15 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                                        crd_rules,
                                                        pod_selector,
                                                        namespace,
-                                                       allow_all=True)
+                                                       allowed_cidrs=cidrs)
 
         m_get_pods.assert_called_with(pod_selector, namespace)
         m_get_ports.assert_called_with(pod, port)
 
-        calls = [mock.call(direction, container_ports[0][1],
-                           protocol=port['protocol'], ethertype=e,
-                           pods='foo') for e in ('IPv4', 'IPv6')]
-
-        m_create_sgr.assert_has_calls(calls)
-        self.assertEqual(len(crd_rules), 2)
+        m_create_sgr.assert_called_once_with(direction, container_ports[0][1],
+                                             protocol=port['protocol'],
+                                             cidr=cidrs[0],
+                                             pods='foo')
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_create_sg_rules_with_container_ports')
@@ -533,6 +529,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         pod_selector = {}
         namespace = mock.sentinel.namespace
         direction = 'egress'
+        cidrs = ['0.0.0.0/0']
 
         m_get_ports.return_value = container_ports
 
@@ -542,7 +539,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                                        crd_rules,
                                                        pod_selector,
                                                        namespace,
-                                                       allow_all=True)
+                                                       allowed_cidrs=cidrs)
 
         m_get_ports.assert_called_with(resources[0], port)
         self.assertEqual(len(crd_rules), 0)
@@ -571,6 +568,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         pod_selector = {}
         namespace = mock.sentinel.namespace
         direction = 'egress'
+        cidrs = ['0.0.0.0/0']
         self._driver._create_sg_rules_with_container_ports = _create_sgr_cont
         m_get_subnet_cidr.return_value = '10.0.0.128/26'
         m_create_sgr.side_effect = [mock.sentinel.sgr1, mock.sentinel.sgr2,
@@ -585,14 +583,12 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                                        crd_rules,
                                                        pod_selector,
                                                        namespace,
-                                                       allow_all=True)
+                                                       allowed_cidrs=cidrs)
 
         m_get_ports.assert_called_with(resources[0], port)
-        calls = [mock.call(direction, container_ports[0][1],
-                           protocol=port['protocol'], ethertype=e,
-                           pods='foo') for e in ('IPv4', 'IPv6')]
-        m_create_sgr.assert_has_calls(calls)
-        self.assertEqual(len(crd_rules), 2)
+        m_create_sgr.assert_called_once_with(direction, container_ports[0][1],
+                                             protocol=port['protocol'],
+                                             cidr=cidrs[0], pods='foo')
 
     def test__create_all_pods_sg_rules(self):
         port = {'protocol': 'TCP', 'port': 22}
