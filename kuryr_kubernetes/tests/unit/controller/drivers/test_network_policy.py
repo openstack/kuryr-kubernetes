@@ -179,7 +179,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_create_knp_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'parse_network_policy_rules')
+                       '_parse_network_policy_rules')
     @mock.patch.object(utils, 'get_subnet_cidr')
     def test_ensure_network_policy(self, m_utils, m_parse, m_add_crd,
                                    m_get_crd, m_get_default):
@@ -196,7 +196,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_get_knp_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'parse_network_policy_rules')
+                       '_parse_network_policy_rules')
     @mock.patch.object(utils, 'get_subnet_cidr')
     def test_ensure_network_policy_with_k8s_exc(self, m_utils, m_parse,
                                                 m_get_crd, m_get_default):
@@ -213,7 +213,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                        '_get_knp_crd', return_value=None)
     @mock.patch.object(network_policy.NetworkPolicyDriver, '_create_knp_crd')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
-                       'parse_network_policy_rules')
+                       '_parse_network_policy_rules')
     @mock.patch.object(utils, 'get_subnet_cidr')
     def test_ensure_network_policy_error_add_crd(
             self, m_utils, m_parse, m_add_crd, m_get_crd, m_get_default):
@@ -263,7 +263,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         namespace = 'myproject'
         m_get_namespaces.return_value = [get_namespace_obj()]
         m_get_resource_details.return_value = subnet_cidr, namespace
-        self._driver.parse_network_policy_rules(self._policy)
+        self._driver._parse_network_policy_rules(self._policy)
         m_get_namespaces.assert_called()
         m_get_resource_details.assert_called()
         m_create.assert_called()
@@ -277,7 +277,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         policy = self._policy.copy()
         policy['spec']['ingress'] = [{}]
         policy['spec']['egress'] = [{}]
-        self._driver.parse_network_policy_rules(policy)
+        self._driver._parse_network_policy_rules(policy)
         m_get_ns.assert_not_called()
         calls = [mock.call('ingress', ethertype='IPv4'),
                  mock.call('ingress', ethertype='IPv6'),
@@ -294,7 +294,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                       [{'port': 6379, 'protocol': 'TCP'}]}]
         policy['spec']['egress'] = [{'ports':
                                      [{'port': 6379, 'protocol': 'TCP'}]}]
-        self._driver.parse_network_policy_rules(policy)
+        self._driver._parse_network_policy_rules(policy)
         m_create_all_pods_sg_rules.assert_called()
 
     @mock.patch.object(network_policy.NetworkPolicyDriver,
@@ -315,7 +315,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                                 'TCP'}],
                                      'to': [{'ipBlock':
                                              {'cidr': '10.0.0.0/24'}}]}]
-        self._driver.parse_network_policy_rules(policy)
+        self._driver._parse_network_policy_rules(policy)
         m_create_sg_rule.assert_called()
 
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
@@ -338,7 +338,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                          'project': 'myproject'}}}
         policy['spec']['egress'] = [{'to': [selectors]}]
         policy['spec']['ingress'] = [{'from': [selectors]}]
-        self._driver.parse_network_policy_rules(policy)
+        self._driver._parse_network_policy_rules(policy)
         m_get_namespaces.assert_called()
         m_get_resource_details.assert_called()
         calls = [mock.call('ingress', port_range_min=1,

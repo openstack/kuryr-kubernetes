@@ -39,6 +39,58 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         self.kubernetes = clients.get_kubernetes_client()
         self.nodes_subnets_driver = base.NodesSubnetsDriver.get_instance()
 
+    def affected_pods(self, policy, selector=None):
+        if selector is not None:
+            pod_selector = selector
+        else:
+            pod_selector = policy['spec'].get('podSelector')
+        if pod_selector:
+            policy_namespace = policy['metadata']['namespace']
+            pods = driver_utils.get_pods(pod_selector, policy_namespace)
+            return pods.get('items')
+        else:
+            # NOTE(ltomasbo): It affects all the pods on the namespace
+            return self.namespaced_pods(policy)
+
+    def create_security_group(self, knp, project_id):
+        sg_name = ("sg-" + knp['metadata']['namespace'] + "-" +
+                   knp['metadata']['name'])
+        desc = ("Kuryr-Kubernetes Network Policy %s SG" %
+                utils.get_res_unique_name(knp))
+        try:
+            # Create initial security group
+            sg = self.os_net.create_security_group(name=sg_name,
+                                                   project_id=project_id,
+                                                   description=desc)
+            driver_utils.tag_neutron_resources([sg])
+            # NOTE(dulek): Neutron populates every new SG with two rules
+            #              allowing egress on IPv4 and IPv6. This collides with
+            #              how network policies are supposed to work, because
+            #              initially even egress traffic should be blocked.
+            #              To work around this we will delete those two SG
+            #              rules just after creation.
+            for sgr in sg.security_group_rules:
+                self.os_net.delete_security_group_rule(sgr['id'])
+        except (os_exc.SDKException, exceptions.ResourceNotReady):
+            LOG.exception("Error creating security group for network policy "
+                          " %s", knp['metadata']['name'])
+            raise
+
+        return sg.id
+
+    def delete_np_sg(self, sg_id):
+        try:
+            self.os_net.delete_security_group(sg_id)
+        except os_exc.ConflictException:
+            LOG.debug("Security Group %s still in use!", sg_id)
+            # raising ResourceNotReady to retry this action in case ports
+            # associated to affected pods are not updated on time, i.e.,
+            # they are still using the security group to be removed
+            raise exceptions.ResourceNotReady(sg_id)
+        except os_exc.SDKException:
+            LOG.exception("Error deleting security group %s.", sg_id)
+            raise
+
     def ensure_network_policy(self, policy):
         """Create security group rules out of network policies
 
@@ -63,28 +115,6 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 return
         else:
             self._patch_knp_crd(policy, i_rules, e_rules, knp)
-
-    def _convert_old_sg_rule(self, rule):
-        del rule['security_group_rule']['id']
-        del rule['security_group_rule']['security_group_id']
-        result = {
-            'sgRule': rule['security_group_rule'],
-        }
-
-        if 'namespace' in rule:
-            result['namespace'] = rule['namespace']
-
-        if 'remote_ip_prefixes' in rule:
-            result['affectedPods'] = []
-            for ip, namespace in rule['remote_ip_prefixes']:
-                if not ip:
-                    continue
-                result['affectedPods'].append({
-                    'podIP': ip,
-                    'podNamespace': namespace,
-                })
-
-        return result
 
     def get_from_old_crd(self, netpolicy):
         name = netpolicy['metadata']['name'][3:]  # Remove 'np-'
@@ -123,13 +153,41 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
 
         return knp
 
+    def namespaced_pods(self, policy):
+        pod_namespace = policy['metadata']['namespace']
+        pods = self.kubernetes.get('{}/namespaces/{}/pods'.format(
+            constants.K8S_API_BASE, pod_namespace))
+        return pods.get('items')
+
+    def _convert_old_sg_rule(self, rule):
+        del rule['security_group_rule']['id']
+        del rule['security_group_rule']['security_group_id']
+        result = {
+            'sgRule': rule['security_group_rule'],
+        }
+
+        if 'namespace' in rule:
+            result['namespace'] = rule['namespace']
+
+        if 'remote_ip_prefixes' in rule:
+            result['affectedPods'] = []
+            for ip, namespace in rule['remote_ip_prefixes']:
+                if not ip:
+                    continue
+                result['affectedPods'].append({
+                    'podIP': ip,
+                    'podNamespace': namespace,
+                })
+
+        return result
+
     def _get_security_group_rules_from_network_policy(self, policy):
         """Get security group rules required to represent an NP
 
         This method creates the security group rules bodies coming out of a
         network policies' parsing.
         """
-        i_rules, e_rules = self.parse_network_policy_rules(policy)
+        i_rules, e_rules = self._parse_network_policy_rules(policy)
         # Add default rules to allow traffic from host and svc subnet
         i_rules += self._get_default_np_rules()
 
@@ -164,32 +222,6 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 }})
 
         return rules
-
-    def create_security_group(self, knp, project_id):
-        sg_name = ("sg-" + knp['metadata']['namespace'] + "-" +
-                   knp['metadata']['name'])
-        desc = ("Kuryr-Kubernetes Network Policy %s SG" %
-                utils.get_res_unique_name(knp))
-        try:
-            # Create initial security group
-            sg = self.os_net.create_security_group(name=sg_name,
-                                                   project_id=project_id,
-                                                   description=desc)
-            driver_utils.tag_neutron_resources([sg])
-            # NOTE(dulek): Neutron populates every new SG with two rules
-            #              allowing egress on IPv4 and IPv6. This collides with
-            #              how network policies are supposed to work, because
-            #              initially even egress traffic should be blocked.
-            #              To work around this we will delete those two SG
-            #              rules just after creation.
-            for sgr in sg.security_group_rules:
-                self.os_net.delete_security_group_rule(sgr['id'])
-        except (os_exc.SDKException, exceptions.ResourceNotReady):
-            LOG.exception("Error creating security group for network policy "
-                          " %s", knp['metadata']['name'])
-            raise
-
-        return sg.id
 
     def _get_pods(self, pod_selector, namespace=None, namespace_selector=None):
         matching_pods = {"items": []}
@@ -605,7 +637,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 return False
         return True
 
-    def parse_network_policy_rules(self, policy):
+    def _parse_network_policy_rules(self, policy):
         """Create security group rule bodies out of network policies.
 
         Whenever a notification from the handler 'on-present' method is
@@ -620,19 +652,6 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         self._parse_sg_rules(egress_sg_rule_body_list, 'egress', policy)
 
         return ingress_sg_rule_body_list, egress_sg_rule_body_list
-
-    def delete_np_sg(self, sg_id):
-        try:
-            self.os_net.delete_security_group(sg_id)
-        except os_exc.ConflictException:
-            LOG.debug("Security Group %s still in use!", sg_id)
-            # raising ResourceNotReady to retry this action in case ports
-            # associated to affected pods are not updated on time, i.e.,
-            # they are still using the security group to be removed
-            raise exceptions.ResourceNotReady(sg_id)
-        except os_exc.SDKException:
-            LOG.exception("Error deleting security group %s.", sg_id)
-            raise
 
     def release_network_policy(self, policy):
         return self._del_knp_crd(policy)
@@ -726,25 +745,6 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             LOG.exception("Kubernetes Client Exception deleting "
                           "KuryrNetworkPolicy CRD %s." % name)
             raise
-
-    def affected_pods(self, policy, selector=None):
-        if selector is not None:
-            pod_selector = selector
-        else:
-            pod_selector = policy['spec'].get('podSelector')
-        if pod_selector:
-            policy_namespace = policy['metadata']['namespace']
-            pods = driver_utils.get_pods(pod_selector, policy_namespace)
-            return pods.get('items')
-        else:
-            # NOTE(ltomasbo): It affects all the pods on the namespace
-            return self.namespaced_pods(policy)
-
-    def namespaced_pods(self, policy):
-        pod_namespace = policy['metadata']['namespace']
-        pods = self.kubernetes.get('{}/namespaces/{}/pods'.format(
-            constants.K8S_API_BASE, pod_namespace))
-        return pods.get('items')
 
     def _get_resource_details(self, resource):
         namespace = None
