@@ -37,13 +37,13 @@ created with the same IP that got assigned to the pod:
 
    $ kubectl get pods
    NAME                    READY     STATUS    RESTARTS   AGE
-   demo-2293951457-j29nb   1/1       Running   0          1m
+   demo-7dd477695c-25s99   1/1       Running   0          1m
 
    $ kubectl describe pod demo-2293951457-j29nb | grep IP:
-   IP:             10.0.0.69
+   IP:             10.0.1.122
 
    $ openstack port list | grep demo
-   | 73100cdb-84d6-4f33-93b2-e212966c65ac | demo-2293951457-j29nb | fa:16:3e:99:ac:ce | ip_address='10.0.0.69', subnet_id='3c3e18f9-d1d0-4674-b3be-9fc8561980d3' | ACTIVE |
+   | 468d3d7e-4dd1-4e42-9200-e3eb97d603e6 | default/demo-7dd477695c-25s99  | fa:16:3e:24:ba:40 | ip_address='10.0.1.122', subnet_id='15cfabf7-c7e0-4964-a3c0-0545e9e4ea2f' | ACTIVE |
 
 We can then scale the deployment to 2 pods, and check connectivity between
 them:
@@ -55,25 +55,28 @@ them:
 
    $ kubectl get pods
    NAME                    READY     STATUS    RESTARTS   AGE
-   demo-2293951457-gdrv2   1/1       Running   0          9s
-   demo-2293951457-j29nb   1/1       Running   0          14m
+   demo-7dd477695c-25s99   1/1       Running   0          36m
+   demo-7dd477695c-fbq4r   1/1       Running   0          30m
+
 
    $ openstack port list | grep demo
-   | 73100cdb-84d6-4f33-93b2-e212966c65ac | demo-2293951457-j29nb | fa:16:3e:99:ac:ce | ip_address='10.0.0.69', subnet_id='3c3e18f9-d1d0-4674-b3be-9fc8561980d3' | ACTIVE |
-   | 95e89edd-f513-4ec8-80d0-36839725e62d | demo-2293951457-gdrv2 | fa:16:3e:e6:b4:b9 | ip_address='10.0.0.75', subnet_id='3c3e18f9-d1d0-4674-b3be-9fc8561980d3' | ACTIVE |
+   | 468d3d7e-4dd1-4e42-9200-e3eb97d603e6 | default/demo-7dd477695c-25s99  | fa:16:3e:24:ba:40 | ip_address='10.0.1.122', subnet_id='15cfabf7-c7e0-4964-a3c0-0545e9e4ea2f' | ACTIVE |
+   | b54da942-2241-4f07-8e2e-e45a7367fa69 | default/demo-7dd477695c-fbq4r  | fa:16:3e:41:57:a4 | ip_address='10.0.1.116', subnet_id='15cfabf7-c7e0-4964-a3c0-0545e9e4ea2f' | ACTIVE |
 
-   $ kubectl exec -it demo-2293951457-j29nb -- /bin/sh
+   $ kubectl exec -it demo-7dd477695c-25s99  -- /bin/sh
 
-   sh-4.2$ curl 10.0.0.69:8080
-   demo-2293951457-j29nb: HELLO, I AM ALIVE!!!
+   sh-4.2$ curl 10.0.1.122:8080
+   demo-7dd477695c-25s99: HELLO, I AM ALIVE!!!
 
-   sh-4.2$ curl 10.0.0.75:8080
-   demo-2293951457-gdrv2: HELLO, I AM ALIVE!!!
 
-   sh-4.2$ ping 10.0.0.75
-   PING 10.0.0.75 (10.0.0.75) 56(84) bytes of data.
-   64 bytes from 10.0.0.75: icmp_seq=1 ttl=64 time=1.14 ms
-   64 bytes from 10.0.0.75: icmp_seq=2 ttl=64 time=0.250 ms
+   sh-4.2$ curl 10.0.1.116:8080
+   demo-7dd477695c-fbq4r: HELLO, I AM ALIVE!!!
+
+
+   sh-4.2$ ping 10.0.1.116
+   PING 10.0.1.116 (10.0.1.116) 56(84) bytes of data.
+   64 bytes from 10.0.1.116: icmp_seq=1 ttl=64 time=1.14 ms
+   64 bytes from 10.0.1.116: icmp_seq=2 ttl=64 time=0.250 ms
 
 Next, we expose the service so that a neutron load balancer is created and
 the service is exposed and load balanced among the available pods:
@@ -89,52 +92,149 @@ the service is exposed and load balanced among the available pods:
 
    $ kubectl get svc
    NAME         CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
-   demo         10.0.0.161   <none>        80/TCP    6s
+   demo         10.0.0.140   <none>        80/TCP    6s
    kubernetes   10.0.0.129   <none>        443/TCP   1h
 
    $ openstack loadbalancer list
-   +--------------------------------------+--------------------+----------------------------------+-------------+---------------------+----------+
-   | id                                   | name               | tenant_id                        | vip_address | provisioning_status | provider |
-   +--------------------------------------+--------------------+----------------------------------+-------------+---------------------+----------+
-   | 7d0cf5b5-b164-4b32-87d3-ae6c82513927 | default/kubernetes | 47c28e562795468ea52e92226e3bc7b1 | 10.0.0.129  | ACTIVE              | haproxy  |
-   | c34c8d0c-a683-497f-9530-a49021e4b502 | default/demo       | 49e2683370f245e38ac2d6a8c16697b3 | 10.0.0.161  | ACTIVE              | haproxy  |
-   +--------------------------------------+--------------------+----------------------------------+-------------+---------------------+----------+
+   +--------------------------------------+---------------------+----------------------------------+-------------+---------------------+------------------+----------+
+   | id                                   | name                | project_id                       | vip_address | provisioning_status | operating_status | provider |
+   +--------------------------------------+---------------------+----------------------------------+-------------+---------------------+------------------+----------+
+   | e4949ba4-7f73-43ad-8091-d123dea12dae | default/kubernetes  | 1ea4a08913d74aff8ed3e3bf31851236 | 10.0.0.129  | ACTIVE              | ONLINE           | amphora  |
+   | 994893a7-d67f-4af2-b2fe-5a03f03102b1 | default/demo        | 1ea4a08913d74aff8ed3e3bf31851236 | 10.0.0.140  | ACTIVE              | ONLINE           | amphora  |
+   +--------------------------------------+---------------------+----------------------------------+-------------+---------------------+------------------+----------+
+
 
    $ openstack loadbalancer listener list
-   +--------------------------------------+--------------------------------------+------------------------+----------------------------------+----------+---------------+----------------+
-   | id                                   | default_pool_id                      | name                   | tenant_id                        | protocol | protocol_port | admin_state_up |
-   +--------------------------------------+--------------------------------------+------------------------+----------------------------------+----------+---------------+----------------+
-   | fc485508-c37a-48bd-9be3-898bbb7700fa | b12f00b9-44c0-430e-b1a1-e92b57247ad2 | default/demo:TCP:80    | 49e2683370f245e38ac2d6a8c16697b3 | TCP      |            80 | True           |
-   | abfbafd8-7609-4b7d-9def-4edddf2b887b | 70bed821-9a9f-4e1d-8c7e-7df89a923982 | default/kubernetes:443 | 47c28e562795468ea52e92226e3bc7b1 | HTTPS    |           443 | True           |
-   +--------------------------------------+--------------------------------------+------------------------+----------------------------------+----------+---------------+----------------+
+   +--------------------------------------+--------------------------------------+----------------------------+----------------------------------+----------+---------------+----------------+
+   | id                                   | default_pool_id                      | name                       | project_id                       | protocol | protocol_port | admin_state_up |
+   +--------------------------------------+--------------------------------------+----------------------------+----------------------------------+----------+---------------+----------------+
+   | 3223bf4a-4cdd-4d0f-9922-a3d3eb6f5e4f | 6212ecc2-c118-434a-8564-b4e763e9fa74 | default/kubernetes:443     | 1ea4a08913d74aff8ed3e3bf31851236 | HTTPS    |           443 | True           |
+   | 8aebeb5e-bccc-4519-8b68-07847c1b5b73 | f5a61ce7-3e2f-4a33-bd1f-8f12b8d6a6aa | default/demo:TCP:80        | 1ea4a08913d74aff8ed3e3bf31851236 | TCP      |            80 | True           |
+   +--------------------------------------+--------------------------------------+----------------------------+----------------------------------+----------+---------------+----------------+
 
    $ openstack loadbalancer pool list
-   +--------------------------------------+------------------------+----------------------------------+--------------+----------+----------------+
-   | id                                   | name                   | tenant_id                        | lb_algorithm | protocol | admin_state_up |
-   +--------------------------------------+------------------------+----------------------------------+--------------+----------+----------------+
-   | 70bed821-9a9f-4e1d-8c7e-7df89a923982 | default/kubernetes:443 | 47c28e562795468ea52e92226e3bc7b1 | ROUND_ROBIN  | HTTPS    | True           |
-   | b12f00b9-44c0-430e-b1a1-e92b57247ad2 | default/demo:TCP:80    | 49e2683370f245e38ac2d6a8c16697b3 | ROUND_ROBIN  | TCP      | True           |
-   +--------------------------------------+------------------------+----------------------------------+--------------+----------+----------------+
+   +--------------------------------------+----------------------------+----------------------------------+---------------------+----------+--------------+----------------+
+   | id                                   | name                       | project_id                       | provisioning_status | protocol | lb_algorithm | admin_state_up |
+   +--------------------------------------+----------------------------+----------------------------------+---------------------+----------+--------------+----------------+
+   | 6212ecc2-c118-434a-8564-b4e763e9fa74 | default/kubernetes:443     | 1ea4a08913d74aff8ed3e3bf31851236 | ACTIVE              | HTTPS    | ROUND_ROBIN  | True           |
+   | f5a61ce7-3e2f-4a33-bd1f-8f12b8d6a6aa | default/demo:TCP:80        | 1ea4a08913d74aff8ed3e3bf31851236 | ACTIVE              | TCP      | ROUND_ROBIN  | True           |
+   +--------------------------------------+----------------------------+----------------------------------+---------------------+----------+--------------+----------------+
+
 
    $ openstack loadbalancer member list default/demo:TCP:80
-   +--------------------------------------+------------------------------------+----------------------------------+-----------+---------------+--------+--------------------------------------+----------------+
-   | id                                   | name                               | tenant_id                        | address   | protocol_port | weight | subnet_id                            | admin_state_up |
-   +--------------------------------------+------------------------------------+----------------------------------+-----------+---------------+--------+--------------------------------------+----------------+
-   | c0057ce6-64da-4613-b284-faf5477533ab | default/demo-2293951457-j29nb:8080 | 49e2683370f245e38ac2d6a8c16697b3 | 10.0.0.69 |          8080 |      1 | 55405e9d-4e25-4a55-bac2-e25ee88584e1 | True           |
-   | 7a0c0ef9-35ce-4134-b92a-2e73f0f8fe98 | default/demo-2293951457-gdrv2:8080 | 49e2683370f245e38ac2d6a8c16697b3 | 10.0.0.75 |          8080 |      1 | 55405e9d-4e25-4a55-bac2-e25ee88584e1 | True           |
-   +--------------------------------------+------------------------------------+----------------------------------+-----------+---------------+--------+--------------------------------------+----------------+
+   +--------------------------------------+------------------------------------+----------------------------------+---------------------+------------+---------------+------------------+--------+
+   | id                                   | name                               | project_id                       | provisioning_status | address    | protocol_port | operating_status | weight |
+   +--------------------------------------+------------------------------------+----------------------------------+---------------------+------------+---------------+------------------+--------+
+   | 8aff18b1-1e5b-45df-ade1-44ed0e75ca5e | default/demo-7dd477695c-fbq4r:8080 | 1ea4a08913d74aff8ed3e3bf31851236 | ACTIVE              | 10.0.1.116 |          8080 | NO_MONITOR       |      1 |
+   | 2c2c7a54-ad38-4182-b34f-daec03ee0a9a | default/demo-7dd477695c-25s99:8080 | 1ea4a08913d74aff8ed3e3bf31851236 | ACTIVE              | 10.0.1.122 |          8080 | NO_MONITOR       |      1 |
+   +--------------------------------------+------------------------------------+----------------------------------+---------------------+------------+---------------+------------------+--------+
+
+   $ kubectl get klb demo -o yaml
+   apiVersion: openstack.org/v1
+   kind: KuryrLoadBalancer
+   metadata:
+     creationTimestamp: "2020-12-21T15:31:48Z"
+     finalizers:
+     - kuryr.openstack.org/kuryrloadbalancer-finalizers
+     generation: 7
+     name: demo
+     namespace: default
+     resourceVersion: "714"
+     selfLink: /apis/openstack.org/v1/namespaces/default/kuryrloadbalancers/demo
+     uid: 3a97dfad-ad19-45da-8544-72d837ca704a
+   spec:
+     endpointSlices:
+     - endpoints:
+       - addresses:
+         - 10.0.1.116
+         conditions:
+           ready: true
+         targetRef:
+           kind: Pod
+           name: demo-7dd477695c-fbq4r
+           namespace: default
+           resourceVersion: "592"
+           uid: 35d2b8ef-1f0b-4859-b6a2-f62e35418d22
+       - addresses:
+         - 10.0.1.122
+         conditions:
+           ready: true
+         targetRef:
+           kind: Pod
+           name: demo-7dd477695c-25s99
+           namespace: default
+           resourceVersion: "524"
+           uid: 27437c01-488b-43cd-bba3-9a70c1778598
+       ports:
+       - port: 8080
+         protocol: TCP
+     ip: 10.0.0.140
+     ports:
+     - port: 80
+       protocol: TCP
+       targetPort: "8080"
+     project_id: 1ea4a08913d74aff8ed3e3bf31851236
+     provider: amphora
+     security_groups_ids:
+     - 30cd7a25-3628-449c-992f-d23bdc4d1086
+     - aaffa1a5-4b7e-4257-a444-1d39fb61ea22
+     subnet_id: 3e043d77-c1b1-4374-acd5-a87a5f7a8c25
+     type: ClusterIP
+   status:
+     listeners:
+     - id: 8aebeb5e-bccc-4519-8b68-07847c1b5b73
+       loadbalancer_id: 994893a7-d67f-4af2-b2fe-5a03f03102b1
+       name: default/demo:TCP:80
+       port: 80
+       project_id: 1ea4a08913d74aff8ed3e3bf31851236
+       protocol: TCP
+     loadbalancer:
+       id: 994893a7-d67f-4af2-b2fe-5a03f03102b1
+       ip: 10.0.0.140
+       name: default/demo
+       port_id: 967688f5-55a7-4f84-a021-0fdf64152a8b
+       project_id: 1ea4a08913d74aff8ed3e3bf31851236
+       provider: amphora
+       security_groups:
+       - 30cd7a25-3628-449c-992f-d23bdc4d1086
+       - aaffa1a5-4b7e-4257-a444-1d39fb61ea22
+       subnet_id: 3e043d77-c1b1-4374-acd5-a87a5f7a8c25
+     members:
+     - id: 8aff18b1-1e5b-45df-ade1-44ed0e75ca5e
+       ip: 10.0.1.116
+       name: default/demo-7dd477695c-fbq4r:8080
+       pool_id: f5a61ce7-3e2f-4a33-bd1f-8f12b8d6a6aa
+       port: 8080
+       project_id: 1ea4a08913d74aff8ed3e3bf31851236
+       subnet_id: 3e043d77-c1b1-4374-acd5-a87a5f7a8c25
+     - id: 2c2c7a54-ad38-4182-b34f-daec03ee0a9a
+       ip: 10.0.1.122
+       name: default/demo-7dd477695c-25s99:8080
+       pool_id: f5a61ce7-3e2f-4a33-bd1f-8f12b8d6a6aa
+       port: 8080
+       project_id: 1ea4a08913d74aff8ed3e3bf31851236
+       subnet_id: 3e043d77-c1b1-4374-acd5-a87a5f7a8c25
+     pools:
+     - id: f5a61ce7-3e2f-4a33-bd1f-8f12b8d6a6aa
+       listener_id: 8aebeb5e-bccc-4519-8b68-07847c1b5b73
+       loadbalancer_id: 994893a7-d67f-4af2-b2fe-5a03f03102b1
+       name: default/demo:TCP:80
+       project_id: 1ea4a08913d74aff8ed3e3bf31851236
+       protocol: TCP
 
 We can see that both pods are included as members and that the demo cluster-ip
-matches with the loadbalancer vip_address. In order to check loadbalancing
-among them, we are going to curl the cluster-ip from one of the pods and see
-that each of the pods is replying at a time:
+matches with the loadbalancer vip_address. Also we can see the loadbalancer CRD
+after the load balancer was created. In order to check loadbalancing among them,
+we are going to curl the cluster-ip from one of the pods and see that each of
+the pods is replying at a time:
 
 .. code-block:: console
 
-   $ kubectl exec -it demo-2293951457-j29nb -- /bin/sh
+   $ kubectl exec -it demo-7dd477695c-25s99 -- /bin/sh
 
-   sh-4.2$ curl 10.0.0.161
-   demo-2293951457-j29nb: HELLO, I AM ALIVE!!!
+   sh-4.2$ curl 10.0.0.140     
+   demo-7dd477695c-fbq4r: HELLO, I AM ALIVE!!!
 
-   sh-4.2$ curl 10.0.0.161
-   demo-2293951457-gdrv2: HELLO, I AM ALIVE!!!
+
+   sh-4.2$ curl 10.0.0.140
+   demo-7dd477695c-25s99: HELLO, I AM ALIVE!!!

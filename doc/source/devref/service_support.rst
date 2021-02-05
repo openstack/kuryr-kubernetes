@@ -61,24 +61,29 @@ members.
 Kuryr Controller Impact
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Two Kubernetes Event Handlers are added to the Controller pipeline.
+Three Kubernetes Event Handlers are added to the Controller pipeline.
 
-- LBaaSSpecHandler manages Kubernetes Service creation and modification events.
-  Based on the service spec and metadata details, it annotates the service
-  endpoints entity with details to be used for translation to LBaaSv2 model,
-  such as tenant-id, subnet-id, ip address and security groups. The rationale
-  for setting annotation both on Service and Endpoints resources is to avoid
-  concurrency issues, by delegating all Service translation operations to
-  Endpoints (LoadBalancer) handler. To avoid conflicting annotations, K8s
-  Services's resourceVersion is used for Service and Endpoints while handling
-  Services events.
-- LoadBalancerHandler manages Kubernetes endpoints events. It manages
-  LoadBalancer, LoadBalancerListener, LoadBalancerPool and LoadBalancerPool
-  members to reflect and keep in sync with the Kubernetes service. It keeps
-  details of Neutron resources by annotating the Kubernetes Endpoints object.
+- ServiceHandler manages Kubernetes Service events.
+  Based on the service spec and metadata details, it creates KuryrLoadBalancer
+  CRD or it updates the CRD, more specifically the spec part of the CRD with
+  details to be used for translation to LBaaSv2 model, such as tenant-id, subnet-id,
+  ip address and security groups.
+- EndpointsHandler is responsible for adding endpoints subsets to the KuryrLoadBalancer
+  CRD. If endpoint is created before Service, this handler creates the CRD with the
+  endpoints subsets, otherwise the existent CRD is updated.
+- KuryrLoadBalancerHandler manages KuryrLoadBalancer CRD events when the CRD is
+  successfully created and filled with spec data. This handler is responsible for
+  creating the needed Octavia resources according to the CRD spec and update the status
+  field with information about the generated resources, such as LoadBalancer,
+  LoadBalancerListener, LoadBalancerPool and LoadBalancerMembers.
 
-Both Handlers use Project, Subnet and SecurityGroup service drivers to get
+These Handlers use Project, Subnet and SecurityGroup service drivers to get
 details for service mapping.
+In order to prevent Kubernetes objects from being deleted before the OpenStack
+resources are cleaned up, finalizers are used. Finalizers block deletion of the
+Service, Endpoints and KuryrLoadBalancer objects until Kuryr deletes the associated
+OpenStack loadbalancers. After that the finalizers are removed allowing the
+Kubernetes API to delete the objects.
 LBaaS Driver is added to manage service translation to the LBaaSv2-like API.
 It abstracts all the details of service translation to Load Balancer.
 LBaaSv2Driver supports this interface by mapping to neutron LBaaSv2 constructs.
