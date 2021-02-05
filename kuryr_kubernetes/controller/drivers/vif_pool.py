@@ -407,7 +407,10 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
 
         for port in all_active_ports:
             # Parent port
-            if port.trunk_details:
+            # NOTE(dulek): We do not filter by worker_nodes_subnets here
+            #              meaning that we might include some unrelated trunks,
+            #              but the consequence is only memory usage.
+            if port.trunk_details and port.fixed_ips:
                 parent_ports[port.trunk_details['trunk_id']] = {
                     'ip': port.fixed_ips[0]['ip_address'],
                     'subports': port.trunk_details['sub_ports']}

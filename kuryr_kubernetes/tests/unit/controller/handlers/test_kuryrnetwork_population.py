@@ -16,6 +16,7 @@ from unittest import mock
 
 from kuryr_kubernetes.controller.drivers import base as drivers
 from kuryr_kubernetes.controller.drivers import namespace_subnet as subnet_drv
+from kuryr_kubernetes.controller.drivers import node_subnets
 from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes.controller.drivers import vif_pool
 from kuryr_kubernetes.controller.handlers import kuryrnetwork_population
@@ -52,6 +53,8 @@ class TestKuryrNetworkPopulationHandler(test_base.TestCase):
             spec=subnet_drv.NamespacePodSubnetDriver)
         self._handler._drv_vif_pool = mock.MagicMock(
             spec=vif_pool.MultiVIFPool)
+        self._handler._drv_nodes_subnets = mock.MagicMock(
+            spec=node_subnets.ConfigNodesSubnets)
 
         self._get_namespace_subnet = (
             self._handler._drv_subnets.get_namespace_subnet)
