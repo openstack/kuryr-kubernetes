@@ -63,15 +63,13 @@ class TestNamespaceHandler(test_base.TestCase):
         }
         return crd
 
-    @mock.patch.object(namespace.NamespaceHandler, '_upgrade_crds')
     @mock.patch.object(drivers.NamespaceProjectDriver, 'get_instance')
-    def test_init(self, m_get_project_driver, m_upgrade_crds):
+    def test_init(self, m_get_project_driver):
         project_driver = mock.sentinel.project_driver
         m_get_project_driver.return_value = project_driver
 
         handler = namespace.NamespaceHandler()
         self.assertEqual(project_driver, handler._drv_project)
-        m_upgrade_crds.assert_called_once()
 
     def test_on_present(self):
         self._get_kns_crd.return_value = None

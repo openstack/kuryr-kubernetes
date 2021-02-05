@@ -51,34 +51,6 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
         self._drv_svc_sg = drivers.ServiceSecurityGroupsDriver.get_instance()
         self._drv_lbaas = drivers.LBaaSDriver.get_instance()
 
-        self._convert_old_crds()
-
-    def _convert_old_crds(self):
-        try:
-            netpolicies = self.k8s.get(constants.K8S_API_CRD_KURYRNETPOLICIES)
-        except exceptions.K8sResourceNotFound:
-            LOG.debug("%s resource not found.",
-                      constants.K8S_API_CRD_KURYRNETPOLICIES)
-            return
-        except exceptions.K8sClientException:
-            LOG.exception("Error when fetching old KuryrNetPolicy CRDs for "
-                          "conversion.")
-            return
-
-        for netpolicy in netpolicies.get('items', []):
-            new_networkpolicy = self._drv_policy.get_from_old_crd(netpolicy)
-            url = (f"{constants.K8S_API_CRD_NAMESPACES}/"
-                   f"{netpolicy['metadata']['namespace']}/"
-                   f"kuryrnetworkpolicies")
-            try:
-                self.k8s.post(url, new_networkpolicy)
-            except exceptions.K8sConflict:
-                LOG.warning('KuryrNetworkPolicy %s already existed when '
-                            'converting KuryrNetPolicy %s. Ignoring.',
-                            utils.get_res_unique_name(new_networkpolicy),
-                            utils.get_res_unique_name(netpolicy))
-            self.k8s.delete(utils.get_res_link(netpolicy))
-
     def _patch_kuryrnetworkpolicy_crd(self, knp, field, data,
                                       action='replace'):
         name = knp['metadata']['name']

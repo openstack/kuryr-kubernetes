@@ -15,7 +15,6 @@
 
 from kuryr.lib._i18n import _
 from oslo_log import log as logging
-from oslo_serialization import jsonutils
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
@@ -23,7 +22,6 @@ from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes.controller.drivers import base as drv_base
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import k8s_base
-from kuryr_kubernetes.objects import lbaas as obj_lbaas
 from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
@@ -261,8 +259,6 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
     def on_present(self, endpoints):
         ep_name = endpoints['metadata']['name']
         ep_namespace = endpoints['metadata']['namespace']
-        if self._move_annotations_to_crd(endpoints):
-            return
 
         k8s = clients.get_kubernetes_client()
         loadbalancer_crd = k8s.get_loadbalancer_crd(endpoints)
@@ -384,73 +380,5 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
             LOG.exception('Error updating KuryrLoadbalancer CRD %s',
                           loadbalancer_crd)
             raise
-
-    def _move_annotations_to_crd(self, endpoints):
-        """Support upgrade from annotations to KuryrLoadBalancer CRD."""
-        try:
-            spec = (endpoints['metadata']['annotations']
-                    [k_const.K8S_ANNOTATION_LBAAS_SPEC])
-        except KeyError:
-            spec = None
-
-        try:
-            state = (endpoints['metadata']['annotations']
-                     [k_const.K8S_ANNOTATION_LBAAS_STATE])
-        except KeyError:
-            state = None
-
-        if not state and not spec:
-            # No annotations, return
-            return False
-
-        if state or spec:
-            if state:
-                _dict = jsonutils.loads(state)
-                # This is strongly using the fact that annotation's o.vo
-                # and CRD has the same structure.
-                state = obj_lbaas.flatten_object(_dict)
-
-            # Endpoints should always have the spec in the annotation
-            spec_dict = jsonutils.loads(spec)
-            spec = obj_lbaas.flatten_object(spec_dict)
-
-            if state and state['service_pub_ip_info'] is None:
-                del state['service_pub_ip_info']
-            for spec_port in spec['ports']:
-                if not spec_port.get('name'):
-                    del spec_port['name']
-            if not spec['lb_ip']:
-                del spec['lb_ip']
-
-            try:
-                self._create_crd_spec(endpoints, spec, state)
-            except k_exc.ResourceNotReady:
-                LOG.info('KuryrLoadBalancer CRD %s already exists.',
-                         utils.get_res_unique_name(endpoints))
-            except k_exc.K8sClientException:
-                raise k_exc.ResourceNotReady(endpoints)
-
-            # In this step we only need to make sure all annotations are
-            # removed. It may happen that the Endpoints only had spec set,
-            # in which case we just remove it and let the normal flow handle
-            # creation of the LB.
-            k8s = clients.get_kubernetes_client()
-            service_link = utils.get_service_link(endpoints)
-            to_remove = [
-                (utils.get_res_link(endpoints),
-                 k_const.K8S_ANNOTATION_LBAAS_SPEC),
-                (service_link,
-                 k_const.K8S_ANNOTATION_LBAAS_SPEC),
-            ]
-            if state:
-                to_remove.append((utils.get_res_link(endpoints),
-                                  k_const.K8S_ANNOTATION_LBAAS_STATE))
-
-            for path, name in to_remove:
-                try:
-                    k8s.remove_annotations(path, name)
-                except k_exc.K8sClientException:
-                    LOG.warning('Error removing %s annotation from %s', name,
-                                path)
 
         return True
