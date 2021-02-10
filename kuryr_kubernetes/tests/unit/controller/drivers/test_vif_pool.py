@@ -21,6 +21,7 @@ import munch
 from openstack import exceptions as os_exc
 from oslo_config import cfg as oslo_cfg
 
+from os_vif.objects import network as osv_network
 from os_vif.objects import vif as osv_vif
 
 from kuryr_kubernetes import constants
@@ -306,14 +307,16 @@ class BaseVIFPool(test_base.TestCase):
         kubernetes = self.useFixture(k_fix.MockK8sClient()).client
         pod = get_pod_obj()
         port_id = str(uuid.uuid4())
-        pod_vif = osv_vif.VIFBase(id=port_id)
+        port_network = osv_network.Network(id=str(uuid.uuid4()))
+        pod_vif = osv_vif.VIFBase(id=port_id, network=port_network)
         get_vifs.return_value = {'eth0': pod_vif}
         items = [pod]
         kubernetes.get.return_value = {'items': items}
+        network = {}
 
-        resp = cls._get_in_use_ports(m_driver)
-
-        self.assertEqual(resp, [port_id])
+        resp = cls._get_in_use_ports_info(m_driver)
+        network[port_network.id] = port_network
+        self.assertEqual(resp, ([port_id], network))
 
     def test__get_in_use_ports_empty(self):
         cls = vif_pool.BaseVIFPool
@@ -323,9 +326,9 @@ class BaseVIFPool(test_base.TestCase):
         items = []
         kubernetes.get.return_value = {'items': items}
 
-        resp = cls._get_in_use_ports(m_driver)
+        resp = cls._get_in_use_ports_info(m_driver)
 
-        self.assertEqual(resp, [])
+        self.assertEqual(resp, ([], {}))
 
     def test_cleanup_leftover_ports(self):
         cls = vif_pool.BaseVIFPool
@@ -870,6 +873,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_get_subnet.return_value = network
         vif = mock.sentinel.vif
         m_to_osvif.return_value = vif
+        m_driver._get_in_use_ports_info.return_value = [], {}
 
         pool_key = (port.binding_host_id, port.project_id, net_id)
         m_driver._get_pool_key.return_value = pool_key
@@ -895,6 +899,7 @@ class NeutronVIFPool(test_base.TestCase):
         filtered_ports = []
         os_net.ports.return_value = filtered_ports
         m_driver._get_trunks_info.return_value = ({}, {}, {})
+        m_driver._get_in_use_ports_info.return_value = [], {}
 
         oslo_cfg.CONF.set_override('port_debug',
                                    False,
@@ -1442,7 +1447,7 @@ class NestedVIFPool(test_base.TestCase):
         subport = fake.get_port_obj(port_id=subport_id,
                                     device_owner='trunk:subport')
         os_net.ports.return_value = [trunk_port, subport]
-        m_driver._get_in_use_ports.return_value = []
+        m_driver._get_in_use_ports_info.return_value = [], {}
         subnet = mock.sentinel.subnet
         m_get_subnet.return_value = subnet
 
@@ -1465,7 +1470,7 @@ class NestedVIFPool(test_base.TestCase):
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         os_net.ports.return_value = []
-        m_driver._get_in_use_ports.return_value = []
+        m_driver._get_in_use_ports_info.return_value = [], {}
 
         r_p_ports, r_subports, r_subnets = cls._get_trunks_info(m_driver)
 
@@ -1481,7 +1486,7 @@ class NestedVIFPool(test_base.TestCase):
         port_id = str(uuid.uuid4())
         port = fake.get_port_obj(port_id=port_id, device_owner='compute:nova')
         os_net.ports.return_value = [port]
-        m_driver._get_in_use_ports.return_value = []
+        m_driver._get_in_use_ports_info.return_value = [], {}
 
         r_p_ports, r_subports, r_subnets = cls._get_trunks_info(m_driver)
 

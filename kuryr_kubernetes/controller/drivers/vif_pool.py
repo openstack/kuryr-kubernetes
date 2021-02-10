@@ -290,15 +290,17 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
     def _recover_precreated_ports(self):
         raise NotImplementedError()
 
-    def _get_in_use_ports(self):
+    def _get_in_use_ports_info(self):
         kubernetes = clients.get_kubernetes_client()
         in_use_ports = []
+        networks = {}
         running_pods = kubernetes.get(constants.K8S_API_BASE + '/pods')
         for pod in running_pods['items']:
             vifs = c_utils.get_vifs(pod)
             for data in vifs.values():
                 in_use_ports.append(data.id)
-        return in_use_ports
+                networks[data.network.id] = data.network
+        return in_use_ports, networks
 
     def list_pools(self):
         return self._available_ports_pools
@@ -403,7 +405,7 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
             attrs['tags'] = tags
 
         all_active_ports = os_net.ports(**attrs)
-        in_use_ports = self._get_in_use_ports()
+        in_use_ports, in_use_networks = self._get_in_use_ports_info()
 
         for port in all_active_ports:
             # Parent port
@@ -426,8 +428,17 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
                     # per subnet in use
                     subnet_id = port.fixed_ips[0]['subnet_id']
                     if not subnets.get(subnet_id):
-                        subnets[subnet_id] = {subnet_id:
-                                              utils.get_subnet(subnet_id)}
+                        # NOTE(maysams): Avoid calling Neutron by
+                        # getting the Network and Subnet info from
+                        # Network defined on an existing KuryrPort CR.
+                        # This assumes only one Subnet exists per Network.
+                        if in_use_networks.get(port.network_id):
+                            subnets[subnet_id] = {
+                                subnet_id: in_use_networks.get(
+                                    port.network_id)}
+                        else:
+                            subnets[subnet_id] = {
+                                subnet_id: utils.get_subnet(subnet_id)}
         return parent_ports, subports, subnets
 
     def _cleanup_leftover_ports(self):
@@ -725,7 +736,7 @@ class NeutronVIFPool(BaseVIFPool):
             available_ports = os_net.ports(**attrs)
         else:
             kuryr_ports = os_net.ports(**attrs)
-            in_use_ports = self._get_in_use_ports()
+            in_use_ports, _ = self._get_in_use_ports_info()
             available_ports = [port for port in kuryr_ports
                                if port.id not in in_use_ports]
 
