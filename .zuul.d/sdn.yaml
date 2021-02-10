@@ -32,9 +32,10 @@
         Q_ML2_PLUGIN_TYPE_DRIVERS: local,flat,vlan,geneve
         Q_ML2_TENANT_NETWORK_TYPE: geneve
         Q_USE_PROVIDERNET_FOR_PUBLIC: true
-        VAR_RUN_PATH: /var/run
+        VAR_RUN_PATH: /usr/local/var/run
         PHYSICAL_NETWORK: public
         OVN_L3_CREATE_PUBLIC_NETWORK: true
+        OVN_BUILD_FROM_SOURCE: true
         ENABLE_CHASSIS_AS_GW: true
         OVN_BRANCH: v20.06.1
         KURYR_NEUTRON_DEFAULT_ROUTER: kuryr-router
