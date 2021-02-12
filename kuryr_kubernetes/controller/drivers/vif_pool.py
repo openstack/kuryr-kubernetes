@@ -1111,8 +1111,8 @@ class NestedVIFPool(BaseVIFPool):
             # NOTE(ltomasbo): If the amount of nodes is large the repopulation
             # actions may take too long. Using half of the batch to prevent
             # the problem
-            num_ports = max(oslo_cfg.CONF.vif_pool.ports_pool_batch/2,
-                            oslo_cfg.CONF.vif_pool.ports_pool_min)
+            num_ports = int(max(oslo_cfg.CONF.vif_pool.ports_pool_batch/2,
+                            oslo_cfg.CONF.vif_pool.ports_pool_min))
             self.force_populate_pool(trunk_ip, project_id, subnets,
                                      security_groups, num_ports)
 
