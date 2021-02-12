@@ -100,6 +100,8 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
             },
             "status": {}
         }
+        cfg.CONF.set_override('worker_nodes_subnets', [],
+                              group='pod_vif_nested')
 
     def test_get_nodes_subnets(self):
         subnets = ['subnet1', 'subnet2']
@@ -107,6 +109,16 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
         for subnet in subnets:
             driver.subnets.add(subnet)
         self.assertCountEqual(subnets, driver.get_nodes_subnets())
+
+    def test_get_nodes_subnets_with_config(self):
+        subnets = ['subnet1', 'subnet2']
+        cfg.CONF.set_override('worker_nodes_subnets', ['subnet3', 'subnet2'],
+                              group='pod_vif_nested')
+        driver = node_subnets.OpenShiftNodesSubnets()
+        for subnet in subnets:
+            driver.subnets.add(subnet)
+        self.assertCountEqual(['subnet1', 'subnet2', 'subnet3'],
+                              driver.get_nodes_subnets())
 
     def test_get_nodes_subnets_not_raise(self):
         driver = node_subnets.OpenShiftNodesSubnets()
