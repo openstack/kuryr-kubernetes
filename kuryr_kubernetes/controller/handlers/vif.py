@@ -13,9 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from os_vif import objects
 from oslo_log import log as logging
-from oslo_serialization import jsonutils
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
@@ -87,9 +85,6 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         except k_exc.K8sClientException as ex:
             LOG.exception("Failed to add finalizer to pod object: %s", ex)
             raise
-
-        if self._move_annotations_to_crd(pod):
-            return
 
         kp = driver_utils.get_kuryrport(pod)
         if self._is_pod_completed(pod):
@@ -210,37 +205,3 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         k8s = clients.get_kubernetes_client()
         k8s.post(KURYRPORT_URI.format(ns=pod["metadata"]["namespace"],
                                       crd=''), kuryr_port)
-
-    def _move_annotations_to_crd(self, pod):
-        """Support upgrade from annotations to KuryrPort CRD."""
-        try:
-            state = (pod['metadata']['annotations']
-                     [constants.K8S_ANNOTATION_VIF])
-        except KeyError:
-            return False
-
-        _dict = jsonutils.loads(state)
-        state = objects.base.VersionedObject.obj_from_primitive(_dict)
-
-        vifs = {ifname: {'default': state.default_vif == vif,
-                         'vif': objects.base.VersionedObject
-                         .obj_to_primitive(vif)}
-                for ifname, vif in state.vifs.items()}
-
-        try:
-            self._add_kuryrport_crd(pod, vifs)
-        except k_exc.K8sNamespaceTerminating:
-            # The underlying namespace is being terminated, we can
-            # ignore this and let `on_finalize` handle this now. Still
-            # returning True to make sure `on_present` won't continue.
-            return True
-        except k_exc.K8sClientException as ex:
-            LOG.exception("Kubernetes Client Exception recreating "
-                          "KuryrPort CRD from annotation: %s", ex)
-            raise k_exc.ResourceNotReady(pod)
-
-        k8s = clients.get_kubernetes_client()
-        k8s.remove_annotations(utils.get_res_link(pod),
-                               constants.K8S_ANNOTATION_VIF)
-
-        return True

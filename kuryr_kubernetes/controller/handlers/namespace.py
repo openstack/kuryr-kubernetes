@@ -32,44 +32,6 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
     def __init__(self):
         super(NamespaceHandler, self).__init__()
         self._drv_project = drivers.NamespaceProjectDriver.get_instance()
-        self._upgrade_crds()
-
-    def _upgrade_crds(self):
-        k8s = clients.get_kubernetes_client()
-        try:
-            net_crds = k8s.get(constants.K8S_API_CRD_KURYRNETS)
-            namespaces = k8s.get(constants.K8S_API_NAMESPACES)
-        except exceptions.K8sResourceNotFound:
-            return
-        except exceptions.K8sClientException:
-            LOG.warning("Error retriving namespace information")
-            raise
-
-        ns_dict = {'ns-' + ns['metadata']['name']: ns
-                   for ns in namespaces.get('items')}
-
-        for net_crd in net_crds.get('items'):
-            try:
-                ns = ns_dict[net_crd['metadata']['name']]
-            except KeyError:
-                # Note(ltomasbo): The CRD does not have an associated
-                # namespace. It must be deleted
-                LOG.debug('No namespace associated, deleting kuryrnet crd: '
-                          '%s', net_crd)
-            else:
-                try:
-                    ns_net_annotations = ns['metadata']['annotations'][
-                        constants.K8S_ANNOTATION_NET_CRD]
-                except KeyError:
-                    LOG.debug('Namespace associated is not annotated: %s', ns)
-                else:
-                    LOG.debug('Removing annotation: %', ns_net_annotations)
-                    k8s.remove_annotations(utils.get_res_link(ns),
-                                           constants.K8S_ANNOTATION_NET_CRD)
-            try:
-                k8s.delete(utils.get_res_link(net_crd))
-            except exceptions.K8sResourceNotFound:
-                LOG.debug('Kuryrnet object already deleted: %s', net_crd)
 
     def on_present(self, namespace):
         ns_labels = namespace['metadata'].get('labels', {})

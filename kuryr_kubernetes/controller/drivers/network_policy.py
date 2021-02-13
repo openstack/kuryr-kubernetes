@@ -116,70 +116,11 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         else:
             self._patch_knp_crd(policy, i_rules, e_rules, knp)
 
-    def get_from_old_crd(self, netpolicy):
-        name = netpolicy['metadata']['name'][3:]  # Remove 'np-'
-        namespace = netpolicy['metadata']['namespace']
-        link = (f'{constants.K8S_API_NETWORKING}/namespaces/{namespace}/'
-                f'networkpolicies/{name}')
-        knp = {
-            'apiVersion': constants.K8S_API_CRD_VERSION,
-            'kind': constants.K8S_OBJ_KURYRNETWORKPOLICY,
-            'metadata': {
-                'namespace': namespace,
-                'name': name,
-                'annotations': {
-                    'networkPolicyLink': link,
-                },
-                'finalizers': [constants.NETWORKPOLICY_FINALIZER],
-            },
-            'spec': {
-                'podSelector':
-                    netpolicy['spec']['networkpolicy_spec']['podSelector'],
-                'egressSgRules': [self._convert_old_sg_rule(r) for r in
-                                  netpolicy['spec']['egressSgRules']],
-                'ingressSgRules': [self._convert_old_sg_rule(r) for r in
-                                   netpolicy['spec']['ingressSgRules']],
-                'policyTypes':
-                    netpolicy['spec']['networkpolicy_spec']['policyTypes'],
-            },
-            'status': {
-                'podSelector': netpolicy['spec']['podSelector'],
-                'securityGroupId': netpolicy['spec']['securityGroupId'],
-                # We'll just let KuryrNetworkPolicyHandler figure out if rules
-                # are created on its own.
-                'securityGroupRules': [],
-            },
-        }
-
-        return knp
-
     def namespaced_pods(self, policy):
         pod_namespace = policy['metadata']['namespace']
         pods = self.kubernetes.get('{}/namespaces/{}/pods'.format(
             constants.K8S_API_BASE, pod_namespace))
         return pods.get('items')
-
-    def _convert_old_sg_rule(self, rule):
-        del rule['security_group_rule']['id']
-        del rule['security_group_rule']['security_group_id']
-        result = {
-            'sgRule': rule['security_group_rule'],
-        }
-
-        if 'namespace' in rule:
-            result['namespace'] = rule['namespace']
-
-        if 'remote_ip_prefixes' in rule:
-            result['affectedPods'] = []
-            for ip, namespace in rule['remote_ip_prefixes']:
-                if not ip:
-                    continue
-                result['affectedPods'].append({
-                    'podIP': ip,
-                    'podNamespace': namespace,
-                })
-
-        return result
 
     def _get_security_group_rules_from_network_policy(self, policy):
         """Get security group rules required to represent an NP

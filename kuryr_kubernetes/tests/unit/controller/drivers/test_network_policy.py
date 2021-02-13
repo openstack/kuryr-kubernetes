@@ -242,13 +242,6 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         self.assertEqual([], resp)
         self.kubernetes.get.assert_called_once()
 
-    def test_get_from_old_crd(self):
-        knp = self._driver.get_from_old_crd(self.old_crd)
-        self.assertEqual(self.crd['spec'], knp['spec'])
-        self.assertEqual(self.crd['status'], knp['status'])
-        for k in ['name', 'namespace']:
-            self.assertEqual(self.crd['metadata'][k], knp['metadata'][k])
-
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')
     @mock.patch.object(network_policy.NetworkPolicyDriver,
                        '_get_resource_details')
