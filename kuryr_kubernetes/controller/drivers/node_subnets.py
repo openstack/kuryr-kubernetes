@@ -79,12 +79,17 @@ class OpenShiftNodesSubnets(base.NodesSubnetsDriver):
 
     def get_nodes_subnets(self, raise_on_empty=False):
         with lockutils.lock('kuryr-machine-add'):
-            if not self.subnets and raise_on_empty:
+            # We add any hardcoded ones from config anyway.
+            result = self.subnets
+            if CONF.pod_vif_nested.worker_nodes_subnets:
+                result = result.union(
+                    set(CONF.pod_vif_nested.worker_nodes_subnets))
+            if not result and raise_on_empty:
                 raise exceptions.ResourceNotReady(
                     'OpenShift Machines does not exist or are not yet '
                     'handled. Cannot determine worker nodes subnets.')
 
-            return list(self.subnets)
+            return list(result)
 
     def add_node(self, machine):
         subnet_id = self._get_subnet_from_machine(machine)
