@@ -329,14 +329,24 @@ def get_subnets_cidrs(subnet_ids):
 
 
 @MEMOIZE
-def get_subnetpool_version(subnetpool_id):
+def _get_subnetpool(subnetpool_id):
     os_net = clients.get_network_client()
     try:
         subnetpool_obj = os_net.get_subnet_pool(subnetpool_id)
     except os_exc.ResourceNotFound:
         LOG.exception("Subnetpool %s not found!", subnetpool_id)
         raise
+    return subnetpool_obj
+
+
+def get_subnetpool_version(subnetpool_id):
+    subnetpool_obj = _get_subnetpool(subnetpool_id)
     return subnetpool_obj.ip_version
+
+
+def get_subnetpool_cidrs(subnetpool_id):
+    subnetpool_obj = _get_subnetpool(subnetpool_id)
+    return subnetpool_obj.prefixes
 
 
 def extract_pod_annotation(annotation):
