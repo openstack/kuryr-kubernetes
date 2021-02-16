@@ -36,27 +36,18 @@ function ovs_bind_for_kubelet() {
         --device-owner compute:kuryr \
         --project "$project_id" \
         --security-group "$security_group" \
+        --security-group service_pod_access \
         --host "${HOSTNAME}" \
         --network "${KURYR_NEUTRON_DEFAULT_POD_NET}" \
         -f value -c id \
         kubelet-"${HOSTNAME}")
-    # Need to enable Amphorae subnet access to the kubelet iface for API
-    # access
-    openstack port set "$port_id" --security-group service_pod_access
 
     ifname="kubelet${port_id}"
     ifname="${ifname:0:14}"
-    service_subnet_cidr=$(openstack --os-cloud devstack-admin \
-                         --os-region "$REGION_NAME" \
-                         subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
-                         -c cidr -f value)
-    pod_subnet_gw=$(openstack subnet show "$KURYR_NEUTRON_DEFAULT_POD_SUBNET" \
-                    -c gateway_ip -f value)
-
     port_mac=$(openstack port show "$port_id" -c mac_address -f value)
     fixed_ips=$(openstack port show "$port_id" -f value -c fixed_ips)
-    port_ips=($(python3 -c "print(${fixed_ips}[0]['ip_address'])"))
-    port_subnets=($(python3 -c "print(${fixed_ips}[0]['subnet_id'])"))
+    port_ips=($(python3 -c "print(' '.join([x['ip_address'] for x in ${fixed_ips}]))"))
+    port_subnets=($(python3 -c "print(' '.join([x['subnet_id'] for x in ${fixed_ips}]))"))
 
     sudo ovs-vsctl -- --may-exist add-port $OVS_BRIDGE "$ifname" \
         -- set Interface "$ifname" type=internal \
@@ -66,42 +57,55 @@ function ovs_bind_for_kubelet() {
 
     sudo ip link set dev "$ifname" address "$port_mac"
     sudo ip link set dev "$ifname" up
-    for ((i=0; i < ${#port_ips[@]}; i++)); do
+    for i in "${!port_ips[@]}"; do
         prefix=$(openstack subnet show "${port_subnets[$i]}" \
             -c cidr -f value | \
             cut -f2 -d/)
         sudo ip addr add "${port_ips[$i]}/${prefix}" dev "$ifname"
     done
-    if [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
-        if [ "$KURYR_IPV6" == "False" ]; then
-            subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}}
-        else
-            subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_KURYR_V6_ID}}
-        fi
-        cidrs=$(openstack subnet pool show "${subnetpool_id}" -c prefixes -f value)
-        subnetpool_cidr=$(python3 -c "print(${cidrs}[0])")
-        sudo ip route add "$subnetpool_cidr" via "$pod_subnet_gw" dev "$ifname"
-    else
-        sudo ip route add "$service_subnet_cidr" via "$pod_subnet_gw" dev "$ifname"
+
+    # TODO(dulek): This hack is for compatibility with multinode job, we might
+    #              want to do it better one day and actually support dual stack
+    #              and NP here.
+    if [[ -z ${KURYR_SERVICE_SUBNETS_IDS} ]]; then
+        KURYR_SERVICE_SUBNETS_IDS=(${KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET}-IPv4)
+        KURYR_POD_SUBNETS_IDS=(${KURYR_NEUTRON_DEFAULT_POD_SUBNET}-IPv4)
     fi
+
+    for i in "${!KURYR_SERVICE_SUBNETS_IDS[@]}"; do
+        pod_subnet_gw=$(openstack subnet show "${KURYR_POD_SUBNETS_IDS[$i]}" \
+                        -c gateway_ip -f value)
+        if [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
+            cidrs=$(openstack subnet pool show "${KURYR_SUBNETPOOLS_IDS[$i]}" -c prefixes -f value)
+            subnetpool_cidr=$(python3 -c "print(${cidrs}[0])")
+            sudo ip route add "$subnetpool_cidr" via "$pod_subnet_gw" dev "$ifname"
+        else
+            service_subnet_cidr=$(openstack --os-cloud devstack-admin \
+                                 --os-region "$REGION_NAME" \
+                                 subnet show "${KURYR_SERVICE_SUBNETS_IDS[$i]}" \
+                                 -c cidr -f value)
+            sudo ip route add "$service_subnet_cidr" via "$pod_subnet_gw" dev "$ifname"
+        fi
+    done
 
     if [ -n "$port_number" ]; then
         # if openstack-INPUT chain doesn't exist we create it in INPUT (for
         # local development envs since openstack-INPUT is usually only in gates)
-        if [ "$KURYR_IPV6" == "False" ]; then
-          sudo iptables -I openstack-INPUT 1 \
-              -p tcp -s 0.0.0.0/0 -d 0.0.0.0/0 --dport $port_number -j ACCEPT || \
-          sudo iptables -I INPUT 1 \
-              -p tcp -m conntrack --ctstate NEW \
-              -m tcp --dport "$port_number" \
-              -m comment --comment "kuryr-devstack: Access to OpenShift API" -j ACCEPT
-        else
-          sudo ip6tables -I openstack-INPUT 1 \
-              -p tcp -s ::/0 -d ::/0 --dport $port_number -j ACCEPT || \
-          sudo ip6tables -I INPUT 1 \
-              -p tcp -m conntrack --ctstate NEW \
-              -m tcp --dport "$port_number" \
-              -m comment --comment "kuryr-devstack: Access to OpenShift API" -j ACCEPT
+        if [[ "$KURYR_IPV6" == "False" || "$KURYR_DUAL_STACK" == "True" ]]; then
+            sudo iptables -I openstack-INPUT 1 \
+                -p tcp -s 0.0.0.0/0 -d 0.0.0.0/0 --dport $port_number -j ACCEPT || \
+            sudo iptables -I INPUT 1 \
+                -p tcp -m conntrack --ctstate NEW \
+                -m tcp --dport "$port_number" \
+                -m comment --comment "kuryr-devstack: Access to OpenShift API" -j ACCEPT
+        fi
+        if [[ "$KURYR_IPV6" == "True" || "$KURYR_DUAL_STACK" == "True" ]]; then
+            sudo ip6tables -I openstack-INPUT 1 \
+                -p tcp -s ::/0 -d ::/0 --dport $port_number -j ACCEPT || \
+            sudo ip6tables -I INPUT 1 \
+                -p tcp -m conntrack --ctstate NEW \
+                -m tcp --dport "$port_number" \
+                -m comment --comment "kuryr-devstack: Access to OpenShift API" -j ACCEPT
         fi
     fi
 }
@@ -203,13 +207,15 @@ function create_k8s_icmp_sg_rules {
 
     project_id=$(get_or_create_project \
         "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
-    icmp_sg_rules=$(openstack --os-cloud devstack-admin \
-                              --os-region "$REGION_NAME" \
-                              security group rule create \
-                              --project "$project_id" \
-                              --protocol icmp \
-                              --ethertype "$KURYR_ETHERTYPE" \
-                              --"$direction" "$sg_id")
+    for ethertype in ${KURYR_ETHERTYPES[@]}; do
+        icmp_sg_rules=$(openstack --os-cloud devstack-admin \
+                                  --os-region "$REGION_NAME" \
+                                  security group rule create \
+                                  --project "$project_id" \
+                                  --protocol icmp \
+                                  --ethertype "$ethertype" \
+                                  --"$direction" "$sg_id")
+    done
     die_if_not_set $LINENO icmp_sg_rules \
         "Failure creating icmp sg ${direction} rule for ${sg_id}"
 }
@@ -218,15 +224,16 @@ function create_k8s_icmp_sg_rules {
 #   Description: Creates a network and subnet for Kuryr-Kubernetes usage
 #   Params:
 #      project_id       - Kuryr's project uuid
-#      net_name         - Name of the network to create
+#      net_id           - ID of the network where to create subnet in
 #      subnet_name      - Name of the subnet to create
 #      subnetpool_id    - uuid of the subnet pool to use
 #      router           - name of the router to plug the subnet to
 #      split_allocation - Whether to allocate on all the subnet or only the
 #                         latter half
+#      ip_version       - IPv4 or IPv6
 function create_k8s_subnet {
     local project_id=$1
-    local net_name="$2"
+    local net_id="$2"
     local subnet_name="$3"
     local subnetpool_id="$4"
     local router="$5"
@@ -235,23 +242,17 @@ function create_k8s_subnet {
     local split_allocation
 
     split_allocation="${6:-False}"
+    local ip_version="${7:-IPv4}"
 
-    if [ "$KURYR_IPV6" == "False" ]; then
-      subnet_params+="--ip-version 4 "
+    if [ "$ip_version" == "IPv4" ]; then
+        subnet_params+="--ip-version 4 "
     else
-      # NOTE(dulek): K8s API won't accept subnets bigger than 20 bits.
-      #              And 20 will totally be fine for us.
-      subnet_params+="--ip-version 6 --prefix-length 108 "
+        # NOTE(dulek): K8s API won't accept subnets bigger than 20 bits.
+        #              And 20 will totally be fine for us.
+        subnet_params+="--ip-version 6 --prefix-length 108 "
     fi
     subnet_params+="--no-dhcp --gateway none "
     subnet_params+="--subnet-pool $subnetpool_id "
-
-    local net_id
-    net_id=$(openstack --os-cloud devstack-admin \
-                       --os-region "$REGION_NAME" \
-                       network create --project "$project_id" \
-                       "$net_name" \
-                       -c id -f value)
     subnet_params+="--network $net_id $subnet_name"
 
     local subnet_id
@@ -302,6 +303,7 @@ function create_k8s_subnet {
               router add subnet "$router" "$subnet_id" \
               || die $LINENO \
               "Failed to enable routing for K8s ${subnet_name} subnet"
+    echo $subnet_id
 }
 
 # create_k8s_fake_service
