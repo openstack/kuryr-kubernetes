@@ -106,13 +106,13 @@ class TestUtils(test_base.TestCase):
         self.assertEqual(vif.PodState.obj_name(), result.obj_name())
         self.assertEqual(vif_obj, result.default_vif)
 
-    def test__has_kuryrnet_crd(self):
+    def test__has_kuryrnetwork_crd(self):
         kuryrnet_crd = {
             "apiVersion": "openstack.org/v1",
             "items": [
 
             ],
-            "kind": "KuryrNetList",
+            "kind": "KuryrNetworkList",
             "metadata": {
                 "continue": "",
                 "resourceVersion": "33018",
@@ -122,7 +122,7 @@ class TestUtils(test_base.TestCase):
         kubernetes = self.useFixture(k_fix.MockK8sClient()).client
         kubernetes.get.return_value = kuryrnet_crd
 
-        kuryrnets_url = k_const.K8S_API_CRD_KURYRNETS
+        kuryrnets_url = k_const.K8S_API_CRD_KURYRNETWORKS
         resp = utils.has_kuryr_crd(kuryrnets_url)
 
         self.assertEqual(resp, True)
@@ -148,7 +148,7 @@ class TestUtils(test_base.TestCase):
         self.assertEqual(resp, True)
 
     def test__has_kuryr_crd_error(self):
-        crds = [k_const.K8S_API_CRD_KURYRNETS,
+        crds = [k_const.K8S_API_CRD_KURYRNETWORKS,
                 k_const.K8S_API_CRD_KURYRNETPOLICIES,
                 k_const.K8S_API_CRD_KURYRLOADBALANCERS]
 
