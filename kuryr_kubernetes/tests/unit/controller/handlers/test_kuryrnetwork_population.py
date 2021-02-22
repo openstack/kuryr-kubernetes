@@ -81,12 +81,12 @@ class TestKuryrNetworkPopulationHandler(test_base.TestCase):
     @mock.patch.object(driver_utils, 'get_annotations')
     @mock.patch.object(driver_utils, 'get_namespace')
     @mock.patch.object(utils, 'get_nodes_ips')
-    def test_on_added(self, m_get_nodes_ips, m_get_ns, m_get_ann):
+    def test_on_present(self, m_get_nodes_ips, m_get_ns, m_get_ann):
         m_get_nodes_ips.return_value = ['node-ip']
         m_get_ns.return_value = mock.sentinel.ns
         m_get_ann.return_value = self._kuryrnet_crd['metadata']['name']
 
-        kuryrnetwork_population.KuryrNetworkPopulationHandler.on_added(
+        kuryrnetwork_population.KuryrNetworkPopulationHandler.on_present(
             self._handler, self._kuryrnet_crd)
 
         self._get_namespace_subnet.assert_called_once_with(
@@ -99,7 +99,7 @@ class TestKuryrNetworkPopulationHandler(test_base.TestCase):
 
     def test_on_added_no_subnet(self):
         kns = self._kuryrnet_crd.copy()
-        kns['status'] = {}
+        del kns['status']
         kuryrnetwork_population.KuryrNetworkPopulationHandler.on_added(
             self._handler, kns)
         self._get_namespace_subnet.assert_not_called()
