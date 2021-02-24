@@ -33,14 +33,11 @@
           # Need to disable dstat due to bug https://github.com/dstat-real/dstat/pull/162
           dstat: false
           kuryr-kubernetes: false
-          kubernetes-api: false
-          kubernetes-controller-manager: false
-          kubernetes-scheduler: false
-          kubelet: true
+          kubernetes-worker: true
+          kubernetes-master: false
           tls-proxy: false
           c-vol: false
           c-bak: false
-          kuryr-daemon: true
         devstack_localrc:
           KURYR_FORCE_IMAGE_BUILD: true
           KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
@@ -52,8 +49,7 @@
           KURYR_K8S_MULTI_WORKER_TESTS: True
       devstack_services:
         tls-proxy: false
-        kubelet: true
-        kuryr-daemon: true
+        kubernetes-worker: true
     voting: false
 
 - job:
@@ -73,4 +69,4 @@
           devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
           kuryr-kubernetes: https://opendev.org/openstack/kuryr-kubernetes
         devstack_services:
-          kubelet: true
+          kubernetes-worker: true

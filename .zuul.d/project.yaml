@@ -35,12 +35,8 @@
     experimental:
       jobs:
         - kuryr-kubernetes-tempest-containerized-l2
-        - kuryr-kubernetes-tempest-containerized-openshift
         - kuryr-kubernetes-tempest-containerized-pools-namespace
-        - kuryr-kubernetes-tempest-containerized-openshift-serial
         - kuryr-kubernetes-tempest-ovn
-        - kuryr-kubernetes-tempest-openshift
-        - kuryr-kubernetes-tempest-openshift-multi-vif
         - kuryr-kubernetes-tempest-multinode-ha
         - kuryr-kubernetes-tempest-containerized-crio
         - kuryr-kubernetes-tempest-containerized-dual-stack

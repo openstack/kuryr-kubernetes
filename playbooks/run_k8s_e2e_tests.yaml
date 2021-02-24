@@ -76,7 +76,7 @@
       become: yes
 
     - name: Copy kubeconfig file
-      shell: "cp /opt/stack/.kube/config  {{ ansible_env.HOME }}/.kube/"
+      shell: "cp /etc/kubernetes/admin.conf {{ ansible_env.HOME }}/.kube/config"
       become: yes
 
     - name: Change kubeconfig file permission
@@ -89,7 +89,7 @@
     - name: Run Network Policy tests
       block:
       - name: Run Network Policy tests without SCTPConnectivity
-        shell: kubetest --provider=local --check-version-skew=false --test --ginkgo-parallel={{ np_parallel_number }} --test_args="--ginkgo.focus=\[Feature:NetworkPolicy --ginkgo.skip=\[Feature:SCTPConnectivity|should.enforce.policies.to.check.ingress.and.egress.policies.can.be.controlled.independently.based.on.PodSelector --host=http://127.0.0.1:8080" --dump=/tmp > ~/np_kubetest.log
+        shell: kubetest --provider=local --check-version-skew=false --test --ginkgo-parallel={{ np_parallel_number }} --test_args="--ginkgo.focus=\[Feature:NetworkPolicy --ginkgo.skip=\[Feature:SCTPConnectivity|should.enforce.policies.to.check.ingress.and.egress.policies.can.be.controlled.independently.based.on.PodSelector" --dump=/tmp > ~/np_kubetest.log
         args:
           chdir: ~/kubernetes
         environment:
@@ -98,7 +98,7 @@
           PATH: "{{ ansible_env.PATH }}:/usr/local/go/bin:{{ ansible_env.HOME }}/go/bin"
       always:
       - name: Run Network Policy SCTPConnectivity tests
-        shell: kubetest --provider=local --check-version-skew=false --test --ginkgo-parallel={{ np_parallel_number }} --test_args="--ginkgo.focus=NetworkPolicy.\[Feature:SCTPConnectivity --host=http://127.0.0.1:8080" --dump=/tmp > ~/np_sctp_kubetest.log
+        shell: kubetest --provider=local --check-version-skew=false --test --ginkgo-parallel={{ np_parallel_number }} --test_args="--ginkgo.focus=NetworkPolicy.\[Feature:SCTPConnectivity" --dump=/tmp > ~/np_sctp_kubetest.log
         args:
           chdir: ~/kubernetes
         environment:

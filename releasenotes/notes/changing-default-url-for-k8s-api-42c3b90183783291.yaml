@@ -1,0 +1,16 @@
+---
+upgrade:
+  - |
+    Option 'api_root' from kubernetes section changed default value from:
+
+    .. code-block:: ini
+
+       [kubernetes]
+       api_root=http://localhost:8080
+
+    to:
+
+    .. code-block:: ini
+
+       [kubernetes]
+       api_root=https://localhost:6443

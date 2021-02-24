@@ -1,0 +1,161 @@
+#!/bin/bash
+
+function get_k8s_log_level {
+    if [[ ${ENABLE_DEBUG_LOG_LEVEL} == "True" ]]; then
+        echo "4"
+    else
+        echo "2"
+    fi
+}
+
+function kubeadm_install {
+
+    if ! is_ubuntu; then
+        (>&2 echo "WARNING: kubeadm installation is not supported in this \
+distribution.")
+        return
+    fi
+
+    apt_get install apt-transport-https
+    curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
+        sudo apt-key add -
+    sudo add-apt-repository -y \
+        "deb https://apt.kubernetes.io/ kubernetes-xenial main"
+    REPOS_UPDATED=False apt_get_update
+
+    # NOTE(gryf): kubectl will be installed alongside with the kubeadm as
+    # a dependency
+    apt_get install \
+        kubelet="${KURYR_KUBERNETES_VERSION}-00" \
+        kubeadm="${KURYR_KUBERNETES_VERSION}-00"
+    sudo apt-mark hold kubelet kubeadm kubectl
+    # NOTE(hongbin): This work-around an issue that kubelet pick a wrong
+    # IP address if the node has multiple network interfaces.
+    # See https://github.com/kubernetes/kubeadm/issues/203
+    echo "KUBELET_EXTRA_ARGS=--node-ip=$HOST_IP" | sudo tee -a \
+        /etc/default/kubelet
+    sudo systemctl daemon-reload && sudo systemctl restart kubelet
+}
+
+function kubeadm_init {
+
+    local cluster_ip_ranges
+    local output_dir="${DATA_DIR}/kuryr-kubernetes"
+
+    mkdir -p "${output_dir}"
+
+    cluster_ip_ranges=()
+    for service_subnet_id in ${KURYR_SERVICE_SUBNETS_IDS[@]}; do
+        service_cidr=$(openstack --os-cloud devstack-admin \
+            --os-region "$REGION_NAME" \
+            subnet show "$service_subnet_id" \
+            -c cidr -f value)
+        cluster_ip_ranges+=($(split_subnet "$service_cidr" | cut -f1))
+    done
+
+    # TODO(gryf): take care of cri-o case aswell
+    rm -f ${output_dir}/kubeadm-init.yaml
+    cat >> ${output_dir}/kubeadm-init.yaml << EOF
+apiVersion: kubeadm.k8s.io/v1beta2
+kind: ClusterConfiguration
+etcd:
+  external:
+    endpoints:
+    - "http://${SERVICE_HOST}:${ETCD_PORT}"
+networking:
+  serviceSubnet: "$(IFS=, ; echo "${cluster_ip_ranges[*]}")"
+apiServer:
+  extraArgs:
+    min-request-timeout: "300"
+    allow-privileged: "true"
+    v: "$(get_k8s_log_level)"
+    logtostderr: "true"
+controllerManager:
+  extraArgs:
+    master: "$KURYR_K8S_API_URL"
+    min-resync-period: "3m"
+    v: "$(get_k8s_log_level)"
+    logtostderr: "true"
+    leader-elect: "false"
+scheduler:
+  extraArgs:
+    master: "${KURYR_K8S_API_URL}"
+    v: "$(get_k8s_log_level)"
+    logtostderr: "true"
+    leader-elect: "false"
+---
+apiVersion: kubeadm.k8s.io/v1beta2
+bootstrapTokens:
+- token: "${KURYR_K8S_TOKEN}"
+  ttl: 0s
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: "${K8S_API_SERVER_IP}"
+  bindPort: ${K8S_API_SERVER_PORT}
+nodeRegistration:
+  kubeletExtraArgs:
+    cgroup-driver: "$(docker info -f '{{.CgroupDriver}}')"
+    cni-bin-dir: "$CNI_BIN_DIR"
+    cni-conf-dir: "$CNI_CONF_DIR"
+    enable-server: "true"
+  taints:
+    []
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+failSwapOn: false
+address: "0.0.0.0"
+enableServer: true
+EOF
+    args="--config ${output_dir}/kubeadm-init.yaml"
+    # NOTE(gryf): skip installing kube proxy, kuryr will handle services.
+    args+=" --skip-phases=addon/kube-proxy"
+    args+=" --ignore-preflight-errors Swap"
+
+    if ! is_service_enabled coredns; then
+        # FIXME(gryf): Do we need specific configuration for coredns?
+        args+=" --skip-phases=addon/coredns"
+    fi
+    sudo kubeadm init $args
+
+    local kube_config_file=$HOME/.kube/config
+    mkdir -p $(dirname ${kube_config_file})
+    sudo cp /etc/kubernetes/admin.conf $kube_config_file
+    safe_chown $STACK_USER:$STACK_USER $kube_config_file
+}
+
+function get_k8s_apiserver {
+    # assumption is, there is no other cluster, so there is only one API
+    # server.
+    echo "$(kubectl config view -o jsonpath='{.clusters[].cluster.server}')"
+}
+
+function get_k8s_token {
+    local secret
+    secret=$(kubectl get secrets -o jsonpath='{.items[0].metadata.name}')
+    echo $(kubectl get secret $secret -o jsonpath='{.items[0].data.token}' | \
+        base64 -d)
+}
+
+function kubeadm_reset {
+    local nodename
+    nodename=$(kubectl get nodes -o jsonpath="{.items[0].metadata.name}")
+    kubectl drain $nodename --delete-emptydir-data --force --ignore-daemonsets
+    kubectl delete node $nodename
+    sudo kubeadm reset -f
+    sudo iptables -F
+    sudo iptables -t nat -F
+    sudo iptables -t mangle -F
+    sudo iptables -X
+    sudo ipvsadm -C
+}
+
+function kubeadm_uninstall {
+    sudo systemctl stop kubelet
+    apt_get purge --allow-change-held-packages. kubelet kubeadm kubeadm \
+        kubernetes-cni apt-transport-https
+    sudo add-apt-repository -r -y \
+        "deb https://apt.kubernetes.io/ kubernetes-xenial main"
+    REPOS_UPDATED=False apt_get_update
+    sudo rm -fr /etc/default/kubelet /etc/kubernetes
+}

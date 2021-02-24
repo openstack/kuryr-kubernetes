@@ -12,7 +12,30 @@
 # Dependencies:
 # (none)
 
-function ovs_bind_for_kubelet() {
+KURYR_CONF_NEUTRON=$(trueorfalse True KURYR_CONFIGURE_NEUTRON_DEFAULTS)
+KURYR_IPV6=$(trueorfalse False KURYR_IPV6)
+KURYR_DUAL_STACK=$(trueorfalse False KURYR_DUAL_STACK)
+KURYR_USE_LC=$(trueorfalse False KURYR_CONTAINERS_USE_LOWER_CONSTRAINTS)
+
+
+function container_runtime {
+    # Ignore error at killing/removing a container doesn't running to avoid
+    # unstack is terminated.
+    # TODO: Support for CRI-O if it's required.
+    local regex_cmds_ignore="(kill|rm)\s+"
+
+    if [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
+        sudo podman "$@" || die $LINENO "Error when running podman command"
+    else
+        if [[ $@ =~ $regex_cmds_ignore ]]; then
+            docker "$@"
+        else
+            docker "$@" || die $LINENO "Error when running docker command"
+        fi
+    fi
+}
+
+function ovs_bind_for_kubelet {
     local port_id
     local port_mac
     local fixed_ips
@@ -110,63 +133,6 @@ function ovs_bind_for_kubelet() {
     fi
 }
 
-# get_container
-#   Description: Pulls a container from Dockerhub
-#   Params:
-#      image_name - the name of the image in docker hub
-#      version    - The version of the image to pull. Defaults to 'latest'
-function get_container {
-    local image
-    local image_name
-    local version
-    image_name="$1"
-    version="${2:-latest}"
-
-    if [ "$image_name" == "" ]; then
-        return 0
-    fi
-
-    image="${image_name}:${version}"
-    if [ -z "$(container_runtime images -q "$image")" ]; then
-        container_runtime pull "$image"
-    fi
-}
-
-# run_container
-#   Description: Runs a container and attaches devstack's logging to it
-#   Params:
-#      name - Name of the container to run
-#      args - arguments to run the container with
-function run_container {
-    # Runs a detached container and uses devstack's run process to monitor
-    # its logs
-    local name
-
-    name="$1"
-    shift
-    args="$@"
-    container_runtime create --name $name $args
-
-    if [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
-        run_process "$name"  "$(which podman) start --attach $name" root root
-    else
-        run_process "$name"  "$(which docker) start --attach $name"
-    fi
-}
-
-# stop_container
-#   Description: stops a container and its devstack logging
-#   Params:
-#      name - Name of the container to stop
-function stop_container {
-    local name
-    name="$1"
-
-    container_runtime kill "$name"
-    container_runtime rm "$name"
-    stop_process "$name"
-}
-
 # _allocation_range
 #   Description: Writes out tab separated usable ip range for a CIDR
 #   Params:
@@ -207,7 +173,7 @@ function create_k8s_icmp_sg_rules {
 
     project_id=$(get_or_create_project \
         "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
-    for ethertype in ${KURYR_ETHERTYPES[@]}; do
+    for ethertype in "${KURYR_ETHERTYPES[@]}"; do
         icmp_sg_rules=$(openstack --os-cloud devstack-admin \
                                   --os-region "$REGION_NAME" \
                                   security group rule create \
@@ -303,53 +269,23 @@ function create_k8s_subnet {
               router add subnet "$router" "$subnet_id" \
               || die $LINENO \
               "Failed to enable routing for K8s ${subnet_name} subnet"
-    echo $subnet_id
-}
-
-# create_k8s_fake_service
-#   Description: Creates an endpoint-less kubernetes service to keep Kubernetes
-#                API server from allocating this IP for another service
-function create_k8s_fake_service {
-    local fake_svc_name
-    local fake_svc_ip
-
-    fake_svc_name="$1"
-    fake_svc_ip="$2"
-
-    existing_svc_ip=$(/usr/local/bin/kubectl get svc --namespace kube-system -o jsonpath='{.items[?(@.metadata.name=='"\"${fake_svc_name}\""')].spec.clusterIP}')
-
-    if [[ "$existing_svc_ip" == "" ]]; then
-        # Create fake service so the clusterIP can't be reassigned
-        cat <<EOF | /usr/local/bin/kubectl create -f -
-kind: Service
-apiVersion: v1
-metadata:
-  name: "${fake_svc_name}"
-  namespace: kube-system
-spec:
-  type: ClusterIP
-  clusterIP: "${fake_svc_ip}"
-  ports:
-    - protocol: TCP
-      port: 80
-EOF
-    fi
+    echo "$subnet_id"
 }
 
 # build_kuryr_containers
 #   Description: Generates a Kuryr controller and Kuryr CNI docker images in
 #       the local docker registry as kuryr/controller:latest and
 #       kuryr/cni:latest respectively
-function build_kuryr_containers() {
+function build_kuryr_containers {
     local build_args
     local build_dir
 
     build_dir="${DEST}/kuryr-kubernetes"
     pushd "$build_dir"
 
-    KURYR_CONTAINERS_USE_LOWER_CONSTRAINTS=$(trueorfalse False KURYR_CONTAINERS_USE_LOWER_CONSTRAINTS)
-    if [[ "$KURYR_CONTAINERS_USE_LOWER_CONSTRAINTS" == "True" ]]; then
-        build_args="--build-arg UPPER_CONSTRAINTS_FILE=/opt/kuryr-kubernetes/lower-constraints.txt"
+    if [[ "$KURYR_USE_LC" == "True" ]]; then
+        build_args="--build-arg UPPER_CONSTRAINTS_FILE="`
+            `"/opt/kuryr-kubernetes/lower-constraints.txt"
     fi
 
     # Build images
@@ -360,24 +296,24 @@ function build_kuryr_containers() {
         sudo buildah bud -t docker.io/kuryr/controller -f controller.Dockerfile .
         sudo buildah bud -t docker.io/kuryr/cni -f cni.Dockerfile .
     else
-        container_runtime build -t kuryr/controller -f controller.Dockerfile ${build_args}  .
+        container_runtime build -t kuryr/controller -f controller.Dockerfile ${build_args} .
         container_runtime build -t kuryr/cni -f cni.Dockerfile ${build_args} .
     fi
     popd
 }
 
-function indent() {
+function indent {
     sed 's/^/    /';
 }
 
-function generate_kuryr_configmap() {
+function generate_kuryr_configmap {
     local output_dir
     local conf_path
     output_dir=$1
     conf_path=${2:-""}
 
     mkdir -p "$output_dir"
-    rm -f ${output_dir}/config_map.yml
+    rm -f "${output_dir}/config_map.yml"
 
     cat >> "${output_dir}/config_map.yml" << EOF
 apiVersion: v1
@@ -389,21 +325,21 @@ data:
   kuryr.conf: |
 EOF
 
-    cat $conf_path | indent >> "${output_dir}/config_map.yml"
+    indent < "${conf_path}" >> "${output_dir}/config_map.yml"
 }
 
-function generate_kuryr_certificates_secret() {
+function generate_kuryr_certificates_secret {
     local output_dir
     local certs_bundle_path
     output_dir=$1
     certs_bundle_path=${2:-""}
 
     mkdir -p "$output_dir"
-    rm -f ${output_dir}/certificates_secret.yml
+    rm -f "${output_dir}/certificates_secret.yml"
 
     CA_CERT=\"\"  # It's a "" string that will be inserted into yaml file.
 
-    if [ $certs_bundle_path -a -f $certs_bundle_path ]; then
+    if [ "$certs_bundle_path" -a -f "$certs_bundle_path" ]; then
         CA_CERT=$(base64 -w0 < "$certs_bundle_path")
     fi
 
@@ -420,11 +356,11 @@ EOF
 }
 
 # Generates kuryr-controller service account and kuryr-cni service account.
-function generate_kuryr_service_account() {
+function generate_kuryr_service_account {
     output_dir=$1
     mkdir -p "$output_dir"
-    rm -f ${output_dir}/controller_service_account.yml
-    rm -f ${output_dir}/cni_service_account.yml
+    rm -f "${output_dir}/controller_service_account.yml"
+    rm -f "${output_dir}/cni_service_account.yml"
     cat >> "${output_dir}/controller_service_account.yml" << EOF
 ---
 apiVersion: v1
@@ -527,12 +463,12 @@ roleRef:
 EOF
 }
 
-function generate_controller_deployment() {
+function generate_controller_deployment {
     output_dir=$1
     health_server_port=$2
     controller_ha=$3
     mkdir -p "$output_dir"
-    rm -f ${output_dir}/controller_deployment.yml
+    rm -f "${output_dir}/controller_deployment.yml"
     cat >> "${output_dir}/controller_deployment.yml" << EOF
 apiVersion: apps/v1
 kind: Deployment
@@ -631,13 +567,13 @@ EOF
 EOF
 }
 
-function generate_cni_daemon_set() {
+function generate_cni_daemon_set {
     output_dir=$1
     cni_health_server_port=$2
     cni_bin_dir=${3:-/opt/cni/bin}
     cni_conf_dir=${4:-/etc/cni/net.d}
     mkdir -p "$output_dir"
-    rm -f ${output_dir}/cni_ds.yml
+    rm -f "${output_dir}/cni_ds.yml"
     cat >> "${output_dir}/cni_ds.yml" << EOF
 apiVersion: apps/v1
 kind: DaemonSet
@@ -739,187 +675,6 @@ EOF
     fi
 }
 
-# install_openshift_binary
-#   Description: Fetches the configured binary release of OpenShift and
-#                installs it in the system
-function install_openshift_binary {
-    mkdir -p "$OPENSHIFT_BIN"
-
-    curl -L ${OPENSHIFT_BINARY_BASE_URL}/${OPENSHIFT_BINARY_VERSION}/CHECKSUM --silent | \
-        awk -v "ver=${OPENSHIFT_BINARY_VERSION}" \
-            -v "dest=${OPENSHIFT_BIN}/openshift.tar.gz" \
-            -v "baseurl=${OPENSHIFT_BINARY_BASE_URL}" \
-            '/server/ {system("curl -L " baseurl "/" ver "/" $2 " --retry 2 -o " dest)}'
-
-    tar xzvf "${OPENSHIFT_BIN}/openshift.tar.gz" --strip 1 -C "$OPENSHIFT_BIN"
-
-    # Make openshift run from its untarred directory
-    cat << EOF | sudo tee /usr/local/bin/openshift
-#!/bin/bash
-cd ${OPENSHIFT_BIN}
-exec ./openshift "\$@"
-EOF
-    sudo chmod a+x /usr/local/bin/openshift
-
-    # For releases >= 3.11 we'll need hyperkube as well
-    cat << EOF | sudo tee /usr/local/bin/hyperkube
-#!/bin/bash
-cd ${OPENSHIFT_BIN}
-exec ./hyperkube "\$@"
-EOF
-    sudo chmod a+x /usr/local/bin/hyperkube
-
-    # Make oc easily available
-    cat << EOF | sudo tee /usr/local/bin/oc
-#!/bin/bash
-CURL_CA_BUNDLE=${OPENSHIFT_DATA_DIR}/master/ca.crt \
-    KUBECONFIG=${OPENSHIFT_DATA_DIR}/master/admin.kubeconfig \
-    ${OPENSHIFT_BIN}/oc "\$@"
-EOF
-    sudo chmod a+x /usr/local/bin/oc
-
-    # Make kubectl easily available
-    cat << EOF | sudo tee /usr/local/bin/kubectl
-#!/bin/bash
-CURL_CA_BUNDLE=${OPENSHIFT_DATA_DIR}/master/ca.crt \
-    KUBECONFIG=${OPENSHIFT_DATA_DIR}/master/admin.kubeconfig \
-    ${OPENSHIFT_BIN}/kubectl "\$@"
-EOF
-    sudo chmod a+x /usr/local/bin/kubectl
-}
-
-# run_openshift_master
-#   Description: Starts the openshift master
-function run_openshift_master {
-    local cmd
-    local pod_subnet_cidr
-    local service_subnet_cidr
-    local portal_net
-
-    sudo install -d -o "$STACK_USER" "$OPENSHIFT_DATA_DIR"
-
-    pod_subnet_cidr=$(openstack --os-cloud devstack-admin \
-                         --os-region "$REGION_NAME" \
-                         subnet show "$KURYR_NEUTRON_DEFAULT_POD_SUBNET" \
-                         -c cidr -f value)
-    service_subnet_cidr=$(openstack --os-cloud devstack-admin \
-                         --os-region "$REGION_NAME" \
-                         subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
-                         -c cidr -f value)
-
-    if is_service_enabled octavia; then
-        portal_net=$(split_subnet "$service_subnet_cidr" | cut -f1)
-    else
-        portal_net="$service_subnet_cidr"
-    fi
-
-    # Generate master config
-    "${OPENSHIFT_BIN}/openshift" start master \
-        "--etcd=http://${SERVICE_HOST}:${ETCD_PORT}" \
-        "--network-cidr=${pod_subnet_cidr}" \
-        "--portal-net=${portal_net}" \
-        "--listen=0.0.0.0:${OPENSHIFT_API_PORT}" \
-        "--master=${OPENSHIFT_API_URL}" \
-        "--write-config=${OPENSHIFT_DATA_DIR}/master"
-
-    # Enable externalIPs
-    sed -i 's/externalIPNetworkCIDRs: null/externalIPNetworkCIDRs: ["0.0.0.0\/0"]/' "${OPENSHIFT_DATA_DIR}/master/master-config.yaml"
-
-    # Reconfigure Kuryr-Kubernetes to use the certs generated
-    iniset "$KURYR_CONFIG" kubernetes ssl_client_crt_file "${OPENSHIFT_DATA_DIR}/master/admin.crt"
-    iniset "$KURYR_CONFIG" kubernetes ssl_client_key_file "${OPENSHIFT_DATA_DIR}/master/admin.key"
-    iniset "$KURYR_CONFIG" kubernetes ssl_ca_crt_file "${OPENSHIFT_DATA_DIR}/master/ca.crt"
-
-    sudo chown "${STACK_USER}:${STACK_USER}" -R "$OPENSHIFT_DATA_DIR"
-
-    # Generate kubelet kubeconfig
-    "${OPENSHIFT_BIN}/oc" adm create-kubeconfig \
-        "--client-key=${OPENSHIFT_DATA_DIR}/master/master.kubelet-client.key" \
-        "--client-certificate=${OPENSHIFT_DATA_DIR}/master/master.kubelet-client.crt" \
-        "--certificate-authority=${OPENSHIFT_DATA_DIR}/master/ca.crt" \
-        "--master=${OPENSHIFT_API_URL}" \
-        "--kubeconfig=${OPENSHIFT_DATA_DIR}/master/master.kubelet-client.kubeconfig"
-
-    cmd="/usr/local/bin/openshift start master \
-        --config=${OPENSHIFT_DATA_DIR}/master/master-config.yaml"
-
-    wait_for "etcd" "http://${SERVICE_HOST}:${ETCD_PORT}/v2/machines"
-
-    run_process openshift-master "$cmd" root root
-}
-
-# make_admin_cluster_admin
-#   Description: Gives the system:admin permissions over the cluster
-function make_admin_cluster_admin {
-    wait_for "OpenShift API Server" "$OPENSHIFT_API_URL" \
-        "${OPENSHIFT_DATA_DIR}/master/ca.crt"
-    /usr/local/bin/oc adm policy add-cluster-role-to-user cluster-admin admin \
-        "--config=${OPENSHIFT_DATA_DIR}/master/openshift-master.kubeconfig"
-    /usr/local/bin/oc adm policy add-cluster-role-to-user cluster-admin system:openshift-node-admin \
-        "--config=${OPENSHIFT_DATA_DIR}/master/openshift-master.kubeconfig"
-}
-
-# run_openshift_node
-#   Description: Starts the openshift node
-function run_openshift_node {
-    local command
-
-    #install required CNI loopback driver
-    sudo mkdir -p "$CNI_BIN_DIR"
-    curl -L "$OPENSHIFT_CNI_BINARY_URL" | sudo tar -C "$CNI_BIN_DIR" -xzvf - ./loopback
-
-    # Since 3.11 we should run upstream kubelet through hyperkube.
-    declare -r min_no_node_ver="v3.11.0"
-    if [[ "$min_no_node_ver" == "$(echo -e "${OPENSHIFT_BINARY_VERSION}\n${min_no_node_ver}" | sort -V | head -n 1)" ]]; then
-        # generate kubelet configuration and certs
-        local name
-        name=`hostname`
-        oc adm create-node-config --node-dir ${OPENSHIFT_DATA_DIR}/node \
-                                  --node ${name} \
-                                  --hostnames ${name} \
-                                  --certificate-authority ${OPENSHIFT_DATA_DIR}/master/ca.crt \
-                                  --signer-cert ${OPENSHIFT_DATA_DIR}/master/ca.crt \
-                                  --signer-key=${OPENSHIFT_DATA_DIR}/master/ca.key \
-                                  --signer-serial ${OPENSHIFT_DATA_DIR}/master/ca.serial.txt \
-                                  --node-client-certificate-authority=${OPENSHIFT_DATA_DIR}/master/ca.crt
-
-        command="/usr/local/bin/hyperkube kubelet \
-        --network-plugin=cni \
-        --address=0.0.0.0 \
-        --port=10250 \
-        --cgroup-driver $(docker info -f '{{.CgroupDriver}}') \
-        --fail-swap-on=false \
-        --allow-privileged=true \
-        --v=2 \
-        --tls-cert-file=${OPENSHIFT_DATA_DIR}/node/server.crt \
-        --tls-private-key-file=${OPENSHIFT_DATA_DIR}/node/server.key"
-    else
-        command="/usr/local/bin/openshift start node \
-        --enable=kubelet,plugins \
-        --network-plugin=cni \
-        --listen=https://0.0.0.0:8442"
-    fi
-    command+=" --kubeconfig=${OPENSHIFT_DATA_DIR}/master/master.kubelet-client.kubeconfig"
-
-    # Link master config necessary for bootstrapping
-    # TODO: This needs to be generated so we don't depend on it on multinode
-    mkdir -p "${OPENSHIFT_BIN}/openshift.local.config"
-    ln -fs "${OPENSHIFT_DATA_DIR}/master" "${OPENSHIFT_BIN}/openshift.local.config/master"
-    mkdir -p "${OPENSHIFT_DATA_DIR}/node"
-    ln -fs "${OPENSHIFT_DATA_DIR}/node" "${OPENSHIFT_BIN}/openshift.local.config/node"
-
-    # Link stack CNI to location expected by openshift node
-    sudo mkdir -p /etc/cni
-    sudo rm -fr /etc/cni/net.d
-    sudo rm -fr /opt/cni/bin
-    sudo ln -fs "${CNI_CONF_DIR}" /etc/cni/net.d
-    sudo mkdir -p /opt/cni
-    sudo ln -fs "${CNI_BIN_DIR}" /opt/cni/bin
-
-
-    run_process openshift-node "$command" root root
-}
-
 # lb_state
 #   Description: Returns the state of the load balancer
 #   Params:
@@ -933,7 +688,7 @@ function lb_state {
         awk '/provisioning_status/ {print $4}'
 }
 
-function wait_for_lb {
+function _wait_for_lb {
     local lb_name
     local curr_time
     local time_diff
@@ -1013,7 +768,7 @@ function create_load_balancer_listener {
 
     max_timeout=1200
     # Octavia needs the LB to be active for the listener
-    wait_for_lb $lb $max_timeout
+    _wait_for_lb "$lb" "$max_timeout"
 
     openstack loadbalancer listener create --name "$name" \
         --protocol "$protocol" \
@@ -1051,7 +806,7 @@ function create_load_balancer_pool {
     lb="$6"
 
     # We must wait for the LB to be active before we can put a Pool for it
-    wait_for_lb $lb
+    _wait_for_lb "$lb"
 
     openstack loadbalancer pool create --name "$name" \
         --listener "$listener" \
@@ -1074,7 +829,6 @@ function create_load_balancer_member {
     local address
     local port
     local pool
-    local subnet
     local lb
     local project_id
 
@@ -1082,12 +836,11 @@ function create_load_balancer_member {
     address="$2"
     port="$3"
     pool="$4"
-    subnet="$5"
-    lb="$6"
-    project_id="$7"
+    lb="$5"
+    project_id="$6"
 
     # We must wait for the pool creation update before we can add members
-    wait_for_lb $lb
+    _wait_for_lb "$lb"
 
     openstack loadbalancer member create --name "$name" \
         --address "$address" \
@@ -1115,155 +868,13 @@ print("%s\\t%s" % (first, last))
 EOF
 }
 
-# get_loadbalancer_attribute
-#   Description: Get load balancer attribute
-#   Params:
-#       lb_name: Load balancer name
-#       lb_attr: attribute name
-function get_loadbalancer_attribute {
-    local lb_name
-    local lb_attr
-
-    lb_name="$1"
-    lb_attr="$2"
-
-    openstack loadbalancer show "$lb_name" -c "$lb_attr" -f value
-}
-
-# openshift_node_set_dns_config
-#   Description: Configures Openshift node's DNS section atomically
-#   Params:
-#       node_conf_path: path_to_node_config
-#       upstream_dns_ip: IP of the upstream DNS
-function openshift_node_set_dns_config {
-    local openshift_dnsmasq_recursive_resolv
-    local upstream_dns_ip
-    openshift_dnsmasq_recursive_resolv="${OPENSHIFT_DATA_DIR}/node/resolv.conf"
-
-    upstream_dns_ip="$2"
-    cat > "$openshift_dnsmasq_recursive_resolv" << EOF
-nameserver $upstream_dns_ip
-EOF
-
-    python3 - <<EOF "$@"
-import os
-import sys
-import tempfile
-import traceback
-import yaml
-
-if len(sys.argv) < 3:
-    sys.exit(1)
-node_conf_path = sys.argv[1]
-conf_dir = os.path.dirname(node_conf_path)
-
-def dns_configure_copy(conf):
-    new_conf = conf.copy()
-    # 127.0.0.1 is used by unbound in gates, let's use another localshost addr
-    new_conf['dnsBindAddress'] = '127.0.0.11:53'
-    new_conf['dnsDomain'] = 'cluster.local'
-    new_conf['dnsIP'] = '0.0.0.0'
-    new_conf['dnsRecursiveResolvConf'] = '${openshift_dnsmasq_recursive_resolv}'
-    return new_conf
-
-old_config = {}
-while True:
-    tp = tempfile.NamedTemporaryFile(dir=conf_dir, delete=False, mode='w')
-    try:
-        with open(node_conf_path) as node_conf:
-            current_conf = yaml.load(node_conf.read())
-            if current_conf == old_config:
-                tp.write(yaml.dump(new_conf, default_flow_style=False))
-                tp.flush()
-                os.fsync(tp.fileno())
-                tp.close()
-                os.rename(tp.name, node_conf_path)
-                break
-            else:
-                new_conf = dns_configure_copy(current_conf)
-                old_config = current_conf
-                tp.close()
-                os.unlink(tp.name)
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-        tp.close()
-        os.unlink(tp.name)
-EOF
-}
-
-# run_openshift_dnsmasq
-#   Description: Configures and runs a dnsmasq instance to be run as the node
-#       DNS server that will choose between openshift's DNS and the
-#       upstream DNS depending on the domain
-#   Params:
-#       upstream_dns_ip: IP of the upstream DNS
-function run_openshift_dnsmasq {
-    local dnmasq_binary
-    local cmd
-    local upstream_dns_ip
-    local openshift_dnsmasq_conf_path
-    local search_domains
-
-    upstream_dns_ip="$1"
-    openshift_dnsmasq_conf_path="${OPENSHIFT_DATA_DIR}/node/node_dnsmasq.conf"
-    install_package dnsmasq
-    cat > "$openshift_dnsmasq_conf_path" << EOF
-server=${upstream_dns_ip}
-no-resolv
-domain-needed
-no-negcache
-max-cache-ttl=1
-# Enable dbus so openshift dns can use it to set cluster.local rules
-enable-dbus
-dns-forward-max=10000
-cache-size=10000
-bind-dynamic
-# Do not bind to localhost addresses 127.0.0.1/8 (where skydns binds)
-except-interface=lo
-EOF
-
-    #Open port 53 so pods can reach the DNS server
-    sudo iptables -I INPUT 1 -p udp -m udp --dport 53 -m comment --comment "kuryr-devstack: Access to OpenShift API" -j ACCEPT
-
-    dnsmasq_binary="$(command -v dnsmasq)"
-    cmd="${dnsmasq_binary} -k -C ${openshift_dnsmasq_conf_path}"
-    run_process openshift-dnsmasq "$cmd" root root
-
-    sudo cp /etc/resolv.conf /etc/resolv.conf.orig
-    search_domains=$(awk '/search/ {for (i=2; i<NF; i++) printf $i " "; print $NF}' /etc/resolv.conf.orig)
-    search_domains="cluster.local ${search_domains}"
-    echo "search ${search_domains}" | sudo tee /etc/resolv.conf.openshift_devstack
-    echo "options ndots:4" | sudo tee /etc/resolv.conf.openshift_devstack
-    echo "nameserver ${HOST_IP}" | sudo tee --append /etc/resolv.conf.openshift_devstack
-    grep "nameserver" /etc/resolv.conf.orig | sudo tee --append  /etc/resolv.conf.openshift_devstack
-    sudo mv /etc/resolv.conf.openshift_devstack /etc/resolv.conf
-}
-
-function reinstate_old_dns_config {
-    sudo mv /etc/resolv.conf.orig /etc/resolv.conf
-}
-
-
-# run_openshift_dns
-#   Description: Starts openshift's DNS
-function run_openshift_dns {
-    local command
-
-    command="/usr/local/bin/openshift start network \
-        --enable=dns \
-        --config=${OPENSHIFT_DATA_DIR}/node/node-config.yaml \
-        --kubeconfig=${OPENSHIFT_DATA_DIR}/node/node.kubeconfig"
-
-    run_process openshift-dns "$command" root root
-}
-
 # cleanup_kuryr_devstack_iptables
 #    Description: Fins all the iptables rules we set and deletes them
 function cleanup_kuryr_devstack_iptables {
     local chains
 
     chains=( INPUT FORWARD OUTPUT )
-    for chain in ${chains[@]}; do
+    for chain in "${chains[@]}"; do
         sudo iptables -n -L "$chain" -v --line-numbers | \
             awk -v chain="$chain" \
                 '/kuryr-devstack/ {print "sudo iptables -D " chain " " $1}' | \
@@ -1271,139 +882,676 @@ function cleanup_kuryr_devstack_iptables {
     done
 }
 
-# run_openshift_registry
-#   Description: Deploys Openshift's registry as a DeploymentConfig
-function run_openshift_registry {
-    local registry_yaml
-    local registry_ip="$1"
-
-    mkdir -p "${OPENSHIFT_DATA_DIR}/registry"
-    registry_yaml=$(mktemp)
-    oc adm registry \
-        --config=${OPENSHIFT_DATA_DIR}/master/admin.kubeconfig \
-        --service-account=registry \
-        --mount-host=${OPENSHIFT_DATA_DIR}/registry \
-        --tls-certificate=${OPENSHIFT_DATA_DIR}/master/registry.crt \
-        --tls-key=${OPENSHIFT_DATA_DIR}/master/registry.key \
-        -o yaml > $registry_yaml
-
-    python3 - <<EOF "$registry_yaml" "$registry_ip"
-import copy
-import os
-import sys
-import tempfile
-import traceback
-import yaml
-
-if len(sys.argv) < 3:
-    sys.exit(1)
-registry_conf_path = sys.argv[1]
-registry_cluster_ip = sys.argv[2]
-conf_dir = os.path.dirname(registry_conf_path)
-
-def service_configure_registry_clusterIP(conf):
-    new_conf = copy.deepcopy(conf)
-    for object in new_conf['items']:
-        if object['kind'] == 'Service':
-            object['spec']['clusterIP'] = registry_cluster_ip
-    return new_conf
-
-old_conf = {}
-while True:
-    tp = tempfile.NamedTemporaryFile(dir=conf_dir, delete=False, mode='w')
-    try:
-        with open(registry_conf_path) as registry_conf:
-            current_conf = yaml.load(registry_conf.read())
-            if current_conf == old_conf:
-                tp.write(yaml.dump(new_conf, default_flow_style=False))
-                tp.flush()
-                os.fsync(tp.fileno())
-                tp.close()
-                os.rename(tp.name, registry_conf_path)
-                break
-            else:
-                new_conf = service_configure_registry_clusterIP(current_conf)
-                old_conf = current_conf
-                tp.close()
-                os.unlink(tp.name)
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-        tp.close()
-        os.unlink(tp.name)
-EOF
-
-oc adm policy add-scc-to-user privileged -z registry -n default
-oc create -f "$registry_yaml"
+function build_install_kuryr_cni {
+    pushd "${KURYR_HOME}/kuryr_cni" || exit 1
+    hack/build-go.sh
+    sudo install -o "$STACK_USER" -m 0555 -D bin/kuryr-cni \
+        "${CNI_BIN_DIR}/kuryr-cni"
+    popd
 }
 
-# oc_generate_server_certificates
-#   Description: Generates and CA signs openshift cert & key for server
-#   Params:
-#     - name: filename without extension of the cert and key
-#     - hostnames: the comma separated hostnames to sign the cert for
-function oc_generate_server_certificates {
-    local name
-    local cert_hostnames
-
-    name="$1"
-    cert_hostnames="$2"
-    oc adm ca create-server-cert \
-    --signer-cert="${OPENSHIFT_DATA_DIR}/master/ca.crt" \
-    --signer-key="${OPENSHIFT_DATA_DIR}/master/ca.key" \
-    --signer-serial="${OPENSHIFT_DATA_DIR}/master/ca.serial.txt" \
-    --hostnames="$cert_hostnames" \
-    --cert="${OPENSHIFT_DATA_DIR}/master/${name}.crt" \
-    --key="${OPENSHIFT_DATA_DIR}/master/${name}.key"
-}
-
-# docker_install_ca_certs
-#   Description: Installs registry openshift_ca_certs to docker
-#   Params:
-#     - registry_hostnames: the comma separated hostnames to give the CA for
-function docker_install_ca_certs {
-    local registry_hostnames
-    local destdir
-
-    # TODO(dulek): Support for CRI-O.
-    registry_hostnames=(${1//,/ })
-    for hostname in ${registry_hostnames[@]}; do
-        destdir="/etc/docker/certs.d/${hostname}:5000"
-        sudo install -d -o "$STACK_USER" "$destdir"
-        sudo install -o "$STACK_USER" "${OPENSHIFT_DATA_DIR}/master/ca.crt" "${destdir}/"
-    done
+function create_kuryr_account {
+    create_service_user "kuryr" "admin"
+    get_or_create_service "kuryr-kubernetes" "kuryr-kubernetes" \
+        "Kuryr-Kubernetes Service"
 }
 
 
-function _nth_cidr_ip {
-    local cidr
-    local position
+function _create_kuryr_cache_dir {
+    # Create cache directory
+    sudo install -d -o "$STACK_USER" "$KURYR_AUTH_CACHE_DIR"
+    if [[ ! "$KURYR_AUTH_CACHE_DIR" == "" ]]; then
+        rm -f "$KURYR_AUTH_CACHE_DIR"/*
+    fi
+}
 
-    cidr="$1"
-    position="$2"
-    python3 - <<EOF "$cidr" "$position"
+function _create_kuryr_lock_dir {
+    # Create lock directory
+    sudo install -d -o "$STACK_USER" "$KURYR_LOCK_DIR"
+}
+
+function configure_kuryr {
+    local dir
+    sudo install -d -o "$STACK_USER" "$KURYR_CONFIG_DIR"
+    "${KURYR_HOME}/tools/generate_config_file_samples.sh"
+    sudo install -o "$STACK_USER" -m 640 -D \
+        "${KURYR_HOME}/etc/kuryr.conf.sample" "$KURYR_CONFIG"
+
+    iniset "$KURYR_CONFIG" kubernetes ssl_client_crt_file "$KURYR_K8S_API_CERT"
+    iniset "$KURYR_CONFIG" kubernetes ssl_client_key_file "$KURYR_K8S_API_KEY"
+    if [ "$KURYR_K8S_API_CACERT" ]; then
+        iniset "$KURYR_CONFIG" kubernetes ssl_ca_crt_file "$KURYR_K8S_API_CACERT"
+        iniset "$KURYR_CONFIG" kubernetes ssl_verify_server_crt True
+    fi
+    if [ "$KURYR_MULTI_VIF_DRIVER" ]; then
+        iniset "$KURYR_CONFIG" kubernetes multi_vif_drivers "$KURYR_MULTI_VIF_DRIVER"
+    fi
+    # REVISIT(ivc): 'use_stderr' is required for current CNI driver. Once a
+    # daemon-based CNI driver is implemented, this could be removed.
+    iniset "$KURYR_CONFIG" DEFAULT use_stderr true
+
+    iniset "$KURYR_CONFIG" DEFAULT debug "$ENABLE_DEBUG_LOG_LEVEL"
+
+    iniset "$KURYR_CONFIG" kubernetes port_debug "$KURYR_PORT_DEBUG"
+
+    iniset "$KURYR_CONFIG" kubernetes pod_subnets_driver "$KURYR_SUBNET_DRIVER"
+    iniset "$KURYR_CONFIG" kubernetes pod_security_groups_driver "$KURYR_SG_DRIVER"
+    iniset "$KURYR_CONFIG" kubernetes service_security_groups_driver "$KURYR_SG_DRIVER"
+    iniset "$KURYR_CONFIG" kubernetes enabled_handlers "$KURYR_ENABLED_HANDLERS"
+
+    # Let Kuryr retry connections to K8s API for 20 minutes.
+    iniset "$KURYR_CONFIG" kubernetes watch_retry_timeout 1200
+
+    if [ "${KURYR_CONT}" == "True" ]; then
+        # This works around the issue of being unable to set oslo.privsep mode
+        # to FORK in os-vif. When running in a container we disable `sudo` that
+        # was prefixed before `privsep-helper` command. This let's us run in
+        # envs without sudo and keep the same python environment as the parent
+        # process.
+        iniset "$KURYR_CONFIG" vif_plug_ovs_privileged helper_command privsep-helper
+        iniset "$KURYR_CONFIG" vif_plug_linux_bridge_privileged helper_command privsep-helper
+
+        # When running kuryr-daemon or CNI in container we need to set up
+        # some configs.
+        iniset "$KURYR_CONFIG" cni_daemon docker_mode True
+        iniset "$KURYR_CONFIG" cni_daemon netns_proc_dir "/host_proc"
+    else
+        iniset "$KURYR_CONFIG" oslo_concurrency lock_path "$KURYR_LOCK_DIR"
+        _create_kuryr_lock_dir
+        iniset "$KURYR_CONFIG" cni_health_server cg_path \
+            "/system.slice/system-devstack.slice/devstack@kuryr-daemon.service"
+    fi
+
+    _create_kuryr_cache_dir
+
+    # Neutron API server & Neutron plugin
+    if is_service_enabled kuryr-kubernetes; then
+        configure_auth_token_middleware "$KURYR_CONFIG" kuryr \
+        "$KURYR_AUTH_CACHE_DIR" neutron
+        iniset "$KURYR_CONFIG" kubernetes pod_vif_driver "$KURYR_POD_VIF_DRIVER"
+        if [ "$KURYR_USE_PORTS_POOLS" ]; then
+            iniset "$KURYR_CONFIG" kubernetes vif_pool_driver "$KURYR_VIF_POOL_DRIVER"
+            iniset "$KURYR_CONFIG" vif_pool ports_pool_min "$KURYR_VIF_POOL_MIN"
+            iniset "$KURYR_CONFIG" vif_pool ports_pool_max "$KURYR_VIF_POOL_MAX"
+            iniset "$KURYR_CONFIG" vif_pool ports_pool_batch "$KURYR_VIF_POOL_BATCH"
+            iniset "$KURYR_CONFIG" vif_pool ports_pool_update_frequency "$KURYR_VIF_POOL_UPDATE_FREQ"
+            if [ "$KURYR_VIF_POOL_MANAGER" ]; then
+                iniset "$KURYR_CONFIG" kubernetes enable_manager "$KURYR_VIF_POOL_MANAGER"
+
+                dir=`iniget "$KURYR_CONFIG" vif_pool manager_sock_file`
+                if [[ -z $dir ]]; then
+                    dir="/run/kuryr/kuryr_manage.sock"
+                fi
+                dir=`dirname $dir`
+                sudo mkdir -p $dir
+            fi
+        fi
+    fi
+}
+
+function copy_kuryr_certs {
+    # copy kubelet key and make ubuntu user owner of it
+    sudo cp /etc/kubernetes/pki/apiserver-kubelet-client.key \
+        /etc/kubernetes/pki/kuryr-client.key
+    sudo chown $(whoami) /etc/kubernetes/pki/kuryr-client.key
+}
+
+function _generate_containerized_kuryr_resources {
+    if [[ $KURYR_CONTROLLER_REPLICAS -eq 1 ]]; then
+        KURYR_CONTROLLER_HA="False"
+    else
+        KURYR_CONTROLLER_HA="True"
+    fi
+
+    # Containerized deployment will use tokens provided by k8s itself.
+    inicomment "$KURYR_CONFIG" kubernetes ssl_client_crt_file
+    inicomment "$KURYR_CONFIG" kubernetes ssl_client_key_file
+
+    iniset "$KURYR_CONFIG" kubernetes controller_ha ${KURYR_CONTROLLER_HA}
+    iniset "$KURYR_CONFIG" kubernetes controller_ha_port ${KURYR_CONTROLLER_HA_PORT}
+
+    # NOTE(dulek): In the container the CA bundle will be mounted in a standard
+    # directory
+    iniset "$KURYR_CONFIG" neutron cafile /etc/ssl/certs/kuryr-ca-bundle.crt
+
+    # Generate kuryr resources in k8s formats.
+    local output_dir="${DATA_DIR}/kuryr-kubernetes"
+    generate_kuryr_configmap $output_dir $KURYR_CONFIG
+    generate_kuryr_certificates_secret $output_dir $SSL_BUNDLE_FILE
+    generate_kuryr_service_account $output_dir
+    generate_controller_deployment $output_dir $KURYR_HEALTH_SERVER_PORT $KURYR_CONTROLLER_HA
+    generate_cni_daemon_set $output_dir $KURYR_CNI_HEALTH_SERVER_PORT $CNI_BIN_DIR $CNI_CONF_DIR
+}
+
+function run_containerized_kuryr_resources {
+    local k8s_data_dir="${DATA_DIR}/kuryr-kubernetes"
+    kubectl create -f \
+        "${k8s_data_dir}/config_map.yml" \
+        || die $LINENO "Failed to create kuryr-kubernetes ConfigMap."
+    kubectl create -f \
+        "${k8s_data_dir}/certificates_secret.yml" \
+        || die $LINENO "Failed to create kuryr-kubernetes certificates Secret."
+    kubectl create -f \
+        "${k8s_data_dir}/controller_service_account.yml" \
+        || die $LINENO "Failed to create kuryr-controller ServiceAccount."
+    kubectl create -f \
+        "${k8s_data_dir}/cni_service_account.yml" \
+        || die $LINENO "Failed to create kuryr-cni ServiceAccount."
+    kubectl create -f \
+        "${k8s_data_dir}/controller_deployment.yml" \
+        || die $LINENO "Failed to create kuryr-kubernetes Deployment."
+    kubectl create -f \
+        "${k8s_data_dir}/cni_ds.yml" \
+        || die $LINENO "Failed to create kuryr-kubernetes CNI DaemonSet."
+}
+
+function _cidr_range {
+  python3 - <<EOF "$1"
 import sys
 from netaddr import IPAddress, IPNetwork
-
-cmdname, cidr, position = sys.argv
-n = IPNetwork(cidr)
-print("%s" % IPAddress(n.first + int(position)))
+n = IPNetwork(sys.argv[1])
+print("%s\\t%s\\t%s" % (IPAddress(n.first + 1), IPAddress(n.first + 2), IPAddress(n.last - 1)))
 EOF
 }
 
-function configure_and_run_registry {
-    local service_cidr
-    local registry_ip
-    local hostnames
+function copy_tempest_kubeconfig {
+    local tempest_home
+    tempest_home='/home/tempest'
+    if [ -d "$tempest_home" ]; then
+        sudo cp -r "${HOME}/.kube" "$tempest_home"
+        sudo chown -R tempest "${tempest_home}/.kube"
+    fi
+}
 
-    # TODO(dulek): Support for CRI-O.
+function create_lb_for_services {
+    # This allows pods that need access to kubernetes API (like the
+    # containerized kuryr controller or kube-dns) to talk to the K8s API
+    # service
+    local api_port=6443
+    local service_cidr
+    local kubelet_iface_ip
+    local lb_name
+    local use_octavia
+    local project_id
+    local fixed_ips
+    local address
+
+    project_id=$(get_or_create_project \
+        "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
+    lb_name='default/kubernetes'
+    # TODO(dulek): We only look at the first service subnet because kubernetes
+    #              API service is only IPv4 in 1.20. It might be dual stack
+    #              in the future.
     service_cidr=$(openstack --os-cloud devstack-admin \
                              --os-region "$REGION_NAME" \
-                             subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
+                             subnet show "${KURYR_SERVICE_SUBNETS_IDS[0]}" \
                              -c cidr -f value)
-    registry_ip=$(_nth_cidr_ip "$service_cidr" 2)
-    hostnames="docker-registry.default.svc.cluster.local,docker-registry.default.svc,${registry_ip}"
 
-    docker_install_ca_certs "$hostnames"
-    oc_generate_server_certificates registry "$hostnames"
-    run_openshift_registry "$registry_ip"
+    fixed_ips=$(openstack port show kubelet-"${HOSTNAME}" -c fixed_ips -f value)
+    kubelet_iface_ip=$(python3 -c "print(${fixed_ips}[0]['ip_address'])")
+
+    k8s_api_clusterip=$(_cidr_range "$service_cidr" | cut -f1)
+
+    echo "***********************************************************************"
+    echo "lbname: $lb_name subnet ${KURYR_SERVICE_SUBNETS_IDS[0]} pid: $project_id api-cluster: $k8s_api_clusteri"
+    echo "***********************************************************************"
+    create_load_balancer "$lb_name" "${KURYR_SERVICE_SUBNETS_IDS[0]}" \
+            "$project_id" "$k8s_api_clusterip"
+    create_load_balancer_listener default/kubernetes:${KURYR_K8S_API_LB_PORT} HTTPS ${KURYR_K8S_API_LB_PORT} "$lb_name" "$project_id" 3600000
+    create_load_balancer_pool default/kubernetes:${KURYR_K8S_API_LB_PORT} HTTPS ROUND_ROBIN \
+        default/kubernetes:${KURYR_K8S_API_LB_PORT} "$project_id" "$lb_name"
+
+    if [[ "${KURYR_OVS_BM}" == "True" ]]; then
+        address=${kubelet_iface_ip}
+    else
+        address="${HOST_IP}"
+    fi
+
+    # Regardless of the octavia mode, the k8s API will be behind an L3 mode
+    # amphora driver loadbalancer
+    create_load_balancer_member "$(hostname)" "$address" "$api_port" \
+        default/kubernetes:${KURYR_K8S_API_LB_PORT} "$lb_name" "$project_id"
+}
+
+function _configure_neutron_defaults {
+    local project_id
+    local sg_ids
+    local router
+    local router_id
+    local ext_svc_net_id
+    local addrs_prefix
+    local subnetpool_name
+
+    project_id=$(get_or_create_project \
+        "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
+    ext_svc_net_id="$(openstack network show -c id -f value \
+        "${KURYR_NEUTRON_DEFAULT_EXT_SVC_NET}")"
+
+    # If a subnetpool is not passed, we get the one created in devstack's
+    # Neutron module
+
+    export KURYR_SUBNETPOOLS_IDS=()
+    export KURYR_ETHERTYPES=()
+    if [[ "$KURYR_IPV6" == "False" || "$KURYR_DUAL_STACK" == "True" ]]; then
+        export KURYR_ETHERTYPE=IPv4
+        KURYR_ETHERTYPES+=("IPv4")
+        KURYR_SUBNETPOOLS_IDS+=(${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}})
+    fi
+    if [[ "$KURYR_IPV6" == "True" || "$KURYR_DUAL_STACK" == "True" ]]; then
+        export KURYR_ETHERTYPE=IPv6
+        KURYR_ETHERTYPES+=("IPv6")
+        # NOTE(gryf): To not clash with subnets created by DevStack for IPv6,
+        # we create another subnetpool just for kuryr subnets.
+        # SUBNETPOOL_KURYR_V6_ID will be used in function configure_kuryr in
+        # case of namespace kuryr subnet driver.
+        # This is not required for IPv4, because DevStack is only adding a
+        # conflicting route for IPv6. On DevStack this route is opening public
+        # IPv6 network to be accessible from host, which doesn't have place in
+        # IPv4 net, because floating IPs are used instead.
+        IPV6_ID=$(uuidgen | sed s/-//g | cut -c 23- | \
+            sed -e "s/\(..\)\(....\)\(....\)/\1:\2:\3/")
+        addrs_prefix="fd${IPV6_ID}::/56"
+        subnetpool_name=${SUBNETPOOL_KURYR_NAME_V6}
+        KURYR_SUBNETPOOLS_IDS+=($(openstack \
+            --os-cloud devstack-admin \
+            --os-region "${REGION_NAME}" \
+            subnet pool create "${subnetpool_name}" \
+            --default-prefix-length "${SUBNETPOOL_SIZE_V6}" \
+            --pool-prefix "${addrs_prefix}" \
+            --share -f value -c id))
+    fi
+
+    router=${KURYR_NEUTRON_DEFAULT_ROUTER:-$Q_ROUTER_NAME}
+    if [ "$router" != "$Q_ROUTER_NAME" ]; then
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            router create --project "$project_id" "$router"
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            router set --external-gateway "$ext_svc_net_id" "$router"
+    fi
+    router_id="$(openstack router show -c id -f value "$router")"
+
+    pod_net_id=$(openstack --os-cloud devstack-admin \
+                       --os-region "$REGION_NAME" \
+                       network create --project "$project_id" \
+                       "$KURYR_NEUTRON_DEFAULT_POD_NET" \
+                       -c id -f value)
+    service_net_id=$(openstack --os-cloud devstack-admin \
+                       --os-region "$REGION_NAME" \
+                       network create --project "$project_id" \
+                       "$KURYR_NEUTRON_DEFAULT_SERVICE_NET" \
+                       -c id -f value)
+
+    export KURYR_POD_SUBNETS_IDS=()
+    export KURYR_SERVICE_SUBNETS_IDS=()
+    for i in "${!KURYR_SUBNETPOOLS_IDS[@]}"; do
+        KURYR_POD_SUBNETS_IDS+=($(create_k8s_subnet "$project_id" \
+                          "$pod_net_id" \
+                          "${KURYR_NEUTRON_DEFAULT_POD_SUBNET}-${KURYR_ETHERTYPES[$i]}" \
+                          "${KURYR_SUBNETPOOLS_IDS[$i]}" \
+                          "$router" "False" ${KURYR_ETHERTYPES[$i]}))
+
+        KURYR_SERVICE_SUBNETS_IDS+=($(create_k8s_subnet "$project_id" \
+                          "$service_net_id" \
+                          "${KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET}-${KURYR_ETHERTYPES[$i]}" \
+                          "${KURYR_SUBNETPOOLS_IDS[$i]}" \
+                          "$router" "True" ${KURYR_ETHERTYPES[$i]}))
+    done
+
+    sg_ids=()
+    if [[ "$KURYR_SG_DRIVER" == "default" ]]; then
+        sg_ids+=($(echo $(openstack security group list \
+            --project "$project_id" -c ID -f value) | tr ' ' ','))
+    fi
+
+    # In order for the ports to allow service traffic under Octavia L3 mode,
+    # it is necessary for the service subnet to be allowed into the port's
+    # security groups. If L3 is used, then the pods created will include it.
+    # Otherwise it will be just used by the kubelet port used for the K8s API
+    # load balancer
+    local service_pod_access_sg_id
+    service_pod_access_sg_id=$(openstack --os-cloud devstack-admin \
+        --os-region "$REGION_NAME" \
+        security group create --project "$project_id" \
+        service_pod_access -f value -c id)
+
+    for i in "${!KURYR_SERVICE_SUBNETS_IDS[@]}"; do
+        local service_cidr
+        service_cidr=$(openstack --os-cloud devstack-admin \
+            --os-region "$REGION_NAME" subnet show \
+            "${KURYR_SERVICE_SUBNETS_IDS[$i]}" -f value -c cidr)
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            security group rule create --project "$project_id" \
+            --description "k8s service subnet allowed" \
+            --remote-ip "$service_cidr" --ethertype "${KURYR_ETHERTYPES[$i]}" --protocol tcp \
+            "$service_pod_access_sg_id"
+        # Since Octavia supports also UDP load balancing, we need to allow
+        # also udp traffic
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            security group rule create --project "$project_id" \
+            --description "k8s service subnet UDP allowed" \
+            --remote-ip "$service_cidr" --ethertype "${KURYR_ETHERTYPES[$i]}" --protocol udp \
+            "$service_pod_access_sg_id"
+        # Octavia supports SCTP load balancing, we need to also allow SCTP traffic
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            security group rule create --project "$project_id" \
+            --description "k8s service subnet SCTP allowed" \
+            --remote-ip "$service_cidr" --ethertype "${KURYR_ETHERTYPES[$i]}" --protocol sctp \
+            "$service_pod_access_sg_id"
+    done
+
+    if [[ "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L3" ]]; then
+        sg_ids+=(${service_pod_access_sg_id})
+    elif [[ "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L2" ]]; then
+        # In case the member connectivity is L2, Octavia by default uses the
+        # admin 'default' sg to create a port for the amphora load balancer
+        # at the member ports subnet. Thus we need to allow L2 communication
+        # between the member ports and the octavia ports by allowing all
+        # access from the pod subnet range to the ports in that subnet, and
+        # include it into $sg_ids
+        local octavia_pod_access_sg_id
+        octavia_pod_access_sg_id=$(openstack --os-cloud devstack-admin \
+            --os-region "$REGION_NAME" \
+            security group create --project "$project_id" \
+            octavia_pod_access -f value -c id)
+        for i in "${!KURYR_POD_SUBNETS_IDS[@]}"; do
+            local pod_cidr
+            pod_cidr=$(openstack --os-cloud devstack-admin \
+                --os-region "$REGION_NAME" subnet show \
+                "${KURYR_POD_SUBNETS_IDS[$i]}" -f value -c cidr)
+            openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+                security group rule create --project "$project_id" \
+                --description "k8s pod subnet allowed from k8s-pod-subnet" \
+                --remote-ip "$pod_cidr" --ethertype "${KURYR_ETHERTYPES[$i]}" --protocol tcp \
+                "$octavia_pod_access_sg_id"
+            # Since Octavia supports also UDP load balancing, we need to allow
+            # also udp traffic
+            openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+                security group rule create --project "$project_id" \
+                --description "k8s pod subnet allowed from k8s-pod-subnet" \
+                --remote-ip "$pod_cidr" --ethertype "${KURYR_ETHERTYPES[$i]}" --protocol udp \
+                "$octavia_pod_access_sg_id"
+            # Octavia supports SCTP load balancing, we need to also support SCTP traffic
+            openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+                security group rule create --project "$project_id" \
+                --description "k8s pod subnet allowed from k8s-pod-subnet" \
+                --remote-ip "$pod_cidr" --ethertype "${KURYR_ETHERTYPES[$i]}" --protocol sctp \
+                "$octavia_pod_access_sg_id"
+        done
+        sg_ids+=(${octavia_pod_access_sg_id})
+    fi
+
+    iniset "$KURYR_CONFIG" neutron_defaults project "$project_id"
+    iniset "$KURYR_CONFIG" neutron_defaults pod_subnet "${KURYR_POD_SUBNETS_IDS[0]}"
+    iniset "$KURYR_CONFIG" neutron_defaults pod_subnets $(IFS=, ; echo "${KURYR_POD_SUBNETS_IDS[*]}")
+    iniset "$KURYR_CONFIG" neutron_defaults service_subnet "${KURYR_SERVICE_SUBNETS_IDS[0]}"
+    iniset "$KURYR_CONFIG" neutron_defaults service_subnets $(IFS=, ; echo "${KURYR_SERVICE_SUBNETS_IDS[*]}")
+    if [ "$KURYR_SUBNET_DRIVER" == "namespace" ]; then
+        iniset "$KURYR_CONFIG" namespace_subnet pod_subnet_pool "${KURYR_SUBNETPOOLS_IDS[0]}"
+        iniset "$KURYR_CONFIG" namespace_subnet pod_subnet_pools $(IFS=, ; echo "${KURYR_SUBNETPOOLS_IDS[*]}")
+        iniset "$KURYR_CONFIG" namespace_subnet pod_router "$router_id"
+    fi
+    if [[ "$KURYR_SG_DRIVER" == "policy" ]]; then
+        # NOTE(dulek): Using the default DevStack's SG is not enough to match
+        # the NP specification. We need to open ingress to everywhere, so we
+        # create allow-all group.
+        allow_all_sg_id=$(openstack --os-cloud devstack-admin \
+            --os-region "$REGION_NAME" \
+            security group create --project "$project_id" \
+            allow-all -f value -c id)
+        for ethertype in ${KURYR_ETHERTYPES[@]}; do
+            openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+              security group rule create --project "$project_id" \
+              --description "allow all ingress traffic" \
+              --ethertype "$ethertype" --ingress --protocol any \
+              "$allow_all_sg_id"
+        done
+        sg_ids+=(${allow_all_sg_id})
+    fi
+    iniset "$KURYR_CONFIG" neutron_defaults pod_security_groups $(IFS=, ; echo "${sg_ids[*]}")
+
+    if [[ "$KURYR_SG_DRIVER" == "policy" ]]; then
+        # NOTE(ltomasbo): As more security groups and rules are created, there
+        # is a need to increase the quota for it
+         openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+             quota set --secgroups 100 --secgroup-rules 300 "$project_id"
+    fi
+
+    # NOTE(dulek): DevStack's admin default for SG's and instances is 10, this
+    #              is too little for our tests with Octavia configured to use
+    #              amphora.
+    openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+        quota set --secgroups 100 --secgroup-rules 300 --instances 100 admin
+
+    if [ -n "$OVS_BRIDGE" ]; then
+        iniset "$KURYR_CONFIG" neutron_defaults ovs_bridge "$OVS_BRIDGE"
+    fi
+    iniset "$KURYR_CONFIG" neutron_defaults external_svc_net "$ext_svc_net_id"
+    iniset "$KURYR_CONFIG" octavia_defaults member_mode "$KURYR_K8S_OCTAVIA_MEMBER_MODE"
+    iniset "$KURYR_CONFIG" octavia_defaults enforce_sg_rules "$KURYR_ENFORCE_SG_RULES"
+    iniset "$KURYR_CONFIG" octavia_defaults lb_algorithm "$KURYR_LB_ALGORITHM"
+    iniset "$KURYR_CONFIG" octavia_defaults timeout_client_data "$KURYR_TIMEOUT_CLIENT_DATA"
+    iniset "$KURYR_CONFIG" octavia_defaults timeout_member_data "$KURYR_TIMEOUT_MEMBER_DATA"
+    # Octavia takes a very long time to start the LB in the gate. We need
+    # to tweak the timeout for the LB creation. Let's be generous and give
+    # it up to 20 minutes.
+    # FIXME(dulek): This might be removed when bug 1753653 is fixed and
+    #               Kuryr restarts waiting for LB on timeouts.
+    iniset "$KURYR_CONFIG" neutron_defaults lbaas_activation_timeout 1200
+    iniset "$KURYR_CONFIG" kubernetes endpoints_driver_octavia_provider "$KURYR_EP_DRIVER_OCTAVIA_PROVIDER"
+}
+
+function configure_k8s_pod_sg_rules {
+    local project_id
+    local sg_id
+
+    project_id=$(get_or_create_project \
+        "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
+    sg_id=$(openstack --os-cloud devstack-admin \
+                      --os-region "$REGION_NAME" \
+                      security group list \
+                      --project "$project_id" -c ID -c Name -f value | \
+                      awk '{if ($2=="default") print $1}')
+    create_k8s_icmp_sg_rules "$sg_id" ingress
+}
+
+function prepare_kubernetes_files {
+    mkdir -p "${KURYR_KUBERNETES_DATA_DIR}"
+    # Copy certs for Kuryr services to use
+    sudo install -m 644 /etc/kubernetes/pki/apiserver.crt \
+        "${KURYR_KUBERNETES_DATA_DIR}/kuryr.crt"
+    sudo install -m 644 /etc/kubernetes/pki/apiserver.key \
+        "${KURYR_KUBERNETES_DATA_DIR}/kuryr.key"
+    sudo install -m 644 /etc/kubernetes/pki/ca.crt \
+        "${KURYR_KUBERNETES_DATA_DIR}/kuryr-ca.crt"
+}
+
+function wait_for {
+    local name
+    local url
+    local cacert_path
+    local start_time
+    local curr_time
+    local time_diff
+
+    name="$1"
+    url="$2"
+    cacert_path=${3:-}
+    timeout=${4:-$KURYR_WAIT_TIMEOUT}
+
+    echo -n "Waiting for $name to respond"
+
+    extra_flags=${cacert_path:+"--cacert ${cacert_path}"}
+
+    start_time=$(date +%s)
+    until curl -o /dev/null -s "$extra_flags" "$url"; do
+        echo -n "."
+        curr_time=$(date +%s)
+        time_diff=$((curr_time - start_time))
+        [[ $time_diff -le $timeout ]] || die "Timed out waiting for $name"
+        sleep 1
+    done
+    echo ""
+}
+
+function _wait_for_ok_health {
+    local name
+    local url
+    local start_time
+    local curr_time
+    local time_diff
+    local apiserver
+    local token
+
+    name="$1"
+    timeout=${2:-$KURYR_WAIT_TIMEOUT}
+    apiserver=$(get_k8s_apiserver)
+    token=$(get_k8s_token)
+
+    url="${apiserver}/healthz"
+    extra_flags=("-s" "--insecure" "--header" "Authorization: Bearer $token")
+
+    start_time=$(date +%s)
+    echo -n "Waiting for ${name} to be healthy"
+    until [[ "$(curl "${extra_flags[@]}" "$url")" == "ok" ]]; do
+        echo -n "."
+        curr_time=$(date +%s)
+        time_diff=$((curr_time - start_time))
+        [[ $time_diff -le $timeout ]] || die "Timed out waiting for $name"
+        sleep 1
+    done
+    echo ""
+}
+
+function prepare_kubeconfig {
+    kubectl config set-cluster devstack-cluster \
+        --server="${KURYR_K8S_API_URL}" --certificate-authority
+    kubectl config set-credentials stack
+    kubectl config set-context devstack --cluster=devstack-cluster --user=stack
+    kubectl config use-context devstack
+}
+
+function prepare_kubelet {
+    local kubelet_plugin_dir="/etc/cni/net.d/"
+    sudo install -o "$STACK_USER" -m 0664 -D \
+        "${KURYR_HOME}${kubelet_plugin_dir}/10-kuryr.conflist" \
+        "${CNI_CONF_DIR}/10-kuryr.conflist"
+}
+
+function run_kuryr_kubernetes {
+    local controller_bin
+
+    _wait_for_ok_health "kubernetes" 1200
+
+    controller_bin=$(which kuryr-k8s-controller)
+    run_process kuryr-kubernetes "$controller_bin --config-file $KURYR_CONFIG"
+}
+
+function configure_overcloud_vm_k8s_svc_sg {
+    local dst_port
+    local project_id
+    local security_group
+
+    if is_service_enabled octavia; then
+        dst_port=${KURYR_K8S_API_LB_PORT}
+    else
+        dst_port=${KURYR_K8S_API_PORT}
+    fi
+
+    project_id=$(get_or_create_project \
+        "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
+    security_group=$(openstack security group list \
+        --project "$project_id" -c ID -c Name -f value | \
+        awk '{if ($2=="default") print $1}')
+    for ethertype in "${KURYR_ETHERTYPES[@]}"; do
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            security group rule create --project "$project_id" \
+            --dst-port "$dst_port" --ethertype "$ethertype" "$security_group"
+    done
+    openstack port set "$KURYR_OVERCLOUD_VM_PORT" --security-group service_pod_access
+}
+
+function run_kuryr_daemon {
+    local daemon_bin
+    daemon_bin=$(which kuryr-daemon)
+    run_process kuryr-daemon \
+        "$daemon_bin --config-file $KURYR_CONFIG" root root
+}
+
+function update_tempest_conf_file {
+    if [[ "$KURYR_USE_PORT_POOLS" == "True" ]]; then
+        iniset "$TEMPEST_CONFIG" kuryr_kubernetes port_pool_enabled True
+    fi
+    if [[ "${KURYR_CONT}" == "True" ]]; then
+        iniset "$TEMPEST_CONFIG" kuryr_kubernetes containerized True
+    fi
+    if [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
+        iniset "$TEMPEST_CONFIG" kuryr_kubernetes subnet_per_namespace True
+        iniset "$TEMPEST_CONFIG" kuryr_kubernetes kuryrnetworks True
+    fi
+    if [[ "$KURYR_K8S_SERIAL_TESTS" == "True" ]]; then
+        iniset "$TEMPEST_CONFIG" kuryr_kubernetes run_tests_serial True
+    fi
+    if [[ "$KURYR_MULTI_VIF_DRIVER" == "npwg_multiple_interfaces" ]]; then
+        iniset "$TEMPEST_CONFIG" kuryr_kubernetes npwg_multi_vif_enabled True
+    fi
+    if [[ "$KURYR_ENABLED_HANDLERS" =~ .*policy.* ]]; then
+        iniset "$TEMPEST_CONFIG" kuryr_kubernetes network_policy_enabled True
+        iniset "$TEMPEST_CONFIG" kuryr_kubernetes new_kuryrnetworkpolicy_crd True
+    fi
+    # NOTE(yboaron): Services with protocol UDP are supported in Kuryr
+    # starting from Stein release
+    iniset "$TEMPEST_CONFIG" kuryr_kubernetes test_udp_services True
+    if [[ "$KURYR_CONTROLLER_HA" == "True" ]]; then
+        iniset "$TEMPEST_CONFIG" kuryr_kubernetes ap_ha True
+    fi
+    if [[ "$KURYR_K8S_MULTI_WORKER_TESTS" == "True" ]]; then
+        iniset "$TEMPEST_CONFIG" kuryr_kubernetes multi_worker_setup True
+    fi
+    if [[ "$KURYR_K8S_CLOUD_PROVIDER" == "True" ]]; then
+        iniset "$TEMPEST_CONFIG" kuryr_kubernetes cloud_provider True
+    fi
+    if [[ "$KURYR_CONFIGMAP_MODIFIABLE" == "True" ]]; then
+        iniset "$TEMPEST_CONFIG" kuryr_kubernetes configmap_modifiable True
+    fi
+    if [[ "$KURYR_IPV6" == "True" || "$KURYR_DUAL_STACK" == "True" ]]; then
+        iniset "$TEMPEST_CONFIG" kuryr_kubernetes ipv6 True
+    fi
+    iniset "$TEMPEST_CONFIG" kuryr_kubernetes validate_crd True
+    iniset "$TEMPEST_CONFIG" kuryr_kubernetes kuryrports True
+    iniset "$TEMPEST_CONFIG" kuryr_kubernetes kuryrloadbalancers True
+    iniset "$TEMPEST_CONFIG" kuryr_kubernetes test_services_without_selector True
+    iniset "$TEMPEST_CONFIG" kuryr_kubernetes test_sctp_services True
+    iniset "$TEMPEST_CONFIG" kuryr_kubernetes test_configurable_listener_timeouts True
+}
+
+function configure_neutron_defaults {
+    local k8s_api_clusterip
+    local service_cidr
+
+    if [ "${KURYR_CONF_NEUTRON}" == "False" ]; then
+        return
+    fi
+
+    if is_service_enabled kuryr-kubernetes; then
+        _configure_neutron_defaults
+    fi
+
+    if [ "${KURYR_CONT}" == "False" ]; then
+        KURYR_K8S_API_ROOT=${KURYR_K8S_API_URL}
+        iniset "$KURYR_CONFIG" kubernetes api_root "${KURYR_K8S_API_ROOT}"
+        iniset "$KURYR_CONFIG" kubernetes token_file '""'
+    else
+        iniset "$KURYR_CONFIG" kubernetes api_root '""'
+    fi
+}
+
+function uninstall_kuryr_cni {
+    sudo rm "${CNI_BIN_DIR}/kuryr-cni"
+    if [ -z "$(ls -A ${CNI_BIN_DIR})" ]; then
+        sudo rm -fr "${CNI_BIN_DIR}"
+    fi
+}
+
+function rm_kuryr_conf {
+    sudo rm -fr /etc/kuryr
 }

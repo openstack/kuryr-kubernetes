@@ -40,6 +40,7 @@
               health_update_threads: 2
               stats_update_threads: 2
       devstack_services:
+        kuryr-daemon: true
         octavia: true
         o-api: true
         o-cw: true
@@ -104,27 +105,6 @@
         KURYR_K8S_OCTAVIA_MEMBER_MODE: L2
 
 - job:
-    name: kuryr-kubernetes-tempest-openshift
-    parent: kuryr-kubernetes-tempest
-    description: |
-      Kuryr-Kubernetes tempest job using OpenShift
-    vars:
-      devstack_localrc:
-        DOCKER_CGROUP_DRIVER: "systemd"
-        KURYR_ENABLED_HANDLERS: vif,endpoints,service,namespace,pod_label,policy,kuryrnetworkpolicy,kuryrnetwork,kuryrport,kuryrloadbalancer
-        KURYR_SG_DRIVER: policy
-        KURYR_SUBNET_DRIVER: namespace
-      devstack_services:
-        kubernetes-api: false
-        kubernetes-controller-manager: false
-        kubernetes-scheduler: false
-        kubelet: false
-        coredns: true
-        openshift-master: true
-        openshift-node: true
-    voting: false
-
-- job:
     name: kuryr-kubernetes-tempest-containerized-pools-namespace
     description: |
       Tempest with containers, port pools and namespace subnet driver
@@ -149,23 +129,6 @@
         KURYR_ENABLED_HANDLERS: vif,endpoints,service,namespace,pod_label,policy,kuryrnetworkpolicy,kuryrnetwork,kuryrport,kuryrloadbalancer
         KURYR_SG_DRIVER: policy
         KURYR_SUBNET_DRIVER: namespace
-
-- job:
-    name: kuryr-kubernetes-tempest-containerized-openshift
-    description: Tempest with containers and OpenShift
-    parent: kuryr-kubernetes-tempest-openshift
-    vars:
-      devstack_localrc:
-        KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
-
-- job:
-    name: kuryr-kubernetes-tempest-containerized-openshift-serial
-    description: Tempest running in serial, containers and OpenShift
-    parent: kuryr-kubernetes-tempest-containerized-openshift
-    vars:
-      devstack_localrc:
-        KURYR_K8S_SERIAL_TESTS: True
-      tempest_concurrency: 1
 
 - job:
     name: kuryr-kubernetes-tempest-containerized-crio

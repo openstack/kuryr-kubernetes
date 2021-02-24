@@ -78,7 +78,7 @@ daemon_opts = [
 k8s_opts = [
     cfg.StrOpt('api_root',
                help=_("The root URL of the Kubernetes API"),
-               default=os.environ.get('K8S_API', 'http://localhost:8080')),
+               default=os.environ.get('K8S_API', 'https://localhost:6443')),
     cfg.StrOpt('ssl_client_crt_file',
                help=_("Absolute path to client cert to "
                       "connect to HTTPS K8S_API")),
