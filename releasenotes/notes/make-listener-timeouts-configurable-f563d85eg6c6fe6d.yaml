@@ -1,0 +1,10 @@
+---
+features:
+  - |
+    Kuryr will now support the configuration of Octavia listener timeouts.
+    The timeout-client-data and timeout-member-data settings of listeners
+    can be configured to use values other than the Octavia defaults when
+    creating or modifying loadbalancers handled by Kuryr. In order to use this
+    functionality, the new timeout values can be annotated to the Service or
+    set in kuryr.conf. New options ``[octavia_defaults]timeout_client_data``
+    and ``[octavia_defaults]timeout_member_data`` were added.

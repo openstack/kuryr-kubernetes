@@ -110,6 +110,10 @@ spec:
                 type: string
               provider:
                 type: string
+              timeout_client_data:
+                type: integer
+              timeout_member_data:
+                type: integer
           status:
             type: object
             properties:
@@ -137,6 +141,10 @@ spec:
                       type: string
                     protocol:
                       type: string
+                    timeout_client_data:
+                      type: integer
+                    timeout_member_data:
+                      type: integer
               loadbalancer:
                 type: object
                 required:

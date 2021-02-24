@@ -65,6 +65,9 @@ VAR_RUN_PATH=/var/run
 # KURYR_K8S_OCTAVIA_MEMBER_MODE=L2
 # KURYR_ENFORCE_SG_RULES=False
 # KURYR_LB_ALGORITHM=SOURCE_IP_PORT
+# Uncomment to modify listener client and member inactivity timeout.
+# KURYR_TIMEOUT_CLIENT_DATA=50000
+# KURYR_TIMEOUT_MEMBER_DATA=50000
 
 
 # Octavia LBaaSv2

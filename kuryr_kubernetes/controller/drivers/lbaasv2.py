@@ -357,7 +357,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
                 'network-policy' not in rule.get('description'))
 
     def ensure_listener(self, loadbalancer, protocol, port,
-                        service_type='ClusterIP'):
+                        service_type='ClusterIP', timeout_client_data=0,
+                        timeout_member_data=0):
         name = "%s:%s:%s" % (loadbalancer['name'], protocol, port)
         listener = {
             'name': name,
@@ -366,6 +367,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
             'protocol': protocol,
             'port': port
         }
+        if timeout_client_data:
+            listener['timeout_client_data'] = timeout_client_data
+        if timeout_member_data:
+            listener['timeout_member_data'] = timeout_member_data
         try:
             result = self._ensure_provisioned(
                 loadbalancer, listener, self._create_listener,
@@ -552,10 +557,18 @@ class LBaaSv2Driver(base.LBaaSDriver):
             'protocol': listener['protocol'],
             'protocol_port': listener['port'],
         }
+        timeout_cli = listener.get('timeout_client_data')
+        timeout_mem = listener.get('timeout_member_data')
+        if timeout_cli:
+            request['timeout_client_data'] = timeout_cli
+        if timeout_mem:
+            request['timeout_member_data'] = timeout_mem
         self.add_tags('listener', request)
         lbaas = clients.get_loadbalancer_client()
         response = lbaas.create_listener(**request)
         listener['id'] = response.id
+        listener['timeout_client_data'] = response.timeout_client_data
+        listener['timeout_member_data'] = response.timeout_member_data
         return listener
 
     def _update_listener_acls(self, loadbalancer, listener_id, allowed_cidrs):
@@ -589,6 +602,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
 
     def _find_listener(self, listener, loadbalancer):
         lbaas = clients.get_loadbalancer_client()
+        timeout_cli = listener.get('timeout_client_data')
+        timeout_mb = listener.get('timeout_member_data')
         response = lbaas.listeners(
             name=listener['name'],
             project_id=listener['project_id'],
@@ -596,16 +611,33 @@ class LBaaSv2Driver(base.LBaaSDriver):
             protocol=listener['protocol'],
             protocol_port=listener['port'])
 
+        request = {}
+        request['timeout_client_data'] = timeout_cli
+        request['timeout_member_data'] = timeout_mb
         try:
             os_listener = next(response)
             listener['id'] = os_listener.id
+            n_listen = None
             if os_listener.provisioning_status == 'ERROR':
                 LOG.debug("Releasing listener %s", os_listener.id)
                 self.release_listener(loadbalancer, listener)
                 return None
+            if (timeout_cli and (
+                    os_listener.timeout_client_data != timeout_cli)) or (
+                        timeout_mb and (
+                            os_listener.timeout_member_data != timeout_mb)):
+                n_listen = lbaas.update_listener(os_listener.id, **request)
+            elif not timeout_cli or not timeout_mb:
+                n_listen = lbaas.update_listener(os_listener.id, **request)
+            if n_listen:
+                listener['timeout_client_data'] = n_listen.timeout_client_data
+                listener['timeout_member_data'] = n_listen.timeout_member_data
+
         except (KeyError, StopIteration):
             return None
-
+        except os_exc.SDKException:
+            LOG.error('Error when updating listener %s' % listener['id'])
+            raise k_exc.ResourceNotReady(listener['id'])
         return listener
 
     def _create_pool(self, pool):

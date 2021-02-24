@@ -182,6 +182,25 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
             LOG.exception('Error updating kuryrnet CRD %s', loadbalancer_crd)
             raise
 
+    def _get_data_timeout_annotation(self, service):
+        default_timeout_cli = config.CONF.octavia_defaults.timeout_client_data
+        default_timeout_mem = config.CONF.octavia_defaults.timeout_member_data
+        try:
+            annotations = service['metadata']['annotations']
+        except KeyError:
+            return default_timeout_cli, default_timeout_mem
+        try:
+            timeout_cli = annotations[k_const.K8S_ANNOTATION_CLIENT_TIMEOUT]
+            data_timeout_cli = int(timeout_cli)
+        except KeyError:
+            data_timeout_cli = default_timeout_cli
+        try:
+            timeout_mem = annotations[k_const.K8S_ANNOTATION_MEMBER_TIMEOUT]
+            data_timeout_mem = int(timeout_mem)
+        except KeyError:
+            data_timeout_mem = default_timeout_mem
+        return data_timeout_cli, data_timeout_mem
+
     def _build_kuryrloadbalancer_spec(self, service):
         svc_ip = self._get_service_ip(service)
         spec_lb_ip = service['spec'].get('loadBalancerIP')
@@ -193,7 +212,6 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         sg_ids = self._drv_sg.get_security_groups(service, project_id)
         subnet_id = self._get_subnet_id(service, project_id, svc_ip)
         spec_type = service['spec'].get('type')
-
         spec = {
                 'ip': svc_ip,
                 'ports': ports,
@@ -205,11 +223,15 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
 
         if spec_lb_ip is not None:
             spec['lb_ip'] = spec_lb_ip
+        timeout_cli, timeout_mem = self._get_data_timeout_annotation(service)
+        spec['timeout_client_data'] = timeout_cli
+        spec['timeout_member_data'] = timeout_mem
         return spec
 
     def _has_lbaas_spec_changes(self, service, loadbalancer_crd):
         return (self._has_ip_changes(service, loadbalancer_crd) or
-                utils.has_port_changes(service, loadbalancer_crd))
+                utils.has_port_changes(service, loadbalancer_crd) or
+                self._has_timeout_changes(service, loadbalancer_crd))
 
     def _has_ip_changes(self, service, loadbalancer_crd):
         link = utils.get_res_link(service)
@@ -226,6 +248,22 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
                          'svc_ip': svc_ip,
                          'link': link})
             return True
+
+        return False
+
+    def _has_timeout_changes(self, service, loadbalancer_crd):
+        link = utils.get_res_link(service)
+        cli_timeout, mem_timeout = self._get_data_timeout_annotation(service)
+
+        for spec_value, current_value in [(loadbalancer_crd['spec'].get(
+            'timeout_client_data'), cli_timeout), (loadbalancer_crd[
+                'spec'].get('timeout_member_data'), mem_timeout)]:
+            if not spec_value and not current_value:
+                continue
+            elif spec_value != current_value:
+                LOG.debug("LBaaS spec listener timeout {} != {} for {}".format(
+                    spec_value, current_value, link))
+                return True
 
         return False
 

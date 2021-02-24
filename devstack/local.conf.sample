@@ -41,8 +41,14 @@ enable_service neutron-tag-ports-during-bulk-creation
 # VAR_RUN_PATH=/var/run
 
 # OCTAVIA
+# =======
 # Uncomment it to use L2 communication between loadbalancer and member pods
 # KURYR_K8S_OCTAVIA_MEMBER_MODE=L2
+
+# Uncomment to change Octavia loadbalancer listener client and member
+# inactivity timeout from 50000ms.
+# KURYR_TIMEOUT_CLIENT_DATA=50000
+# KURYR_TIMEOUT_MEMBER_DATA=50000
 
 # Octavia LBaaSv2
 LIBS_FROM_GIT+=python-octaviaclient
