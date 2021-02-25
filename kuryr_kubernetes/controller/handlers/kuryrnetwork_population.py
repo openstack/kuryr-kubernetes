@@ -41,13 +41,16 @@ class KuryrNetworkPopulationHandler(k8s_base.ResourceEventHandler):
         self._drv_vif_pool.set_vif_driver()
         self._drv_nodes_subnets = drivers.NodesSubnetsDriver.get_instance()
 
-    def on_added(self, kuryrnet_crd):
-        subnet_id = kuryrnet_crd['status'].get('subnetId')
+    def on_present(self, kuryrnet_crd):
+        subnet_id = kuryrnet_crd.get('status', {}).get('subnetId')
         if not subnet_id:
+            LOG.debug("No Subnet present for KuryrNetwork %s",
+                      kuryrnet_crd['metadata']['name'])
             return
 
         if kuryrnet_crd['status'].get('populated'):
-            LOG.debug("Subnet %s already populated", subnet_id)
+            LOG.debug("Subnet %s already populated for Namespace %s",
+                      subnet_id, kuryrnet_crd['metadata']['name'])
             return
 
         namespace = kuryrnet_crd['spec'].get('nsName')
