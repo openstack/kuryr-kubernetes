@@ -81,9 +81,6 @@ class LBaaSv2Driver(base.LBaaSDriver):
         if v >= _OCTAVIA_TAGGING_VERSION:
             LOG.info('Octavia supports resource tags.')
             self._octavia_tags = True
-        if v >= _OCTAVIA_SCTP_VERSION:
-            LOG.info('Octavia API supports SCTP protocol.')
-            self._octavia_sctp = True
         else:
             v_str = '%d.%d' % v
             LOG.warning('[neutron_defaults]resource_tags is set, but Octavia '
@@ -92,6 +89,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
                         'Octavia resources.', v_str)
         if v >= _OCTAVIA_PROVIDER_VERSION:
             self._octavia_providers = True
+        if v >= _OCTAVIA_SCTP_VERSION:
+            LOG.info('Octavia API supports SCTP protocol.')
+            self._octavia_sctp = True
 
     def double_listeners_supported(self):
         return self._octavia_double_listeners
