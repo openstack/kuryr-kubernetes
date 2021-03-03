@@ -361,7 +361,7 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                 subnet_id = self._get_pod_subnet(target_pod, target_ip)
             else:
                 subnet = utils.get_subnet_by_ip(
-                    self._drv_nodes_subnets.get_nodes_subnets(), target_ip)
+                    self._get_nodes_subnets(), target_ip)
                 if subnet:
                     subnet_id = subnet[0]
         else:
