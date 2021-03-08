@@ -139,11 +139,12 @@
         Q_ML2_PLUGIN_TYPE_DRIVERS: local,flat,vlan,geneve
         Q_ML2_TENANT_NETWORK_TYPE: geneve
         Q_USE_PROVIDERNET_FOR_PUBLIC: true
-        VAR_RUN_PATH: /var/run
+        VAR_RUN_PATH: /usr/local/var/run
         PHYSICAL_NETWORK: public
         OVN_L3_CREATE_PUBLIC_NETWORK: true
+        OVN_BUILD_FROM_SOURCE: true
         ENABLE_CHASSIS_AS_GW: true
-        OVN_BRANCH: v20.06.1
+        OVN_BRANCH: v20.06.2
         KURYR_NEUTRON_DEFAULT_ROUTER: kuryr-router
         KURYR_EP_DRIVER_OCTAVIA_PROVIDER: ovn
         KURYR_K8S_OCTAVIA_MEMBER_MODE: L2
@@ -183,4 +184,5 @@
       np_sleep: 30
       zuul_copy_output:
         '/home/zuul/np_kubetest.log': 'logs'
+        '/home/zuul/np_sctp_kubetest.log': 'logs'
     voting: false
