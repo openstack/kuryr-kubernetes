@@ -240,9 +240,12 @@ function create_k8s_api_service {
     project_id=$(get_or_create_project \
         "$KURYR_NEUTRON_DEFAULT_PROJECT" default)
     lb_name='default/kubernetes'
+    # TODO(dulek): We only look at the first service subnet because kubernetes
+    #              API service is only IPv4 in 1.20. It might be dual stack
+    #              in the future.
     service_cidr=$(openstack --os-cloud devstack-admin \
                              --os-region "$REGION_NAME" \
-                             subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
+                             subnet show "${KURYR_SERVICE_SUBNETS_IDS[0]}" \
                              -c cidr -f value)
 
     fixed_ips=$(openstack port show kubelet-"${HOSTNAME}" -c fixed_ips -f value)
@@ -250,7 +253,7 @@ function create_k8s_api_service {
 
     k8s_api_clusterip=$(_cidr_range "$service_cidr" | cut -f1)
 
-    create_load_balancer "$lb_name" "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET"\
+    create_load_balancer "$lb_name" "${KURYR_SERVICE_SUBNETS_IDS[0]}" \
             "$project_id" "$k8s_api_clusterip"
     create_load_balancer_listener default/kubernetes:${KURYR_K8S_API_LB_PORT} HTTPS ${KURYR_K8S_API_LB_PORT} "$lb_name" "$project_id" 3600000
     create_load_balancer_pool default/kubernetes:${KURYR_K8S_API_LB_PORT} HTTPS ROUND_ROBIN \
@@ -279,10 +282,7 @@ function create_k8s_api_service {
 
 function configure_neutron_defaults {
     local project_id
-    local pod_subnet_id
     local sg_ids
-    local service_subnet_id
-    local subnetpool_id
     local router
     local router_id
     local ext_svc_net_id
@@ -297,11 +297,18 @@ function configure_neutron_defaults {
     # If a subnetpool is not passed, we get the one created in devstack's
     # Neutron module
     KURYR_IPV6=$(trueorfalse False KURYR_IPV6)
-    if [ "$KURYR_IPV6" == "False" ]; then
+    KURYR_DUAL_STACK=$(trueorfalse False KURYR_DUAL_STACK)
+
+    export KURYR_SUBNETPOOLS_IDS=()
+    export KURYR_ETHERTYPES=()
+    if [[ "$KURYR_IPV6" == "False" || "$KURYR_DUAL_STACK" == "True" ]]; then
         export KURYR_ETHERTYPE=IPv4
-        subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}}
-    else
+        KURYR_ETHERTYPES+=("IPv4")
+        KURYR_SUBNETPOOLS_IDS+=(${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_V4_ID}})
+    fi
+    if [[ "$KURYR_IPV6" == "True" || "$KURYR_DUAL_STACK" == "True" ]]; then
         export KURYR_ETHERTYPE=IPv6
+        KURYR_ETHERTYPES+=("IPv6")
         # NOTE(gryf): To not clash with subnets created by DevStack for IPv6,
         # we create another subnetpool just for kuryr subnets.
         # SUBNETPOOL_KURYR_V6_ID will be used in function configure_kuryr in
@@ -314,15 +321,13 @@ function configure_neutron_defaults {
             sed -e "s/\(..\)\(....\)\(....\)/\1:\2:\3/")
         addrs_prefix="fd${IPV6_ID}::/56"
         subnetpool_name=${SUBNETPOOL_KURYR_NAME_V6}
-        SUBNETPOOL_KURYR_V6_ID=$(openstack \
+        KURYR_SUBNETPOOLS_IDS+=($(openstack \
             --os-cloud devstack-admin \
             --os-region "${REGION_NAME}" \
             subnet pool create "${subnetpool_name}" \
             --default-prefix-length "${SUBNETPOOL_SIZE_V6}" \
             --pool-prefix "${addrs_prefix}" \
-            --share -f value -c id)
-        export SUBNETPOOL_KURYR_V6_ID
-        subnetpool_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID:-${SUBNETPOOL_KURYR_V6_ID}}
+            --share -f value -c id))
     fi
 
     router=${KURYR_NEUTRON_DEFAULT_ROUTER:-$Q_ROUTER_NAME}
@@ -332,29 +337,39 @@ function configure_neutron_defaults {
         openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
             router set --external-gateway "$ext_svc_net_id" "$router"
     fi
-    router_id="$(openstack router show -c id -f value \
-        "$router")"
+    router_id="$(openstack router show -c id -f value "$router")"
 
-    create_k8s_subnet "$project_id" \
-                      "$KURYR_NEUTRON_DEFAULT_POD_NET" \
-                      "$KURYR_NEUTRON_DEFAULT_POD_SUBNET" \
-                      "$subnetpool_id" \
-                      "$router"
-    pod_subnet_id="$(openstack subnet show -c id -f value \
-        "${KURYR_NEUTRON_DEFAULT_POD_SUBNET}")"
+    pod_net_id=$(openstack --os-cloud devstack-admin \
+                       --os-region "$REGION_NAME" \
+                       network create --project "$project_id" \
+                       "$KURYR_NEUTRON_DEFAULT_POD_NET" \
+                       -c id -f value)
+    service_net_id=$(openstack --os-cloud devstack-admin \
+                       --os-region "$REGION_NAME" \
+                       network create --project "$project_id" \
+                       "$KURYR_NEUTRON_DEFAULT_SERVICE_NET" \
+                       -c id -f value)
 
-    create_k8s_subnet "$project_id" \
-                      "$KURYR_NEUTRON_DEFAULT_SERVICE_NET" \
-                      "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
-                      "$subnetpool_id" \
-                      "$router" \
-                      "True"
-    service_subnet_id="$(openstack subnet show -c id -f value \
-        "${KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET}")"
+    export KURYR_POD_SUBNETS_IDS=()
+    export KURYR_SERVICE_SUBNETS_IDS=()
+    for i in "${!KURYR_SUBNETPOOLS_IDS[@]}"; do
+        KURYR_POD_SUBNETS_IDS+=($(create_k8s_subnet "$project_id" \
+                          "$pod_net_id" \
+                          "${KURYR_NEUTRON_DEFAULT_POD_SUBNET}-${KURYR_ETHERTYPES[$i]}" \
+                          "${KURYR_SUBNETPOOLS_IDS[$i]}" \
+                          "$router" "False" ${KURYR_ETHERTYPES[$i]}))
 
+        KURYR_SERVICE_SUBNETS_IDS+=($(create_k8s_subnet "$project_id" \
+                          "$service_net_id" \
+                          "${KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET}-${KURYR_ETHERTYPES[$i]}" \
+                          "${KURYR_SUBNETPOOLS_IDS[$i]}" \
+                          "$router" "True" ${KURYR_ETHERTYPES[$i]}))
+    done
+
+    sg_ids=()
     if [[ "$KURYR_SG_DRIVER" == "default" ]]; then
-        sg_ids=$(echo $(openstack security group list \
-            --project "$project_id" -c ID -f value) | tr ' ' ',')
+        sg_ids+=($(echo $(openstack security group list \
+            --project "$project_id" -c ID -f value) | tr ' ' ','))
     fi
 
     # In order for the ports to allow service traffic under Octavia L3 mode,
@@ -362,40 +377,39 @@ function configure_neutron_defaults {
     # security groups. If L3 is used, then the pods created will include it.
     # Otherwise it will be just used by the kubelet port used for the K8s API
     # load balancer
-    local service_cidr
     local service_pod_access_sg_id
-    service_cidr=$(openstack --os-cloud devstack-admin \
-        --os-region "$REGION_NAME" subnet show \
-        "${KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET}" -f value -c cidr)
     service_pod_access_sg_id=$(openstack --os-cloud devstack-admin \
         --os-region "$REGION_NAME" \
         security group create --project "$project_id" \
         service_pod_access -f value -c id)
-    openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
-        security group rule create --project "$project_id" \
-        --description "k8s service subnet allowed" \
-        --remote-ip "$service_cidr" --ethertype "$KURYR_ETHERTYPE" --protocol tcp \
-        "$service_pod_access_sg_id"
-    # Since Octavia supports also UDP load balancing, we need to allow
-    # also udp traffic
-    openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
-        security group rule create --project "$project_id" \
-        --description "k8s service subnet UDP allowed" \
-        --remote-ip "$service_cidr" --ethertype "$KURYR_ETHERTYPE" --protocol udp \
-        "$service_pod_access_sg_id"
-    # Octavia supports SCTP load balancing, we need to also allow SCTP traffic
-    openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
-        security group rule create --project "$project_id" \
-        --description "k8s service subnet SCTP allowed" \
-        --remote-ip "$service_cidr" --ethertype "$KURYR_ETHERTYPE" --protocol sctp \
-        "$service_pod_access_sg_id"
+
+    for i in "${!KURYR_SERVICE_SUBNETS_IDS[@]}"; do
+        local service_cidr
+        service_cidr=$(openstack --os-cloud devstack-admin \
+            --os-region "$REGION_NAME" subnet show \
+            "${KURYR_SERVICE_SUBNETS_IDS[$i]}" -f value -c cidr)
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            security group rule create --project "$project_id" \
+            --description "k8s service subnet allowed" \
+            --remote-ip "$service_cidr" --ethertype "${KURYR_ETHERTYPES[$i]}" --protocol tcp \
+            "$service_pod_access_sg_id"
+        # Since Octavia supports also UDP load balancing, we need to allow
+        # also udp traffic
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            security group rule create --project "$project_id" \
+            --description "k8s service subnet UDP allowed" \
+            --remote-ip "$service_cidr" --ethertype "${KURYR_ETHERTYPES[$i]}" --protocol udp \
+            "$service_pod_access_sg_id"
+        # Octavia supports SCTP load balancing, we need to also allow SCTP traffic
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            security group rule create --project "$project_id" \
+            --description "k8s service subnet SCTP allowed" \
+            --remote-ip "$service_cidr" --ethertype "${KURYR_ETHERTYPES[$i]}" --protocol sctp \
+            "$service_pod_access_sg_id"
+    done
 
     if [[ "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L3" ]]; then
-        if [ -n "$sg_ids" ]; then
-            sg_ids+=",${service_pod_access_sg_id}"
-        else
-            sg_ids="${service_pod_access_sg_id}"
-        fi
+        sg_ids+=(${service_pod_access_sg_id})
     elif [[ "$KURYR_K8S_OCTAVIA_MEMBER_MODE" == "L2" ]]; then
         # In case the member connectivity is L2, Octavia by default uses the
         # admin 'default' sg to create a port for the amphora load balancer
@@ -403,45 +417,46 @@ function configure_neutron_defaults {
         # between the member ports and the octavia ports by allowing all
         # access from the pod subnet range to the ports in that subnet, and
         # include it into $sg_ids
-        local pod_cidr
-        local pod_pod_access_sg_id
-        pod_cidr=$(openstack --os-cloud devstack-admin \
-            --os-region "$REGION_NAME" subnet show \
-            "${KURYR_NEUTRON_DEFAULT_POD_SUBNET}" -f value -c cidr)
+        local octavia_pod_access_sg_id
         octavia_pod_access_sg_id=$(openstack --os-cloud devstack-admin \
             --os-region "$REGION_NAME" \
             security group create --project "$project_id" \
             octavia_pod_access -f value -c id)
-        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
-            security group rule create --project "$project_id" \
-            --description "k8s pod subnet allowed from k8s-pod-subnet" \
-            --remote-ip "$pod_cidr" --ethertype "$KURYR_ETHERTYPE" --protocol tcp \
-            "$octavia_pod_access_sg_id"
-        # Since Octavia supports also UDP load balancing, we need to allow
-        # also udp traffic
-        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
-            security group rule create --project "$project_id" \
-            --description "k8s pod subnet allowed from k8s-pod-subnet" \
-            --remote-ip "$pod_cidr" --ethertype "$KURYR_ETHERTYPE" --protocol udp \
-            "$octavia_pod_access_sg_id"
-        # Octavia supports SCTP load balancing, we need to also support SCTP traffic
-        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
-            security group rule create --project "$project_id" \
-            --description "k8s pod subnet allowed from k8s-pod-subnet" \
-            --remote-ip "$pod_cidr" --ethertype "$KURYR_ETHERTYPE" --protocol sctp \
-            "$octavia_pod_access_sg_id"
-        if [ -n "$sg_ids" ]; then
-            sg_ids+=",${octavia_pod_access_sg_id}"
-        else
-            sg_ids="${octavia_pod_access_sg_id}"
-        fi
+        for i in "${!KURYR_POD_SUBNETS_IDS[@]}"; do
+            local pod_cidr
+            pod_cidr=$(openstack --os-cloud devstack-admin \
+                --os-region "$REGION_NAME" subnet show \
+                "${KURYR_POD_SUBNETS_IDS[$i]}" -f value -c cidr)
+            openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+                security group rule create --project "$project_id" \
+                --description "k8s pod subnet allowed from k8s-pod-subnet" \
+                --remote-ip "$pod_cidr" --ethertype "${KURYR_ETHERTYPES[$i]}" --protocol tcp \
+                "$octavia_pod_access_sg_id"
+            # Since Octavia supports also UDP load balancing, we need to allow
+            # also udp traffic
+            openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+                security group rule create --project "$project_id" \
+                --description "k8s pod subnet allowed from k8s-pod-subnet" \
+                --remote-ip "$pod_cidr" --ethertype "${KURYR_ETHERTYPES[$i]}" --protocol udp \
+                "$octavia_pod_access_sg_id"
+            # Octavia supports SCTP load balancing, we need to also support SCTP traffic
+            openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+                security group rule create --project "$project_id" \
+                --description "k8s pod subnet allowed from k8s-pod-subnet" \
+                --remote-ip "$pod_cidr" --ethertype "${KURYR_ETHERTYPES[$i]}" --protocol sctp \
+                "$octavia_pod_access_sg_id"
+        done
+        sg_ids+=(${octavia_pod_access_sg_id})
     fi
 
     iniset "$KURYR_CONFIG" neutron_defaults project "$project_id"
-    iniset "$KURYR_CONFIG" neutron_defaults pod_subnet "$pod_subnet_id"
-    iniset "$KURYR_CONFIG" neutron_defaults service_subnet "$service_subnet_id"
+    iniset "$KURYR_CONFIG" neutron_defaults pod_subnet "${KURYR_POD_SUBNETS_IDS[0]}"
+    iniset "$KURYR_CONFIG" neutron_defaults pod_subnets $(IFS=, ; echo "${KURYR_POD_SUBNETS_IDS[*]}")
+    iniset "$KURYR_CONFIG" neutron_defaults service_subnet "${KURYR_SERVICE_SUBNETS_IDS[0]}"
+    iniset "$KURYR_CONFIG" neutron_defaults service_subnets $(IFS=, ; echo "${KURYR_SERVICE_SUBNETS_IDS[*]}")
     if [ "$KURYR_SUBNET_DRIVER" == "namespace" ]; then
-        iniset "$KURYR_CONFIG" namespace_subnet pod_subnet_pool "$subnetpool_id"
+        iniset "$KURYR_CONFIG" namespace_subnet pod_subnet_pool "${KURYR_SUBNETPOOLS_IDS[0]}"
+        iniset "$KURYR_CONFIG" namespace_subnet pod_subnet_pools $(IFS=, ; echo "${KURYR_SUBNETPOOLS_IDS[*]}")
         iniset "$KURYR_CONFIG" namespace_subnet pod_router "$router_id"
     fi
     if [[ "$KURYR_SG_DRIVER" == "policy" ]]; then
@@ -452,18 +467,16 @@ function configure_neutron_defaults {
             --os-region "$REGION_NAME" \
             security group create --project "$project_id" \
             allow-all -f value -c id)
-        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
-          security group rule create --project "$project_id" \
-          --description "allow all ingress traffic" \
-          --ethertype "$KURYR_ETHERTYPE" --ingress --protocol any \
-          "$allow_all_sg_id"
-        if [ -n "$sg_ids" ]; then
-            sg_ids+=",${allow_all_sg_id}"
-        else
-            sg_ids="${allow_all_sg_id}"
-        fi
+        for ethertype in ${KURYR_ETHERTYPES[@]}; do
+            openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+              security group rule create --project "$project_id" \
+              --description "allow all ingress traffic" \
+              --ethertype "$ethertype" --ingress --protocol any \
+              "$allow_all_sg_id"
+        done
+        sg_ids+=(${allow_all_sg_id})
     fi
-    iniset "$KURYR_CONFIG" neutron_defaults pod_security_groups "$sg_ids"
+    iniset "$KURYR_CONFIG" neutron_defaults pod_security_groups $(IFS=, ; echo "${sg_ids[*]}")
 
     if [[ "$KURYR_SG_DRIVER" == "policy" ]]; then
         # NOTE(ltomasbo): As more security groups and rules are created, there
@@ -520,7 +533,7 @@ function prepare_kubernetes_files {
 
     service_cidr=$(openstack --os-cloud devstack-admin \
                              --os-region "$REGION_NAME" \
-                             subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET"\
+                             subnet show "${KURYR_SERVICE_SUBNETS_IDS[0]}"\
                              -c cidr -f value)
     k8s_api_clusterip=$(_cidr_range "$service_cidr" | cut -f1)
 
@@ -628,7 +641,7 @@ function setup_k8s_binaries() {
 
 function run_k8s_api {
     local service_cidr
-    local cluster_ip_range
+    local cluster_ip_ranges
     local command
     local tmp_kube_apiserver_path="/tmp/kube-apiserver"
     local binary_name="kube-apiserver"
@@ -638,18 +651,17 @@ function run_k8s_api {
     # Runs Hyperkube's Kubernetes API Server
     wait_for "etcd" "http://${SERVICE_HOST}:${ETCD_PORT}/v2/machines"
 
-    service_cidr=$(openstack --os-cloud devstack-admin \
-                         --os-region "$REGION_NAME" \
-                         subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
-                         -c cidr -f value)
-    if is_service_enabled octavia; then
-        cluster_ip_range=$(split_subnet "$service_cidr" | cut -f1)
-    else
-        cluster_ip_range="$service_cidr"
-    fi
+    cluster_ip_ranges=()
+    for service_subnet_id in ${KURYR_SERVICE_SUBNETS_IDS[@]}; do
+        service_cidr=$(openstack --os-cloud devstack-admin \
+                             --os-region "$REGION_NAME" \
+                             subnet show "$service_subnet_id" \
+                             -c cidr -f value)
+        cluster_ip_ranges+=($(split_subnet "$service_cidr" | cut -f1))
+    done
 
     command="${KURYR_KUBE_APISERVER_BINARY} \
-                --service-cluster-ip-range=${cluster_ip_range} \
+                --service-cluster-ip-range=$(IFS=, ; echo "${cluster_ip_ranges[*]}") \
                 --insecure-bind-address=0.0.0.0 \
                 --insecure-port=${KURYR_K8S_API_PORT} \
                 --etcd-servers=http://${SERVICE_HOST}:${ETCD_PORT} \
@@ -660,7 +672,7 @@ function run_k8s_api {
                 --tls-private-key-file=${KURYR_KUBERNETES_DATA_DIR}/server.key \
                 --token-auth-file=${KURYR_KUBERNETES_DATA_DIR}/known_tokens.csv \
                 --allow-privileged=true \
-                --feature-gates="SCTPSupport=true" \
+                --feature-gates="SCTPSupport=true,IPv6DualStack=true" \
                 --v=$(get_k8s_log_level) \
                 --logtostderr=true"
 
@@ -684,7 +696,7 @@ function run_k8s_controller_manager {
                 --min-resync-period=3m \
                 --v=$(get_k8s_log_level) \
                 --logtostderr=true \
-                --feature-gates="SCTPSupport=true" \
+                --feature-gates="SCTPSupport=true,IPv6DualStack=true" \
                 --leader-elect=false"
 
     run_process kubernetes-controller-manager "$command" root root
@@ -760,7 +772,7 @@ function run_k8s_kubelet {
         --address=0.0.0.0 \
         --enable-server \
         --network-plugin=cni \
-        --feature-gates="SCTPSupport=true" \
+        --feature-gates="SCTPSupport=true,IPv6DualStack=true" \
         --cni-bin-dir=$CNI_BIN_DIR \
         --cni-conf-dir=$CNI_CONF_DIR \
         --cert-dir=${KURYR_KUBERNETES_DATA_DIR}/kubelet.cert \
@@ -797,7 +809,7 @@ function run_k8s_kubelet {
     if is_service_enabled coredns; then
         service_cidr=$(openstack --os-cloud devstack-admin \
                                  --os-region "$REGION_NAME" \
-                                 subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
+                                 subnet show "${KURYR_SERVICE_SUBNETS_IDS[0]}" \
                                  -c cidr -f value)
         export KURYR_COREDNS_CLUSTER_IP=$(_cidr_range "$service_cidr" | cut -f2)
         command+=" --cluster-dns=${KURYR_COREDNS_CLUSTER_IP} --cluster-domain=cluster.local"
@@ -927,9 +939,11 @@ function configure_overcloud_vm_k8s_svc_sg {
     security_group=$(openstack security group list \
         --project "$project_id" -c ID -c Name -f value | \
         awk '{if ($2=="default") print $1}')
-    openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
-        security group rule create --project "$project_id" \
-        --dst-port "$dst_port" --ethertype "$KURYR_ETHERTYPE" "$security_group"
+    for ethertype in ${KURYR_ETHERTYPES[@]}; do
+        openstack --os-cloud devstack-admin --os-region "$REGION_NAME" \
+            security group rule create --project "$project_id" \
+            --dst-port "$dst_port" --ethertype "$ethertype" "$security_group"
+    done
     openstack port set "$KURYR_OVERCLOUD_VM_PORT" --security-group service_pod_access
 }
 
@@ -970,7 +984,7 @@ function update_tempest_conf_file {
     if [[ "$KURYR_CONFIGMAP_MODIFIABLE" == "True" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes configmap_modifiable True
     fi
-    if [[ "$KURYR_IPV6" == "True" ]]; then
+    if [[ "$KURYR_IPV6" == "True" || "$KURYR_DUAL_STACK" == "True" ]]; then
         iniset $TEMPEST_CONFIG kuryr_kubernetes ipv6 True
     fi
     iniset $TEMPEST_CONFIG kuryr_kubernetes validate_crd True
@@ -1007,7 +1021,7 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
         if [ "$KURYR_K8S_CONTAINERIZED_DEPLOYMENT" == "False" ]; then
             service_cidr=$(openstack --os-cloud devstack-admin \
                                      --os-region "$REGION_NAME" \
-                                     subnet show "$KURYR_NEUTRON_DEFAULT_SERVICE_SUBNET" \
+                                     subnet show "${KURYR_SERVICE_SUBNETS_IDS[0]}" \
                                      -c cidr -f value)
             k8s_api_clusterip=$(_cidr_range "$service_cidr" | cut -f1)
             # NOTE(mrostecki): KURYR_K8S_API_ROOT will be a global to be used by next
@@ -1068,11 +1082,11 @@ if [[ "$1" == "stack" && "$2" == "extra" ]]; then
         fi
     fi
 
-    if is_service_enabled kubernetes-api \
-       || is_service_enabled kubernetes-controller-manager \
-       || is_service_enabled kubernetes-scheduler \
-       || is_service_enabled kubelet; then
+    if is_service_enabled kubernetes-api kubernetes-controller-manager kubernetes-scheduler kubelet; then
         get_container "$KURYR_KUBERNETES_IMAGE" "$KURYR_KUBERNETES_VERSION"
+    fi
+
+    if is_service_enabled kubernetes-api kubernetes-controller-manager kubernetes-scheduler; then
         prepare_kubernetes_files
     fi
 

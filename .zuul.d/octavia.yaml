@@ -73,6 +73,17 @@
     voting: false
 
 - job:
+    name: kuryr-kubernetes-tempest-containerized-dual-stack
+    parent: kuryr-kubernetes-tempest-containerized
+    description: |
+      Kuryr-Kubernetes tempest job running kuryr containerized with dual stack
+      pod and service networks
+    vars:
+      devstack_localrc:
+        KURYR_DUAL_STACK: true
+    voting: false
+
+- job:
     name: kuryr-kubernetes-tempest-containerized-lower-constraints
     parent: kuryr-kubernetes-tempest-containerized
     description: |
