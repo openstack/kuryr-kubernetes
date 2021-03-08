@@ -75,7 +75,6 @@
     vars:
       devstack_localrc:
         KURYR_IPV6: true
-    voting: false
 
 - job:
     name: kuryr-kubernetes-tempest-containerized-ovn-provider-ovn
@@ -107,7 +106,6 @@
         KURYR_SUBNET_DRIVER: namespace
         KURYR_SG_DRIVER: policy
         KURYR_ENABLED_HANDLERS: vif,endpoints,service,namespace,pod_label,policy,kuryrnetworkpolicy,kuryrnetwork,kuryrport,kuryrloadbalancer
-    voting: false
 
 - job:
     name: kuryr-kubernetes-e2e-np-containerized-ovn-provider-ovn
