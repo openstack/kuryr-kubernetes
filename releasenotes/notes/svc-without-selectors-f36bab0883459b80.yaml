@@ -1,0 +1,8 @@
+---
+features:
+  - |
+    Added support for Services without Selectors. Kuryr now handles Services
+    that do not define the .spec.selector, allowing the user to manually
+    manage the Endpoints object. When using ovn-octavia provider, Kuryr
+    only creates the Load Balancer resources for this type of Service if
+    the IPs on Endpoints are on the Pods or Nodes Subnet.
