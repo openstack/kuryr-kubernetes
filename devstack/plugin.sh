@@ -991,6 +991,7 @@ function update_tempest_conf_file {
     iniset $TEMPEST_CONFIG kuryr_kubernetes kuryrports True
     iniset $TEMPEST_CONFIG kuryr_kubernetes kuryrloadbalancers True
     iniset $TEMPEST_CONFIG kuryr_kubernetes test_services_without_selector True
+    iniset $TEMPEST_CONFIG kuryr_kubernetes test_sctp_services True
 }
 
 source $DEST/kuryr-kubernetes/devstack/lib/kuryr_kubernetes
