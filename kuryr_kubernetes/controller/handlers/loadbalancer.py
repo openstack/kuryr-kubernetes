@@ -536,10 +536,11 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
             removed_ids.add(pool['id'])
         if removed_ids:
             loadbalancer_crd['status']['pools'] = [p for p in loadbalancer_crd[
-                'status']['pools'] if p['id'] not in removed_ids]
+                'status'].get('pools', []) if p['id'] not in removed_ids]
             loadbalancer_crd['status']['members'] = [m for m in
                                                      loadbalancer_crd[
-                                                         'status']['members']
+                                                         'status'].get(
+                                                         'members', [])
                                                      if m['pool_id'] not in
                                                      removed_ids]
 
