@@ -143,11 +143,7 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
                 raise
             return
 
-        # FIXME(dulek): hostNetwork condition can be removed once we know we
-        #               won't upgrade from version creating ports for host
-        #               networking pods.
-        if ('deletionTimestamp' not in pod['metadata'] and
-                not driver_utils.is_host_network(pod)):
+        if ('deletionTimestamp' not in pod['metadata']):
             # NOTE(gryf): Ignore deleting KuryrPort, since most likely it was
             # removed manually, while we need vifs for corresponding pod
             # object which apperantely is still running.

@@ -40,29 +40,6 @@ class VIFHandler(k8s_base.ResourceEventHandler):
     OBJECT_KIND = constants.K8S_OBJ_POD
     OBJECT_WATCH_PATH = "%s/%s" % (constants.K8S_API_BASE, "pods")
 
-    def __init__(self):
-        super(VIFHandler, self).__init__()
-
-        # NOTE(dulek): We should get rid of that once we're sure we won't
-        #              upgrade from a version that may have unnecessary ports
-        #              created for host networking pods.
-        self._delete_host_networking_ports()
-
-    def _delete_host_networking_ports(self):
-        k8s = clients.get_kubernetes_client()
-        pods = k8s.get('/api/v1/pods')['items']
-        kuryrports = k8s.get(constants.K8S_API_CRD_KURYRPORTS)['items']
-        pairs = driver_utils.zip_resources(kuryrports, pods)
-        for kuryrport, pod in pairs:
-            if driver_utils.is_host_network(pod):
-                LOG.warning(f'Found unnecessary KuryrPort '
-                            f'{utils.get_res_unique_name(kuryrport)} created '
-                            f'for host networking pod. Deleting it.')
-                try:
-                    k8s.delete(utils.get_res_link(kuryrport))
-                except k_exc.K8sResourceNotFound:
-                    pass
-
     def on_present(self, pod):
         if (driver_utils.is_host_network(pod) or
                 not self._is_pod_scheduled(pod)):
