@@ -7,7 +7,7 @@ RUN go build -o /go/bin/kuryr-cni ./kuryr_cni
 FROM registry.centos.org/centos:8
 LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redhat.com>"
 
-ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/master"
+ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/wallaby"
 ARG OSLO_LOCK_PATH=/var/kuryr-lock
 ARG PKG_YUM_REPO=https://rdoproject.org/repos/openstack-victoria/rdo-release-victoria-2.el8.noarch.rpm
 
