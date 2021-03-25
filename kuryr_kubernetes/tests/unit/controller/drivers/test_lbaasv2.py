@@ -195,8 +195,7 @@ class TestLBaaSv2Driver(test_base.TestCase):
         # TODO(ivc): handle security groups
         m_driver._ensure_provisioned.return_value = expected_resp
 
-        resp = cls.ensure_listener(m_driver, loadbalancer,
-                                   protocol, port)
+        resp = cls.ensure_listener(m_driver, loadbalancer, protocol, port)
 
         m_driver._ensure_provisioned.assert_called_once_with(
             loadbalancer, mock.ANY, m_driver._create_listener,
@@ -570,6 +569,36 @@ class TestLBaaSv2Driver(test_base.TestCase):
             'loadbalancer_id': listener['loadbalancer_id'],
             'protocol': listener['protocol'],
             'protocol_port': listener['port']}
+        resp = o_lis.Listener(id=listener_id)
+        lbaas.create_listener.return_value = resp
+
+        ret = cls._create_listener(m_driver, listener)
+        lbaas.create_listener.assert_called_once_with(**req)
+        self.assertEqual(listener, ret)
+        self.assertEqual(listener_id, ret['id'])
+
+    def test_create_listener_with_different_timeouts(self):
+        cls = d_lbaasv2.LBaaSv2Driver
+        m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        listener = {
+            'name': 'TEST_NAME',
+            'project_id': 'TEST_PROJECT',
+            'loadbalancer_id': '00EE9E11-91C2-41CF-8FD4-7970579E5C4C',
+            'protocol': 'TCP',
+            'port': 5678,
+            'timeout_client_data': 75000,
+            'timeout_member_data': 0
+        }
+        listener_id = 'A57B7771-6050-4CA8-A63C-443493EC98AB'
+
+        req = {
+            'name': listener['name'],
+            'project_id': listener['project_id'],
+            'loadbalancer_id': listener['loadbalancer_id'],
+            'protocol': listener['protocol'],
+            'protocol_port': listener['port'],
+            'timeout_client_data': listener['timeout_client_data']}
         resp = o_lis.Listener(id=listener_id)
         lbaas.create_listener.return_value = resp
 

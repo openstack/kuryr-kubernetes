@@ -259,6 +259,16 @@ octavia_defaults = [
                       "to the pool members. The options are: ROUND_ROBIN, "
                       "LEAST_CONNECTIONS, SOURCE_IP and SOURCE_IP_PORT."),
                default='ROUND_ROBIN'),
+    cfg.IntOpt('timeout_client_data',
+               help=_("Frontend client inactivity timeout in milliseconds. "
+                      "When set to 0, the default timeout value set by "
+                      "Octavia is used."),
+               default=0),
+    cfg.IntOpt('timeout_member_data',
+               help=_("Backend member inactivity timeout in milliseconds. "
+                      "When set to 0, the default timeout value set by "
+                      "Octavia is used."),
+               default=0),
 ]
 
 cache_defaults = [

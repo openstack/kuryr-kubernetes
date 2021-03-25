@@ -226,11 +226,15 @@ class TestServiceHandler(test_base.TestCase):
 
         for has_ip_changes in (True, False):
             for has_port_changes in (True, False):
-                m_handler._has_ip_changes.return_value = has_ip_changes
-                m_port_changes.return_value = has_port_changes
-                ret = h_lbaas.ServiceHandler._has_lbaas_spec_changes(
-                    m_handler, service, lbaas_spec)
-                self.assertEqual(has_ip_changes or has_port_changes, ret)
+                for has_timeout_ in (True, False):
+                    m_handler._has_ip_changes.return_value = has_ip_changes
+                    m_port_changes.return_value = has_port_changes
+                    m_handler._has_timeout_changes.return_value = has_timeout_
+                    ret = h_lbaas.ServiceHandler._has_lbaas_spec_changes(
+                        m_handler, service, lbaas_spec)
+                    self.assertEqual(
+                        has_ip_changes or has_port_changes or has_timeout_,
+                        ret)
 
     def test_has_ip_changes(self):
         m_handler = mock.Mock(spec=h_lbaas.ServiceHandler)
