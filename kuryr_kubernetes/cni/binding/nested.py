@@ -109,15 +109,15 @@ class NestedDriver(health.HealthHandler, b_base.BaseBindingDriver,
             #               driver for getting the link device.
             vm_iface_name = self._detect_iface_name(h_ipdb)
             mtu = h_ipdb.interfaces[vm_iface_name].mtu
-            if mtu != vif.network.mtu:
+            if mtu < vif.network.mtu:
                 # NOTE(dulek): This might happen if Neutron and DHCP agent
                 # have different MTU settings. See
                 # https://bugs.launchpad.net/kuryr-kubernetes/+bug/1863212
                 raise exceptions.CNIBindingFailure(
-                    f'MTU of interface {vm_iface_name} ({mtu}) does not '
-                    f'match MTU of pod network {vif.network.id} '
+                    f'MTU of interface {vm_iface_name} ({mtu}) is smaller '
+                    f'than MTU of pod network {vif.network.id} '
                     f'({vif.network.mtu}). Please make sure pod network '
-                    f'has the same MTU as node (VM) network.')
+                    f'has the same or smaller MTU as node (VM) network.')
 
             args = self._get_iface_create_args(vif)
             with h_ipdb.create(ifname=temp_name,
