@@ -185,7 +185,7 @@ We can see that now we have 7 subports, 3 of them attached to `trunk0` and 4
 After that, if we create a new pod, we can see that the pre-created subports
 are being used::
 
-    $ kubectl create deployment demo --image=celebdor/kuryr-demo
+    $ kubectl create deployment demo --image=quay.io/kuryr/demo
     $ kubectl scale deploy/demo --replicas=2
     $ kubectl get pods
     NAME                    READY     STATUS    RESTARTS   AGE
