@@ -57,6 +57,20 @@ OCTAVIA_VERSIONS = {
     },
 }
 
+BAD_OCTAVIA_VERSIONS = {
+    'regionOne': {
+        'public': {
+            'load-balancer': [
+                {
+                    'status': 'CURRENT',
+                    'version': None,
+                    'raw_status': u'CURRENT',
+                },
+            ],
+        },
+    },
+}
+
 
 class TestLBaaSv2Driver(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.controller.drivers.lbaasv2.LBaaSv2Driver.'
@@ -109,6 +123,12 @@ class TestLBaaSv2Driver(test_base.TestCase):
         lbaas.get_all_version_data.return_value = OCTAVIA_VERSIONS
         self.assertEqual((2, 2),
                          d_lbaasv2.LBaaSv2Driver.get_octavia_version(None))
+
+    def test_get_octavia_version_is_none(self):
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        lbaas.get_all_version_data.return_value = BAD_OCTAVIA_VERSIONS
+        self.assertRaises(k_exc.UnreachableOctavia,
+                          d_lbaasv2.LBaaSv2Driver.get_octavia_version, None)
 
     def test_ensure_loadbalancer(self):
         os_net = self.useFixture(k_fix.MockNetworkClient()).client

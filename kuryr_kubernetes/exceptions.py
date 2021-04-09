@@ -116,3 +116,14 @@ class CNIBindingFailure(Exception):
     """Exception indicates a binding/unbinding VIF failure in CNI"""
     def __init__(self, message):
         super(CNIBindingFailure, self).__init__(message)
+
+
+class UnreachableOctavia(Exception):
+    """Exception indicates Octavia API failure and can not be reached
+
+    This exception is raised when Kuryr can not reach Octavia. The Octavia
+    API call returns 'None' on the version field and we need to properly log
+    a message informing the user
+    """
+    def __init__(self, message):
+        super(UnreachableOctavia, self).__init__(message)
