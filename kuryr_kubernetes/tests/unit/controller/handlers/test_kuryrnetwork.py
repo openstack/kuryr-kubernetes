@@ -26,6 +26,8 @@ from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
 
 
+@mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+            'is_network_policy_enabled', mock.Mock(return_value=True))
 class TestKuryrNetworkHandler(test_base.TestCase):
 
     def setUp(self):

@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import uuid
-
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -42,20 +40,6 @@ def _get_namespace_labels(namespace):
         LOG.exception("Kubernetes Client Exception")
         raise
     return namespaces['metadata'].get('labels')
-
-
-def _bump_networkpolicy(knp):
-    kubernetes = clients.get_kubernetes_client()
-
-    try:
-        kubernetes.annotate(
-            knp['metadata']['annotations']['networkPolicyLink'],
-            {constants.K8S_ANNOTATION_POLICY: str(uuid.uuid4())})
-    except exceptions.K8sResourceNotFound:
-        raise
-    except exceptions.K8sClientException:
-        LOG.exception("Kubernetes Client Exception")
-        raise
 
 
 def _create_sg_rules_with_container_ports(container_ports, matched):
@@ -321,7 +305,7 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
 
             if i_matched or e_matched:
                 try:
-                    _bump_networkpolicy(crd)
+                    driver_utils.bump_networkpolicy(crd)
                 except exceptions.K8sResourceNotFound:
                     # The NP got deleted, ignore it.
                     continue
@@ -350,7 +334,7 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
 
             if i_matched or e_matched:
                 try:
-                    _bump_networkpolicy(crd)
+                    driver_utils.bump_networkpolicy(crd)
                 except exceptions.K8sResourceNotFound:
                     # The NP got deleted, ignore it.
                     continue
@@ -384,7 +368,7 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
 
             if i_matched or e_matched:
                 try:
-                    _bump_networkpolicy(crd)
+                    driver_utils.bump_networkpolicy(crd)
                 except exceptions.K8sResourceNotFound:
                     # The NP got deleted, ignore it.
                     continue
@@ -407,7 +391,7 @@ class NetworkPolicySecurityGroupsDriver(base.PodSecurityGroupsDriver):
 
             if i_matched or e_matched:
                 try:
-                    _bump_networkpolicy(crd)
+                    driver_utils.bump_networkpolicy(crd)
                 except exceptions.K8sResourceNotFound:
                     # The NP got deleted, ignore it.
                     continue

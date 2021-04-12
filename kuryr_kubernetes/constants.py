@@ -27,6 +27,7 @@ K8S_API_CRD_KURYRLOADBALANCERS = K8S_API_CRD + '/kuryrloadbalancers'
 K8S_API_CRD_KURYRPORTS = K8S_API_CRD + '/kuryrports'
 K8S_API_POLICIES = '/apis/networking.k8s.io/v1/networkpolicies'
 K8S_API_NETWORKING = '/apis/networking.k8s.io/v1'
+K8S_API_NETWORKING_NAMESPACES = K8S_API_NETWORKING + '/namespaces'
 
 K8S_API_NPWG_CRD = '/apis/k8s.cni.cncf.io/v1'
 

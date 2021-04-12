@@ -192,7 +192,9 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
                 #                 by the policy
                 # NOTE(maysams): Network Policy is not enforced on Services
                 # without selectors for Amphora Octavia provider.
-                if (not service['spec'].get('selector') or not
+                # NOTE(dulek): Skip services being deleted.
+                if (not service['spec'].get('selector') or
+                        service['metadata'].get('deletionTimestamp') or not
                         self._is_service_affected(service, pods_to_update)):
                     continue
                 sgs = self._drv_svc_sg.get_security_groups(service, project_id)

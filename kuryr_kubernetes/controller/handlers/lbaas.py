@@ -20,6 +20,7 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes.controller.drivers import base as drv_base
+from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes import utils
@@ -45,6 +46,10 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         self._drv_subnets = drv_base.ServiceSubnetsDriver.get_instance()
         self._drv_sg = drv_base.ServiceSecurityGroupsDriver.get_instance()
 
+    def _bump_network_policies(self, svc):
+        if driver_utils.is_network_policy_enabled():
+            driver_utils.bump_networkpolicies(svc['metadata']['namespace'])
+
     def on_present(self, service):
         reason = self._should_ignore(service)
         if reason:
@@ -62,6 +67,9 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
 
         if loadbalancer_crd is None:
             try:
+                # Bump all the NPs in the namespace to force SG rules
+                # recalculation.
+                self._bump_network_policies(service)
                 self.create_crd_spec(service)
             except k_exc.K8sNamespaceTerminating:
                 LOG.warning('Namespace %s is being terminated, ignoring '
@@ -111,6 +119,9 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
 
         klb_crd_path = (f"{k_const.K8S_API_CRD_NAMESPACES}/"
                         f"{svc_namespace}/kuryrloadbalancers/{svc_name}")
+        # Bump all the NPs in the namespace to force SG rules
+        # recalculation.
+        self._bump_network_policies(service)
         try:
             k8s.delete(klb_crd_path)
         except k_exc.K8sResourceNotFound:

@@ -35,6 +35,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
     """Provide security groups actions based on K8s Network Policies"""
 
     def __init__(self):
+        super().__init__()
         self.os_net = clients.get_network_client()
         self.kubernetes = clients.get_kubernetes_client()
         self.nodes_subnets_driver = base.NodesSubnetsDriver.get_instance()
@@ -131,8 +132,51 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         i_rules, e_rules = self._parse_network_policy_rules(policy)
         # Add default rules to allow traffic from host and svc subnet
         i_rules += self._get_default_np_rules()
+        # Add rules allowing ingress from LBs
+        # FIXME(dulek): Rules added below cannot work around the Amphora
+        #               source-ip problem as Amphora does not use LB VIP for
+        #               LB->members traffic, but that other IP attached to the
+        #               Amphora VM in the service subnet. It's ridiculous.
+        i_rules += self._get_service_ingress_rules(policy)
 
         return i_rules, e_rules
+
+    def _get_service_ingress_rules(self, policy):
+        """Get SG rules allowing traffic from Services in the namespace
+
+        This methods returns ingress rules allowing traffic from all
+        services clusterIPs in the cluster. This is required for OVN LBs in
+        order to work around the fact that it changes source-ip to LB IP in
+        hairpin traffic. This shouldn't be a security problem as this can only
+        happen when the pod receiving the traffic is the one that calls the
+        service.
+
+        FIXME(dulek): Once OVN supports selecting a single, configurable
+                      source-IP for hairpin traffic, consider using it instead.
+        """
+        if CONF.octavia_defaults.enforce_sg_rules:
+            # When enforce_sg_rules is True, one of the default rules will
+            # open ingress from all the services subnets, so those rules would
+            # be redundant.
+            return []
+
+        ns = policy['metadata']['namespace']
+        rules = []
+        services = self.kubernetes.get(
+            f'{constants.K8S_API_NAMESPACES}/{ns}/services').get('items', [])
+        for svc in services:
+            if svc['metadata'].get('deletionTimestamp'):
+                # Ignore services being deleted
+                continue
+            ip = svc['spec'].get('clusterIP')
+            if not ip or ip == 'None':
+                # Ignore headless services
+                continue
+            rules.append(driver_utils.create_security_group_rule_body(
+                'ingress', cidr=ip,
+                description=f"Allow traffic from local namespace service "
+                            f"{svc['metadata']['name']}"))
+        return rules
 
     def _get_default_np_rules(self):
         """Add extra SG rule to allow traffic from svcs and host.
@@ -519,6 +563,8 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
 
     def _create_svc_egress_sg_rule(self, policy_namespace, sg_rule_body_list,
                                    resource=None, port=None, protocol=None):
+        # FIXME(dulek): We could probably filter by namespace here for pods
+        #               and namespace resources?
         services = driver_utils.get_services()
         if not resource:
             svc_subnet = utils.get_subnet_cidr(
@@ -530,6 +576,15 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             return
 
         for service in services.get('items'):
+            if service['metadata'].get('deletionTimestamp'):
+                # Ignore services being deleted
+                continue
+
+            cluster_ip = service['spec'].get('clusterIP')
+            if not cluster_ip or cluster_ip == 'None':
+                # Headless services has 'None' as clusterIP, ignore.
+                continue
+
             svc_name = service['metadata']['name']
             svc_namespace = service['metadata']['namespace']
             if self._is_pod(resource):
@@ -542,8 +597,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     if pod_ip and pod_ip not in targets:
                         continue
                 elif pod_labels:
-                    if not driver_utils.match_labels(
-                            svc_selector, pod_labels):
+                    if not driver_utils.match_labels(svc_selector, pod_labels):
                         continue
             elif resource.get('cidr'):
                 # NOTE(maysams) Accounts for traffic to pods under
@@ -567,13 +621,8 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                 ns_name = service['metadata']['namespace']
                 if ns_name != resource['metadata']['name']:
                     continue
-            cluster_ip = service['spec'].get('clusterIP')
-            if not cluster_ip or cluster_ip == 'None':
-                # Headless services has 'None' as clusterIP.
-                continue
             rule = driver_utils.create_security_group_rule_body(
-                'egress', port, protocol=protocol,
-                cidr=cluster_ip)
+                'egress', port, protocol=protocol, cidr=cluster_ip)
             if rule not in sg_rule_body_list:
                 sg_rule_body_list.append(rule)
 
