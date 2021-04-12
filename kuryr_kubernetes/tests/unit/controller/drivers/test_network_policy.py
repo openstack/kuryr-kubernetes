@@ -14,11 +14,15 @@
 
 from unittest import mock
 
+from oslo_config import cfg
+
 from kuryr_kubernetes.controller.drivers import network_policy
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
 from kuryr_kubernetes import utils
+
+CONF = cfg.CONF
 
 
 def get_pod_obj():
@@ -185,8 +189,41 @@ class TestNetworkPolicyDriver(test_base.TestCase):
                                    m_get_crd, m_get_default):
         m_utils.get_subnet_cidr.return_value = mock.sentinel.cidr
         m_parse.return_value = (self._i_rules, self._e_rules)
-        self._driver.ensure_network_policy(
-            self._policy)
+        self.kubernetes.get = mock.Mock(return_value={})
+        self._driver.ensure_network_policy(self._policy)
+        m_get_crd.assert_called_once()
+        m_add_crd.assert_called_once()
+        m_get_default.assert_called_once()
+
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
+                'create_security_group_rule_body')
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_get_default_np_rules')
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_get_knp_crd', return_value=False)
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_create_knp_crd')
+    @mock.patch.object(network_policy.NetworkPolicyDriver,
+                       '_parse_network_policy_rules')
+    @mock.patch.object(utils, 'get_subnet_cidr')
+    def test_ensure_network_policy_services(self, m_utils, m_parse, m_add_crd,
+                                            m_get_crd, m_get_default,
+                                            m_create_sgr):
+        CONF.set_override('enforce_sg_rules', False, group='octavia_defaults')
+        self.addCleanup(CONF.set_override, 'enforce_sg_rules', True,
+                        group='octavia_defaults')
+        m_utils.get_subnet_cidr.return_value = mock.sentinel.cidr
+        m_parse.return_value = (self._i_rules, self._e_rules)
+        svcs = [
+            {'metadata': {'name': 'foo', 'deletionTimestamp': 'foobar'}},
+            {'metadata': {'name': 'bar'}, 'spec': {'clusterIP': 'None'}},
+            {'metadata': {'name': 'baz'}, 'spec': {'clusterIP': None}},
+            {'metadata': {'name': ''}, 'spec': {'clusterIP': '192.168.0.130'}},
+        ]
+        self.kubernetes.get = mock.Mock(return_value={'items': svcs})
+        self._driver.ensure_network_policy(self._policy)
+        m_create_sgr.assert_called_once_with('ingress', cidr='192.168.0.130',
+                                             description=mock.ANY)
         m_get_crd.assert_called_once()
         m_add_crd.assert_called_once()
         m_get_default.assert_called_once()
@@ -203,6 +240,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         m_utils.get_subnet_cidr.return_value = mock.sentinel.cidr
         m_parse.return_value = (self._i_rules, self._e_rules)
         m_get_crd.side_effect = exceptions.K8sClientException
+        self.kubernetes.get = mock.Mock(return_value={})
         self.assertRaises(exceptions.K8sClientException,
                           self._driver.ensure_network_policy, self._policy)
         m_get_default.assert_called_once()
@@ -220,6 +258,7 @@ class TestNetworkPolicyDriver(test_base.TestCase):
         m_utils.get_subnet_cidr.return_value = mock.sentinel.cidr
         m_parse.return_value = (self._i_rules, self._e_rules)
         m_add_crd.side_effect = exceptions.K8sClientException
+        self.kubernetes.get = mock.Mock(return_value={})
         self.assertRaises(exceptions.K8sClientException,
                           self._driver.ensure_network_policy, self._policy)
         m_get_crd.assert_called()
