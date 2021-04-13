@@ -57,6 +57,18 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
             self._drv_nodes_subnets.get_nodes_subnets())
 
     def on_present(self, loadbalancer_crd):
+        if loadbalancer_crd.get('status', None) is None:
+
+            kubernetes = clients.get_kubernetes_client()
+            try:
+                kubernetes.patch_crd('status',
+                                     utils.get_res_link(loadbalancer_crd),
+                                     {})
+            except k_exc.K8sResourceNotFound:
+                LOG.debug('KuryrLoadbalancer CRD not found %s',
+                          utils.get_res_unique_name(loadbalancer_crd))
+            return
+
         if self._should_ignore(loadbalancer_crd):
             LOG.debug("Ignoring Kubernetes service %s",
                       loadbalancer_crd['metadata']['name'])
@@ -440,12 +452,9 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
             removed_ids.add(member['id'])
 
         if removed_ids:
-            loadbalancer_crd['status']['members'] = [m for m in
-                                                     loadbalancer_crd[
-                                                         'status'][
-                                                             'members']
-                                                     if m['id'] not in
-                                                     removed_ids]
+            members = [m for m in loadbalancer_crd['status'].get('members', [])
+                       if m['id'] not in removed_ids]
+            loadbalancer_crd['status']['members'] = members
 
             kubernetes = clients.get_kubernetes_client()
             try:
