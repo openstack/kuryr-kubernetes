@@ -575,8 +575,8 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
     def _add_new_listeners(self, loadbalancer_crd):
         changed = False
         lb_crd_spec_ports = loadbalancer_crd['spec'].get('ports')
-        spec_t_cli = loadbalancer_crd['spec'].get('timeout_client_data')
-        spec_t_mb = loadbalancer_crd['spec'].get('timeout_member_data')
+        spec_t_cli = loadbalancer_crd['spec'].get('timeout_client_data', 0)
+        spec_t_mb = loadbalancer_crd['spec'].get('timeout_member_data', 0)
         if not lb_crd_spec_ports:
             return changed
         lbaas_spec_ports = sorted(lb_crd_spec_ports,
@@ -589,8 +589,8 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
 
             listener = []
             for l in loadbalancer_crd['status'].get('listeners', []):
-                timeout_cli = l.get('timeout_client_data')
-                timeout_mb = l.get('timeout_member_data')
+                timeout_cli = l.get('timeout_client_data', 0)
+                timeout_mb = l.get('timeout_member_data', 0)
                 if l['port'] == port and l['protocol'] == protocol:
                     if timeout_cli == spec_t_cli and timeout_mb == spec_t_mb:
                         listener.append(l)
