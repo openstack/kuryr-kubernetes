@@ -204,9 +204,8 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     # service subnet.
                     allowed_cidrs = utils.get_subnetpool_cidrs(
                         CONF.namespace_subnet.pod_subnet_pool)
-                    if CONF.octavia_defaults.enforce_sg_rules:
-                        allowed_cidrs.append(utils.get_subnet_cidr(
-                            CONF.neutron_defaults.service_subnet))
+                    allowed_cidrs.append(utils.get_subnet_cidr(
+                        CONF.neutron_defaults.service_subnet))
             elif namespace_selector:
                 selectors = True
                 if pod_selector:
