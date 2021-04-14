@@ -567,8 +567,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
         lbaas = clients.get_loadbalancer_client()
         response = lbaas.create_listener(**request)
         listener['id'] = response.id
-        listener['timeout_client_data'] = response.timeout_client_data
-        listener['timeout_member_data'] = response.timeout_member_data
+        if timeout_cli:
+            listener['timeout_client_data'] = response.timeout_client_data
+        if timeout_mem:
+            listener['timeout_member_data'] = response.timeout_member_data
         return listener
 
     def _update_listener_acls(self, loadbalancer, listener_id, allowed_cidrs):
