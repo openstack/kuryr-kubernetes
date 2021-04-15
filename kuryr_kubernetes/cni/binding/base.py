@@ -22,6 +22,7 @@ from oslo_log import log as logging
 import pyroute2
 from stevedore import driver as stv_driver
 
+from kuryr_kubernetes.cni import utils as cni_utils
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
 from kuryr_kubernetes import utils
@@ -150,6 +151,7 @@ def _need_configure_l3(vif):
     return True
 
 
+@cni_utils.log_ipdb
 def connect(vif, instance_info, ifname, netns=None, report_health=None,
             is_default_gateway=True, container_id=None):
     driver = _get_binding_driver(vif)
@@ -161,6 +163,7 @@ def connect(vif, instance_info, ifname, netns=None, report_health=None,
         _configure_l3(vif, ifname, netns, is_default_gateway)
 
 
+@cni_utils.log_ipdb
 def disconnect(vif, instance_info, ifname, netns=None, report_health=None,
                container_id=None, **kwargs):
     driver = _get_binding_driver(vif)
@@ -170,6 +173,7 @@ def disconnect(vif, instance_info, ifname, netns=None, report_health=None,
     os_vif.unplug(vif, instance_info)
 
 
+@cni_utils.log_ipdb
 def cleanup(ifname, netns):
     with get_ipdb(netns) as c_ipdb:
         if ifname in c_ipdb.interfaces:

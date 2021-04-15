@@ -12,11 +12,18 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
+import functools
+
+from oslo_log import log as logging
+
 PROC_ONE_CGROUP_PATH = '/proc/1/cgroup'
 CONTAINER_RUNTIME_CGROUP_IDS = (
     'docker',  # This is set by docker/moby
     'libpod',  # This is set by podman
 )
+
+LOG = logging.getLogger(__name__)
 
 
 def running_under_container_runtime(proc_one_cg_path=PROC_ONE_CGROUP_PATH):
@@ -63,3 +70,19 @@ class CNIParameters(object):
     def __repr__(self):
         return repr({key: value for key, value in self.__dict__.items() if
                      key.startswith('CNI_')})
+
+
+def log_ipdb(func):
+    @functools.wraps(func)
+    def with_logging(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except RuntimeError as e:
+            try:
+                LOG.error('Error when manipulating network interfaces')
+                LOG.error(e.debug['traceback'])
+                LOG.debug('Full debugging info: %s', e.debug)
+            except AttributeError:
+                pass
+            raise
+    return with_logging
