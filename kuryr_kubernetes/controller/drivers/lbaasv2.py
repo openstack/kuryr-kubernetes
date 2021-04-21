@@ -29,6 +29,7 @@ from kuryr_kubernetes.controller.drivers import base
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes import utils
 
+
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
@@ -118,7 +119,10 @@ class LBaaSv2Driver(base.LBaaSDriver):
         # won't assume this dict is sorted.
         max_ver = 0, 0
         for version in versions:
-            v_tuple = versionutils.convert_version_to_tuple(version['version'])
+            if version.get('version') is None:
+                raise k_exc.UnreachableOctavia('Unable to reach Octavia API')
+            v_tuple = versionutils.convert_version_to_tuple(
+                version['version'])
             if v_tuple > max_ver:
                 max_ver = v_tuple
 
