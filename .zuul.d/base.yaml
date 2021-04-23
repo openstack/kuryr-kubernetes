@@ -41,6 +41,10 @@
       network_api_extensions_common:
         - tag-ports-during-bulk-creation
       devstack_localrc:
+        Q_AGENT: openvswitch
+        Q_ML2_TENANT_NETWORK_TYPE: vxlan
+        Q_ML2_PLUGIN_MECHANISM_DRIVERS: openvswitch,linuxbridge
+        ML2_L3_PLUGIN: router
         KURYR_K8S_API_PORT: 8080
         TEMPEST_PLUGINS: '/opt/stack/kuryr-tempest-plugin'
         KURYR_K8S_CLOUD_PROVIDER: false
@@ -115,6 +119,10 @@
       network_api_extensions_common:
       - tag-ports-during-bulk-creation
       devstack_localrc:
+        Q_AGENT: openvswitch
+        Q_ML2_TENANT_NETWORK_TYPE: vxlan
+        Q_ML2_PLUGIN_MECHANISM_DRIVERS: openvswitch,linuxbridge
+        ML2_L3_PLUGIN: router
         KURYR_K8S_API_PORT: 8080
         Q_BUILD_OVS_FROM_GIT: true
         KURYR_K8S_CLOUD_PROVIDER: false
