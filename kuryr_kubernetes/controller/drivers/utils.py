@@ -37,7 +37,7 @@ CONF = cfg.CONF
 
 
 def get_network_id(subnets):
-    ids = list(set(net.id for net in subnets.values()))
+    ids = list({net.id for net in subnets.values()})
 
     if len(ids) != 1:
         raise k_exc.IntegrityError(
