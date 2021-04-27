@@ -349,6 +349,11 @@ class CNIDaemonServiceManager(cotyledon.ServiceManager):
         self.register_hooks(on_terminate=self.terminate)
 
     def run(self):
+        # FIXME(darshna): Remove pyroute2 IPDB deprecation warning, remove
+        #                 once we stop using pyroute2.IPDB.
+
+        logging.getLogger('pyroute2').setLevel(logging.ERROR)
+
         reaper_thread = threading.Thread(target=self._zombie_reaper,
                                          daemon=True)
         self._terminate_called = threading.Event()
