@@ -17,7 +17,7 @@ from eventlet import greenlet
 from unittest import mock
 
 from kuryr_kubernetes.tests import base as test_base
-from kuryr_kubernetes.tests.unit import kuryr_fixtures as kuryr_fixtures
+from kuryr_kubernetes.tests.unit import kuryr_fixtures
 from kuryr_kubernetes import watcher
 from requests import exceptions
 
