@@ -1,0 +1,12 @@
+# github.com/containernetworking/cni v0.8.0
+## explicit
+github.com/containernetworking/cni/pkg/skel
+github.com/containernetworking/cni/pkg/types
+github.com/containernetworking/cni/pkg/types/020
+github.com/containernetworking/cni/pkg/types/current
+github.com/containernetworking/cni/pkg/utils
+github.com/containernetworking/cni/pkg/version
+# github.com/onsi/ginkgo v1.16.1
+## explicit
+# github.com/onsi/gomega v1.11.0
+## explicit
