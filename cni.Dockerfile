@@ -1,4 +1,4 @@
-FROM quay.io/kuryr/golang:1.15 as builder
+FROM quay.io/kuryr/golang:1.16 as builder
 
 WORKDIR /go/src/opendev.com/kuryr-kubernetes
 COPY . .
