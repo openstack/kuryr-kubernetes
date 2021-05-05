@@ -146,7 +146,7 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
         if 'deletionTimestamp' not in pod['metadata']:
             # NOTE(gryf): Ignore deleting KuryrPort, since most likely it was
             # removed manually, while we need vifs for corresponding pod
-            # object which apperantely is still running.
+            # object which apparently is still running.
             LOG.warning('Manually triggered KuryrPort %s removal. This '
                         'action should be avoided, since KuryrPort CRDs are '
                         'internal to Kuryr.', name)
@@ -159,7 +159,7 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
             # NOTE(ltomasbo): If the pod is being deleted before
             # kuryr-controller annotated any information about the port
             # associated, there is no need for deleting sg rules associated to
-            # it. So this exception could be safetly ignored for the current
+            # it. So this exception could be safely ignored for the current
             # sg drivers. Only the NP driver associates rules to the pods ips,
             # and that waits for annotations to start.
             #
@@ -264,7 +264,7 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
         return True
 
     def _update_kuryrport_crd(self, kuryrport_crd, vifs):
-        LOG.debug('Updatting CRD %s', kuryrport_crd["metadata"]["name"])
+        LOG.debug('Updating CRD %s', kuryrport_crd["metadata"]["name"])
         vif_dict = {}
         for ifname, data in vifs.items():
             data['vif'].obj_reset_changes(recursive=True)
