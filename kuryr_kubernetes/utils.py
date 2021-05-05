@@ -370,13 +370,13 @@ def has_limit(quota):
 
 def is_available(resource, resource_quota):
     availability = resource_quota['limit'] - resource_quota['used']
-    if availability <= 3:
-        LOG.warning("Neutron quota low for %s. Used %d out of %d limit.",
-                    resource, resource_quota['limit'], resource_quota['used'])
-    elif availability <= 0:
+    if availability <= 0:
         LOG.error("Neutron quota exceeded for %s. Used %d out of %d limit.",
-                  resource, resource_quota['limit'], resource_quota['used'])
+                  resource, resource_quota['used'], resource_quota['limit'])
         return False
+    elif availability <= 3:
+        LOG.warning("Neutron quota low for %s. Used %d out of %d limit.",
+                    resource, resource_quota['used'], resource_quota['limit'])
     return True
 
 
