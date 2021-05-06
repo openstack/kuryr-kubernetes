@@ -45,7 +45,7 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
         self._drv_vif_pool = drivers.VIFPoolDriver.get_instance(
             specific_driver='multi_pool')
         self._drv_vif_pool.set_vif_driver()
-        if self._is_network_policy_enabled():
+        if driver_utils.is_network_policy_enabled():
             self._drv_lbaas = drivers.LBaaSDriver.get_instance()
             self._drv_svc_sg = (
                 drivers.ServiceSecurityGroupsDriver.get_instance())
@@ -82,7 +82,7 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
             # update SG and svc SGs
             namespace = driver_utils.get_namespace(ns_name)
             crd_selectors = self._drv_sg.update_namespace_sg_rules(namespace)
-            if (self._is_network_policy_enabled() and crd_selectors and
+            if (driver_utils.is_network_policy_enabled() and crd_selectors and
                     oslo_cfg.CONF.octavia_defaults.enforce_sg_rules):
                 services = driver_utils.get_services()
                 self._update_services(services, crd_selectors, project_id)
@@ -111,7 +111,7 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
             'metadata': {'name': kuryrnet_crd['spec']['nsName']}}
         crd_selectors = self._drv_sg.delete_namespace_sg_rules(namespace)
 
-        if (self._is_network_policy_enabled() and crd_selectors and
+        if (driver_utils.is_network_policy_enabled() and crd_selectors and
                 oslo_cfg.CONF.octavia_defaults.enforce_sg_rules):
             project_id = kuryrnet_crd['spec']['projectId']
             services = driver_utils.get_services()
@@ -126,11 +126,6 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
             LOG.exception('Error removing kuryrnetwork CRD finalizer for %s',
                           kuryrnet_crd)
             raise
-
-    def _is_network_policy_enabled(self):
-        enabled_handlers = oslo_cfg.CONF.kubernetes.enabled_handlers
-        svc_sg_driver = oslo_cfg.CONF.kubernetes.service_security_groups_driver
-        return ('policy' in enabled_handlers and svc_sg_driver == 'policy')
 
     def _update_services(self, services, crd_selectors, project_id):
         for service in services.get('items'):

@@ -13,12 +13,15 @@
 # limitations under the License.
 from unittest import mock
 
-from kuryr_kubernetes.controller.drivers import utils
+from oslo_config import cfg
 
 from kuryr_kubernetes import constants
+from kuryr_kubernetes.controller.drivers import utils
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.tests import base as test_base
 from kuryr_kubernetes.tests.unit import kuryr_fixtures as k_fix
+
+CONF = cfg.CONF
 
 
 class TestUtils(test_base.TestCase):
@@ -86,3 +89,29 @@ class TestUtils(test_base.TestCase):
             utils.match_selector({'matchLabels': {'app': 'demo',
                                                   'foo': 'bar'}},
                                  {'app': 'demo'}))
+
+    def test_is_network_policy_enabled(self):
+        CONF.set_override('enabled_handlers', ['fake_handler'],
+                          group='kubernetes')
+        CONF.set_override('service_security_groups_driver', 'foo',
+                          group='kubernetes')
+
+        self.assertFalse(utils.is_network_policy_enabled())
+
+        CONF.set_override('enabled_handlers', ['policy'],
+                          group='kubernetes')
+        CONF.set_override('service_security_groups_driver', 'foo',
+                          group='kubernetes')
+
+        self.assertFalse(utils.is_network_policy_enabled())
+
+        CONF.set_override('enabled_handlers', ['policy'],
+                          group='kubernetes')
+        self.addCleanup(CONF.clear_override, 'enabled_handlers',
+                        group='kubernetes')
+        CONF.set_override('service_security_groups_driver', 'policy',
+                          group='kubernetes')
+        self.addCleanup(CONF.clear_override, 'service_security_groups_driver',
+                        group='kubernetes')
+
+        self.assertTrue(utils.is_network_policy_enabled())

@@ -381,8 +381,7 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
                     crd, pod, pod_selector, rule_block, 'ingress', False)
                 self.assertEqual(matched, False)
 
-    @mock.patch('kuryr_kubernetes.controller.drivers.'
-                'network_policy_security_groups._bump_networkpolicy')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.bump_networkpolicy')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'get_kuryrnetworkpolicy_crds')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_pod_ip')
@@ -488,8 +487,7 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
         m_get_crds.assert_called_once_with(namespace=self._namespace)
         self.assertEqual([self._sg_id, self._sg_id2], resp)
 
-    @mock.patch('kuryr_kubernetes.controller.drivers.'
-                'network_policy_security_groups._bump_networkpolicy')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.bump_networkpolicy')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'get_kuryrnetworkpolicy_crds')
     def test_delete_namespace_sg_rule(self, m_get_knp_crd, m_bump):
@@ -503,8 +501,7 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
         m_get_knp_crd.assert_called_once()
         m_bump.assert_called_once()
 
-    @mock.patch('kuryr_kubernetes.controller.drivers.'
-                'network_policy_security_groups._bump_networkpolicy')
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.bump_networkpolicy')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
                 'delete_security_group_rule')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
