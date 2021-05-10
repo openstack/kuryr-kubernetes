@@ -60,10 +60,9 @@ if is_service_enabled kuryr-kubernetes kuryr-daemon \
             build_install_kuryr_cni
         fi
 
-
     elif [[ "$1" == "stack" && "$2" == "post-config" ]]; then
         echo_summary "Configure kuryr bits"
-        if is_service_enabled kuryr-kubernetes; then
+        if is_service_enabled kuryr-daemon; then
             create_kuryr_account
             configure_kuryr
         fi
@@ -71,7 +70,7 @@ if is_service_enabled kuryr-kubernetes kuryr-daemon \
     elif [[ "$1" == "stack" && "$2" == "extra" ]]; then
         echo_summary "Installing kubernetes and kuryr"
         # Initialize and start the template service
-        if is_service_enabled kubernetes-master; then
+        if is_service_enabled kuryr-kubernetes; then
             configure_neutron_defaults
         fi
 
@@ -79,14 +78,23 @@ if is_service_enabled kuryr-kubernetes kuryr-daemon \
             prepare_kubelet
         fi
 
-        if is_service_enabled kubernetes-master kubernetes-worker; then
+        if is_service_enabled kubernetes-master; then
             wait_for "etcd" "http://${SERVICE_HOST}:${ETCD_PORT}/v2/machines"
             kubeadm_init
             copy_kuryr_certs
         fi
 
+        if is_service_enabled kubernetes-worker; then
+            kubeadm_join
+        fi
+
         if [ "${KURYR_CONT}" == "True" ]; then
-            build_kuryr_containers
+            if is_service_enabled kubernetes-master; then
+                build_kuryr_container_image "controller"
+                build_kuryr_container_image "cni"
+            else
+                build_kuryr_container_image "cni"
+            fi
         fi
 
         if is_service_enabled kubernetes-master; then
@@ -120,21 +128,23 @@ if is_service_enabled kuryr-kubernetes kuryr-daemon \
 
     elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
         echo_summary "Run kuryr-kubernetes"
-        if is_service_enabled octavia; then
-            create_lb_for_services
-        fi
+        if is_service_enabled kuryr-kubernetes; then
+            if is_service_enabled octavia; then
+                create_lb_for_services
+            fi
 
-        # FIXME(dulek): This is a very late phase to start Kuryr services.
-        #               We're doing it here because we need K8s API LB to be
-        #               created in order to run kuryr services. Thing is
-        #               Octavia is unable to create LB until test-config phase.
-        #               We can revisit this once Octavia's DevStack plugin will
-        #               get improved.
-        if [ "${KURYR_CONT}" == "True" ]; then
-            run_containerized_kuryr_resources
-        else
-            run_kuryr_kubernetes
-            run_kuryr_daemon
+            # FIXME(dulek): This is a very late phase to start Kuryr services.
+            # We're doing it here because we need K8s API LB to be created in
+            # order to run kuryr services. Thing is Octavia is unable to
+            # create LB until test-config phase. We can revisit this once
+            # Octavia's DevStack plugin will get improved.
+
+            if [ "${KURYR_CONT}" == "True" ]; then
+                run_containerized_kuryr_resources
+            else
+                run_kuryr_kubernetes
+                run_kuryr_daemon
+            fi
         fi
 
         if is_service_enabled tempest; then

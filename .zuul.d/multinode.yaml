@@ -32,6 +32,7 @@
         devstack_services:
           # Need to disable dstat due to bug https://github.com/dstat-real/dstat/pull/162
           dstat: false
+          kuryr-daemon: true
           kuryr-kubernetes: false
           kubernetes-worker: true
           kubernetes-master: false
@@ -43,11 +44,14 @@
           USE_PYTHON3: true
     vars:
       devstack_localrc:
-          KURYR_K8S_API_URL: "http://${SERVICE_HOST}:${KURYR_K8S_API_PORT}"
+          KURYR_K8S_API_URL: "https://${SERVICE_HOST}:${KURYR_K8S_API_PORT}"
           KURYR_K8S_MULTI_WORKER_TESTS: True
       devstack_services:
         tls-proxy: false
-        kubernetes-worker: true
+        kubernetes-worker: false
+        kubernetes-master: true
+        kuryr-daemon: true
+        kuryr-kubernetes: true
     voting: false
 
 - job:

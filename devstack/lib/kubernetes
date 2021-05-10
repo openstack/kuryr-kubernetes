@@ -124,6 +124,44 @@ EOF
     safe_chown $STACK_USER:$STACK_USER $kube_config_file
 }
 
+function kubeadm_join {
+    local output_dir="${DATA_DIR}/kuryr-kubernetes"
+
+    mkdir -p "${output_dir}"
+
+    cluster_ip_ranges=()
+    for service_subnet_id in ${KURYR_SERVICE_SUBNETS_IDS[@]}; do
+        service_cidr=$(openstack --os-cloud devstack-admin \
+            --os-region "$REGION_NAME" \
+            subnet show "$service_subnet_id" \
+            -c cidr -f value)
+        cluster_ip_ranges+=($(split_subnet "$service_cidr" | cut -f1))
+    done
+
+    # TODO(gryf): take care of cri-o case aswell
+    rm -f ${output_dir}/kubeadm-join.yaml
+    cat >> ${output_dir}/kubeadm-join.yaml << EOF
+apiVersion: kubeadm.k8s.io/v1beta2
+discovery:
+  bootstrapToken:
+    apiServerEndpoint: ${SERVICE_HOST}:${KURYR_K8S_API_PORT}
+    token: "${KURYR_K8S_TOKEN}"
+    unsafeSkipCAVerification: true
+  tlsBootstrapToken: "${KURYR_K8S_TOKEN}"
+kind: JoinConfiguration
+nodeRegistration:
+  kubeletExtraArgs:
+    cgroup-driver: "$(docker info -f '{{.CgroupDriver}}')"
+    cni-bin-dir: "$CNI_BIN_DIR"
+    cni-conf-dir: "$CNI_CONF_DIR"
+    enable-server: "true"
+  taints:
+    []
+EOF
+    sudo -E kubeadm join --ignore-preflight-errors Swap \
+        --config ${output_dir}/kubeadm-join.yaml
+}
+
 function get_k8s_apiserver {
     # assumption is, there is no other cluster, so there is only one API
     # server.

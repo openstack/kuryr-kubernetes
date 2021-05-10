@@ -272,11 +272,12 @@ function create_k8s_subnet {
     echo "$subnet_id"
 }
 
-# build_kuryr_containers
-#   Description: Generates a Kuryr controller and Kuryr CNI docker images in
-#       the local docker registry as kuryr/controller:latest and
-#       kuryr/cni:latest respectively
-function build_kuryr_containers {
+# build_kuryr_container_image
+#   Description: Generates a Kuryr controller or Kuryr CNI docker image in
+#       the local docker registry as kuryr/controller:latest for controller or
+#       kuryr/cni:latest for CNI.
+function build_kuryr_container_image {
+    local target=$1  # controller or cni
     local build_args
     local build_dir
 
@@ -293,11 +294,11 @@ function build_kuryr_containers {
     #               resolved instead of podman we need to use buildah directly,
     #               hence this awful if clause.
     if [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
-        sudo buildah bud -t docker.io/kuryr/controller -f controller.Dockerfile .
-        sudo buildah bud -t docker.io/kuryr/cni -f cni.Dockerfile .
+        sudo buildah bud -t "docker.io/kuryr/${target}" \
+            -f "${target}.Dockerfile" .
     else
-        container_runtime build -t kuryr/controller -f controller.Dockerfile ${build_args} .
-        container_runtime build -t kuryr/cni -f cni.Dockerfile ${build_args} .
+        container_runtime build -t "kuryr/${target}" \
+            -f "${target}.Dockerfile" ${build_args} .
     fi
     popd
 }
