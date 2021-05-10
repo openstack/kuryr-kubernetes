@@ -170,7 +170,6 @@
 - job:
     name: kuryr-kubernetes-tempest-containerized-crio
     parent: kuryr-kubernetes-tempest-containerized
-    nodeset: openstack-single-node-bionic
     vars:
       devstack_localrc:
         CONTAINER_ENGINE: crio
