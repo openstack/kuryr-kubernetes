@@ -10,7 +10,10 @@ if [[ "$distro" =~ centos|fedora ]]; then
         sed -i -e '/Defaults    requiretty/{ s/.*/# Defaults    requiretty/ }' /etc/sudoers
     fi
     yum install -y jq
-
+    yum install -y python-pip
+    pip install -U setuptools
 elif [[ "$distro" =~ ubuntu|debian ]]; then
+    apt update -y
+    apt upgrade -y
     apt-get install -y build-essential git python-dev jq
 fi
