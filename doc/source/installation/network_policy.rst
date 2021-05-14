@@ -86,7 +86,7 @@ to add the policy, pod_label and namespace handler and drivers with:
 
 .. code-block:: bash
 
-   KURYR_ENABLED_HANDLERS=vif,endpoints,service,kuryrloadbalancer,policy,pod_label,namespace,kuryrnetworkpolicy,kuryrport
+   KURYR_ENABLED_HANDLERS=vif,kuryrport,endpoints,service,kuryrloadbalancer,policy,pod_label,kuryrnetworkpolicy,namespace,kuryrnetwork
    KURYR_SG_DRIVER=policy
    KURYR_SUBNET_DRIVER=namespace
 
