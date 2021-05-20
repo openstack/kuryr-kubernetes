@@ -63,8 +63,8 @@ enable_plugin devstack-plugin-container https://opendev.org/openstack/devstack-p
 # Kubelet
 # =======
 #
-# Kubelet should almost invariably be run by devstack
-enable_service kubelet
+# Kubelet will be run via kubeadm
+enable_service kubernetes-worker
 
 # You can specify a different location for the hyperkube binary that will be
 # extracted from the hyperkube container into the Host filesystem:

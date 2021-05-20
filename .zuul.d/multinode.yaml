@@ -13,7 +13,7 @@
 # limitations under the License.
 
 - job:
-    name: kuryr-kubernetes-tempest-multinode-containerized
+    name: kuryr-kubernetes-tempest-multinode
     parent: kuryr-kubernetes-tempest
     description: |
         Kuryr-Kubernetes tempest multinode job
@@ -40,11 +40,9 @@
           c-bak: false
         devstack_localrc:
           KURYR_FORCE_IMAGE_BUILD: true
-          KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
           USE_PYTHON3: true
     vars:
       devstack_localrc:
-          KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
           KURYR_K8S_API_URL: "http://${SERVICE_HOST}:${KURYR_K8S_API_PORT}"
           KURYR_K8S_MULTI_WORKER_TESTS: True
       devstack_services:
@@ -54,7 +52,7 @@
 
 - job:
     name: kuryr-kubernetes-tempest-multinode-ha
-    parent: kuryr-kubernetes-tempest-multinode-containerized
+    parent: kuryr-kubernetes-tempest-multinode
     description: |
         Kuryr-Kubernetes tempest multinode job running containerized in HA
     timeout: 7800

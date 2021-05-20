@@ -59,17 +59,17 @@
         '{{ devstack_log_dir }}/ovsdb-server-sb.log': 'logs'
 
 - job:
-    name: kuryr-kubernetes-tempest-containerized-ovn
+    name: kuryr-kubernetes-tempest-ovn-systemd
     parent: kuryr-kubernetes-tempest-ovn
     description: |
         Kuryr-Kubernetes tempest job using OVN and Containerized
     vars:
       devstack_localrc:
-        KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
+        KURYR_K8S_CONTAINERIZED_DEPLOYMENT: false
 
 - job:
-    name: kuryr-kubernetes-tempest-containerized-ovn-ipv6
-    parent: kuryr-kubernetes-tempest-containerized-ovn
+    name: kuryr-kubernetes-tempest-ovn-ipv6
+    parent: kuryr-kubernetes-tempest-ovn
     description: |
       Kuryr-Kubernetes tempest job running kuryr containerized with OVN and
       IPv6 pod and service networks
@@ -78,8 +78,8 @@
         KURYR_IPV6: true
 
 - job:
-    name: kuryr-kubernetes-tempest-containerized-ovn-provider-ovn
-    parent: kuryr-kubernetes-tempest-containerized-ovn
+    name: kuryr-kubernetes-tempest-ovn-provider-ovn
+    parent: kuryr-kubernetes-tempest-ovn
     description: |
         Kuryr-Kubernetes tempest job using OVN, CNI daemon, Containerized, Octavia provider OVN, and Network Policy drivers
     required-projects:
@@ -109,7 +109,7 @@
         KURYR_ENABLED_HANDLERS: vif,endpoints,service,namespace,pod_label,policy,kuryrnetworkpolicy,kuryrnetwork,kuryrport,kuryrloadbalancer
 
 - job:
-    name: kuryr-kubernetes-e2e-np-containerized-ovn-provider-ovn
+    name: kuryr-kubernetes-e2e-np-ovn-provider-ovn
     parent: kuryr-kubernetes-k8s-base
     description: |
         Kuryr-Kubernetes job with OVN and Octavia provider OVN running k8s network policy e2e tests
@@ -152,7 +152,6 @@
         KURYR_ENABLED_HANDLERS: vif,endpoints,service,namespace,pod_label,policy,kuryrnetworkpolicy,kuryrnetwork,kuryrport,kuryrloadbalancer
         KURYR_SG_DRIVER: policy
         KURYR_SUBNET_DRIVER: namespace
-        KURYR_K8S_CONTAINERIZED_DEPLOYMENT: true
       devstack_services:
         octavia: true
         o-api: true

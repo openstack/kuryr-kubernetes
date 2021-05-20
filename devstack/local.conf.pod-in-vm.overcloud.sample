@@ -33,10 +33,7 @@ KURYR_NEUTRON_DEFAULT_ROUTER=router1
 
 enable_plugin devstack-plugin-container https://opendev.org/openstack/devstack-plugin-container
 enable_service etcd3
-enable_service kubernetes-api
-enable_service kubernetes-controller-manager
-enable_service kubernetes-scheduler
-enable_service kubelet
+enable_service kubernetes-master
 enable_service kuryr-kubernetes
 enable_service kuryr-daemon
 
