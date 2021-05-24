@@ -155,13 +155,10 @@ if is_service_enabled kuryr-kubernetes kuryr-daemon \
     if [[ "$1" == "unstack" ]]; then
         # Shut down kuryr and kubernetes services
         if is_service_enabled kuryr-kubernetes; then
-            if [ "${KURYR_CONT}" == "True" ]; then
-                kubectl delete deployment kuryr-controller
-            else
+            if [ "${KURYR_CONT}" == "False" ]; then
                 stop_process kuryr-kubernetes
                 stop_process kuryr-daemon
             fi
-            #sudo systemctl stop kubelet
             kubeadm_reset
         fi
         cleanup_kuryr_devstack_iptables
