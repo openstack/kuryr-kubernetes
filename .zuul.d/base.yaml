@@ -86,6 +86,7 @@
         etcd3: true
         kubernetes-master: true
         kuryr-kubernetes: true
+        kuryr-daemon: true
         coredns: false
         neutron-tag-ports-during-bulk-creation: true
       zuul_copy_output:
@@ -158,6 +159,7 @@
         etcd3: true
         kubernetes-master: true
         kuryr-kubernetes: true
+        kuryr-daemon: true
         coredns: false
         neutron-tag-ports-during-bulk-creation: true
       zuul_copy_output:
