@@ -176,10 +176,6 @@ function get_k8s_token {
 }
 
 function kubeadm_reset {
-    local nodename
-    nodename=$(kubectl get nodes -o jsonpath="{.items[0].metadata.name}")
-    kubectl drain $nodename --delete-emptydir-data --force --ignore-daemonsets
-    kubectl delete node $nodename
     sudo kubeadm reset -f
     sudo iptables -F
     sudo iptables -t nat -F
