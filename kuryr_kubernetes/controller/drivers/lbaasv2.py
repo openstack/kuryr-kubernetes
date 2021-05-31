@@ -623,7 +623,6 @@ class LBaaSv2Driver(base.LBaaSDriver):
         try:
             os_listener = next(response)
             listener['id'] = os_listener.id
-            n_listen = None
             if os_listener.provisioning_status == 'ERROR':
                 LOG.debug("Releasing listener %s", os_listener.id)
                 self.release_listener(loadbalancer, listener)
@@ -632,12 +631,13 @@ class LBaaSv2Driver(base.LBaaSDriver):
                     os_listener.timeout_client_data != timeout_cli)) or (
                         timeout_mb and (
                             os_listener.timeout_member_data != timeout_mb)):
+                LOG.debug("Updating listener %s", os_listener.id)
                 n_listen = lbaas.update_listener(os_listener.id, **request)
-            elif not timeout_cli or not timeout_mb:
-                n_listen = lbaas.update_listener(os_listener.id, **request)
-            if n_listen:
                 listener['timeout_client_data'] = n_listen.timeout_client_data
                 listener['timeout_member_data'] = n_listen.timeout_member_data
+            elif not timeout_cli or not timeout_mb:
+                LOG.debug("Updating listener %s", os_listener.id)
+                lbaas.update_listener(os_listener.id, **request)
 
         except (KeyError, StopIteration):
             return None
