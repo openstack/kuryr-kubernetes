@@ -161,6 +161,6 @@ DevStack`_, which explains how to use ``systemctl`` to control services and
 
 
 .. _paste.openstack.org: http://paste.openstack.org
-.. _Kuryr's IRC channel: chat.freenode.net:6667/openstack-kuryr
+.. _Kuryr's IRC channel: ircs://irc.oftc.net:6697/openstack-kuryr
 .. _DevStack Documentation: https://docs.openstack.org/devstack/latest/
 .. _Using Systemd in DevStack: https://docs.openstack.org/devstack/latest/systemd.html

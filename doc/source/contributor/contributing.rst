@@ -16,7 +16,7 @@ Communication
 -------------
 
 The primary communication channel of kuryr-kubernetes team is `#openstack-kuryr
-channel on IRC <irc://irc.freenode.net:+6697/openstack-kuryr>`_. For more
+channel on IRC <ircs://irc.oftc.net:6697/openstack-kuryr>`_. For more
 formal inquiries you can use [kuryr] tag on `openstack-discuss mailing list
 <http://lists.openstack.org/cgi-bin/mailman/listinfo/openstack-discuss>`_.
 kuryr-kubernetes team is not holding weekly meetings, but we have office hours
