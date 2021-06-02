@@ -1,7 +1,6 @@
 [[local|localrc]]
 
-enable_plugin kuryr-kubernetes \
-    https://opendev.org/openstack/kuryr-kubernetes
+enable_plugin kuryr-kubernetes https://opendev.org/openstack/kuryr-kubernetes
 
 # If you do not want stacking to clone new versions of the enabled services,
 # like for example when you did local modifications and need to ./unstack.sh
@@ -12,34 +11,40 @@ enable_plugin kuryr-kubernetes \
 LOGFILE=devstack.log
 LOG_COLOR=False
 
-
 # Credentials
 ADMIN_PASSWORD=pass
 DATABASE_PASSWORD=pass
 RABBIT_PASSWORD=pass
 SERVICE_PASSWORD=pass
 SERVICE_TOKEN=pass
-# Enable Keystone v3
-IDENTITY_API_VERSION=3
 
-# In pro of speed and being lightweight, we will be explicit in regards to
-# which services we enable
-ENABLED_SERVICES=""
-
-# OVN components
-Q_AGENT=ovn
-Q_ML2_PLUGIN_MECHANISM_DRIVERS=ovn,logger
-Q_ML2_PLUGIN_TYPE_DRIVERS=local,flat,vlan,geneve
-Q_ML2_TENANT_NETWORK_TYPE=geneve
-
-enable_service ovn-northd
-enable_service ovn-controller
-enable_service q-ovn-metadata-agent
-enable_service neutron-tag-ports-during-bulk-creation
+# disable services, to conserve the resources usage
+disable_service cinder
+disable_service dstat
+disable_service n-novnc
+disable_service horizon
+# If you plan to run tempest tests on devstack, you should comment out/remove 
+# below line
+disable_service tempest
 
 # Neutron services
+# ================
 enable_plugin neutron https://opendev.org/openstack/neutron
+enable_service q-agt
+enable_service q-dhcp
+enable_service q-l3
+enable_service q-meta
 enable_service q-svc
+enable_service neutron-tag-ports-during-bulk-creation
+
+# Disable OVN in favor of OVS
+Q_AGENT="openvswitch"
+Q_ML2_PLUGIN_MECHANISM_DRIVERS="openvswitch"
+Q_ML2_TENANT_NETWORK_TYPE="vxlan"
+
+# Set workaround for 
+FLOATING_RANGE="172.24.5.0/24"
+PUBLIC_NETWORK_GATEWAY="172.24.5.1"
 
 # VAR RUN PATH
 # =============
@@ -50,21 +55,8 @@ enable_service q-svc
 # Uncomment it to use L2 communication between loadbalancer and member pods
 # KURYR_K8S_OCTAVIA_MEMBER_MODE=L2
 
-# Kuryr K8S-Endpoint driver Octavia provider
-# ==========================================
-# Kuryr uses LBaaS to provide the Kubernetes services
-# functionality.
-# In case Octavia is used for LBaaS, you can choose the
-# Octavia's Load Balancer provider.
-# KURYR_EP_DRIVER_OCTAVIA_PROVIDER=default
-# Uncomment the next lines to enable ovn provider. Note only one mode is
-# supported on ovn-octavia. As the member subnet must be added when adding
-# members, it must be set to L2 mode
-# KURYR_EP_DRIVER_OCTAVIA_PROVIDER=ovn
-# KURYR_K8S_OCTAVIA_MEMBER_MODE=L2
-# KURYR_ENFORCE_SG_RULES=False
-# KURYR_LB_ALGORITHM=SOURCE_IP_PORT
-# Uncomment to modify listener client and member inactivity timeout.
+# Uncomment to change Octavia loadbalancer listener client and member
+# inactivity timeout from 50000ms.
 # KURYR_TIMEOUT_CLIENT_DATA=50000
 # KURYR_TIMEOUT_MEMBER_DATA=50000
 
@@ -76,32 +68,15 @@ enable_service o-api
 enable_service o-cw
 enable_service o-hm
 enable_service o-hk
-enable_service o-da
 
-### Nova
-enable_service n-api
-enable_service n-api-meta
-enable_service n-cpu
-enable_service n-cond
-enable_service n-sch
-enable_service placement-api
-enable_service placement-client
-
-### Glance
-enable_service g-api
-enable_service g-reg
-
-# OVN octavia provider plugin
-enable_plugin ovn-octavia-provider https://opendev.org/openstack/ovn-octavia-provider
-
-# Keystone
-enable_service key
-
-# dependencies
-enable_service mysql
-enable_service rabbit
-
-# By default use all the services from the kuryr-kubernetes plugin
+## Octavia Deps
+# In order to skip building the Octavia Amphora image you can fetch a
+# precreated qcow image from here [1] and set up octavia to use it by
+# uncommenting the following lines.
+# [1] https://tarballs.openstack.org/octavia/test-images/test-only-amphora-x64-haproxy-ubuntu-xenial.qcow2
+# OCTAVIA_AMP_IMAGE_FILE=/tmp/test-only-amphora-x64-haproxy-ubuntu-xenial.qcow2
+# OCTAVIA_AMP_IMAGE_SIZE=3
+# OCTAVIA_AMP_IMAGE_NAME=test-only-amphora-x64-haproxy-ubuntu-xenial
 
 # Docker
 # ======
@@ -111,8 +86,9 @@ enable_plugin devstack-plugin-container https://opendev.org/openstack/devstack-p
 
 # Etcd
 # ====
-# The default is for devstack to run etcd for you.
-enable_service etcd3
+# The default is for devstack to run etcd for you. Remove comment to disable 
+# it, if you already have etcd running.
+#disable_service etcd3
 # If you already have an etcd cluster configured and running, you can just
 # comment out the lines enabling legacy_etcd and etcd3
 # then uncomment and set the following line:
@@ -225,6 +201,18 @@ KURYR_K8S_CONTAINERIZED_DEPLOYMENT=False
 # configured with the nested driver
 # KURYR_VIF_POOL_MANAGER=True
 
+# Kuryr Multi-VIF Driver
+# ======================
+# Uncomment the next line to enable the npwg multi-vif driver.
+# Default value: noop
+# KURYR_MULTI_VIF_DRIVER=npwg_multiple_interfaces
+
+# Kuryr own router
+# ================
+# Uncomment the next line to force devstack to create a new router for kuryr
+# networks instead of using the default one being created by devstack
+# KURYR_NEUTRON_DEFAULT_ROUTER = kuryr-router
+
 # Increase Octavia amphorae timeout so that the first LB amphora has time to
 # build and boot
 IMAGE_URLS+=",http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.img"
@@ -232,5 +220,3 @@ IMAGE_URLS+=",http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.im
 [[post-config|$OCTAVIA_CONF]]
 [controller_worker]
 amp_active_retries=9999
-[api_settings]
-enabled_provider_drivers = amphora:'Octavia Amphora driver',ovn:'Octavia OVN driver'

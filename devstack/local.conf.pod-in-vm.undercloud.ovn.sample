@@ -17,23 +17,6 @@ DATABASE_PASSWORD=pass
 RABBIT_PASSWORD=pass
 SERVICE_PASSWORD=pass
 SERVICE_TOKEN=pass
-# Enable Keystone v3
-IDENTITY_API_VERSION=3
-
-enable_plugin networking-ovn https://opendev.org/openstack/networking-ovn
-enable_service ovn-northd
-enable_service ovn-controller
-enable_service networking-ovn-metadata-agent
-
-# Use Neutron instead of nova-network
-disable_service n-net
-enable_service q-svc
-
-# Disable Neutron agents not used with OVN.
-disable_service q-agt
-disable_service q-l3
-disable_service q-dhcp
-disable_service q-meta
 
 # Enable services, these services depend on neutron plugin.
 enable_plugin neutron https://opendev.org/openstack/neutron
@@ -55,17 +38,5 @@ enable_service o-hk
 # OCTAVIA_AMP_IMAGE_FILE=/tmp/test-only-amphora-x64-haproxy-ubuntu-xenial.qcow2
 # OCTAVIA_AMP_IMAGE_SIZE=3
 # OCTAVIA_AMP_IMAGE_NAME=test-only-amphora-x64-haproxy-ubuntu-xenial
-### Nova
-enable_service n-api
-enable_service n-api-meta
-enable_service n-cpu
-enable_service n-cond
-enable_service n-sch
-enable_service placement-api
-enable_service placement-client
-### Glance
-enable_service g-api
-enable_service g-reg
 
 IMAGE_URLS+=",http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.img"
-
