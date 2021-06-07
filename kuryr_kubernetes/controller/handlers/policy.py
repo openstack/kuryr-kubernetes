@@ -34,7 +34,7 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
         self._drv_policy = drivers.NetworkPolicyDriver.get_instance()
         self.k8s = clients.get_kubernetes_client()
 
-    def on_present(self, policy):
+    def on_present(self, policy, *args, **kwargs):
         LOG.debug("Created or updated: %s", policy)
 
         self._drv_policy.ensure_network_policy(policy)
@@ -42,7 +42,7 @@ class NetworkPolicyHandler(k8s_base.ResourceEventHandler):
         # Put finalizer in if it's not there already.
         self.k8s.add_finalizer(policy, k_const.NETWORKPOLICY_FINALIZER)
 
-    def on_finalize(self, policy):
+    def on_finalize(self, policy, *args, **kwargs):
         LOG.debug("Finalizing policy %s", policy)
         if not self._drv_policy.release_network_policy(policy):
             # KNP was not found, so we need to finalize on our own.

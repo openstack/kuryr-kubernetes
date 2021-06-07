@@ -50,7 +50,7 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
             self._drv_svc_sg = (
                 drivers.ServiceSecurityGroupsDriver.get_instance())
 
-    def on_present(self, kuryrnet_crd):
+    def on_present(self, kuryrnet_crd, *args, **kwargs):
         ns_name = kuryrnet_crd['spec']['nsName']
         project_id = kuryrnet_crd['spec']['projectId']
         kns_status = kuryrnet_crd.get('status', {})
@@ -90,7 +90,7 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
             status = {'nsLabels': kuryrnet_crd['spec']['nsLabels']}
             self._patch_kuryrnetwork_crd(kuryrnet_crd, status, labels=True)
 
-    def on_finalize(self, kuryrnet_crd):
+    def on_finalize(self, kuryrnet_crd, *args, **kwargs):
         LOG.debug("Deleting kuryrnetwork CRD resources: %s", kuryrnet_crd)
 
         net_id = kuryrnet_crd.get('status', {}).get('netId')

@@ -388,7 +388,7 @@ class PodVIFDriver(DriverBase, metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def activate_vif(self, vif):
+    def activate_vif(self, vif, **kwargs):
         """Updates VIF to become active.
 
         Implementing drivers should update the specified `vif` object's

@@ -146,8 +146,10 @@ class TestKuryrPortHandler(test_base.TestCase):
 
             k8s.get.assert_called_once_with(self._pod_uri)
 
-        activate_vif.assert_has_calls([mock.call(self._vif1),
-                                       mock.call(self._vif2)])
+        activate_vif.assert_has_calls([mock.call(self._vif1, pod=self._pod,
+                                                 retry_info=mock.ANY),
+                                       mock.call(self._vif2, pod=self._pod,
+                                                 retry_info=mock.ANY)])
         update_crd.assert_called_once_with(self._kp, self._vifs)
 
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
@@ -182,8 +184,10 @@ class TestKuryrPortHandler(test_base.TestCase):
 
         kp.on_present(self._kp)
 
-        activate_vif.assert_has_calls([mock.call(self._vif1),
-                                       mock.call(self._vif2)])
+        activate_vif.assert_has_calls([mock.call(self._vif1, pod=mock.ANY,
+                                                 retry_info=mock.ANY),
+                                       mock.call(self._vif2, pod=mock.ANY,
+                                                 retry_info=mock.ANY)])
 
     @mock.patch('kuryr_kubernetes.controller.drivers.vif_pool.MultiVIFPool.'
                 'activate_vif')
@@ -328,8 +332,10 @@ class TestKuryrPortHandler(test_base.TestCase):
 
             k8s.get.assert_called_once_with(self._pod_uri)
 
-        activate_vif.assert_has_calls([mock.call(self._vif1),
-                                       mock.call(self._vif2)])
+        activate_vif.assert_has_calls([mock.call(self._vif1, pod=self._pod,
+                                                 retry_info=mock.ANY),
+                                       mock.call(self._vif2, pod=self._pod,
+                                                 retry_info=mock.ANY)])
         update_crd.assert_called_once_with(self._kp, self._vifs)
         create_sgr.assert_called_once_with(self._pod)
 

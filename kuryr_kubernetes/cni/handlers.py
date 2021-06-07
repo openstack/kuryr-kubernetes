@@ -36,7 +36,7 @@ class CNIHandlerBase(k8s_base.ResourceEventHandler, metaclass=abc.ABCMeta):
         self._callback = on_done
         self._vifs = {}
 
-    def on_present(self, pod):
+    def on_present(self, pod, *args, **kwargs):
         vifs = self._get_vifs(pod)
 
         if self.should_callback(pod, vifs):
@@ -107,7 +107,7 @@ class CallbackHandler(CNIHandlerBase):
     def callback(self):
         self._callback(self._kuryrport, self._callback_vifs)
 
-    def on_deleted(self, kuryrport):
+    def on_deleted(self, kuryrport, *args, **kwargs):
         LOG.debug("Got kuryrport %s deletion event.",
                   kuryrport['metadata']['name'])
         if self._del_callback:

@@ -56,7 +56,7 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         return utils.get_subnets_id_cidrs(
             self._drv_nodes_subnets.get_nodes_subnets())
 
-    def on_present(self, loadbalancer_crd):
+    def on_present(self, loadbalancer_crd, *args, **kwargs):
         if loadbalancer_crd.get('status', None) is None:
 
             kubernetes = clients.get_kubernetes_client()
@@ -124,7 +124,7 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
             return False
         return True
 
-    def on_finalize(self, loadbalancer_crd):
+    def on_finalize(self, loadbalancer_crd, *args, **kwargs):
         LOG.debug("Deleting the loadbalancer CRD")
 
         if loadbalancer_crd['status'] != {}:

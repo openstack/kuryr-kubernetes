@@ -54,6 +54,7 @@ class Retry(base.EventHandler):
         self._k8s = clients.get_kubernetes_client()
 
     def __call__(self, event, *args, **kwargs):
+        start_time = time.time()
         deadline = time.time() + self._timeout
         for attempt in itertools.count(1):
             if event.get('type') in ['MODIFIED', 'ADDED']:
@@ -77,7 +78,10 @@ class Retry(base.EventHandler):
                                       "object. Continuing with handler "
                                       "execution.")
             try:
-                self._handler(event, *args, **kwargs)
+                info = {
+                    'elapsed': time.time() - start_time
+                }
+                self._handler(event, *args, retry_info=info, **kwargs)
                 break
             except os_exc.ConflictException as ex:
                 if ex.details.startswith('Quota exceeded for resources'):
