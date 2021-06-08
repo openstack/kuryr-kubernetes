@@ -367,7 +367,7 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
         pf_index = ip.link_lookup(ifname=pf)[0]
         try:
             ip.link("set", index=pf_index, vf={"vf": vf_index, "mac": mac})
-        except pyroute2.netlink.exceptions.NetlinkError:
+        except pyroute2.NetlinkError:
             LOG.exception("Unable to set mac for VF %s on pf %s",
                           vf_index, pf)
             raise
@@ -380,7 +380,7 @@ class VIFSriovDriver(health.HealthHandler, b_base.BaseBindingDriver):
         try:
             ip.link("set", index=pf_index, vf={"vf": vf_index,
                                                "vlan": vlan_id})
-        except pyroute2.netlink.exceptions.NetlinkError:
+        except pyroute2.NetlinkError:
             LOG.exception("Unable to set vlan for VF %s on pf %s",
                           vf_index, pf)
             raise
