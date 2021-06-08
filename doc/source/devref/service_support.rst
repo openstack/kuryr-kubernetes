@@ -88,6 +88,54 @@ LBaaS Driver is added to manage service translation to the LBaaSv2-like API.
 It abstracts all the details of service translation to Load Balancer.
 LBaaSv2Driver supports this interface by mapping to neutron LBaaSv2 constructs.
 
+Service Creation Process
+~~~~~~~~~~~~~~~~~~~~~~~~
+What happens when a service gets created by Kubernetes?
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+When a Kubernetes Service and Endpoints are created,the ServiceHandler and
+EndpointHandler (at controller/handlers/lbaas.py) are called. When the
+ServiceHandler first starts handling the on_present event, it creates the
+KuryrLoadBalancer CRD with the Service spec and empty status. When the Endpoints
+information is not yet added on the spec by the EndpointHandler, the event reaching
+KuryrLoadBalancerHandler is skipped. If the EndpointsHandler starts handling the
+on_present event first, the KuryrLoadBalancer CRD is created with the endpoints subsets.
+Otherwise, it will update the existing CRD created by the ServiceHandler with the
+endpoints subsets.
+
+The KuryrLoadBalancerHandler (at controller/handlers/loadbalancer.py) upon
+noticing the KuryrLoadBalancer CRD with the full specification, calls the
+appropriate Drivers to handle the openstack resources such as Loadbalancer,
+Load Balancer Listeners, Load Balancer Pools, and Load Balancer Members.
+It uses the _sync_lbaas_members function to check if Openstack
+Loadbalancers are in sync with the kubernetes counterparts.
+
+
+Service Deletion Process
+~~~~~~~~~~~~~~~~~~~~~~~~
+What happens when a service gets deleted by Kubernetes?
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+When a Kubernetes Service and Endpoints are deleted, the finalizers which are
+added to the service object (and the KLB CRD Object too) and defined during the
+KuryrLoadBalancer CRD creation, blocks the removal of the kubernetes object until
+the associated OpenStack resources are removed, which also avoids leftovers. When they
+are removed, Kubernetes is able to remove the CRD, the service and the endpoints,
+hence completing the service removal action.
+
+
+What happens if the KuryrLoadBalancer CRD status changes?
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+If the members field on the status of the CRD is manually removed or the status is
+completely set to an empty object, the KuryrLoadBalancerHandler that is watching these
+CRD objects detects this change and confirms that there is no information about the
+OpenStack resources on the status and so needs to rediscover or recreate them. It checks
+if there are provisioned OpenStack resources (in this case loadbalancers, listeners, pools,
+and members) for the service/endpoints defined on the KuryrLoadBalancer CRD spec. If that
+is the case, it retrieves their information and puts it back on the CRD status field. If that
+is not the case (due to the resources being deleted on the OpenStack side), it will recreate
+the resources and write the new information about them on the CRD status field.
 
 .. _Kubernetes service: http://kubernetes.io/docs/user-guide/services/
 .. _Kube-Proxy: http://kubernetes.io/docs/admin/kube-proxy/
