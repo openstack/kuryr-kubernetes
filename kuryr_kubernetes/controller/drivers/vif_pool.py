@@ -118,8 +118,8 @@ class NoopVIFPool(base.VIFPoolDriver):
     def release_vif(self, pod, vif, *argv):
         self._drv_vif.release_vif(pod, vif, *argv)
 
-    def activate_vif(self, vif):
-        self._drv_vif.activate_vif(vif)
+    def activate_vif(self, vif, **kwargs):
+        self._drv_vif.activate_vif(vif, **kwargs)
 
     def update_vif_sgs(self, pod, sgs):
         self._drv_vif.update_vif_sgs(pod, sgs)
@@ -168,8 +168,8 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
     def set_vif_driver(self, driver):
         self._drv_vif = driver
 
-    def activate_vif(self, vif):
-        self._drv_vif.activate_vif(vif)
+    def activate_vif(self, vif, **kwargs):
+        self._drv_vif.activate_vif(vif, **kwargs)
 
     def update_vif_sgs(self, pod, sgs):
         self._drv_vif.update_vif_sgs(pod, sgs)
@@ -1230,9 +1230,9 @@ class MultiVIFPool(base.VIFPoolDriver):
         vif_drv_alias = self._get_vif_drv_alias(vif)
         self._vif_drvs[vif_drv_alias].release_vif(pod, vif, *argv)
 
-    def activate_vif(self, vif):
+    def activate_vif(self, vif, **kwargs):
         vif_drv_alias = self._get_vif_drv_alias(vif)
-        self._vif_drvs[vif_drv_alias].activate_vif(vif)
+        self._vif_drvs[vif_drv_alias].activate_vif(vif, **kwargs)
 
     def update_vif_sgs(self, pod, sgs):
         pod_vif_type = self._get_pod_vif_type(pod)

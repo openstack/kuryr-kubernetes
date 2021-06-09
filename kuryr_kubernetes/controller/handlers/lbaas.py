@@ -50,7 +50,7 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         if driver_utils.is_network_policy_enabled():
             driver_utils.bump_networkpolicies(svc['metadata']['namespace'])
 
-    def on_present(self, service):
+    def on_present(self, service, *args, **kwargs):
         reason = self._should_ignore(service)
         if reason:
             LOG.debug(reason, service['metadata']['name'])
@@ -111,7 +111,7 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         k8s = clients.get_kubernetes_client()
         return k8s.add_finalizer(service, k_const.SERVICE_FINALIZER)
 
-    def on_finalize(self, service):
+    def on_finalize(self, service, *args, **kwargs):
         k8s = clients.get_kubernetes_client()
 
         svc_name = service['metadata']['name']
@@ -305,7 +305,7 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
                 self._lb_provider = (
                     config.CONF.kubernetes.endpoints_driver_octavia_provider)
 
-    def on_present(self, endpoints):
+    def on_present(self, endpoints, *args, **kwargs):
         ep_name = endpoints['metadata']['name']
         ep_namespace = endpoints['metadata']['namespace']
 

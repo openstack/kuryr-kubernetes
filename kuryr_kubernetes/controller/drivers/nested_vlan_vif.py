@@ -33,6 +33,7 @@ LOG = logging.getLogger(__name__)
 
 DEFAULT_MAX_RETRY_COUNT = 3
 DEFAULT_RETRY_INTERVAL = 1
+ACTIVE_TIMEOUT = 90
 
 CONF = cfg.CONF
 
@@ -118,6 +119,37 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
             vifs.append(vif)
         return vifs
 
+    def activate_vif(self, vif, pod=None, retry_info=None):
+        try:
+            super().activate_vif(vif)
+        except k_exc.ResourceNotReady:
+            if retry_info and retry_info.get('elapsed', 0) > ACTIVE_TIMEOUT:
+                parent_port = self._get_parent_port(pod)
+                trunk_id = self._get_trunk_id(parent_port)
+                # NOTE(dulek): We don't need a lock to prevent VLAN ID from
+                #              being taken over because the SegmentationDriver
+                #              will keep it reserved in memory unless we
+                #              release it. And we won't.
+                LOG.warning('Subport %s is in DOWN status for more than %d '
+                            'seconds. This is a Neutron issue. Attempting to '
+                            'reattach the subport to trunk %s using VLAN ID %s'
+                            ' to fix it.', vif.id, retry_info['elapsed'],
+                            trunk_id, vif.vlan_id)
+                try:
+                    self._remove_subport(trunk_id, vif.id)
+                except os_exc.NotFoundException:
+                    # NOTE(dulek): This may happen when _add_subport() failed
+                    #              or Kuryr crashed between the calls. Let's
+                    #              try to fix it hoping that VLAN ID is still
+                    #              free.
+                    LOG.warning('Subport %s was not attached to the trunk. '
+                                'Trying to attach it anyway.', vif.id)
+                self._add_subport(trunk_id, vif.id,
+                                  requested_vlan_id=vif.vlan_id)
+                LOG.warning("Reattached subport %s, its state will be "
+                            "rechecked when event will be retried.", vif.id)
+            raise
+
     def release_vif(self, pod, vif, project_id=None, security_groups=None):
         os_net = clients.get_network_client()
         parent_port = self._get_parent_port(pod)
@@ -182,7 +214,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                       "with a Neutron vlan trunk")
             raise k_exc.K8sNodeTrunkPortFailure
 
-    def _add_subport(self, trunk_id, subport):
+    def _add_subport(self, trunk_id, subport, requested_vlan_id=None):
         """Adds subport port to Neutron trunk
 
         This method gets vlanid allocated from kuryr segmentation driver.
@@ -196,29 +228,34 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         os_net = clients.get_network_client()
         retry_count = 1
         while True:
-            try:
-                vlan_id = self._get_vlan_id(trunk_id)
-            except os_exc.SDKException:
-                LOG.error("Getting VlanID for subport on "
-                          "trunk %s failed!!", trunk_id)
-                raise
+            if requested_vlan_id:
+                vlan_id = requested_vlan_id
+            else:
+                try:
+                    vlan_id = self._get_vlan_id(trunk_id)
+                except os_exc.SDKException:
+                    LOG.error("Getting VLAN ID for subport on "
+                              "trunk %s failed!!", trunk_id)
+                    raise
+
             subport = [{'segmentation_id': vlan_id,
                         'port_id': subport,
                         'segmentation_type': 'vlan'}]
             try:
                 os_net.add_trunk_subports(trunk_id, subport)
             except os_exc.ConflictException:
-                if retry_count < DEFAULT_MAX_RETRY_COUNT:
-                    LOG.error("vlanid already in use on trunk, "
-                              "%s. Retrying...", trunk_id)
+                if (retry_count < DEFAULT_MAX_RETRY_COUNT and
+                        not requested_vlan_id):
+                    LOG.error("VLAN ID already in use on trunk %s. "
+                              "Retrying.", trunk_id)
                     retry_count += 1
                     sleep(DEFAULT_RETRY_INTERVAL)
                     continue
                 else:
-                    LOG.error(
-                        "MAX retry count reached. Failed to add subport")
+                    LOG.error("Failed to add subport %s to trunk %s due to "
+                              "VLAN ID %d conflict.", subport, trunk_id,
+                              vlan_id)
                     raise
-
             except os_exc.SDKException:
                 LOG.exception("Error happened during subport "
                               "addition to trunk %s", trunk_id)

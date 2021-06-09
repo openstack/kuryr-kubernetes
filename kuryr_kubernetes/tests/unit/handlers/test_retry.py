@@ -95,7 +95,7 @@ class TestRetryHandler(test_base.TestCase):
 
         retry(event)
 
-        m_handler.assert_called_once_with(event)
+        m_handler.assert_called_once_with(event, retry_info=mock.ANY)
         m_sleep.assert_not_called()
 
     @mock.patch('itertools.count')
@@ -134,7 +134,8 @@ class TestRetryHandler(test_base.TestCase):
 
         retry(event)
 
-        m_handler.assert_has_calls([mock.call(event)] * attempts)
+        m_handler.assert_has_calls([mock.call(
+            event, retry_info=mock.ANY)] * attempts)
         m_sleep.assert_has_calls([
             mock.call(deadline, i + 1, failures[i])
             for i in range(len(failures))])
@@ -155,7 +156,8 @@ class TestRetryHandler(test_base.TestCase):
 
         self.assertRaises(_EX11, retry, event)
 
-        m_handler.assert_has_calls([mock.call(event)] * attempts)
+        m_handler.assert_has_calls([mock.call(
+            event, retry_info=mock.ANY)] * attempts)
         m_sleep.assert_has_calls([
             mock.call(deadline, i + 1, failures[i])
             for i in range(len(failures))])

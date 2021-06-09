@@ -78,30 +78,30 @@ class ResourceEventHandler(dispatch.EventConsumer, health.HealthHandler):
         obj = event.get('object')
         if 'MODIFIED' == event_type:
             if self._check_finalize(obj):
-                self.on_finalize(obj)
+                self.on_finalize(obj, *args, **kwargs)
                 return
-            self.on_modified(obj)
-            self.on_present(obj)
+            self.on_modified(obj, *args, **kwargs)
+            self.on_present(obj, *args, **kwargs)
         elif 'ADDED' == event_type:
             if self._check_finalize(obj):
-                self.on_finalize(obj)
+                self.on_finalize(obj, *args, **kwargs)
                 return
-            self.on_added(obj)
-            self.on_present(obj)
+            self.on_added(obj, *args, **kwargs)
+            self.on_present(obj, *args, **kwargs)
         elif 'DELETED' == event_type:
-            self.on_deleted(obj)
+            self.on_deleted(obj, *args, **kwargs)
 
-    def on_added(self, obj):
+    def on_added(self, obj, *args, **kwargs):
         pass
 
-    def on_present(self, obj):
+    def on_present(self, obj, *args, **kwargs):
         pass
 
-    def on_modified(self, obj):
+    def on_modified(self, obj, *args, **kwargs):
         pass
 
-    def on_deleted(self, obj):
+    def on_deleted(self, obj, *args, **kwargs):
         pass
 
-    def on_finalize(self, obj):
+    def on_finalize(self, obj, *args, **kwargs):
         pass

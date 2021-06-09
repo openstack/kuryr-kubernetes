@@ -40,7 +40,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
     OBJECT_KIND = constants.K8S_OBJ_POD
     OBJECT_WATCH_PATH = "%s/%s" % (constants.K8S_API_BASE, "pods")
 
-    def on_present(self, pod):
+    def on_present(self, pod, *args, **kwargs):
         if (driver_utils.is_host_network(pod) or
                 not self._is_pod_scheduled(pod)):
             # REVISIT(ivc): consider an additional configurable check that
@@ -90,7 +90,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                               "KuryrPort CRD: %s", ex)
                 raise k_exc.ResourceNotReady(pod)
 
-    def on_finalize(self, pod):
+    def on_finalize(self, pod, *args, **kwargs):
         k8s = clients.get_kubernetes_client()
 
         try:

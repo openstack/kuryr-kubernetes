@@ -47,7 +47,7 @@ class PodLabelHandler(k8s_base.ResourceEventHandler):
         self._drv_vif_pool.set_vif_driver()
         self._drv_lbaas = drivers.LBaaSDriver.get_instance()
 
-    def on_present(self, pod):
+    def on_present(self, pod, *args, **kwargs):
         if driver_utils.is_host_network(pod) or not self._has_vifs(pod):
             # NOTE(ltomasbo): The event will be retried once the vif handler
             # annotates the pod with the pod state.

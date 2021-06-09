@@ -73,7 +73,7 @@ class SriovVIFDriver(neutron_vif.NeutronPodVIFDriver):
         self._reduce_remaining_sriov_vfs(pod, physnet)
         return vif
 
-    def activate_vif(self, vif):
+    def activate_vif(self, vif, **kwargs):
         vif.active = True
 
     def _get_physnet_subnet_mapping(self):

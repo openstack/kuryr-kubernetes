@@ -33,7 +33,7 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         super(NamespaceHandler, self).__init__()
         self._drv_project = drivers.NamespaceProjectDriver.get_instance()
 
-    def on_present(self, namespace):
+    def on_present(self, namespace, *args, **kwargs):
         ns_labels = namespace['metadata'].get('labels', {})
         ns_name = namespace['metadata']['name']
         kns_crd = self._get_kns_crd(ns_name)

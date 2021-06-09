@@ -52,14 +52,14 @@ class MachineHandler(k8s_base.ResourceEventHandler):
                 # Had to be deleted in the meanwhile.
                 pass
 
-    def on_present(self, machine):
+    def on_present(self, machine, *args, **kwargs):
         effect = self.node_subnets_driver.add_node(machine)
         if effect:
             # If the change was meaningful we need to make sure all the NPs
             # are recalculated to get the new SG rules added.
             self._bump_nps()
 
-    def on_deleted(self, machine):
+    def on_deleted(self, machine, *args, **kwargs):
         effect = self.node_subnets_driver.delete_node(machine)
         if effect:
             # If the change was meaningful we need to make sure all the NPs

@@ -87,7 +87,7 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
 
         return False
 
-    def on_present(self, knp):
+    def on_present(self, knp, *args, **kwargs):
         uniq_name = utils.get_res_unique_name(knp)
         LOG.debug('on_present() for NP %s', uniq_name)
         project_id = self._drv_project.get_project(knp)
@@ -234,7 +234,7 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
             raise
         return net_crd['status']['netId']
 
-    def on_finalize(self, knp):
+    def on_finalize(self, knp, *args, **kwargs):
         LOG.debug("Finalizing KuryrNetworkPolicy %s", knp)
         project_id = self._drv_project.get_project(knp)
         pods_to_update = self._drv_policy.affected_pods(knp)
