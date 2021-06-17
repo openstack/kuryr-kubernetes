@@ -46,6 +46,9 @@ class CNIPrometheusExporter(object):
         return flask.Response(collected_metric, mimetype='text/plain')
 
     def run(self):
+        # Disable obtrusive werkzeug logs.
+        logging.getLogger('werkzeug').setLevel(logging.WARNING)
+
         address = '::'
         try:
             LOG.info('Starting CNI Prometheus exporter')

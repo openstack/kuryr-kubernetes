@@ -66,6 +66,9 @@ class ControllerPrometheusExporter(object):
         return ControllerPrometheusExporter.instance
 
     def run(self):
+        # Disable obtrusive werkzeug logs.
+        logging.getLogger('werkzeug').setLevel(logging.WARNING)
+
         address = '::'
         try:
             LOG.info('Starting Prometheus exporter')
