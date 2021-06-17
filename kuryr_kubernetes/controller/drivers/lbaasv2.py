@@ -835,7 +835,7 @@ class LBaaSv2Driver(base.LBaaSDriver):
                           {'status': status, 'lb': loadbalancer,
                            'rem': remaining})
 
-        raise k_exc.ResourceNotReady(loadbalancer)
+        raise k_exc.LoadBalancerNotReady(loadbalancer['id'], status)
 
     def _wait_for_deletion(self, loadbalancer, timeout,
                            interval=_LB_STS_POLL_FAST_INTERVAL):

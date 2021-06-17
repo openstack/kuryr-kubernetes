@@ -105,7 +105,7 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
             raise k_exc.ResourceNotReady(vif)
 
         if port['status'] != kl_const.PORT_STATUS_ACTIVE:
-            raise k_exc.ResourceNotReady(vif)
+            raise k_exc.PortNotReady(vif.id, port['status'])
 
         vif.active = True
 

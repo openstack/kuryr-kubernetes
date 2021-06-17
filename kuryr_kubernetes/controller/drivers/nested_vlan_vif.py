@@ -122,7 +122,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
     def activate_vif(self, vif, pod=None, retry_info=None):
         try:
             super().activate_vif(vif)
-        except k_exc.ResourceNotReady:
+        except k_exc.PortNotReady:
             if retry_info and retry_info.get('elapsed', 0) > ACTIVE_TIMEOUT:
                 parent_port = self._get_parent_port(pod)
                 trunk_id = self._get_trunk_id(parent_port)

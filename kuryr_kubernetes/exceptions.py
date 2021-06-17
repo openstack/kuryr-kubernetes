@@ -38,6 +38,23 @@ class ResourceNotReady(Exception):
         super(ResourceNotReady, self).__init__("Resource not ready: %r" % msg)
 
 
+class LoadBalancerNotReady(ResourceNotReady):
+    def __init__(self, loadbalancer_id, status):
+        super().__init__(
+            'Loadbalancer %s is stuck in %s status for several minutes. This '
+            'is unexpected and indicates problem with OpenStack Octavia. '
+            'Please contact your OpenStack administrator.' % (
+                loadbalancer_id, status))
+
+
+class PortNotReady(ResourceNotReady):
+    def __init__(self, port_id, status):
+        super().__init__(
+            'Port %s is stuck in %s status for several minutes. This '
+            'is unexpected and indicates problem with OpenStack Neutron. '
+            'Please contact your OpenStack administrator.' % (port_id, status))
+
+
 class K8sResourceNotFound(K8sClientException):
     def __init__(self, resource):
         super(K8sResourceNotFound, self).__init__("Resource not "
