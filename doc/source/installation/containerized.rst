@@ -22,6 +22,14 @@ For creating cni daemonset image on local machine:
 
    $ docker build -t kuryr/cni -f cni.Dockerfile .
 
+Kuryr-kubernetes also includes a tool to automatically build the controller
+image and deletes the existing container to apply the newly built
+image. The tool is avaliable at:
+
+.. code-block:: console
+
+   $ contrib/regenerate_controller_pod.sh
+
 If you want to run kuryr CNI without the daemon, build the image with:
 
 .. code-block:: console
