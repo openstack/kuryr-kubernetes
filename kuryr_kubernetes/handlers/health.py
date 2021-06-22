@@ -37,8 +37,11 @@ class HealthHandler(object):
         self._ready = True
         self._manager = HealthRegister.get_instance()
         self._manager.register(self)
+        self._last_exception = None
 
-    def set_liveness(self, alive):
+    def set_liveness(self, alive, exc=None):
+        if exc:
+            self._last_exception = exc
         self._alive = alive
 
     def set_readiness(self, ready):
@@ -49,3 +52,6 @@ class HealthHandler(object):
 
     def is_ready(self, *args):
         return self._ready
+
+    def get_last_exception(self):
+        return self._last_exception

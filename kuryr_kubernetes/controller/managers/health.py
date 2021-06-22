@@ -95,8 +95,14 @@ class HealthServer(base_server.BaseHealthServer):
     def liveness_status(self):
         for component in self._registry:
             if not component.is_alive():
-                msg = 'Component %s is dead.' % component.__class__.__name__
-                LOG.error(msg)
+                exc = component.get_last_exception()
+                if not exc:
+                    msg = f'Component {component.__class__.__name__} is dead.'
+                    LOG.error(msg)
+                else:
+                    msg = (f'Component {component.__class__.__name__} is dead.'
+                           f' Last caught exception below')
+                    LOG.exception(msg, exc_info=exc)
                 return msg, httplib.INTERNAL_SERVER_ERROR, {}
         return 'ok', httplib.OK, {}
 
