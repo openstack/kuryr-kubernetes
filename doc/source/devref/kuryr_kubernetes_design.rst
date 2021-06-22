@@ -88,7 +88,11 @@ Watcher is a common software component used by both the  Controller and the CNI
 driver. Watcher connects to Kubernetes API. Watcher's responsibility is to
 observe the registered (either on startup or dynamically during its runtime)
 endpoints and invoke registered callback handler (pipeline) to pass all events
-from registered endpoints.
+from registered endpoints. As an example, if a Service is created at the
+Kubernetes end, the ServiceHandler which is watching the Service Objects uses
+the watcher to detect the changes on them and calls the right driver for the
+reconciliation of Kubernetes and the needed OpenStack resources.
+
 
 
 Event Handler
@@ -173,15 +177,23 @@ handlers need to be included in kuryr.conf at the 'kubernetes' section.
 If not specified, Kuryr Controller will run the default handlers, which
 currently includes the following:
 
-==================  =========================
-  Handler               Kubernetes resource
-==================  =========================
-vif                 Pod
-kuryrport           KuryrPort CRD
-endpoints           Endpoints
-service             Service
-kuryrloadbalancer   KuryrLoadBalancer CRD
-==================  =========================
+======================  =========================
+  Handler                   Kubernetes resource
+======================  =========================
+vif                     Pod
+kuryrport               KuryrPort CRD
+endpoints               Endpoints
+service                 Service
+kuryrloadbalancer       KuryrLoadBalancer CRD
+kuryrnetwork            KuryrNetwork CRD
+namespace               Namespaces
+kuryrnetworkpolicy      KuryrNetworkPolicy CRD
+podlabel                Pod
+policy                  NetworkPolicy
+machine                 Machine
+kuryrnetworkpopulation  KuryrNetwork CRD
+
+======================  =========================
 
 For example, to enable only the 'vif' controller handler we should set the
 following at kuryr.conf:
