@@ -96,10 +96,10 @@ class Retry(base.EventHandler):
                         ex.reraise = False
                     else:
                         LOG.debug('Report handler unhealthy %s', self._handler)
-                        self._handler.set_liveness(alive=False)
-            except Exception:
+                        self._handler.set_liveness(alive=False, exc=ex.value)
+            except Exception as ex:
                 LOG.exception('Report handler unhealthy %s', self._handler)
-                self._handler.set_liveness(alive=False)
+                self._handler.set_liveness(alive=False, exc=ex)
                 raise
 
     def _sleep(self, deadline, attempt, exception):
