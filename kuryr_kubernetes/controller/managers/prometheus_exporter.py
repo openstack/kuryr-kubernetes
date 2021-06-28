@@ -62,6 +62,14 @@ class ControllerPrometheusExporter(object):
         """Records pod creation duration to the registry"""
         self.pod_creation_latency.observe(duration)
 
+    def record_lb_failure(self):
+        """Increase failure count for Load Balancer readiness"""
+        self.load_balancer_readiness.inc()
+
+    def record_port_failure(self):
+        """Increase failure count to Port readiness"""
+        self.port_readiness.inc()
+
     @classmethod
     def get_instance(cls):
         if not ControllerPrometheusExporter.instance:
@@ -172,3 +180,13 @@ class ControllerPrometheusExporter(object):
         self.pod_creation_latency = prometheus_client.Histogram(
             'kuryr_pod_creation_latency', 'Time taken for a pod to have'
             ' Kuryr annotations set', buckets=buckets, registry=self.registry)
+
+        self.load_balancer_readiness = prometheus_client.Counter(
+            'kuryr_load_balancer_readiness', 'This counter is increased when '
+            'Kuryr notices that an Octavia load balancer is stuck in an '
+            'unexpected state', registry=self.registry)
+
+        self.port_readiness = prometheus_client.Counter(
+            'kuryr_port_readiness', 'This counter is increased when Kuryr '
+            'times out waiting for Neutron to move port to ACTIVE',
+            registry=self.registry)
