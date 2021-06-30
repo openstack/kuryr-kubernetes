@@ -22,6 +22,7 @@ from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
+from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
@@ -44,6 +45,7 @@ class ControllerPrometheusExporter(object):
             '/metrics', methods=['GET'], view_func=self.metrics)
         self.headers = {'Connection': 'close'}
         self._os_net = clients.get_network_client()
+        self._os_lb = clients.get_loadbalancer_client()
         self._project_id = config.CONF.neutron_defaults.project
         self._create_metrics()
 
@@ -51,6 +53,7 @@ class ControllerPrometheusExporter(object):
         """Provides the registered metrics"""
         self._record_quota_free_count_metric()
         self._record_ports_quota_per_subnet_metric()
+        self._record_lbs_metrics()
 
         collected_metric = generate_latest(self.registry)
         return flask.Response(collected_metric, mimetype='text/plain')
@@ -117,8 +120,30 @@ class ControllerPrometheusExporter(object):
             ports_availability = total_num_addresses-ports_count
             self.port_quota_per_subnet.labels(**labels).set(ports_availability)
 
+    def _record_lbs_metrics(self):
+        """Records the number of members available per LB and the LB state"""
+        critical_lbs = [
+                ('dns-default', 'openshift-dns'),
+                ('kubernetes', 'default')]
+        for name, namespace in critical_lbs:
+            klb = utils.get_kuryrloadbalancer(name, namespace)
+            lb = klb.get('status', {}).get('loadbalancer', {})
+            lb_id = lb.get('id')
+            if not lb_id:
+                continue
+            lb = self._os_lb.find_load_balancer(lb_id)
+            labels = {'lb_name': namespace + '/' + name}
+            if not lb:
+                self.lbs_state.labels(**labels).state('DELETED')
+                continue
+            self.lbs_state.labels(**labels).state(lb.provisioning_status)
+            pools = self._os_lb.pools(loadbalancer_id=lb.id)
+            for pool in pools:
+                labels = {'lb_name': lb.name, 'lb_pool_name': pool.name}
+                self.lbs_members_count.labels(**labels).set(len(pool.members))
+
     def _create_metrics(self):
-        """Creates a registry and records a new Gauge metric"""
+        """Creates a registry and records metrics"""
         self.registry = prometheus_client.CollectorRegistry()
         self.quota_free_count = prometheus_client.Gauge(
             'kuryr_quota_free_count', 'Amount of quota available'
@@ -128,6 +153,19 @@ class ControllerPrometheusExporter(object):
         self.port_quota_per_subnet = prometheus_client.Gauge(
             'kuryr_port_quota_per_subnet', 'Amount of ports available'
             ' on Subnet', labelnames={'subnet_id', 'subnet_name'},
+            registry=self.registry)
+
+        self.lbs_members_count = prometheus_client.Gauge(
+            'kuryr_critical_lb_members_count', 'Amount of members per '
+            'critical Load Balancer pool',
+            labelnames={'lb_name', 'lb_pool_name'},
+            registry=self.registry)
+
+        self.lbs_state = prometheus_client.Enum(
+            'kuryr_critical_lb_state', 'Critical Load Balancer State',
+            labelnames={'lb_name'},
+            states=['ERROR', 'ACTIVE', 'DELETED', 'PENDING_CREATE',
+                    'PENDING_UPDATE', 'PENDING_DELETE'],
             registry=self.registry)
 
         buckets = (10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, _INF)

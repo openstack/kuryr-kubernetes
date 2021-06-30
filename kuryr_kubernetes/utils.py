@@ -636,3 +636,13 @@ def get_subnet_by_ip(nodes_subnets, target_ip):
             return nodes_subnet
 
     return None
+
+
+def get_kuryrloadbalancer(name, namespace):
+    k8s = clients.get_kubernetes_client()
+    try:
+        return k8s.get(f'{constants.K8S_API_CRD_NAMESPACES}/'
+                       f'{namespace}/kuryrloadbalancers/'
+                       f'{name}')
+    except exceptions.K8sResourceNotFound:
+        return {}
