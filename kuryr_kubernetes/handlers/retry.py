@@ -23,6 +23,7 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 
 from kuryr_kubernetes import clients
+from kuryr_kubernetes.controller.managers import prometheus_exporter
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes.handlers import base
 from kuryr_kubernetes import utils
@@ -83,6 +84,20 @@ class Retry(base.EventHandler):
                 }
                 self._handler(event, *args, retry_info=info, **kwargs)
                 break
+            except (exceptions.LoadBalancerNotReady,
+                    exceptions.PortNotReady) as exc:
+                cls_map = {'LoadBalancerNotReady': 'record_lb_failure',
+                           'PortNotReady': 'record_port_failure'}
+                with excutils.save_and_reraise_exception() as ex:
+                    if self._sleep(deadline, attempt, ex.value):
+                        ex.reraise = False
+                    else:
+                        exporter = (prometheus_exporter
+                                    .ControllerPrometheusExporter
+                                    .get_instance())
+                        method = getattr(exporter, cls_map[type(exc).__name__])
+                        method()
+
             except os_exc.ConflictException as ex:
                 if ex.details.startswith('Quota exceeded for resources'):
                     with excutils.save_and_reraise_exception() as ex:
