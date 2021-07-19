@@ -36,7 +36,6 @@ ML2 drivers.
    nested-vlan
    nested-macvlan
    nested-dpdk
-   odl_support
    ovn_support
    ovn-octavia
    containerized

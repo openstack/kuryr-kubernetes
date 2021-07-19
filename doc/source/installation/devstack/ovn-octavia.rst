@@ -10,20 +10,8 @@ devstack:
 
    .. code-block:: console
 
-      $ cd devstack
-      $ cp ../kuryr-kubernetes/devstack/local.conf.ovn.sample local.conf
-
-#. Then, you need to edit the local.conf file and enable ovn provider by
-   setting:
-
-   .. code-block:: bash
-
-      # Kuryr K8S-Endpoint driver Octavia provider
-      # ==========================================
-      KURYR_EP_DRIVER_OCTAVIA_PROVIDER=ovn
-      KURYR_K8S_OCTAVIA_MEMBER_MODE=L2
-      KURYR_ENFORCE_SG_RULES=False
-      KURYR_LB_ALGORITHM=SOURCE_IP_PORT
+      $ curl https://opendev.org/openstack/kuryr-kubernetes/raw/branch/master/devstack/local.conf.sample \
+        -o devstack/local.conf
 
 #. In case you want more Kuryr specific features than provided by the default
    handlers and more handlers are enabled, for example, the following enables

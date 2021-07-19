@@ -100,7 +100,7 @@ script. Below is the list of available variables:
    kuryr-daemon will be started in the CNI container. It is using ``os-vif``
    and ``oslo.privsep`` to do pod wiring tasks. By default it'll call ``sudo``
    to raise privileges, even though container is priviledged by itself or
-   ``sudo`` is missing from container OS (e.g. default CentOS 7). To prevent
+   ``sudo`` is missing from container OS (e.g. default CentOS 8). To prevent
    that make sure to set following options in kuryr.conf used for kuryr-daemon:
 
    .. code-block:: ini

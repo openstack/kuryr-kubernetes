@@ -26,16 +26,18 @@ Single Node Test Environment
 #. Create a test system.
 
    It's best to use a throwaway dev system for running DevStack. Your best bet
-   is to use either CentOS 7 or the latest Ubuntu LTS (16.04, Xenial).
+   is to use latest Ubuntu LTS (20.04, Focal).
 
-#. Create the ``stack`` user.
+#. Optionally create the ``stack`` user. You'll need user account with
+   passwordless ``sudo`` command.
 
    .. code-block:: console
 
       $ git clone https://opendev.org/openstack-dev/devstack.git
       $ sudo ./devstack/tools/create-stack-user.sh
+      $ sudo su - stack
 
-#. Switch to the ``stack`` user and clone DevStack and kuryr-kubernetes.
+#. Clone DevStack.
 
    .. code-block:: console
 
@@ -52,8 +54,8 @@ Single Node Test Environment
 
    .. code-block:: console
 
-      $ cd devstack
-      $ cp ../kuryr-kubernetes/devstack/local.conf.ovn.sample local.conf
+      $ curl https://opendev.org/openstack/kuryr-kubernetes/raw/branch/master/devstack/local.conf.sample \
+        -o devstack/local.conf
 
    Note that due to OVN compiling OVS from source at
    /usr/local/var/run/openvswitch we need to state at the local.conf that the
@@ -62,6 +64,10 @@ Single Node Test Environment
    Optionally, the ports pool functionality can be enabled by following:
    :doc:`./ports-pool`
 
+   .. note::
+
+      Kuryr-kubernetes is using OVN by default
+
 #. Run DevStack.
 
    This is going to take a while. It installs a bunch of packages, clones a
@@ -69,7 +75,7 @@ Single Node Test Environment
 
    .. code-block:: console
 
-      $ ./stack.sh
+      $ devstack/stack.sh
 
    Once DevStack completes successfully, you should see output that looks
    something like this:
@@ -84,7 +90,7 @@ Single Node Test Environment
 
 #. Extra configurations.
 
-   Devstack does not wire up the public network by default so we must do some
+   DevStack does not wire up the public network by default so we must do some
    extra steps for floating IP usage as well as external connectivity:
 
    .. code-block:: console
@@ -108,7 +114,7 @@ Inspect default Configuration
 +++++++++++++++++++++++++++++
 
 In order to check the default configuration, in term of networks, subnets,
-security groups and loadbalancers created upon a successful devstack stacking,
+security groups and loadbalancers created upon a successful DevStack stacking,
 you can check the :doc:`../default_configuration`
 
 Testing Network Connectivity
@@ -123,7 +129,7 @@ Nested Containers Test Environment (VLAN)
 
 Another deployment option is the nested-vlan where containers are created
 inside OpenStack VMs by using the Trunk ports support. Thus, first we need to
-deploy an undercloud devstack environment with the needed components to
+deploy an undercloud DevStack environment with the needed components to
 create VMs (e.g., Glance, Nova, Neutron, Keystone, ...), as well as the needed
 OVN configurations such as enabling the trunk support that will be needed for
 the VM. And then install the overcloud deployment inside the VM with the kuryr
@@ -137,11 +143,10 @@ The steps to deploy the undercloud environment are the same described above
 for the `Single Node Test Environment` with the different of the sample
 local.conf to use (step 4), in this case:
 
-   .. code-block:: console
+.. code-block:: console
 
-      $ cd devstack
-      $ cp ../kuryr-kubernetes/devstack/local.conf.pod-in-vm.undercloud.ovn.sample local.conf
-
+   $ curl https://opendev.org/openstack/kuryr-kubernetes/raw/branch/master/devstack/local.conf.pod-in-vm.undercloud.ovn.sample \
+     -o devstack/local.conf
 
 The main differences with the default ovn local.conf sample are that:
 
@@ -171,7 +176,7 @@ same steps as for ML2/OVS:
 
    .. code-block:: console
 
-      $ ssh -i id_rsa_demo centos@FLOATING_IP
+      $ ssh -i id_rsa_demo ubuntu@FLOATING_IP
 
 #. Deploy devstack following steps 3 and 4 detailed at :doc:`./nested-vlan`
 
