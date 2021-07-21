@@ -22,6 +22,7 @@
         - kuryr-kubernetes-tempest-ovn
         - kuryr-kubernetes-tempest-network-policy
         - kuryr-kubernetes-tempest-multinode
+        - kuryr-kubernetes-tempest-multinode-ovn
         - kuryr-kubernetes-tempest-ipv6
         - kuryr-kubernetes-tempest-ovn-ipv6
         - kuryr-kubernetes-tempest-ovn-provider-ovn

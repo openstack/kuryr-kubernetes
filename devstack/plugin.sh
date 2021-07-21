@@ -82,9 +82,7 @@ if is_service_enabled kuryr-kubernetes kuryr-daemon \
             wait_for "etcd" "http://${SERVICE_HOST}:${ETCD_PORT}/v2/machines"
             kubeadm_init
             copy_kuryr_certs
-        fi
-
-        if is_service_enabled kubernetes-worker; then
+        elif is_service_enabled kubernetes-worker; then
             kubeadm_join
         fi
 
