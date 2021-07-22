@@ -35,5 +35,11 @@ class LogExceptions(base.EventHandler):
     def __call__(self, event, *args, **kwargs):
         try:
             self._handler(event, *args, **kwargs)
-        except self._exceptions:
-            LOG.exception("Failed to handle event %s", event)
+        except self._exceptions as ex:
+            # If exception comes from OpenStack SDK and contains 'request_id' then print
+            # this 'request_id' along the Exception. This 'request_id' can be then used
+            # to search the OpenStack service logs.
+            if hasattr(ex, 'request_id'):
+                LOG.exception("Failed to handle event [%s]: %s", ex.request_id, event)
+            else:
+                LOG.exception("Failed to handle event: %s", event)
