@@ -137,6 +137,71 @@ def get_lb_crd():
         }
 
 
+def get_lb_crds():
+    return [
+            {
+             'apiVersion': 'openstack.org/v1',
+             'kind': 'KuryrLoadBalancer',
+             "metadata": {
+                "creationTimestamp": "2020-07-28T13:13:30Z",
+                "finalizers": [
+                    ""
+                ],
+                "generation": 6,
+                "name": "test",
+                "namespace": "default",
+                "resourceVersion": "111871",
+                "uid": "584fe3ea-04dd-43f7-be2f-713e861694ec"
+                },
+             "status": {
+                 "loadbalancer": {
+                     "id": "01234567890",
+                     "ip": "1.2.3.4",
+                     "name": "default/test",
+                     "port_id": "1023456789120",
+                     "project_id": "12345678912",
+                     "provider": "amphora",
+                     "security_groups": [
+                         "1d134e68-5653-4192-bda2-4214319af799",
+                         "31d7b8c2-75f1-4125-9565-8c15c5cf046c"
+                     ],
+                     "subnet_id": "123456789120"
+                    },
+                }
+            },
+            {
+             'apiVersion': 'openstack.org/v1',
+             'kind': 'KuryrLoadBalancer',
+             "metadata": {
+                "creationTimestamp": "2020-07-28T13:13:30Z",
+                "finalizers": [
+                    ""
+                ],
+                "generation": 6,
+                "name": "demo",
+                "namespace": "default",
+                "resourceVersion": "111871",
+                "uid": "584fe3ea-04dd-43f7-be2f-713e861694ec"
+                },
+             "status": {
+                 "loadbalancer": {
+                     "id": "01234567891",
+                     "ip": "1.2.3.4",
+                     "name": "default/demo",
+                     "port_id": "1023456789120",
+                     "project_id": "12345678912",
+                     "provider": "amphora",
+                     "security_groups": [
+                         "1d134e68-5653-4192-bda2-4214319af799",
+                         "31d7b8c2-75f1-4125-9565-8c15c5cf046c"
+                     ],
+                     "subnet_id": "123456789120"
+                    },
+                }
+            }
+        ]
+
+
 class FakeLBaaSDriver(drv_base.LBaaSDriver):
 
     def ensure_loadbalancer(self, name, project_id, subnet_id, ip,
@@ -592,3 +657,41 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
 
         self.assertEqual(member_added, False)
         m_drv_lbaas.ensure_member.assert_not_called()
+
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base'
+                '.LBaaSDriver.get_instance')
+    def test_reconcile_loadbalancers(self, m_get_drv_lbaas, m_k8s):
+        loadbalancer_crds = get_lb_crds()
+        m_handler = mock.MagicMock(spec=h_lb.KuryrLoadBalancerHandler)
+        m_handler._drv_lbaas = m_get_drv_lbaas
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        lbaas_spec = {}
+        lbaas.load_balancers.return_value = []
+
+        selflink = ['/apis/openstack.org/v1/namespaces/default/'
+                    'kuryrloadbalancers/test',
+                    '/apis/openstack.org/v1/namespaces/default/'
+                    'kuryrloadbalancers/demo']
+        h_lb.KuryrLoadBalancerHandler._trigger_loadbalancer_reconciliation(
+            m_handler, loadbalancer_crds)
+        lbaas.load_balancers.assert_called_once_with(**lbaas_spec)
+        m_handler._reconcile_lbaas.assert_called_with(selflink)
+
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    @mock.patch('kuryr_kubernetes.controller.drivers.base'
+                '.LBaaSDriver.get_instance')
+    def test_reconcile_loadbalancers_in_sync(self, m_get_drv_lbaas, m_k8s):
+        loadbalancer_crds = get_lb_crds()
+
+        m_handler = mock.MagicMock(spec=h_lb.KuryrLoadBalancerHandler)
+        m_handler._drv_lbaas = m_get_drv_lbaas
+        lbaas = self.useFixture(k_fix.MockLBaaSClient()).client
+        loadbalancers = [{'id': '01234567890'}, {'id': '01234567891'}]
+        lbaas_spec = {}
+        lbaas.load_balancers.return_value = loadbalancers
+
+        h_lb.KuryrLoadBalancerHandler._trigger_loadbalancer_reconciliation(
+            m_handler, loadbalancer_crds)
+        lbaas.load_balancers.assert_called_once_with(**lbaas_spec)
+        m_handler._reconcile_lbaas.assert_not_called()
