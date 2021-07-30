@@ -14,9 +14,88 @@
 
 - job:
     name: kuryr-kubernetes-tempest-multinode
-    parent: kuryr-kubernetes-tempest
+    parent: kuryr-kubernetes-octavia-base
     description: |
-        Kuryr-Kubernetes tempest multinode job
+        Kuryr-Kubernetes tempest multinode job with OVN
+    nodeset: openstack-two-node-focal
+    host-vars:
+      controller:
+        devstack_plugins:
+          octavia: https://opendev.org/openstack/octavia
+          octavia-tempest-plugin: https://opendev.org/openstack/octavia-tempest-plugin
+    group-vars:
+      subnode:
+        devstack_plugins:
+          devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
+          kuryr-kubernetes: https://opendev.org/openstack/kuryr-kubernetes
+        devstack_services:
+          c-bak: false
+          c-vol: false
+          dstat: false
+          kubernetes-master: false
+          kubernetes-worker: true
+          kuryr-daemon: true
+          kuryr-kubernetes: false
+          neutron: true
+          ovn-northd: false
+          ovn-octavia-provider: true
+          placement-client: true
+          q-svc: false
+        devstack_local_conf:
+          post-config:
+            $OCTAVIA_CONF:
+              controller_worker:
+                amp_active_retries: 9999
+              api_settings:
+                enabled_provider_drivers: amphora:'Octavia Amphora driver',ovn:'Octavia OVN driver'
+              health_manager:
+                failover_threads: 2
+                health_update_threads: 2
+                stats_update_threads: 2
+        devstack_localrc:
+          KURYR_ENABLED_HANDLERS: vif,endpoints,service,namespace,pod_label,policy,kuryrnetworkpolicy,kuryrnetwork,kuryrport,kuryrloadbalancer
+          KURYR_ENFORCE_SG_RULES: false
+          KURYR_EP_DRIVER_OCTAVIA_PROVIDER: ovn
+          KURYR_K8S_OCTAVIA_MEMBER_MODE: L2
+          KURYR_LB_ALGORITHM: SOURCE_IP_PORT
+          KURYR_NEUTRON_DEFAULT_ROUTER: kuryr-router
+          KURYR_SG_DRIVER: policy
+          KURYR_SUBNET_DRIVER: namespace
+          OVN_BRANCH: v20.06.2
+          OVN_BUILD_FROM_SOURCE: true
+          OVN_L3_CREATE_PUBLIC_NETWORK: true
+          VAR_RUN_PATH: /usr/local/var/run
+    vars:
+      tempest_test_regex: '^(kuryr_tempest_plugin.tests.scenario.test_cross_ping_multi_worker.TestCrossPingScenarioMultiWorker)'
+      devstack_localrc:
+        KURYR_K8S_MULTI_WORKER_TESTS: true
+      devstack_local_conf:
+        post-config:
+          $OCTAVIA_CONF:
+            controller_worker:
+              amp_active_retries: 9999
+            api_settings:
+              enabled_provider_drivers: amphora:'Octavia Amphora driver',ovn:'Octavia OVN driver'
+            health_manager:
+              failover_threads: 2
+              health_update_threads: 2
+              stats_update_threads: 2
+      devstack_services:
+        kubernetes-master: true
+        kubernetes-worker: false
+        kuryr-daemon: true
+        kuryr-kubernetes: true
+      zuul_copy_output:
+        '{{ devstack_base_dir }}/data/ovn': 'logs'
+        '{{ devstack_log_dir }}/ovsdb-server-nb.log': 'logs'
+        '{{ devstack_log_dir }}/ovsdb-server-sb.log': 'logs'
+    voting: false
+
+- job:
+    name: kuryr-kubernetes-tempest-multinode-ovs
+    parent: kuryr-kubernetes-octavia-base-ovs
+    description: |
+        Kuryr-Kubernetes tempest multinode job with OVS
     nodeset: openstack-two-node-focal
     group-vars:
       subnode:
@@ -43,97 +122,25 @@
           q-ovn-metadata-agent: false
           q-svc: false
         devstack_localrc:
+          KURYR_ENABLED_HANDLERS: vif,endpoints,service,namespace,pod_label,policy,kuryrnetworkpolicy,kuryrnetwork,kuryrport,kuryrloadbalancer
+          KURYR_ENFORCE_SG_RULES: true
+          KURYR_SG_DRIVER: policy
+          KURYR_SUBNET_DRIVER: namespace
           ML2_L3_PLUGIN: router
           Q_AGENT: openvswitch
           Q_ML2_PLUGIN_MECHANISM_DRIVERS: openvswitch,linuxbridge
           Q_ML2_TENANT_NETWORK_TYPE: vxlan
-          USE_PYTHON3: true
     vars:
       tempest_test_regex: '^(kuryr_tempest_plugin.tests.scenario.test_cross_ping_multi_worker.TestCrossPingScenarioMultiWorker)'
-      devstack_localrc:
-        KURYR_K8S_API_URL: "https://${SERVICE_HOST}:${KURYR_K8S_API_PORT}"
-        KURYR_K8S_MULTI_WORKER_TESTS: True
-        USE_PYTHON3: true
       devstack_services:
         dstat: false
         kubernetes-master: true
         kubernetes-worker: false
         kuryr-daemon: true
         kuryr-kubernetes: true
-    voting: false
-
-- job:
-    name: kuryr-kubernetes-tempest-multinode-ovn
-    parent: kuryr-kubernetes-tempest
-    description: |
-        Kuryr-Kubernetes tempest multinode job using OVN
-    nodeset: openstack-two-node-focal
-    group-vars:
-      subnode:
-        devstack_plugins:
-          devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
-          kuryr-kubernetes: https://opendev.org/openstack/kuryr-kubernetes
-        devstack_services:
-          c-bak: false
-          c-vol: false
-          dstat: false
-          kubernetes-master: false
-          kubernetes-worker: true
-          kuryr-daemon: true
-          kuryr-kubernetes: false
-          neutron: true
-          ovn-controller: true
-          ovn-northd: false
-          ovs-vswitchd: true
-          ovsdb-server: true
-          placement-client: true
-          q-agt: false
-          q-dhcp: false
-          q-l3: false
-          q-meta: false
-          q-ovn-metadata-agent: true
-          q-svc: false
-        devstack_localrc:
-          ML2_L3_PLUGIN: ovn-router,trunk,qos
-          Q_AGENT: ovn
-          Q_ML2_PLUGIN_MECHANISM_DRIVERS: ovn,logger
-          Q_ML2_PLUGIN_TYPE_DRIVERS: local,flat,vlan,geneve
-          Q_ML2_TENANT_NETWORK_TYPE: geneve
-          USE_PYTHON3: true
-    vars:
-      tempest_test_regex: '^(kuryr_tempest_plugin.tests.scenario.test_cross_ping_multi_worker.TestCrossPingScenarioMultiWorker)'
+        neutron: true
       devstack_localrc:
-        KURYR_K8S_API_URL: "https://${SERVICE_HOST}:${KURYR_K8S_API_PORT}"
-        KURYR_K8S_MULTI_WORKER_TESTS: True
-        ML2_L3_PLUGIN: ovn-router,trunk,qos
-        Q_AGENT: ovn
-        Q_ML2_PLUGIN_MECHANISM_DRIVERS: ovn,logger
-        Q_ML2_PLUGIN_TYPE_DRIVERS: local,flat,vlan,geneve
-        Q_ML2_TENANT_NETWORK_TYPE: geneve
-        Q_USE_PROVIDERNET_FOR_PUBLIC: true
-        USE_PYTHON3: true
-      devstack_services:
-        dstat: false
-        kubernetes-master: true
-        kubernetes-worker: false
-        kuryr-daemon: true
-        kuryr-kubernetes: true
-        ovn-controller: true
-        ovn-northd: true
-        ovs-vswitchd: true
-        ovsdb-server: true
-        q-agt: false
-        q-dhcp: false
-        q-l3: false
-        q-meta: false
-        q-ovn-metadata-agent: true
-        q-qos: true
-        q-svc: true
-        q-trunk: true
-      zuul_copy_output:
-        '{{ devstack_base_dir }}/data/ovn': 'logs'
-        '{{ devstack_log_dir }}/ovsdb-server-nb.log': 'logs'
-        '{{ devstack_log_dir }}/ovsdb-server-sb.log': 'logs'
+        KURYR_K8S_MULTI_WORKER_TESTS: true
     voting: false
 
 - job:

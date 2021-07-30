@@ -49,6 +49,7 @@ function ovs_bind_for_kubelet {
     local service_subnet_cidr
     local pod_subnet_gw
     local cidrs
+    local _sp_id=${KURYR_NEUTRON_DEFAULT_SUBNETPOOL_ID}
 
     project_id="$1"
     port_number="$2"
@@ -95,10 +96,31 @@ function ovs_bind_for_kubelet {
         KURYR_POD_SUBNETS_IDS=(${KURYR_NEUTRON_DEFAULT_POD_SUBNET}-IPv4)
     fi
 
+    if [[ -z ${KURYR_SUBNETPOOLS_IDS} ]]; then
+        # NOTE(gryf): In case we are missing KURYR_SUBNETPOOLS_IDS variable
+        # populated, which probably means, that kuryr-kubernetes service is
+        # not enabled, but if kuryr-daemon service is enabled (which is the
+        # case for multi node setup, where worker nodes should have it
+        # enabled), we need to have it filled.
+        export KURYR_SUBNETPOOLS_IDS=()
+        export KURYR_ETHERTYPES=()
+        if [[ "$KURYR_IPV6" == "False" ]]; then
+            export KURYR_ETHERTYPE=IPv4
+            KURYR_ETHERTYPES+=("IPv4")
+            KURYR_SUBNETPOOLS_IDS+=(${_sp_id:-${SUBNETPOOL_V4_ID}})
+        else
+            KURYR_ETHERTYPES+=("IPv6")
+            KURYR_SUBNETPOOLS_IDS+=($(openstack \
+                --os-cloud devstack-admin \
+                --os-region "${REGION_NAME}" \
+                subnet pool show ${SUBNETPOOL_KURYR_NAME_V6} -c id -f value))
+        fi
+    fi
+
     for i in "${!KURYR_SERVICE_SUBNETS_IDS[@]}"; do
         pod_subnet_gw=$(openstack subnet show "${KURYR_POD_SUBNETS_IDS[$i]}" \
                         -c gateway_ip -f value)
-        if [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
+        if is_service_enabled kuryr-kubernetes && [[ "$KURYR_SUBNET_DRIVER" == "namespace" ]]; then
             cidrs=$(openstack subnet pool show "${KURYR_SUBNETPOOLS_IDS[$i]}" -c prefixes -f value)
             subnetpool_cidr=$(python3 -c "print(${cidrs}[0])")
             sudo ip route add "$subnetpool_cidr" via "$pod_subnet_gw" dev "$ifname"

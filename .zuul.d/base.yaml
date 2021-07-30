@@ -13,9 +13,115 @@
 # limitations under the License.
 
 - job:
-    name: kuryr-kubernetes-tempest-base
+    name: kuryr-kubernetes-base
     parent: devstack-tempest
-    description: Base kuryr-kubernetes-job
+    description: |
+      Base Kuryr Kubernetes tempest job. There are neither Neutron nor Octavia
+      services, its meant to be extended.
+    required-projects:
+      - openstack/devstack-gate
+      - openstack/devstack-plugin-container
+      - openstack/kuryr-kubernetes
+      - openstack/kuryr-tempest-plugin
+      - openstack/tempest
+    timeout: 10800
+    post-run: playbooks/copy-k8s-logs.yaml
+    host-vars:
+      controller:
+        devstack_plugins:
+          kuryr-kubernetes: https://opendev.org/openstack/kuryr-kubernetes
+          devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
+          kuryr-tempest-plugin: https://opendev.org/openstack/kuryr-tempest-plugin
+    vars:
+      # Default swap size got shrinked to 1 GB, it's way too small for us.
+      configure_swap_size: 8192
+      tempest_test_regex: '^(kuryr_tempest_plugin.tests.)'
+      tempest_test_timeout: 1800
+      tox_envlist: 'all'
+      tempest_plugins:
+        - kuryr-tempest-plugin
+      devstack_localrc:
+        ENABLE_TLS: true
+        ETCD_USE_RAMDISK: true
+        KURYR_ENABLED_HANDLERS: vif,endpoints,service,namespace,pod_label,policy,kuryrnetworkpolicy,kuryrnetwork,kuryrport,kuryrloadbalancer
+        KURYR_SG_DRIVER: policy
+        KURYR_SUBNET_DRIVER: namespace
+      devstack_services:
+        c-api: false
+        c-bak: false
+        c-sch: false
+        c-vol: false
+        cinder: false
+        coredns: false
+        # Need to disable dstat due to bug https://github.com/dstat-real/dstat/pull/162
+        dstat: false
+        etcd3: true
+        g-api: true
+        g-reg: true
+        key: true
+        kubernetes-master: true
+        kuryr-daemon: true
+        kuryr-kubernetes: true
+        mysql: true
+        n-api-meta: true
+        n-api: true
+        n-cond: true
+        n-cpu: true
+        n-sch: true
+        placement-api: true
+        placement-client: true
+        rabbit: true
+        s-account: false
+        s-container: false
+        s-object: false
+        s-proxy: false
+        tempest: true
+      zuul_copy_output:
+        '{{ devstack_log_dir }}/kubernetes': 'logs'
+    irrelevant-files:
+      - ^.*\.rst$
+      - ^doc/.*$
+      - ^releasenotes/.*$
+      - ^contrib/.*$
+
+- job:
+    name: kuryr-kubernetes-base-ovn
+    parent: kuryr-kubernetes-base
+    description: Base kuryr-kubernetes-job with OVN
+    required-projects:
+      - openstack/neutron
+    timeout: 10800
+    post-run: playbooks/copy-k8s-logs.yaml
+    host-vars:
+      controller:
+        devstack_plugins:
+          neutron: https://opendev.org/openstack/neutron
+    vars:
+      network_api_extensions_common:
+        - tag-ports-during-bulk-creation
+      devstack_localrc:
+        KURYR_NEUTRON_DEFAULT_ROUTER: kuryr-router
+        KURYR_ENFORCE_SG_RULES: false
+        ML2_L3_PLUGIN: ovn-router,trunk,qos
+        OVN_BRANCH: v20.06.2
+        OVN_BUILD_FROM_SOURCE: true
+        OVN_L3_CREATE_PUBLIC_NETWORK: true
+        VAR_RUN_PATH: /usr/local/var/run
+      devstack_services:
+        neutron-tag-ports-during-bulk-creation: true
+        neutron: true
+        q-qos: true
+        q-trunk: true
+      zuul_copy_output:
+        '{{ devstack_base_dir }}/data/ovn': 'logs'
+        '{{ devstack_log_dir }}/ovsdb-server-nb.log': 'logs'
+        '{{ devstack_log_dir }}/ovsdb-server-sb.log': 'logs'
+        '/home/zuul/np_sctp_kubetest.log': 'logs'
+
+- job:
+    name: kuryr-kubernetes-base-ovs
+    parent: kuryr-kubernetes-base
+    description: Base kuryr-kubernetes-job with OVS
     required-projects:
       - openstack/devstack-gate
       - openstack/devstack-plugin-container
@@ -28,150 +134,116 @@
     host-vars:
       controller:
         devstack_plugins:
-          kuryr-kubernetes: https://opendev.org/openstack/kuryr-kubernetes
-          devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
-          kuryr-tempest-plugin: https://opendev.org/openstack/kuryr-tempest-plugin
           neutron: https://opendev.org/openstack/neutron
     vars:
-      # Default swap size got shrinked to 1 GB, it's way too small for us.
-      configure_swap_size: 8192
-      tempest_test_regex: '^(kuryr_tempest_plugin.tests.)'
-      tempest_test_timeout: 1800
-      tox_envlist: 'all'
       network_api_extensions_common:
         - tag-ports-during-bulk-creation
-      tempest_plugins:
-        - kuryr-tempest-plugin
-      devstack_localrc:
-        Q_AGENT: openvswitch
-        Q_ML2_TENANT_NETWORK_TYPE: vxlan
-        Q_ML2_PLUGIN_MECHANISM_DRIVERS: openvswitch,linuxbridge
-        ML2_L3_PLUGIN: router
-        KURYR_K8S_API_PORT: 6443
-        KURYR_K8S_CLOUD_PROVIDER: false
-        ETCD_USE_RAMDISK: true
-        USE_PYTHON3: true
       devstack_services:
-        # TODO(dmellado):Temporary workaround until proper fix
-        base: false
-        # Need to disable dstat due to bug https://github.com/dstat-real/dstat/pull/162
-        dstat: false
-        s-account: false
-        s-container: false
-        s-object: false
-        s-proxy: false
-        c-api: false
-        c-bak: false
-        c-sch: false
-        c-vol: false
-        cinder: false
-        tempest: true
+        neutron-tag-ports-during-bulk-creation: true
+        neutron: true
         ovn-controller: false
         ovn-northd: false
-        q-ovn-metadata-agent: false
         ovs-vswitchd: false
         ovsdb-server: false
-        neutron: true
         q-agt: true
         q-dhcp: true
         q-l3: true
-        q-svc: true
         q-meta: true
-        key: true
-        mysql: true
-        rabbit: true
-        n-api: true
-        n-api-meta: true
-        n-cpu: true
-        n-cond: true
-        n-sch: true
-        placement-api: true
-        placement-client: true
-        g-api: true
-        g-reg: true
-        etcd3: true
-        kubernetes-master: true
-        kuryr-kubernetes: true
-        kuryr-daemon: true
-        coredns: false
-        neutron-tag-ports-during-bulk-creation: true
+        q-ovn-metadata-agent: false
+        q-svc: true
+        q-trunk: true
+      devstack_localrc:
+        KURYR_ENFORCE_SG_RULES: true
+        ML2_L3_PLUGIN: router
+        Q_AGENT: openvswitch
+        Q_ML2_PLUGIN_MECHANISM_DRIVERS: openvswitch,linuxbridge
+        Q_ML2_TENANT_NETWORK_TYPE: vxlan
       zuul_copy_output:
-        '{{ devstack_log_dir }}/kubernetes': 'logs'
-    irrelevant-files:
-      - ^.*\.rst$
-      - ^doc/.*$
-      - ^releasenotes/.*$
-      - ^contrib/.*$
+        '{{ devstack_log_dir }}/ovsdb-server-nb.log': 'logs'
+        '{{ devstack_log_dir }}/ovsdb-server-sb.log': 'logs'
 
 - job:
-    name: kuryr-kubernetes-k8s-base
-    parent: devstack
-    description: Base kuryr-kubernetes-job without tempest
+    name: kuryr-kubernetes-octavia-base
+    parent: kuryr-kubernetes-base-ovn
+    description: |
+      Kuryr-Kubernetes tempest job using octavia
     required-projects:
-      - openstack/devstack-plugin-container
-      - openstack/kuryr-kubernetes
-      - openstack/neutron
-    post-run: playbooks/copy-k8s-logs.yaml
+      - openstack/octavia
+      - openstack/python-octaviaclient
+      - openstack/ovn-octavia-provider
+      - openstack/octavia-tempest-plugin
+    pre-run: playbooks/get_amphora_tarball.yaml
     host-vars:
       controller:
         devstack_plugins:
-          kuryr-kubernetes: https://opendev.org/openstack/kuryr-kubernetes
-          devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
-          neutron: https://opendev.org/openstack/neutron
+          octavia: https://opendev.org/openstack/octavia
+          ovn-octavia-provider: https://opendev.org/openstack/ovn-octavia-provider
+          octavia-tempest-plugin: https://opendev.org/openstack/octavia-tempest-plugin
     vars:
-      network_api_extensions_common:
-      - tag-ports-during-bulk-creation
+      tempest_plugins:
+        - kuryr-tempest-plugin
+        - octavia-tempest-plugin
       devstack_localrc:
-        Q_AGENT: openvswitch
-        Q_ML2_TENANT_NETWORK_TYPE: vxlan
-        Q_ML2_PLUGIN_MECHANISM_DRIVERS: openvswitch,linuxbridge
-        ML2_L3_PLUGIN: router
-        KURYR_K8S_API_PORT: 6443
-        Q_BUILD_OVS_FROM_GIT: true
-        KURYR_K8S_CLOUD_PROVIDER: false
-        ETCD_USE_RAMDISK: true
+        KURYR_EP_DRIVER_OCTAVIA_PROVIDER: ovn
+        KURYR_K8S_OCTAVIA_MEMBER_MODE: L2
+        KURYR_LB_ALGORITHM: SOURCE_IP_PORT
+        OCTAVIA_AMP_IMAGE_FILE: /tmp/test-only-amphora-x64-haproxy-ubuntu-bionic.qcow2
+        OCTAVIA_AMP_IMAGE_NAME: test-only-amphora-x64-haproxy-ubuntu-bionic
+        OCTAVIA_AMP_IMAGE_SIZE: 3
+      devstack_local_conf:
+        post-config:
+          $OCTAVIA_CONF:
+            controller_worker:
+              amp_active_retries: 9999
+            api_settings:
+              enabled_provider_drivers: amphora:'Octavia Amphora driver',ovn:'Octavia OVN driver'
+            health_manager:
+              failover_threads: 2
+              health_update_threads: 2
+              stats_update_threads: 2
       devstack_services:
-        # TODO(dmellado):Temporary workaround until proper fix
-        base: false
-        # Need to disable dstat due to bug https://github.com/dstat-real/dstat/pull/162
-        dstat: false
-        s-account: false
-        s-container: false
-        s-object: false
-        s-proxy: false
-        c-api: false
-        c-bak: false
-        c-sch: false
-        c-vol: false
-        cinder: false
-        neutron: true
-        q-agt: true
-        q-dhcp: true
-        q-l3: true
-        q-svc: true
-        q-meta: true
-        key: true
-        mysql: true
-        rabbit: true
-        n-api: true
-        n-api-meta: true
-        n-cpu: true
-        n-cond: true
-        n-sch: true
-        placement-api: true
-        placement-client: true
-        g-api: true
-        g-reg: true
-        etcd3: true
-        kubernetes-master: true
-        kuryr-kubernetes: true
-        kuryr-daemon: true
-        coredns: false
-        neutron-tag-ports-during-bulk-creation: true
-      zuul_copy_output:
-        '{{ devstack_log_dir }}/kubernetes': 'logs'
-    irrelevant-files:
-      - ^.*\.rst$
-      - ^doc/.*$
-      - ^releasenotes/.*$
-      - ^contrib/.*$
+        octavia: true
+        o-api: true
+        o-cw: true
+        o-da: true
+        o-hk: true
+        o-hm: true
+
+- job:
+    name: kuryr-kubernetes-octavia-base-ovs
+    parent: kuryr-kubernetes-base-ovs
+    description: |
+      Kuryr-Kubernetes tempest job using octavia
+    required-projects:
+      - openstack/octavia
+      - openstack/python-octaviaclient
+      - openstack/octavia-tempest-plugin
+    pre-run: playbooks/get_amphora_tarball.yaml
+    host-vars:
+      controller:
+        devstack_plugins:
+          octavia: https://opendev.org/openstack/octavia
+          octavia-tempest-plugin: https://opendev.org/openstack/octavia-tempest-plugin
+    vars:
+      tempest_plugins:
+        - kuryr-tempest-plugin
+        - octavia-tempest-plugin
+      devstack_localrc:
+        OCTAVIA_AMP_IMAGE_FILE: /tmp/test-only-amphora-x64-haproxy-ubuntu-bionic.qcow2
+        OCTAVIA_AMP_IMAGE_NAME: test-only-amphora-x64-haproxy-ubuntu-bionic
+        OCTAVIA_AMP_IMAGE_SIZE: 3
+      devstack_local_conf:
+        post-config:
+          $OCTAVIA_CONF:
+            controller_worker:
+              amp_active_retries: 9999
+            health_manager:
+              failover_threads: 2
+              health_update_threads: 2
+              stats_update_threads: 2
+      devstack_services:
+        octavia: true
+        o-api: true
+        o-cw: true
+        o-hk: true
+        o-hm: true
