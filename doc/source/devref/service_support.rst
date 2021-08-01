@@ -117,6 +117,13 @@ uses the _sync_lbaas_members function to check if Openstack Loadbalancers are
 in sync with the kubernetes counterparts.
 
 
+.. figure::  ../../images/service_creation_diagram.svg
+   :alt: Service creation Diagram
+   :align: center
+   :width: 100%
+
+   Service creation flow diagram
+
 Service Deletion Process
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
