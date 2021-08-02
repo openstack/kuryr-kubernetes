@@ -65,6 +65,11 @@
         c-vol: false
         cinder: false
         tempest: true
+        ovn-controller: false
+        ovn-northd: false
+        q-ovn-metadata-agent: false
+        ovs-vswitchd: false
+        ovsdb-server: false
         neutron: true
         q-agt: true
         q-dhcp: true

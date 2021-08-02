@@ -18,40 +18,122 @@
     description: |
         Kuryr-Kubernetes tempest multinode job
     nodeset: openstack-two-node-focal
-    host-vars:
-      controller:
-        devstack_plugins:
-          devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
-          kuryr-kubernetes: https://opendev.org/openstack/kuryr-kubernetes
-          octavia: https://opendev.org/openstack/octavia
     group-vars:
       subnode:
         devstack_plugins:
           devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
-          kuryr-kubernetes: https://opendev.org/openstack/kuryr
+          kuryr-kubernetes: https://opendev.org/openstack/kuryr-kubernetes
         devstack_services:
-          # Need to disable dstat due to bug https://github.com/dstat-real/dstat/pull/162
+          c-bak: false
+          c-vol: false
           dstat: false
+          kubernetes-master: false
+          kubernetes-worker: true
           kuryr-daemon: true
           kuryr-kubernetes: false
-          kubernetes-worker: true
-          kubernetes-master: false
-          tls-proxy: false
-          c-vol: false
-          c-bak: false
+          neutron: true
+          ovn-controller: false
+          ovs-vswitchd: false
+          ovsdb-server: false
+          placement-client: true
+          q-agt: true
+          q-dhcp: true
+          q-l3: true
+          q-meta: true
+          q-ovn-metadata-agent: false
+          q-svc: false
         devstack_localrc:
-          KURYR_FORCE_IMAGE_BUILD: true
+          ML2_L3_PLUGIN: router
+          Q_AGENT: openvswitch
+          Q_ML2_PLUGIN_MECHANISM_DRIVERS: openvswitch,linuxbridge
+          Q_ML2_TENANT_NETWORK_TYPE: vxlan
           USE_PYTHON3: true
     vars:
+      tempest_test_regex: '^(kuryr_tempest_plugin.tests.scenario.test_cross_ping_multi_worker.TestCrossPingScenarioMultiWorker)'
       devstack_localrc:
-          KURYR_K8S_API_URL: "https://${SERVICE_HOST}:${KURYR_K8S_API_PORT}"
-          KURYR_K8S_MULTI_WORKER_TESTS: True
+        KURYR_K8S_API_URL: "https://${SERVICE_HOST}:${KURYR_K8S_API_PORT}"
+        KURYR_K8S_MULTI_WORKER_TESTS: True
+        USE_PYTHON3: true
       devstack_services:
-        tls-proxy: false
-        kubernetes-worker: false
+        dstat: false
         kubernetes-master: true
+        kubernetes-worker: false
         kuryr-daemon: true
         kuryr-kubernetes: true
+    voting: false
+
+- job:
+    name: kuryr-kubernetes-tempest-multinode-ovn
+    parent: kuryr-kubernetes-tempest
+    description: |
+        Kuryr-Kubernetes tempest multinode job using OVN
+    nodeset: openstack-two-node-focal
+    group-vars:
+      subnode:
+        devstack_plugins:
+          devstack-plugin-container: https://opendev.org/openstack/devstack-plugin-container
+          kuryr-kubernetes: https://opendev.org/openstack/kuryr-kubernetes
+        devstack_services:
+          c-bak: false
+          c-vol: false
+          dstat: false
+          kubernetes-master: false
+          kubernetes-worker: true
+          kuryr-daemon: true
+          kuryr-kubernetes: false
+          neutron: true
+          ovn-controller: true
+          ovn-northd: false
+          ovs-vswitchd: true
+          ovsdb-server: true
+          placement-client: true
+          q-agt: false
+          q-dhcp: false
+          q-l3: false
+          q-meta: false
+          q-ovn-metadata-agent: true
+          q-svc: false
+        devstack_localrc:
+          ML2_L3_PLUGIN: ovn-router,trunk,qos
+          Q_AGENT: ovn
+          Q_ML2_PLUGIN_MECHANISM_DRIVERS: ovn,logger
+          Q_ML2_PLUGIN_TYPE_DRIVERS: local,flat,vlan,geneve
+          Q_ML2_TENANT_NETWORK_TYPE: geneve
+          USE_PYTHON3: true
+    vars:
+      tempest_test_regex: '^(kuryr_tempest_plugin.tests.scenario.test_cross_ping_multi_worker.TestCrossPingScenarioMultiWorker)'
+      devstack_localrc:
+        KURYR_K8S_API_URL: "https://${SERVICE_HOST}:${KURYR_K8S_API_PORT}"
+        KURYR_K8S_MULTI_WORKER_TESTS: True
+        ML2_L3_PLUGIN: ovn-router,trunk,qos
+        Q_AGENT: ovn
+        Q_ML2_PLUGIN_MECHANISM_DRIVERS: ovn,logger
+        Q_ML2_PLUGIN_TYPE_DRIVERS: local,flat,vlan,geneve
+        Q_ML2_TENANT_NETWORK_TYPE: geneve
+        Q_USE_PROVIDERNET_FOR_PUBLIC: true
+        USE_PYTHON3: true
+      devstack_services:
+        dstat: false
+        kubernetes-master: true
+        kubernetes-worker: false
+        kuryr-daemon: true
+        kuryr-kubernetes: true
+        ovn-controller: true
+        ovn-northd: true
+        ovs-vswitchd: true
+        ovsdb-server: true
+        q-agt: false
+        q-dhcp: false
+        q-l3: false
+        q-meta: false
+        q-ovn-metadata-agent: true
+        q-qos: true
+        q-svc: true
+        q-trunk: true
+      zuul_copy_output:
+        '{{ devstack_base_dir }}/data/ovn': 'logs'
+        '{{ devstack_log_dir }}/ovsdb-server-nb.log': 'logs'
+        '{{ devstack_log_dir }}/ovsdb-server-sb.log': 'logs'
     voting: false
 
 - job:
