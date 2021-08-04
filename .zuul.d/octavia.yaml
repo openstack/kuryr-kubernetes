@@ -22,13 +22,18 @@
       - openstack/octavia
       - openstack/python-barbicanclient
       - openstack/python-octaviaclient
+      - openstack/octavia-tempest-plugin
     pre-run: playbooks/get_amphora_tarball.yaml
     host-vars:
       controller:
         devstack_plugins:
           octavia: https://opendev.org/openstack/octavia
           barbican: https://opendev.org/openstack/barbican
+          octavia-tempest-plugin: https://opendev.org/openstack/octavia-tempest-plugin.git
     vars:
+      tempest_plugins:
+        - kuryr-tempest-plugin
+        - octavia-tempest-plugin
       devstack_localrc:
         OCTAVIA_AMP_IMAGE_FILE: "/tmp/test-only-amphora-x64-haproxy-ubuntu-bionic.qcow2"
         OCTAVIA_AMP_IMAGE_SIZE: 3
