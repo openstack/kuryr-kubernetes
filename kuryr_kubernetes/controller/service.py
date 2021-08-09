@@ -88,8 +88,8 @@ class KuryrK8sService(service.Service, periodic_task.PeriodicTasks,
         self.current_leader = None
         self.node_name = utils.get_node_name()
 
-        handlers = _load_kuryr_ctrlr_handlers()
-        for handler in handlers:
+        self.handlers = _load_kuryr_ctrlr_handlers()
+        for handler in self.handlers:
             self.watcher.add(handler.get_watch_path())
             pipeline.register(handler)
         self.pool_driver = drivers.VIFPoolDriver.get_instance(
@@ -109,14 +109,16 @@ class KuryrK8sService(service.Service, periodic_task.PeriodicTasks,
             self.pool_driver.sync_pools()
         else:
             LOG.info('Running in HA mode, watcher will be started later.')
-            f = functools.partial(self.run_periodic_tasks, None)
-            self.tg.add_timer(1, f)
+        f = functools.partial(self.run_periodic_tasks, None)
+        self.tg.add_timer(1, f)
 
         self.health_manager.run()
         LOG.info("Service '%s' started", self.__class__.__name__)
 
     @periodic_task.periodic_task(spacing=5, run_immediately=True)
     def monitor_leader(self, context):
+        if not CONF.kubernetes.controller_ha:
+            return
         leader = utils.get_leader_name()
         if leader is None:
             # Error when fetching current leader. We're paranoid, so just to
@@ -161,6 +163,12 @@ class KuryrK8sService(service.Service, periodic_task.PeriodicTasks,
         LOG.info("Service '%s' stopping", self.__class__.__name__)
         self.watcher.stop()
         super(KuryrK8sService, self).stop(graceful)
+
+    @periodic_task.periodic_task(spacing=600, run_immediately=False)
+    def reconcile_loadbalancers(self, context):
+        LOG.debug("Checking for Kubernetes resources reconciliations")
+        for handler in self.handlers:
+            handler.reconcile()
 
 
 def start():

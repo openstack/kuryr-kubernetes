@@ -105,3 +105,6 @@ class ResourceEventHandler(dispatch.EventConsumer, health.HealthHandler):
 
     def on_finalize(self, obj, *args, **kwargs):
         pass
+
+    def reconcile(self):
+        pass

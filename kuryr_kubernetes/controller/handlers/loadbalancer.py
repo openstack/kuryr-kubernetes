@@ -13,8 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import eventlet
-
 import time
 
 from oslo_log import log as logging
@@ -55,7 +53,6 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         self._drv_svc_project = drv_base.ServiceProjectDriver.get_instance()
         self._drv_sg = drv_base.ServiceSecurityGroupsDriver.get_instance()
         self._drv_nodes_subnets = drv_base.NodesSubnetsDriver.get_instance()
-        eventlet.spawn(self._reconcile_loadbalancers)
 
     def _get_nodes_subnets(self):
         return utils.get_subnets_id_cidrs(
@@ -117,21 +114,16 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                     self._update_lb_status(loadbalancer_crd)
                     self._patch_status(loadbalancer_crd)
 
-    def _reconcile_loadbalancers(self):
-        while True:
-            eventlet.sleep(CRD_RECONCILIATION_FREQUENCY)
-            loadbalancer_crds = []
-            try:
-                loadbalancer_crds = driver_utils.get_kuryrloadbalancer_crds()
-            except k_exc.K8sClientException:
-                LOG.debug("Error retriving KuryrLoadBalanders CRDs")
-                return
-            try:
-                self._trigger_loadbalancer_reconciliation(loadbalancer_crds)
-            except Exception:
-                LOG.exception('Error while running loadbalancers '
-                              'reconciliation. It will be retried in %s',
-                              CRD_RECONCILIATION_FREQUENCY)
+    def reconcile(self):
+        loadbalancer_crds = []
+        try:
+            loadbalancer_crds = driver_utils.get_kuryrloadbalancer_crds()
+        except k_exc.K8sClientException:
+            LOG.warning("Error retriving KuryrLoadBalanders CRDs")
+        try:
+            self._trigger_loadbalancer_reconciliation(loadbalancer_crds)
+        except Exception:
+            LOG.exception('Error while running loadbalancers reconciliation.')
 
     def _trigger_loadbalancer_reconciliation(self, loadbalancer_crds):
         LOG.debug("Reconciling the loadbalancer CRDs")
@@ -144,7 +136,6 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         lbaas_spec = {}
         self._drv_lbaas.add_tags('loadbalancer', lbaas_spec)
         loadbalancers = lbaas.load_balancers(**lbaas_spec)
-        # get the Loadbalaancer IDs from Openstack
         loadbalancers_id = [loadbalancer['id']
                             for loadbalancer in loadbalancers]
         # for each loadbalancer id in the CRD status, check if exists in
@@ -167,11 +158,11 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
             except k_exc.K8sResourceNotFound:
                 LOG.debug('Unable to reconcile the KuryLoadBalancer CRD %s',
                           selflink)
-                return
+                continue
             except k_exc.K8sClientException:
-                LOG.debug('Unable fetch the KuryLoadBalancer CRD %s',
-                          selflink)
-                return
+                LOG.warning('Unable to patch the KuryLoadBalancer CRD %s',
+                            selflink)
+                continue
 
     def _should_ignore(self, loadbalancer_crd):
         return (not(self._has_endpoints(loadbalancer_crd) or
