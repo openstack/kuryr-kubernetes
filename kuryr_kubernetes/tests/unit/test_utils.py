@@ -395,6 +395,15 @@ class TestUtils(test_base.TestCase):
             target, ('10.0.1.208', 'test', 8080,
                      '4472fab1-f01c-46a7-b197-5cba4f2d7135'))
 
+    def test_get_klb_crd_path(self):
+        res = {'apiVersion': 'v1',
+               'kind': 'Endpoints',
+               'metadata': {'name': 'my-service',
+                            'namespace': 'default'}}
+        self.assertEqual(utils.get_klb_crd_path(res),
+                         '/apis/openstack.org/v1/namespaces/default/'
+                         'kuryrloadbalancers/my-service')
+
     def test_get_res_link_core_res(self):
         res = {'apiVersion': 'v1',
                'kind': 'Pod',

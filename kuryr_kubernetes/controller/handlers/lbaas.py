@@ -332,6 +332,9 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
         else:
             self._update_crd_spec(loadbalancer_crd, endpoints)
 
+    def on_deleted(self, endpoints, *args, **kwargs):
+        self._remove_endpoints(endpoints)
+
     def _has_pods(self, endpoints):
         ep_subsets = endpoints.get('subsets', [])
         if not ep_subsets:
@@ -431,3 +434,19 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
             raise
 
         return True
+
+    def _remove_endpoints(self, endpoints):
+        kubernetes = clients.get_kubernetes_client()
+        lb_name = endpoints['metadata']['name']
+        try:
+            kubernetes.patch_crd('spec',
+                                 utils.get_klb_crd_path(endpoints),
+                                 'endpointSlices',
+                                 action='remove')
+        except k_exc.K8sResourceNotFound:
+            LOG.debug('KuryrLoadBalancer CRD not found %s', lb_name)
+        except k_exc.K8sUnprocessableEntity:
+            LOG.warning('KuryrLoadBalancer %s modified, ignoring.', lb_name)
+        except k_exc.K8sClientException:
+            LOG.exception('Error updating KuryrLoadBalancer CRD %s', lb_name)
+            raise

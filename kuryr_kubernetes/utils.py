@@ -89,6 +89,17 @@ RESOURCE_MAP = {'Endpoints': 'endpoints',
 API_RE = re.compile(r'v\d+')
 
 
+def get_klb_crd_path(obj):
+    """Return klb crd path from provided resource"""
+    namespace = obj['metadata']['namespace']
+    lb_name = obj['metadata']['name']
+
+    return (f"{constants.K8S_API_CRD_NAMESPACES}/"
+            f"{namespace}/"
+            f"kuryrloadbalancers/"
+            f"{lb_name}")
+
+
 def get_res_link(obj):
     """Return selfLink equivalent for provided resource"""
     # First try, if we still have it
