@@ -13,12 +13,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_log import log as logging
 from unittest import mock
 
 import os_vif.objects.network as osv_network
 import os_vif.objects.subnet as osv_subnet
 
 from kuryr_kubernetes.controller.handlers import lbaas as h_lbaas
+from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.tests import base as test_base
 
 _SUPPORTED_LISTENER_PROT = ('HTTP', 'HTTPS', 'TCP')
@@ -358,3 +360,105 @@ class TestServiceHandler(test_base.TestCase):
     def test_get_lbaas_spec(self):
         self.skipTest("skipping until generalised annotation handling is "
                       "implemented")
+
+
+class TestEndpointsHandler(test_base.TestCase):
+
+    def setUp(self):
+        super().setUp()
+        self._ep_name = 'my-service'
+        self._ep_namespace = mock.sentinel.namespace
+        self._ep_ip = '1.2.3.4'
+
+        self._ep = {
+            "kind": "Endpoints",
+            "apiVersion": "v1",
+            "metadata": {
+                "name": self._ep_name,
+                "namespace": self._ep_namespace,
+            },
+            "subsets": [
+                {
+                    "addresses": [
+                        {
+                            "ip": self._ep_ip
+                        },
+                    ],
+                    "ports": [
+                        {
+                            "port": 8080,
+                            "protocol": "TCP"
+                        }
+                    ]
+                }
+            ]
+        }
+
+        self._klb_name = 'my-service'
+        self._klb_ip = '1.1.1.1'
+
+        self._klb = {
+            'apiVersion': 'openstack.org/v1',
+            'kind': 'KuryrLoadBalancer',
+            'metadata': {
+                'name': self._klb_name,
+                'finalizers': [''],
+            },
+            'spec': {
+                'ip': self._klb_ip
+            }
+        }
+
+    def test_on_deleted(self):
+        m_handler = mock.Mock(spec=h_lbaas.EndpointsHandler)
+        h_lbaas.EndpointsHandler.on_deleted(m_handler, self._ep)
+        m_handler._remove_endpoints.assert_called_once_with(self._ep)
+
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    @mock.patch('kuryr_kubernetes.utils.get_klb_crd_path')
+    def test__remove_endpoints(self, get_klb_crd_path, get_k8s_client):
+        k8s = mock.Mock()
+        get_k8s_client.return_value = k8s
+        h_lbaas.EndpointsHandler._remove_endpoints(self, self._ep)
+        k8s.patch_crd.assert_called_once_with('spec',
+                                              get_klb_crd_path(self._ep),
+                                              'endpointSlices',
+                                              action='remove')
+
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    @mock.patch.object(logging.getLogger(
+                       'kuryr_kubernetes.controller.handlers.lbaas'),
+                       'debug')
+    def test__remove_endpoints_not_found(self, get_k8s_client, log):
+        k8s = mock.Mock()
+        get_k8s_client.return_value = k8s
+        h_lbaas.EndpointsHandler._remove_endpoints(self, self._ep)
+
+        k8s.patch_crd.side_effect = k_exc.K8sResourceNotFound(self._ep)
+
+        log.assert_called_once()
+
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    def test__remove_endpoints_client_exception(self, get_k8s_client):
+        k8s = mock.Mock()
+        get_k8s_client.return_value = k8s
+        h_lbaas.EndpointsHandler._remove_endpoints(self, self._ep)
+
+        k8s.patch_crd.side_effect = k_exc.K8sClientException(self._ep)
+
+        self.assertRaises(k_exc.K8sClientException,
+                          h_lbaas.EndpointsHandler._remove_endpoints,
+                          self, self._ep)
+
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    @mock.patch.object(logging.getLogger(
+                       'kuryr_kubernetes.controller.handlers.lbaas'),
+                       'warning')
+    def test__remove_endpoints_unprocessable_entity(self, get_k8s_client, log):
+        k8s = mock.Mock()
+        get_k8s_client.return_value = k8s
+        h_lbaas.EndpointsHandler._remove_endpoints(self, self._ep)
+
+        k8s.patch_crd.side_effect = k_exc.K8sUnprocessableEntity(self._ep)
+
+        log.assert_called_once()
