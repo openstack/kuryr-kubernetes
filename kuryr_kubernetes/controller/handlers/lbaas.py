@@ -114,11 +114,7 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
     def on_finalize(self, service, *args, **kwargs):
         k8s = clients.get_kubernetes_client()
 
-        svc_name = service['metadata']['name']
-        svc_namespace = service['metadata']['namespace']
-
-        klb_crd_path = (f"{k_const.K8S_API_CRD_NAMESPACES}/"
-                        f"{svc_namespace}/kuryrloadbalancers/{svc_name}")
+        klb_crd_path = utils.get_klb_crd_path(service)
         # Bump all the NPs in the namespace to force SG rules
         # recalculation.
         self._bump_network_policies(service)
