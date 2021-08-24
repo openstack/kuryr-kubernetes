@@ -18,6 +18,7 @@ import time
 
 import requests
 
+from kuryr.lib._i18n import _
 from openstack import exceptions as os_exc
 from os_vif import objects
 from oslo_cache import core as cache
@@ -50,13 +51,17 @@ MAX_BACKOFF = 60
 MAX_ATTEMPTS = 10
 
 subnet_caching_opts = [
-    cfg.BoolOpt('caching', default=True),
-    cfg.IntOpt('cache_time', default=3600),
+    cfg.BoolOpt('caching', default=True,
+                help=_('Enable caching of subnets.')),
+    cfg.IntOpt('cache_time', default=3600,
+               help=_('TTL, in seconds, for cached subnets')),
 ]
 
 nodes_caching_opts = [
-    cfg.BoolOpt('caching', default=True),
-    cfg.IntOpt('cache_time', default=3600),
+    cfg.BoolOpt('caching', default=True,
+                help=_('Enable caching of nodes.')),
+    cfg.IntOpt('cache_time', default=3600,
+               help=_('TTL, in seconds, for cached nodes')),
 ]
 
 CONF.register_opts(subnet_caching_opts, "subnet_caching")

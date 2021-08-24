@@ -78,8 +78,10 @@ vif_pool_driver_opts = [
 oslo_cfg.CONF.register_opts(vif_pool_driver_opts, "vif_pool")
 
 node_vif_driver_caching_opts = [
-    oslo_cfg.BoolOpt('caching', default=True),
-    oslo_cfg.IntOpt('cache_time', default=3600),
+    oslo_cfg.BoolOpt('caching', default=True,
+                     help=_('Enable caching of vifs.')),
+    oslo_cfg.IntOpt('cache_time', default=3600,
+                    help=_('TTL, in seconds, for cached vifs')),
 ]
 
 oslo_cfg.CONF.register_opts(node_vif_driver_caching_opts,
