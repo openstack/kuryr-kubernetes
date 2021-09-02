@@ -323,21 +323,29 @@ def get_annotated_labels(resource, annotation_labels):
 
 
 def get_kuryrnetworkpolicy_crds(namespace=None):
-    if namespace:
-        knp_path = '{}/{}/kuryrnetworkpolicies'.format(
+
+    try:
+        if namespace:
+            knp_path = '{}/{}/kuryrnetworkpolicies'.format(
                 constants.K8S_API_CRD_NAMESPACES, namespace)
-    else:
-        knp_path = constants.K8S_API_CRD_KURYRNETWORKPOLICIES
-    return get_k8s_resource(knp_path)
+        else:
+            knp_path = constants.K8S_API_CRD_KURYRNETWORKPOLICIES
+        knps = get_k8s_resource(knp_path)
+        LOG.debug("Returning KuryrNetworkPolicies %s", knps)
+    except k_exc.K8sClientException:
+        LOG.exception("Exception during fetch KuryrNetworkPolicies. Retrying.")
+        raise k_exc.ResourceNotReady(knp_path)
+    return knps
 
 
 def get_kuryrloadbalancer_crds(namespace=None):
     if namespace:
         klb_path = '{}/{}/kuryrloadbalancers'.format(
-                    constants.K8S_API_CRD_KURYRLOADBALANCERS, namespace)
+            constants.K8S_API_CRD_KURYRLOADBALANCERS, namespace)
     else:
         klb_path = constants.K8S_API_CRD_KURYRLOADBALANCERS
-    return get_k8s_resource(klb_path)
+    klbs = get_k8s_resource(klb_path)
+    return klbs
 
 
 def get_k8s_resource(resource_path):
@@ -348,8 +356,6 @@ def get_k8s_resource(resource_path):
     except k_exc.K8sResourceNotFound:
         LOG.exception('Kubernetes CRD not found')
         return []
-    except k_exc.K8sClientException:
-        LOG.exception("Exception during Kubernetes recource")
     return k8s_resource.get('items', [])
 
 
