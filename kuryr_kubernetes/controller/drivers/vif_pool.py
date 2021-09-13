@@ -475,7 +475,7 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
         else:
             for port in existing_ports:
                 if not port.binding_host_id:
-                    os_net.delete_port(port.id)
+                    c_utils.delete_port(port)
 
     def _cleanup_removed_nodes(self):
         """Remove ports associated to removed nodes."""

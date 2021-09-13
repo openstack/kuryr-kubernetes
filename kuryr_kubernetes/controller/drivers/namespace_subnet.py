@@ -111,33 +111,7 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
                 if leftover_port.device_owner not in ['', 'trunk:subport',
                                                       kl_const.DEVICE_OWNER]:
                     continue
-                try:
-                    # NOTE(gryf): there is unlikely, that we get an exception
-                    # like PortNotFound or something, since openstacksdk
-                    # doesn't raise an exception if port doesn't exists nor
-                    # return any information.
-                    os_net.delete_port(leftover_port.id)
-                except os_exc.SDKException as e:
-                    if "currently a subport for trunk" in str(e):
-                        if leftover_port.status == "DOWN":
-                            LOG.warning("Port %s is in DOWN status but still "
-                                        "associated to a trunk. This should "
-                                        "not happen. Trying to delete it from "
-                                        "the trunk.", leftover_port.id)
-                        # Get the trunk_id from the error message
-                        trunk_id = (
-                            str(e).split('trunk')[1].split('.')[0].strip())
-                        try:
-                            os_net.delete_trunk_subports(
-                                trunk_id, [{'port_id': leftover_port.id}])
-                        except os_exc.NotFoundException:
-                            LOG.debug("Port %s already removed from trunk %s",
-                                      leftover_port['id'], trunk_id)
-                    else:
-                        LOG.exception("Unexpected error deleting leftover "
-                                      "port %s. Skiping it and continue with "
-                                      "the other rest.", leftover_port.id)
-
+                c_utils.delete_port(leftover_port)
             raise exceptions.ResourceNotReady(net_id)
         except os_exc.SDKException:
             LOG.exception("Error deleting network %s.", net_id)
