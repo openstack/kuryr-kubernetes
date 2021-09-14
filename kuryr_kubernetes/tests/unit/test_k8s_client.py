@@ -23,6 +23,7 @@ import requests
 from kuryr_kubernetes import exceptions as exc
 from kuryr_kubernetes import k8s_client
 from kuryr_kubernetes.tests import base as test_base
+from kuryr_kubernetes.tests import fake
 
 
 class TestK8sClient(test_base.TestCase):
@@ -482,3 +483,43 @@ class TestK8sClient(test_base.TestCase):
         m_resp.status_code = 500
         self.assertRaises(exc.K8sClientException,
                           self.client._raise_from_response, m_resp)
+
+    def test_add_event(self):
+        self.client.post = mock.MagicMock()
+        get_hex_ts = self.client._get_hex_timestamp = mock.MagicMock()
+        get_hex_ts.return_value = 'deadc0de'
+
+        namespace = 'n1'
+        uid = 'deadbeef'
+        name = 'pod-123'
+        pod = fake.get_k8s_pod(name=name, namespace=namespace, uid=uid)
+        event_name = f'{name}.deadc0de'
+
+        self.client.add_event(pod, 'reason', 'message')
+
+        # Event path
+        url = self.client.post.call_args[0][0]
+        data = self.client.post.call_args[0][1]
+        self.assertEqual(url, f'/api/v1/namespaces/{namespace}/events')
+
+        # Event fields
+        self.assertEqual(data['metadata']['name'], event_name)
+        self.assertEqual(data['reason'], 'reason')
+        self.assertEqual(data['message'], 'message')
+        self.assertEqual(data['type'], 'Normal')
+
+        # involvedObject
+        self.assertDictEqual(data['involvedObject'],
+                             {'apiVersion': pod['apiVersion'],
+                              'kind': pod['kind'],
+                              'name': name,
+                              'namespace': namespace,
+                              'uid': uid})
+
+    def test_add_event_k8s_exception(self):
+        self.client.post = mock.MagicMock()
+        self.client.post.side_effect = exc.K8sClientException
+        pod = fake.get_k8s_pod()
+
+        self.assertDictEqual(self.client.add_event(pod, 'reason1', 'message2'),
+                             {})

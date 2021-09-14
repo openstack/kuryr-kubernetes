@@ -163,7 +163,8 @@ def get_sgr_obj(sgr_id='7621d1e0-a2d2-4496-94eb-ffd375d20877',
     return os_sgr.SecurityGroupRule(**sgr_data)
 
 
-def get_k8s_pod():
+def get_k8s_pod(name='pod-5bb648d658-55n76', namespace='namespace',
+                uid='683da866-6bb1-4da2-bf6a-a5f4137c38e7'):
 
     return {'apiVersion': 'v1',
             'kind': 'Pod',
@@ -173,9 +174,9 @@ def get_k8s_pod():
                          'labels': {'app': 'pod',
                                     'pod-template-hash': '5bb648d658'},
                          'operation': 'Update',
-                         'name': 'pod-5bb648d658-55n76',
-                         'namespace': 'default',
+                         'name': name,
+                         'namespace': namespace,
                          'resourceVersion': '19416',
-                         'uid': '683da866-6bb1-4da2-bf6a-a5f4137c38e7'},
+                         'uid': uid},
             'spec': {},
             'status': {}}
