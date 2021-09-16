@@ -46,7 +46,6 @@ ChangeLog
 *.sw?
 
 # Hidden directories
-/.*
 !/.coveragerc
 !/.gitignore
 !/.gitreview
