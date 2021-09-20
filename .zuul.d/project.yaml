@@ -16,28 +16,26 @@
     name: kuryr-kubernetes-tempest-jobs
     check:
       jobs:
-        - kuryr-kubernetes-tempest-systemd
         - kuryr-kubernetes-tempest
+        - kuryr-kubernetes-tempest-defaults
+        - kuryr-kubernetes-tempest-systemd
         - kuryr-kubernetes-tempest-lower-constraints
-        - kuryr-kubernetes-tempest-ovn
-        - kuryr-kubernetes-tempest-network-policy
         - kuryr-kubernetes-tempest-multinode
-        - kuryr-kubernetes-tempest-multinode-ovn
+        - kuryr-kubernetes-tempest-multinode-ovs
         - kuryr-kubernetes-tempest-ipv6
-        - kuryr-kubernetes-tempest-ovn-ipv6
-        - kuryr-kubernetes-tempest-ovn-provider-ovn
-        - kuryr-kubernetes-e2e-np-ovn-provider-ovn
+        - kuryr-kubernetes-tempest-ipv6-ovs
+        - kuryr-kubernetes-tempest-amphora
+        - kuryr-kubernetes-tempest-amphora-ovs
+        - kuryr-kubernetes-e2e-np
     gate:
       jobs:
-        - kuryr-kubernetes-tempest-systemd
         - kuryr-kubernetes-tempest
-        - kuryr-kubernetes-tempest-ovn
-        - kuryr-kubernetes-tempest-network-policy
+        - kuryr-kubernetes-tempest-systemd
+        - kuryr-kubernetes-tempest-amphora
     experimental:
       jobs:
         - kuryr-kubernetes-tempest-l2
         - kuryr-kubernetes-tempest-pools-namespace
-        - kuryr-kubernetes-tempest-ovn-systemd
         - kuryr-kubernetes-tempest-multinode-ha
         - kuryr-kubernetes-tempest-crio
         - kuryr-kubernetes-tempest-dual-stack
