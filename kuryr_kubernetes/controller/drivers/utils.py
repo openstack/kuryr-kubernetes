@@ -680,3 +680,44 @@ def is_network_policy_enabled():
     enabled_handlers = CONF.kubernetes.enabled_handlers
     svc_sg_driver = CONF.kubernetes.service_security_groups_driver
     return 'policy' in enabled_handlers and svc_sg_driver == 'policy'
+
+
+def delete_port(leftover_port):
+    os_net = clients.get_network_client()
+
+    try:
+        # NOTE(gryf): there is unlikely, that we get an exception
+        # like PortNotFound or something, since openstacksdk
+        # doesn't raise an exception if port doesn't exists nor
+        # return any information.
+        os_net.delete_port(leftover_port.id)
+    except os_exc.SDKException as e:
+        if "currently a subport for trunk" in str(e):
+            if leftover_port.status == "DOWN":
+                LOG.warning("Port %s is in DOWN status but still "
+                            "associated to a trunk. This should "
+                            "not happen. Trying to delete it from "
+                            "the trunk.", leftover_port.id)
+
+            # Get the trunk_id from the error message
+            trunk_id = (
+                str(e).split('trunk')[1].split('.')[0].strip())
+            try:
+                os_net.delete_trunk_subports(
+                    trunk_id, [{'port_id': leftover_port.id}])
+            except os_exc.ResourceNotFound:
+                LOG.debug(
+                    "Port %s already removed from trunk %s",
+                    leftover_port.id, trunk_id)
+            try:
+                os_net.delete_port(leftover_port.id)
+            except os_exc.SDKException:
+                LOG.exception("Unexpected error deleting "
+                              "leftover port %s. Skipping it "
+                              "and continue with the other "
+                              "rest.", leftover_port.id)
+        else:
+            LOG.exception("Unexpected error deleting leftover "
+                          "port %s. Skipping it and "
+                          "continue with the other "
+                          "rest.", leftover_port.id)
