@@ -95,6 +95,7 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
                                 ]
                             }
                         ],
+                        "trunk": True
                     }
                 }
             },
@@ -208,3 +209,157 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
         m_get_subnet_id.assert_called_with(
             name='foo-tv22d-nodes', tags='openshiftClusterID=foo-tv22d')
         self.assertEqual(['foobar'], driver.get_nodes_subnets())
+
+    def test_get_subnet_from_machine_no_networks(self):
+        driver = node_subnets.OpenShiftNodesSubnets()
+        del self.machine['spec']['providerSpec']['value']['networks']
+
+        self.assertIsNone(driver._get_subnet_from_machine(self.machine))
+
+    @mock.patch('kuryr_kubernetes.utils.get_subnet_id')
+    def test_get_subnet_from_machine_networks_subnets(self, m_get_subnet_id):
+        subnetid = 'd467451b-ab28-4578-882f-347f0dff4c9a'
+        m_get_subnet_id.return_value = subnetid
+        driver = node_subnets.OpenShiftNodesSubnets()
+
+        self.assertEqual(subnetid,
+                         driver._get_subnet_from_machine(self.machine))
+
+    def test_get_subnet_from_machine_networks_wo_filters(self):
+        driver = node_subnets.OpenShiftNodesSubnets()
+        nets = self.machine['spec']['providerSpec']['value']['networks']
+        nets[0]['subnets'] = [{'uuid': 'f8a458e5-c280-47b7-9c8a-dbd4ecd65545'}]
+        self.machine['spec']['providerSpec']['value']['networks'] = nets
+
+        result = driver._get_subnet_from_machine(self.machine)
+
+        self.assertEqual(nets[0]['subnets'][0]['uuid'], result)
+
+    def test_get_subnet_from_machine_primary_subnet(self):
+        driver = node_subnets.OpenShiftNodesSubnets()
+        psub = '622c5fd4-804c-40e8-95ab-ecd1565ac8e2'
+        self.machine['spec']['providerSpec']['value']['primarySubnet'] = psub
+
+        result = driver._get_subnet_from_machine(self.machine)
+
+        self.assertEqual(psub, result)
+
+    def test_get_subnet_from_machine_ports(self):
+        driver = node_subnets.OpenShiftNodesSubnets()
+        subnet_id = '0530f763-899b-4acb-a2ca-deeedd760409'
+        ports = [{'fixedIPs': [{'subnetID': subnet_id}]}]
+        self.machine['spec']['providerSpec']['value']['ports'] = ports
+        del self.machine['spec']['providerSpec']['value']['networks']
+
+        result = driver._get_subnet_from_machine(self.machine)
+
+        self.assertEqual(subnet_id, result)
+
+    def test_get_subnet_from_machine_networks_ports_and_primary(self):
+        driver = node_subnets.OpenShiftNodesSubnets()
+        subnet_id = 'ec4c50ac-e3f6-426e-ad91-6ddc10b5c391'
+        ports = [{'fixedIPs': [{'subnetID': subnet_id}]}]
+        self.machine['spec']['providerSpec']['value']['ports'] = ports
+        psub = 'cdf08c3d-0918-4f1d-92ab-3f1e657395d7'
+        self.machine['spec']['providerSpec']['value']['primarySubnet'] = psub
+
+        result = driver._get_subnet_from_machine(self.machine)
+
+        self.assertEqual(psub, result)
+
+    @mock.patch('kuryr_kubernetes.utils.get_subnet_id')
+    def test_get_subnet_from_machine_networks_and_ports(self, m_get_subnet_id):
+        """Test both: networks and ports presence, but no primarySubnet.
+
+        Precedence would have networks over ports.
+        """
+        subnet_id = '7607a620-b706-478f-9481-7fdf11deeab2'
+        m_get_subnet_id.return_value = subnet_id
+        port_subnet_id = 'ec4c50ac-e3f6-426e-ad91-6ddc10b5c391'
+        ports = [{'fixedIPs': [{'subnetID': port_subnet_id}]}]
+        self.machine['spec']['providerSpec']['value']['ports'] = ports
+        driver = node_subnets.OpenShiftNodesSubnets()
+
+        result = driver._get_subnet_from_machine(self.machine)
+
+        self.assertEqual(subnet_id, result)
+
+    def test_get_subnet_from_machine_empty_networks(self):
+        """Test both: networks and ports presence, but no primarySubnet.
+
+        Precedence would have networks over ports.
+        """
+        self.machine['spec']['providerSpec']['value']['networks'] = []
+        driver = node_subnets.OpenShiftNodesSubnets()
+
+        result = driver._get_subnet_from_machine(self.machine)
+
+        self.assertIsNone(result)
+
+    def test_get_subnet_from_machine_empty_ports(self):
+        """Test both: networks and ports presence, but no primarySubnet.
+
+        Precedence would have networks over ports.
+        """
+        del self.machine['spec']['providerSpec']['value']['networks']
+        self.machine['spec']['providerSpec']['value']['ports'] = []
+        driver = node_subnets.OpenShiftNodesSubnets()
+
+        result = driver._get_subnet_from_machine(self.machine)
+
+        self.assertIsNone(result)
+
+    def test_get_subnet_from_machine_networks_no_trunk(self):
+        del self.machine['spec']['providerSpec']['value']['trunk']
+        driver = node_subnets.OpenShiftNodesSubnets()
+
+        self.assertIsNone(driver._get_subnet_from_machine(self.machine))
+
+    def test_get_subnet_from_machine_ports_no_trunk(self):
+        del self.machine['spec']['providerSpec']['value']['trunk']
+        del self.machine['spec']['providerSpec']['value']['networks']
+        subnet_id = '0530f763-899b-4acb-a2ca-deeedd760409'
+        ports = [{'fixedIPs': [{'subnetID': subnet_id}]}]
+        self.machine['spec']['providerSpec']['value']['ports'] = ports
+        driver = node_subnets.OpenShiftNodesSubnets()
+
+        result = driver._get_subnet_from_machine(self.machine)
+
+        self.assertIsNone(result)
+
+    def test_get_subnet_from_machine_ports_no_trunk_one_with_trunk(self):
+        del self.machine['spec']['providerSpec']['value']['trunk']
+        del self.machine['spec']['providerSpec']['value']['networks']
+        subnet_id = '0530f763-899b-4acb-a2ca-deeedd760409'
+        ports = [{'fixedIPs': [{'subnetID': 'foo'}]},
+                 {'fixedIPs': [{'subnetID': subnet_id}], 'trunk': True}]
+        self.machine['spec']['providerSpec']['value']['ports'] = ports
+        driver = node_subnets.OpenShiftNodesSubnets()
+
+        result = driver._get_subnet_from_machine(self.machine)
+
+        self.assertEqual(subnet_id, result)
+
+    def test_get_subnet_from_machine_ports_both_with_trunk(self):
+        del self.machine['spec']['providerSpec']['value']['networks']
+        subnet_id1 = '0530f763-899b-4acb-a2ca-deeedd760409'
+        subnet_id2 = 'ccfe75a8-c15e-4504-9596-02e397362abf'
+        ports = [{'fixedIPs': [{'subnetID': subnet_id1}], 'trunk': False},
+                 {'fixedIPs': [{'subnetID': subnet_id2}], 'trunk': True}]
+        self.machine['spec']['providerSpec']['value']['ports'] = ports
+        driver = node_subnets.OpenShiftNodesSubnets()
+
+        result = driver._get_subnet_from_machine(self.machine)
+
+        self.assertEqual(subnet_id2, result)
+
+    def test_get_subnet_from_machine_ports_both_wrong(self):
+        del self.machine['spec']['providerSpec']['value']['networks']
+        ports = [{'trunk': True},
+                 {'fixedIPs': [{'foo': 'bar'}], 'trunk': True}]
+        self.machine['spec']['providerSpec']['value']['ports'] = ports
+        driver = node_subnets.OpenShiftNodesSubnets()
+
+        result = driver._get_subnet_from_machine(self.machine)
+
+        self.assertIsNone(result)

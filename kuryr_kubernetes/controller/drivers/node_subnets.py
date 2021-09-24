@@ -57,25 +57,41 @@ class OpenShiftNodesSubnets(base.NodesSubnetsDriver):
         self.subnets = set()
 
     def _get_subnet_from_machine(self, machine):
-        networks = machine['spec'].get(
-            'providerSpec', {}).get('value', {}).get('networks')
-        if not networks:
-            LOG.warning('No `networks` in Machine `providerSpec`')
-            return None
+        spec = machine['spec'].get('providerSpec', {}).get('value')
+        subnet_id = None
+        trunk = spec.get('trunk')
 
-        subnets = networks[0].get('subnets')
-        if not subnets:
-            LOG.warning('No `subnets` in Machine `providerSpec.values.'
-                        'networks`.')
-            return None
+        if 'primarySubnet' in spec:
+            # NOTE(gryf) in new OpenShift implementation, primarySubnet is
+            # required (or at least desired), so it should point to the
+            # primary subnet id.
+            subnet_id = spec['primarySubnet']
 
-        primary_subnet = subnets[0]
-        if primary_subnet.get('uuid'):
-            return primary_subnet['uuid']
-        else:
-            subnet_filter = primary_subnet['filter']
-            subnet_id = utils.get_subnet_id(**subnet_filter)
-            return subnet_id
+        if trunk and not subnet_id and 'networks' in spec and spec['networks']:
+            subnets = spec['networks'][0].get('subnets')
+            if not subnets:
+                LOG.warning('No `subnets` in Machine `providerSpec.values.'
+                            'networks`.')
+            else:
+                primary_subnet = subnets[0]
+                if primary_subnet.get('uuid'):
+                    subnet_id = primary_subnet['uuid']
+                else:
+                    subnet_filter = primary_subnet['filter']
+                    subnet_id = utils.get_subnet_id(**subnet_filter)
+
+        if not subnet_id and 'ports' in spec and spec['ports']:
+            for port in spec['ports']:
+                if port.get('trunk', trunk) and port.get('fixedIPs'):
+                    for fip in port['fixedIPs']:
+                        if fip.get('subnetID'):
+                            subnet_id = fip['subnetID']
+                            break
+
+        if not subnet_id:
+            LOG.warning('No `subnets` found in Machine `providerSpec`')
+
+        return subnet_id
 
     def get_nodes_subnets(self, raise_on_empty=False):
         with lockutils.lock('kuryr-machine-add'):
