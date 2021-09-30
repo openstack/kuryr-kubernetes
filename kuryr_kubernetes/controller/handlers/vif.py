@@ -41,8 +41,17 @@ class VIFHandler(k8s_base.ResourceEventHandler):
     OBJECT_WATCH_PATH = "%s/%s" % (constants.K8S_API_BASE, "pods")
 
     def on_present(self, pod, *args, **kwargs):
-        if (driver_utils.is_host_network(pod) or
-                not self._is_pod_scheduled(pod)):
+        if driver_utils.is_host_network(pod):
+            return
+
+        pod_name = pod['metadata']['name']
+        if utils.is_pod_completed(pod):
+            LOG.debug("Pod %s has completed execution, "
+                      "removing the vifs", pod_name)
+            self.on_finalize(pod)
+            return
+
+        if not self._is_pod_scheduled(pod):
             # REVISIT(ivc): consider an additional configurable check that
             # would allow skipping pods to enable heterogeneous environments
             # where certain pods/namespaces/nodes can be managed by other
@@ -53,7 +62,6 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         # subsequent updates of the pod, add_finalizer will ignore this if
         # finalizer exists.
         k8s = clients.get_kubernetes_client()
-
         try:
             if not k8s.add_finalizer(pod, constants.POD_FINALIZER):
                 # NOTE(gryf) It might happen that pod will be deleted even
@@ -64,15 +72,6 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             raise
 
         kp = driver_utils.get_kuryrport(pod)
-        if self._is_pod_completed(pod):
-            if kp:
-                LOG.debug("Pod has completed execution, removing the vifs")
-                self.on_finalize(pod)
-            else:
-                LOG.debug("Pod has completed execution, no KuryrPort found."
-                          " Skipping")
-            return
-
         LOG.debug("Got KuryrPort: %r", kp)
         if not kp:
             try:
@@ -83,7 +82,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                 LOG.warning('Namespace %s is being terminated, ignoring Pod '
                             '%s in that namespace.',
                             pod['metadata']['namespace'],
-                            pod['metadata']['name'])
+                            pod_name)
                 return
             except k_exc.K8sClientException as ex:
                 LOG.exception("Kubernetes Client Exception creating "
@@ -142,15 +141,6 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         try:
             return (pod['spec']['nodeName'] and
                     pod['status']['phase'] == constants.K8S_POD_STATUS_PENDING)
-        except KeyError:
-            return False
-
-    @staticmethod
-    def _is_pod_completed(pod):
-        try:
-            return (pod['status']['phase'] in
-                    (constants.K8S_POD_STATUS_SUCCEEDED,
-                     constants.K8S_POD_STATUS_FAILED))
         except KeyError:
             return False
 

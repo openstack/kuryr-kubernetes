@@ -146,7 +146,8 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
                 raise
             return
 
-        if 'deletionTimestamp' not in pod['metadata']:
+        if ('deletionTimestamp' not in pod['metadata'] and
+                not utils.is_pod_completed(pod)):
             # NOTE(gryf): Ignore deleting KuryrPort, since most likely it was
             # removed manually, while we need vifs for corresponding pod
             # object which apparently is still running.

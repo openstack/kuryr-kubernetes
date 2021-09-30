@@ -646,3 +646,12 @@ def get_kuryrloadbalancer(name, namespace):
                        f'{name}')
     except exceptions.K8sResourceNotFound:
         return {}
+
+
+def is_pod_completed(pod):
+    try:
+        return (pod['status']['phase'] in
+                (constants.K8S_POD_STATUS_SUCCEEDED,
+                 constants.K8S_POD_STATUS_FAILED))
+    except KeyError:
+        return False

@@ -488,3 +488,15 @@ class TestUtils(test_base.TestCase):
         sub = utils.get_subnet_id(**filters)
         m_net.subnets.assert_called_with(**filters)
         self.assertIsNone(sub)
+
+    def test_is_pod_completed_pending(self):
+        self.assertFalse(utils.is_pod_completed({'status': {'phase':
+                         k_const.K8S_POD_STATUS_PENDING}}))
+
+    def test_is_pod_completed_succeeded(self):
+        self.assertTrue(utils.is_pod_completed({'status': {'phase':
+                        k_const.K8S_POD_STATUS_SUCCEEDED}}))
+
+    def test_is_pod_completed_failed(self):
+        self.assertTrue(utils.is_pod_completed({'status': {'phase':
+                        k_const.K8S_POD_STATUS_FAILED}}))
