@@ -652,13 +652,10 @@ spec:
           mountPath: /host_proc
         - name: var-pci
           mountPath: /var/pci_address
-EOF
-    if [[ -n "$VAR_RUN_PATH" ]]; then
-        cat >> "${output_dir}/cni_ds.yml" << EOF
-        - name: openvswitch
+        - name: var-run
           mountPath: /var/run
+          mountPropagation: HostToContainer
 EOF
-    fi
     cat >> "${output_dir}/cni_ds.yml" << EOF
         readinessProbe:
           httpGet:
@@ -691,9 +688,15 @@ EOF
 EOF
     if [[ -n "$VAR_RUN_PATH" ]]; then
         cat >> "${output_dir}/cni_ds.yml" << EOF
-        - name: openvswitch
+        - name: var-run
           hostPath:
             path: ${VAR_RUN_PATH}
+EOF
+    else
+        cat >> "${output_dir}/cni_ds.yml" << EOF
+        - name: var-run
+          hostPath:
+            path: /var/run
 EOF
     fi
 }
