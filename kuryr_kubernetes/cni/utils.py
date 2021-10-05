@@ -14,8 +14,11 @@
 #    under the License.
 
 import functools
+import time
 
+from http import client as httplib
 from oslo_log import log as logging
+
 
 PROC_ONE_CGROUP_PATH = '/proc/1/cgroup'
 CONTAINER_RUNTIME_CGROUP_IDS = (
@@ -24,6 +27,7 @@ CONTAINER_RUNTIME_CGROUP_IDS = (
 )
 
 LOG = logging.getLogger(__name__)
+SUCCESSFUL_REQUEST_CODE = (httplib.NO_CONTENT, httplib.ACCEPTED)
 
 
 def running_under_container_runtime(proc_one_cg_path=PROC_ONE_CGROUP_PATH):
@@ -86,3 +90,19 @@ def log_ipdb(func):
                 pass
             raise
     return with_logging
+
+
+def measure_time(command):
+    """Measures CNI ADD/DEL resquest duration"""
+    def decorator(method):
+        def wrapper(obj, *args, **kwargs):
+            start_time = time.time()
+            result = method(obj, *args, **kwargs)
+            cni_request_error = (
+                result[1] not in SUCCESSFUL_REQUEST_CODE)
+            obj._update_metrics(
+                command, cni_request_error, time.time() - start_time)
+            return result
+        wrapper.__name__ = method.__name__
+        return wrapper
+    return decorator

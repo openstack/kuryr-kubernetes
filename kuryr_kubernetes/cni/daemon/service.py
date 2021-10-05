@@ -40,6 +40,7 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes.cni import handlers as h_cni
 from kuryr_kubernetes.cni import health
 from kuryr_kubernetes.cni.plugins import k8s_cni_registry
+from kuryr_kubernetes.cni import prometheus_exporter
 from kuryr_kubernetes.cni import utils as cni_utils
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as k_const
@@ -57,10 +58,11 @@ ErrInternal = 999
 
 
 class DaemonServer(object):
-    def __init__(self, plugin, healthy):
+    def __init__(self, plugin, healthy, metrics):
         self.ctx = None
         self.plugin = plugin
         self.healthy = healthy
+        self.metrics = metrics
         self.failure_count = multiprocessing.Value('i', 0)
         self.application = flask.Flask('kuryr-daemon')
         self.application.add_url_rule(
@@ -86,6 +88,22 @@ class DaemonServer(object):
         data = jsonutils.dumps(template)
         return data
 
+    def _update_metrics(self, command, error, duration):
+        """Add a new metric value to the shared metrics dict"""
+        params = {}
+        try:
+            params = self._prepare_request()
+        except Exception:
+            LOG.exception('Exception when reading CNI params.')
+            return
+        namespace = params.args.K8S_POD_NAMESPACE
+        name = params.args.K8S_POD_NAME
+        name = f'export-{namespace}/{name}'
+        labels = {'command': command, 'error': error}
+        with lockutils.lock(name):
+            self.metrics[name] = {'labels': labels, 'duration': duration}
+
+    @cni_utils.measure_time('ADD')
     def add(self):
         try:
             params = self._prepare_request()
@@ -138,6 +156,7 @@ class DaemonServer(object):
 
         return data, httplib.ACCEPTED, self.headers
 
+    @cni_utils.measure_time('DEL')
     def delete(self):
         try:
             params = self._prepare_request()
@@ -215,13 +234,14 @@ class DaemonServer(object):
 class CNIDaemonServerService(cotyledon.Service):
     name = "server"
 
-    def __init__(self, worker_id, registry, healthy):
+    def __init__(self, worker_id, registry, healthy, metrics):
         super(CNIDaemonServerService, self).__init__(worker_id)
         self.registry = registry
         self.healthy = healthy
         self.plugin = k8s_cni_registry.K8sCNIRegistryPlugin(registry,
                                                             self.healthy)
-        self.server = DaemonServer(self.plugin, self.healthy)
+        self.metrics = metrics
+        self.server = DaemonServer(self.plugin, self.healthy, self.metrics)
 
     def run(self):
         # NOTE(dulek): We might do a *lot* of pyroute2 operations, let's
@@ -340,6 +360,37 @@ class CNIDaemonHealthServerService(cotyledon.Service):
         self.health_server.run()
 
 
+class CNIDaemonExporterService(cotyledon.Service):
+    name = "Prometheus Exporter"
+
+    def __init__(self, worker_id, metrics):
+        super(CNIDaemonExporterService, self).__init__(worker_id)
+        self.prometheus_exporter = prometheus_exporter.CNIPrometheusExporter()
+        self.is_running = True
+        self.metrics = metrics
+        self.exporter_thread = threading.Thread(
+            target=self._start_metric_updater)
+        self.exporter_thread.start()
+
+    def _start_metric_updater(self):
+        while self.is_running:
+            if self.metrics:
+                pod_name = list(self.metrics.keys())[0]
+                with lockutils.lock(pod_name):
+                    labels = self.metrics[pod_name]['labels']
+                    duration = self.metrics[pod_name]['duration']
+                    self.prometheus_exporter.update_metric(labels, duration)
+                    del self.metrics[pod_name]
+
+    def terminate(self):
+        self.is_running = False
+        if self.exporter_thread:
+            self.exporter_thread.join()
+
+    def run(self):
+        self.prometheus_exporter.run()
+
+
 class CNIDaemonServiceManager(cotyledon.ServiceManager):
     def __init__(self):
         # NOTE(mdulko): Default shutdown timeout is 60 seconds and K8s won't
@@ -359,10 +410,12 @@ class CNIDaemonServiceManager(cotyledon.ServiceManager):
         self.manager = multiprocessing.Manager()
         registry = self.manager.dict()  # For Watcher->Server communication.
         healthy = multiprocessing.Value(c_bool, True)
+        metrics = self.manager.dict()
         self.add(CNIDaemonWatcherService, workers=1, args=(registry, healthy,))
-        self._server_service = self.add(
-            CNIDaemonServerService, workers=1, args=(registry, healthy))
+        self.add(CNIDaemonServerService, workers=1, args=(registry, healthy,
+                                                          metrics,))
         self.add(CNIDaemonHealthServerService, workers=1, args=(healthy,))
+        self.add(CNIDaemonExporterService, workers=1, args=(metrics,))
         self.register_hooks(on_terminate=self.terminate)
 
     def run(self):
