@@ -12,7 +12,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import uuid
 
+from oslo_config import cfg
 from oslo_log import log as logging
 
 from kuryr_kubernetes import clients
@@ -22,6 +24,7 @@ from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes import utils
 
+CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 KURYRPORT_URI = constants.K8S_API_CRD_NAMESPACES + '/{ns}/kuryrports/{crd}'
 
@@ -41,7 +44,7 @@ class VIFHandler(k8s_base.ResourceEventHandler):
     OBJECT_WATCH_PATH = "%s/%s" % (constants.K8S_API_BASE, "pods")
 
     def on_present(self, pod, *args, **kwargs):
-        if driver_utils.is_host_network(pod):
+        if utils.is_host_network(pod):
             return
 
         pod_name = pod['metadata']['name']
@@ -58,10 +61,30 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             # networking solutions/CNI drivers.
             return
 
+        k8s = clients.get_kubernetes_client()
+        namespace = pod['metadata']['namespace']
+        kuryrnetwork_path = '{}/{}/kuryrnetworks/{}'.format(
+            constants.K8S_API_CRD_NAMESPACES, namespace,
+            namespace)
+        kuryrnetwork = driver_utils.get_k8s_resource(kuryrnetwork_path)
+        kuryrnetwork_status = kuryrnetwork.get('status', {})
+        if (CONF.kubernetes.pod_subnets_driver == 'namespace' and
+                (not kuryrnetwork or not kuryrnetwork_status.get('routerId'))):
+            namespace_path = '{}/{}'.format(
+                constants.K8S_API_NAMESPACES, namespace)
+            LOG.debug("Triggering Namespace Handling %s", namespace_path)
+            try:
+                k8s.annotate(namespace_path,
+                             {'KuryrTrigger': str(uuid.uuid4())})
+            except k_exc.K8sResourceNotFound:
+                LOG.warning('Ignoring Pod handling, no Namespace %s.',
+                            namespace)
+                return
+            raise k_exc.ResourceNotReady(pod)
+
         # NOTE(gryf): Set the finalizer as soon, as we have pod created. On
         # subsequent updates of the pod, add_finalizer will ignore this if
         # finalizer exists.
-        k8s = clients.get_kubernetes_client()
         try:
             if not k8s.add_finalizer(pod, constants.POD_FINALIZER):
                 # NOTE(gryf) It might happen that pod will be deleted even
@@ -108,7 +131,8 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             # annotations, force an emition of event to trigger on_finalize
             # method on the KuryrPort.
             try:
-                k8s.annotate(utils.get_res_link(kp), {'KuryrTrigger': '1'})
+                k8s.annotate(utils.get_res_link(kp),
+                             {'KuryrTrigger': str(uuid.uuid4())})
             except k_exc.K8sResourceNotFound:
                 LOG.error('Cannot annotate existing KuryrPort %s.',
                           kp['metadata']['name'])

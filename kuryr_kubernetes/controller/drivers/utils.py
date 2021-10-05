@@ -80,10 +80,6 @@ def get_vifs(pod):
         return {}
 
 
-def is_host_network(pod):
-    return pod['spec'].get('hostNetwork', False)
-
-
 def is_pod_scheduled(pod):
     try:
         return bool(pod['spec']['nodeName'])
@@ -330,7 +326,7 @@ def get_kuryrnetworkpolicy_crds(namespace=None):
                 constants.K8S_API_CRD_NAMESPACES, namespace)
         else:
             knp_path = constants.K8S_API_CRD_KURYRNETWORKPOLICIES
-        knps = get_k8s_resource(knp_path)
+        knps = get_k8s_resources(knp_path)
         LOG.debug("Returning KuryrNetworkPolicies %s", knps)
     except k_exc.K8sClientException:
         LOG.exception("Exception during fetch KuryrNetworkPolicies. Retrying.")
@@ -344,11 +340,11 @@ def get_kuryrloadbalancer_crds(namespace=None):
             constants.K8S_API_CRD_KURYRLOADBALANCERS, namespace)
     else:
         klb_path = constants.K8S_API_CRD_KURYRLOADBALANCERS
-    klbs = get_k8s_resource(klb_path)
+    klbs = get_k8s_resources(klb_path)
     return klbs
 
 
-def get_k8s_resource(resource_path):
+def get_k8s_resources(resource_path):
     kubernetes = clients.get_kubernetes_client()
     k8s_resource = {}
     try:
@@ -357,6 +353,17 @@ def get_k8s_resource(resource_path):
         LOG.exception('Kubernetes CRD not found')
         return []
     return k8s_resource.get('items', [])
+
+
+def get_k8s_resource(resource_path):
+    kubernetes = clients.get_kubernetes_client()
+    k8s_resource = {}
+    try:
+        k8s_resource = kubernetes.get(resource_path)
+    except k_exc.K8sResourceNotFound:
+        LOG.debug('Kubernetes CRD not found %s', resource_path)
+        return k8s_resource
+    return k8s_resource
 
 
 def get_networkpolicies(namespace=None):
@@ -466,8 +473,9 @@ def get_namespace_subnet_cidr(namespace):
                         f"{namespace['metadata']['name']}")
         net_crd = kubernetes.get(net_crd_path)
     except k_exc.K8sResourceNotFound:
-        LOG.exception('Namespace not yet ready')
-        raise k_exc.ResourceNotReady(namespace)
+        LOG.warning('Namespace %s not yet ready',
+                    namespace['metadata']['name'])
+        return None
     except k_exc.K8sClientException:
         LOG.exception("Kubernetes Client Exception.")
         raise
@@ -549,7 +557,7 @@ def get_namespaced_pods(namespace=None):
 
 def get_container_ports(containers, np_port_name, pod):
     matched_ports = []
-    if is_host_network(pod):
+    if utils.is_host_network(pod):
         return matched_ports
     for container in containers:
         for container_port in container.get('ports', []):

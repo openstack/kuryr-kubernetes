@@ -36,10 +36,16 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
     def on_present(self, namespace, *args, **kwargs):
         ns_labels = namespace['metadata'].get('labels', {})
         ns_name = namespace['metadata']['name']
+
         kns_crd = self._get_kns_crd(ns_name)
         if kns_crd:
             LOG.debug("Previous CRD existing at the new namespace.")
             self._update_labels(kns_crd, ns_labels)
+            return
+
+        if not self._handle_namespace(ns_name):
+            LOG.debug("Namespace %s has no Pods that should be handled. "
+                      "Skipping event.", ns_name)
             return
 
         try:
@@ -47,6 +53,23 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         except exceptions.K8sClientException:
             LOG.exception("Kuryrnetwork CRD creation failed.")
             raise exceptions.ResourceNotReady(namespace)
+
+    def _handle_namespace(self, namespace):
+        """Evaluate if the Namespace should be handled
+
+        Fetches all the Pods in the Namespace and check
+        if there is any Pod in that Namespace on Pods Network.
+
+        :param namespace: Namespace name
+        :returns: True if the Namespace resources should be
+                  created, False if otherwise.
+        """
+        kubernetes = clients.get_kubernetes_client()
+        pods = kubernetes.get(
+                '{}/namespaces/{}/pods'.format(
+                    constants.K8S_API_BASE, namespace))
+        return any(not utils.is_host_network(pod)
+                   for pod in pods.get('items', []))
 
     def _update_labels(self, kns_crd, ns_labels):
         kns_status = kns_crd.get('status')

@@ -107,7 +107,7 @@ class TestVIFHandler(test_base.TestCase):
                                                              'status': {}}))
 
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
+    @mock.patch('kuryr_kubernetes.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_kuryrport')
     def test_on_present_host_network(self, m_get_kuryrport, m_host_network,
                                      m_get_k8s_client):
@@ -126,7 +126,7 @@ class TestVIFHandler(test_base.TestCase):
 
     @mock.patch('kuryr_kubernetes.utils.is_pod_completed')
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
+    @mock.patch('kuryr_kubernetes.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_kuryrport')
     def test_on_present_not_scheduled(self, m_get_kuryrport, m_host_network,
                                       m_get_k8s_client, m_is_pod_completed):
@@ -181,7 +181,7 @@ class TestVIFHandler(test_base.TestCase):
         self._activate_vif.assert_not_called()
 
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
+    @mock.patch('kuryr_kubernetes.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_kuryrport')
     def test_on_present_create(self, m_get_kuryrport, m_host_network,
                                m_get_k8s_client):
@@ -198,7 +198,7 @@ class TestVIFHandler(test_base.TestCase):
         self._handler._add_kuryrport_crd.assert_called_once_with(self._pod)
 
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
+    @mock.patch('kuryr_kubernetes.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_kuryrport')
     def test_on_present_update(self, m_get_kuryrport, m_host_network,
                                m_get_k8s_client):
@@ -215,7 +215,7 @@ class TestVIFHandler(test_base.TestCase):
         self._handler._add_kuryrport_crd.assert_not_called()
 
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
+    @mock.patch('kuryr_kubernetes.utils.is_host_network')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_kuryrport')
     def test_on_present_upgrade(self, m_get_kuryrport, m_host_network,
                                 m_get_k8s_client):
@@ -234,7 +234,7 @@ class TestVIFHandler(test_base.TestCase):
         self._activate_vif.assert_not_called()
 
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.is_host_network')
+    @mock.patch('kuryr_kubernetes.utils.is_host_network')
     def test_on_present_pod_finalizer_exception(self, m_host_network,
                                                 m_get_k8s_client):
         m_host_network.return_value = False

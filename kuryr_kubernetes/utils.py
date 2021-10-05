@@ -655,3 +655,7 @@ def is_pod_completed(pod):
                  constants.K8S_POD_STATUS_FAILED))
     except KeyError:
         return False
+
+
+def is_host_network(pod):
+    return pod['spec'].get('hostNetwork', False)

@@ -49,6 +49,7 @@ class TestNamespaceHandler(test_base.TestCase):
         self._update_labels = self._handler._update_labels
         self._get_kns_crd = self._handler._get_kns_crd
         self._add_kuryrnetwork_crd = self._handler._add_kuryrnetwork_crd
+        self._handle_namespace = self._handler._handle_namespace
 
         self._get_project.return_value = self._project_id
 
@@ -73,9 +74,11 @@ class TestNamespaceHandler(test_base.TestCase):
 
     def test_on_present(self):
         self._get_kns_crd.return_value = None
+        self._handle_namespace.return_value = True
 
         namespace.NamespaceHandler.on_present(self._handler, self._namespace)
 
+        self._handle_namespace.assert_called_once()
         self._get_kns_crd.assert_called_once_with(
             self._namespace['metadata']['name'])
         self._add_kuryrnetwork_crd.assert_called_once_with(
@@ -87,6 +90,7 @@ class TestNamespaceHandler(test_base.TestCase):
 
         namespace.NamespaceHandler.on_present(self._handler, self._namespace)
 
+        self._handle_namespace.assert_not_called()
         self._get_kns_crd.assert_called_once_with(
             self._namespace['metadata']['name'])
         self._update_labels.assert_called_once_with(net_crd, {})
@@ -95,12 +99,41 @@ class TestNamespaceHandler(test_base.TestCase):
     def test_on_present_add_kuryrnet_crd_exception(self):
         self._get_kns_crd.return_value = None
         self._add_kuryrnetwork_crd.side_effect = k_exc.K8sClientException
+        self._handle_namespace.return_value = True
 
         self.assertRaises(k_exc.ResourceNotReady,
                           namespace.NamespaceHandler.on_present,
                           self._handler, self._namespace)
 
+        self._handle_namespace.assert_called_once()
         self._get_kns_crd.assert_called_once_with(
             self._namespace['metadata']['name'])
         self._add_kuryrnetwork_crd.assert_called_once_with(
             self._namespace['metadata']['name'], {})
+
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    def test_handle_namespace_no_pods(self, m_get_k8s_client):
+        k8s = mock.MagicMock()
+        m_get_k8s_client.return_value = k8s
+        k8s.get.return_value = {"items": []}
+        self.assertFalse(namespace.NamespaceHandler._handle_namespace(
+            self._handler, "test"))
+        k8s.get.assert_called_once()
+
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    def test_handle_namespace_host_network_pods(self, m_get_k8s_client):
+        k8s = mock.MagicMock()
+        m_get_k8s_client.return_value = k8s
+        k8s.get.return_value = {"items": [{"spec": {"hostNetwork": True}}]}
+        self.assertFalse(namespace.NamespaceHandler._handle_namespace(
+            self._handler, "test"))
+        k8s.get.assert_called_once()
+
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    def test_handle_namespace(self, m_get_k8s_client):
+        k8s = mock.MagicMock()
+        m_get_k8s_client.return_value = k8s
+        k8s.get.return_value = {"items": [{"spec": {}}]}
+        self.assertTrue(namespace.NamespaceHandler._handle_namespace(
+            self._handler, "test"))
+        k8s.get.assert_called_once()
