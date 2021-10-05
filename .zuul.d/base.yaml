@@ -187,8 +187,8 @@
         KURYR_EP_DRIVER_OCTAVIA_PROVIDER: ovn
         KURYR_K8S_OCTAVIA_MEMBER_MODE: L2
         KURYR_LB_ALGORITHM: SOURCE_IP_PORT
-        OCTAVIA_AMP_IMAGE_FILE: /tmp/test-only-amphora-x64-haproxy-ubuntu-bionic.qcow2
-        OCTAVIA_AMP_IMAGE_NAME: test-only-amphora-x64-haproxy-ubuntu-bionic
+        OCTAVIA_AMP_IMAGE_FILE: /tmp/test-only-amphora-x64-haproxy-ubuntu-focal.qcow2
+        OCTAVIA_AMP_IMAGE_NAME: test-only-amphora-x64-haproxy-ubuntu-focal
         OCTAVIA_AMP_IMAGE_SIZE: 3
       devstack_local_conf:
         post-config:
@@ -229,8 +229,8 @@
         - kuryr-tempest-plugin
         - octavia-tempest-plugin
       devstack_localrc:
-        OCTAVIA_AMP_IMAGE_FILE: /tmp/test-only-amphora-x64-haproxy-ubuntu-bionic.qcow2
-        OCTAVIA_AMP_IMAGE_NAME: test-only-amphora-x64-haproxy-ubuntu-bionic
+        OCTAVIA_AMP_IMAGE_FILE: /tmp/test-only-amphora-x64-haproxy-ubuntu-focal.qcow2
+        OCTAVIA_AMP_IMAGE_NAME: test-only-amphora-x64-haproxy-ubuntu-focal
         OCTAVIA_AMP_IMAGE_SIZE: 3
       devstack_local_conf:
         post-config:
