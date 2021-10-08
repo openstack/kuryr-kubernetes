@@ -60,8 +60,13 @@ class TestControllerPrometheusExporter(base.TestCase):
             spec=prometheus_client.Gauge)
         self.srv.port_quota_per_subnet = mock.MagicMock(
             spec=prometheus_client.Gauge)
+        self.srv.lbs_members_count = mock.MagicMock(
+            spec=prometheus_client.Gauge)
+        self.srv.lbs_state = mock.MagicMock(
+            spec=prometheus_client.Enum)
         self.srv._project_id = mock.sentinel.project_id
         self.srv._os_net = self.useFixture(k_fix.MockNetworkClient()).client
+        self.srv._os_lb = self.useFixture(k_fix.MockLBaaSClient()).client
 
     def test__record_quota_free_count_metric(self):
         quota = get_quota_obj()
@@ -103,3 +108,62 @@ class TestControllerPrometheusExporter(base.TestCase):
         self.srv.port_quota_per_subnet.labels.assert_called_with(
             **{'subnet_id': subnet_id, 'subnet_name': subnet_name})
         self.srv.port_quota_per_subnet.labels().set.assert_called_with(509)
+
+    @mock.patch('kuryr_kubernetes.utils.get_kuryrloadbalancer')
+    def test__record_lbs_metrics(self, m_get_klb):
+        lb_name = 'default/kubernetes'
+        lb_id = mock.sentinel.id
+        pool_name = mock.sentinel.name
+        pool_id = mock.sentinel.id
+        lb_state = 'ACTIVE'
+        m_get_klb.return_value = {
+            "status": {
+                "loadbalancer": {
+                    "id": lb_id,
+                }
+            }
+        }
+        self.srv._os_lb.find_load_balancer.return_value = munch.Munch(
+            {'id': lb_id, 'name': lb_name,
+             'provisioning_status': lb_state, 'pools': [{'id': pool_id}]})
+        self.srv._os_lb.pools.return_value = [munch.Munch(
+            {'id': pool_id, 'name': pool_name,
+             'loadbalancers': [{'id': lb_id}],
+             'members': [{'id': mock.sentinel.id}]})]
+
+        self.cls._record_lbs_metrics(self.srv)
+
+        self.srv.lbs_state.labels.assert_called_with(
+                **{'lb_name': lb_name})
+        self.srv.lbs_state.labels().state.assert_called_with(lb_state)
+        self.srv.lbs_members_count.labels.assert_called_with(
+            **{'lb_name': lb_name, 'lb_pool_name': pool_name})
+        self.srv.lbs_members_count.labels().set.assert_called_with(1)
+
+    @mock.patch('kuryr_kubernetes.utils.get_kuryrloadbalancer')
+    def test__record_no_lb_present_metric(self, m_get_klb):
+        lb_name = 'default/kubernetes'
+        lb_id = mock.sentinel.id
+        m_get_klb.return_value = {
+            "status": {
+                "loadbalancer": {
+                    "id": lb_id,
+                }
+            }
+        }
+        self.srv._os_lb.find_load_balancer.return_value = None
+        self.cls._record_lbs_metrics(self.srv)
+        self.srv.lbs_state.labels.assert_called_with(
+                **{'lb_name': lb_name})
+        self.srv.lbs_state.labels().state.assert_called_with('DELETED')
+
+    @mock.patch('kuryr_kubernetes.utils.get_kuryrloadbalancer')
+    def test__no_record_lbs_metrics(self, m_get_klb):
+        m_get_klb.return_value = {}
+
+        self.cls._record_lbs_metrics(self.srv)
+
+        self.srv.lbs_state.labels.assert_not_called()
+        self.srv.lbs_state.labels().state.assert_not_called()
+        self.srv.lbs_members_count.labels.assert_not_called()
+        self.srv.lbs_members_count.labels().set.assert_not_called()
