@@ -208,8 +208,8 @@
         - octavia-tempest-plugin
       devstack_localrc:
         KURYR_ENFORCE_SG_RULES: true
-        OCTAVIA_AMP_IMAGE_FILE: /tmp/test-only-amphora-x64-haproxy-ubuntu-bionic.qcow2
-        OCTAVIA_AMP_IMAGE_NAME: test-only-amphora-x64-haproxy-ubuntu-bionic
+        OCTAVIA_AMP_IMAGE_FILE: /tmp/test-only-amphora-x64-haproxy-ubuntu-focal.qcow2
+        OCTAVIA_AMP_IMAGE_NAME: test-only-amphora-x64-haproxy-ubuntu-focal
         OCTAVIA_AMP_IMAGE_SIZE: 3
       devstack_local_conf:
         post-config:

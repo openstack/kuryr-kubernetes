@@ -41,15 +41,15 @@
         - kuryr-kubernetes-tempest-dual-stack
 
 - project-template:
-    name: kuryr-kubernetes-lower-constraints-bionic-jobs
+    name: kuryr-kubernetes-lower-constraints-focal-jobs
     check:
       jobs:
       - openstack-tox-lower-constraints:
-          nodeset: ubuntu-bionic
+          nodeset: ubuntu-focal
     gate:
       jobs:
       - openstack-tox-lower-constraints:
-          nodeset: ubuntu-bionic
+          nodeset: ubuntu-focal
 
 - project:
     templates:
@@ -57,5 +57,5 @@
       - publish-openstack-docs-pti
       - release-notes-jobs-python3
       - check-requirements
-      - kuryr-kubernetes-lower-constraints-bionic-jobs
+      - kuryr-kubernetes-lower-constraints-focal-jobs
       - kuryr-kubernetes-tempest-jobs

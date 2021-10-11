@@ -53,8 +53,8 @@
         KURYR_SG_DRIVER: policy
         KURYR_SUBNET_DRIVER: namespace
         ML2_L3_PLUGIN: ovn-router,trunk,qos
-        OCTAVIA_AMP_IMAGE_FILE: "/tmp/test-only-amphora-x64-haproxy-ubuntu-bionic.qcow2"
-        OCTAVIA_AMP_IMAGE_NAME: "test-only-amphora-x64-haproxy-ubuntu-bionic"
+        OCTAVIA_AMP_IMAGE_FILE: "/tmp/test-only-amphora-x64-haproxy-ubuntu-focal.qcow2"
+        OCTAVIA_AMP_IMAGE_NAME: "test-only-amphora-x64-haproxy-ubuntu-focal"
         OCTAVIA_AMP_IMAGE_SIZE: 3
         OVN_BRANCH: v20.06.2
         OVN_BUILD_FROM_SOURCE: true
