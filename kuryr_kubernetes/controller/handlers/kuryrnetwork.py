@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from openstack import exceptions as os_exc
 from oslo_config import cfg as oslo_cfg
 from oslo_log import log as logging
 
@@ -49,6 +50,7 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
             self._drv_lbaas = drivers.LBaaSDriver.get_instance()
             self._drv_svc_sg = (
                 drivers.ServiceSecurityGroupsDriver.get_instance())
+        self.k8s = clients.get_kubernetes_client()
 
     def on_present(self, kuryrnet_crd, *args, **kwargs):
         ns_name = kuryrnet_crd['spec']['nsName']
@@ -58,21 +60,50 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
         crd_creation = False
         net_id = kns_status.get('netId')
         if not net_id:
-            net_id = self._drv_subnets.create_network(ns_name, project_id)
+            try:
+                net_id = self._drv_subnets.create_network(ns_name, project_id)
+            except os_exc.SDKException as ex:
+                self.k8s.add_event(kuryrnet_crd, 'CreateNetworkFailed',
+                                   'Error during creating Neutron network: '
+                                   f'{ex.details}',
+                                   type_='Warning')
+                raise
             status = {'netId': net_id}
             self._patch_kuryrnetwork_crd(kuryrnet_crd, status)
+            self.k8s.add_event(kuryrnet_crd, 'CreateNetworkSucceed',
+                               f'Neutron network {net_id} for namespace')
             crd_creation = True
         subnet_id = kns_status.get('subnetId')
         if not subnet_id or crd_creation:
-            subnet_id, subnet_cidr = self._drv_subnets.create_subnet(
-                ns_name, project_id, net_id)
+            try:
+                subnet_id, subnet_cidr = self._drv_subnets.create_subnet(
+                    ns_name, project_id, net_id)
+            except os_exc.ConflictException as ex:
+                self.k8s.add_event(kuryrnet_crd, 'CreateSubnetFailed',
+                                   f'Error during creating Neutron subnet '
+                                   f'for network {net_id}: {ex.details}',
+                                   type_='Warning')
+                raise
             status = {'subnetId': subnet_id, 'subnetCIDR': subnet_cidr}
             self._patch_kuryrnetwork_crd(kuryrnet_crd, status)
+            self.k8s.add_event(kuryrnet_crd, 'CreateSubnetSucceed',
+                               f'Neutron subnet {subnet_id} for network '
+                               f'{net_id}')
             crd_creation = True
         if not kns_status.get('routerId') or crd_creation:
-            router_id = self._drv_subnets.add_subnet_to_router(subnet_id)
+            try:
+                router_id = self._drv_subnets.add_subnet_to_router(subnet_id)
+            except os_exc.SDKException as ex:
+                self.k8s.add_event(kuryrnet_crd, 'AddingSubnetToRouterFailed',
+                                   f'Error adding Neutron subnet {subnet_id} '
+                                   f'to router {router_id}: {ex.details}',
+                                   type_='Warning')
+                raise
             status = {'routerId': router_id, 'populated': False}
             self._patch_kuryrnetwork_crd(kuryrnet_crd, status)
+            self.k8s.add_event(kuryrnet_crd, 'AddingSubnetToRouterSucceed',
+                               f'Neutron subnet {subnet_id} added to router '
+                               f'{router_id}')
             crd_creation = True
 
         # check labels to create sg rules
@@ -89,17 +120,23 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
             # update status
             status = {'nsLabels': kuryrnet_crd['spec']['nsLabels']}
             self._patch_kuryrnetwork_crd(kuryrnet_crd, status, labels=True)
+            self.k8s.add_event(kuryrnet_crd, 'SGUpdateTriggered',
+                               'Neutron security groups update has been '
+                               'triggered')
 
     def on_finalize(self, kuryrnet_crd, *args, **kwargs):
         LOG.debug("Deleting kuryrnetwork CRD resources: %s", kuryrnet_crd)
 
         net_id = kuryrnet_crd.get('status', {}).get('netId')
         if net_id:
-            self._drv_vif_pool.delete_network_pools(
-                kuryrnet_crd['status']['netId'])
+            self._drv_vif_pool.delete_network_pools(net_id)
             try:
                 self._drv_subnets.delete_namespace_subnet(kuryrnet_crd)
             except k_exc.ResourceNotReady:
+                self.k8s.add_event(kuryrnet_crd,
+                                   'RemoveNeutronResourcesFailed',
+                                   f'Cannot remove Neutron resources for '
+                                   f'network {net_id}', type_='Warning')
                 LOG.debug("Subnet is not ready to be removed.")
                 # TODO(ltomasbo): Once KuryrPort CRDs is supported, we should
                 # execute a delete network ports method here to remove the
@@ -117,11 +154,10 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
             services = driver_utils.get_services()
             self._update_services(services, crd_selectors, project_id)
 
-        kubernetes = clients.get_kubernetes_client()
         LOG.debug('Removing finalizer for KuryrNet CRD %s', kuryrnet_crd)
         try:
-            kubernetes.remove_finalizer(kuryrnet_crd,
-                                        constants.KURYRNETWORK_FINALIZER)
+            self.k8s.remove_finalizer(kuryrnet_crd,
+                                      constants.KURYRNETWORK_FINALIZER)
         except k_exc.K8sClientException:
             LOG.exception('Error removing kuryrnetwork CRD finalizer for %s',
                           kuryrnet_crd)
@@ -137,15 +173,14 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
             self._drv_lbaas.update_lbaas_sg(service, sgs)
 
     def _patch_kuryrnetwork_crd(self, kuryrnet_crd, status, labels=False):
-        kubernetes = clients.get_kubernetes_client()
         LOG.debug('Patching KuryrNetwork CRD %s', kuryrnet_crd)
         try:
             if labels:
-                kubernetes.patch_crd('status',
-                                     utils.get_res_link(kuryrnet_crd), status)
+                self.k8s.patch_crd('status',
+                                   utils.get_res_link(kuryrnet_crd), status)
             else:
-                kubernetes.patch('status', utils.get_res_link(kuryrnet_crd),
-                                 status)
+                self.k8s.patch('status', utils.get_res_link(kuryrnet_crd),
+                               status)
         except k_exc.K8sResourceNotFound:
             LOG.debug('KuryrNetwork CRD not found %s', kuryrnet_crd)
         except k_exc.K8sClientException:

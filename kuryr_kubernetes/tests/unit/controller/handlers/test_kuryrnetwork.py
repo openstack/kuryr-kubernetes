@@ -58,6 +58,7 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         self._handler._drv_sg = mock.Mock(spec=drivers.PodSecurityGroupsDriver)
         self._handler._drv_vif_pool = mock.MagicMock(
             spec=vif_pool.MultiVIFPool)
+        self._handler.k8s = self.useFixture(k_fix.MockK8sClient()).client
 
         self._get_project = self._handler._drv_project.get_project
         self._set_vif_driver = self._handler._drv_vif_pool.set_vif_driver
@@ -133,6 +134,7 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         self._update_ns_sg_rules.assert_called_once_with(ns)
         m_get_svc.assert_called_once()
         self._handler._update_services.assert_called_once()
+        self.assertEqual(self._handler.k8s.add_event.call_count, 4)
 
     @mock.patch.object(driver_utils, 'get_services')
     @mock.patch.object(driver_utils, 'get_namespace')
@@ -170,6 +172,7 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         self._update_ns_sg_rules.assert_called_once_with(ns)
         m_get_svc.assert_not_called()
         self._handler._update_services.assert_not_called()
+        self.assertEqual(self._handler.k8s.add_event.call_count, 4)
 
     @mock.patch.object(driver_utils, 'get_namespace')
     def test_on_present_existing(self, m_get_ns):
@@ -192,6 +195,7 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         self._create_subnet.assert_not_called()
         self._add_subnet_to_router.assert_not_called()
         m_get_ns.assert_not_called()
+        self._handler.k8s.add_event.assert_not_called()
 
     @mock.patch.object(driver_utils, 'get_services')
     def test_on_finalize(self, m_get_svc):
@@ -202,7 +206,6 @@ class TestKuryrNetworkHandler(test_base.TestCase):
 
         self._delete_ns_sg_rules.return_value = [crd_selector]
         m_get_svc.return_value = []
-        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
 
         kuryrnetwork.KuryrNetworkHandler.on_finalize(self._handler, kns_crd)
 
@@ -211,15 +214,14 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         self._delete_ns_sg_rules.assert_called_once()
         m_get_svc.assert_called_once()
         self._handler._update_services.assert_called_once()
-        kubernetes.remove_finalizer.assert_called_once()
+        self._handler.k8s.remove_finalizer.assert_called_once()
+        self._handler.k8s.add_event.assert_not_called()
 
     @mock.patch.object(driver_utils, 'get_services')
     def test_on_finalize_no_network(self, m_get_svc):
         crd_selector = mock.sentinel.crd_selector
         self._delete_ns_sg_rules.return_value = [crd_selector]
         m_get_svc.return_value = []
-
-        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
 
         kuryrnetwork.KuryrNetworkHandler.on_finalize(self._handler,
                                                      self._kuryrnet_crd)
@@ -229,7 +231,8 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         self._delete_ns_sg_rules.assert_called_once()
         m_get_svc.assert_called_once()
         self._handler._update_services.assert_called_once()
-        kubernetes.remove_finalizer.assert_called_once()
+        self._handler.k8s.remove_finalizer.assert_called_once()
+        self._handler.k8s.add_event.assert_not_called()
 
     @mock.patch.object(driver_utils, 'get_services')
     def test_on_finalize_no_sg_enforce(self, m_get_svc):
@@ -240,7 +243,6 @@ class TestKuryrNetworkHandler(test_base.TestCase):
 
         self._delete_ns_sg_rules.return_value = [crd_selector]
         m_get_svc.return_value = []
-        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
         oslo_cfg.CONF.set_override('enforce_sg_rules',
                                    False,
                                    group='octavia_defaults')
@@ -255,7 +257,25 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         self._delete_ns_sg_rules.assert_called_once()
         m_get_svc.assert_not_called()
         self._handler._update_services.assert_not_called()
-        kubernetes.remove_finalizer.assert_called_once()
+        self._handler.k8s.remove_finalizer.assert_called_once()
+        self._handler.k8s.add_event.assert_not_called()
+
+    def test_on_finalize_finalizer_delete_ns_subnet_exception(self):
+        net_id = mock.sentinel.net_id
+        kns_crd = self._kuryrnet_crd.copy()
+        kns_crd['status'] = {'netId': net_id}
+        crd_selector = mock.sentinel.crd_selector
+
+        self._delete_ns_sg_rules.return_value = [crd_selector]
+        self._delete_namespace_subnet.side_effect = (k_exc.
+                                                     ResourceNotReady(kns_crd))
+
+        self.assertRaises(k_exc.ResourceNotReady,
+                          kuryrnetwork.KuryrNetworkHandler.on_finalize,
+                          self._handler, kns_crd)
+
+        self._delete_network_pools.assert_called_once_with(net_id)
+        self._delete_namespace_subnet.assert_called_once_with(kns_crd)
 
     @mock.patch.object(driver_utils, 'get_services')
     def test_on_finalize_finalizer_exception(self, m_get_svc):
@@ -266,8 +286,8 @@ class TestKuryrNetworkHandler(test_base.TestCase):
 
         self._delete_ns_sg_rules.return_value = [crd_selector]
         m_get_svc.return_value = []
-        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
-        kubernetes.remove_finalizer.side_effect = k_exc.K8sClientException
+        k8s = self._handler.k8s
+        k8s.remove_finalizer.side_effect = k_exc.K8sClientException
 
         self.assertRaises(
             k_exc.K8sClientException,
@@ -279,4 +299,4 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         self._delete_ns_sg_rules.assert_called_once()
         m_get_svc.assert_called_once()
         self._handler._update_services.assert_called_once()
-        kubernetes.remove_finalizer.assert_called_once()
+        k8s.remove_finalizer.assert_called_once()
