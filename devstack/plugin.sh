@@ -55,8 +55,8 @@ if is_service_enabled kuryr-kubernetes kuryr-daemon \
         echo_summary "Installing kuryr CNI and Controller"
         setup_develop "$KURYR_HOME"
         if [[ "${KURYR_CONT}" == "False" ]]; then
-            # Build CNI only for non-containerized deployment. For 
-            # containerized CNI willl be built within the images build.
+            # Build CNI only for non-containerized deployment. For
+            # containerized CNI will be built within the images build.
             build_install_kuryr_cni
         fi
 
