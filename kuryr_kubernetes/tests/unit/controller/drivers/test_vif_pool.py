@@ -140,10 +140,12 @@ class BaseVIFPool(test_base.TestCase):
                                security_groups)
         self.assertIsNone(resp)
 
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('time.time', return_value=50)
     @ddt.data((neutron_vif.NeutronPodVIFDriver),
               (nested_vlan_vif.NestedVlanPodVIFDriver))
-    def test__populate_pool(self, m_vif_driver, m_time):
+    def test__populate_pool(self, m_vif_driver, m_time,
+                            m_get_kubernetes_client):
         cls = vif_pool.BaseVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
@@ -178,9 +180,11 @@ class BaseVIFPool(test_base.TestCase):
         m_driver._get_pool_size.assert_called_once()
         m_driver._drv_vif.request_vifs.assert_called_once()
 
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @ddt.data((neutron_vif.NeutronPodVIFDriver),
               (nested_vlan_vif.NestedVlanPodVIFDriver))
-    def test__populate_pool_not_ready(self, m_vif_driver):
+    def test__populate_pool_not_ready(self, m_vif_driver,
+                                      m_get_kubernetes_client):
         cls = vif_pool.BaseVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
@@ -200,9 +204,11 @@ class BaseVIFPool(test_base.TestCase):
                           tuple(security_groups))
         m_driver._drv_vif.request_vifs.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @ddt.data((neutron_vif.NeutronPodVIFDriver),
               (nested_vlan_vif.NestedVlanPodVIFDriver))
-    def test__populate_pool_not_ready_dont_raise(self, m_vif_driver):
+    def test__populate_pool_not_ready_dont_raise(self, m_vif_driver,
+                                                 m_get_kubernetes_client):
         cls = vif_pool.BaseVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
@@ -221,8 +227,9 @@ class BaseVIFPool(test_base.TestCase):
                            tuple(security_groups), raise_not_ready=False)
         m_driver._drv_vif.request_vifs.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('time.time', return_value=0)
-    def test__populate_pool_no_update(self, m_time):
+    def test__populate_pool_no_update(self, m_time, m_get_kubernetes_client):
         cls = vif_pool.BaseVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
@@ -242,10 +249,12 @@ class BaseVIFPool(test_base.TestCase):
                            tuple(security_groups))
         m_driver._get_pool_size.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('time.time', return_value=50)
     @ddt.data((neutron_vif.NeutronPodVIFDriver),
               (nested_vlan_vif.NestedVlanPodVIFDriver))
-    def test__populate_pool_large_pool(self, m_vif_driver, m_time):
+    def test__populate_pool_large_pool(self, m_vif_driver, m_time,
+                                       m_get_kubernetes_client):
         cls = vif_pool.BaseVIFPool
         m_driver = mock.MagicMock(spec=cls)
 

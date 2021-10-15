@@ -228,6 +228,8 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
         # REVISIT(ltomasbo): Drop the subnets parameter and get the information
         # from the pool_key, which will be required when multi-network is
         # supported
+        kubernetes = clients.get_kubernetes_client()
+
         if not self._recovered_pools:
             LOG.debug("Kuryr-controller not yet ready to populate pools.")
             if raise_not_ready:
@@ -253,12 +255,20 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
         if pool_size < oslo_cfg.CONF.vif_pool.ports_pool_min:
             num_ports = max(oslo_cfg.CONF.vif_pool.ports_pool_batch,
                             oslo_cfg.CONF.vif_pool.ports_pool_min - pool_size)
-            vifs = self._drv_vif.request_vifs(
-                pod=pod,
-                project_id=pool_key[1],
-                subnets=subnets,
-                security_groups=security_groups,
-                num_ports=num_ports)
+            try:
+                vifs = self._drv_vif.request_vifs(
+                    pod=pod,
+                    project_id=pool_key[1],
+                    subnets=subnets,
+                    security_groups=security_groups,
+                    num_ports=num_ports)
+            except os_exc.SDKException as exc:
+                kubernetes.add_event(pod, 'FailToPopulateVIFPool',
+                                     f'There was an error during populating '
+                                     f'VIF pool for pod: {exc.message}',
+                                     type_='Warning')
+                raise
+
             for vif in vifs:
                 self._existing_vifs[vif.id] = vif
                 self._available_ports_pools.setdefault(
