@@ -187,7 +187,12 @@
     vars:
       devstack_localrc:
         CONTAINER_ENGINE: crio
-    voting: false
+        CRIO_VERSION: "1.20"
+      zuul_copy_output:
+        '{{ devstack_log_dir }}/crio': 'logs'
+    post-run:
+        - playbooks/copy-crio-logs.yaml
+    voting: true
 
 - job:
     name: kuryr-kubernetes-tempest-amphora

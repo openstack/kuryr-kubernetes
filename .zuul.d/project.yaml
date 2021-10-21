@@ -18,6 +18,7 @@
       jobs:
         - kuryr-kubernetes-tempest
         - kuryr-kubernetes-tempest-defaults
+        - kuryr-kubernetes-tempest-crio
         - kuryr-kubernetes-tempest-systemd
         - kuryr-kubernetes-tempest-lower-constraints
         - kuryr-kubernetes-tempest-multinode
@@ -36,7 +37,6 @@
         - kuryr-kubernetes-tempest-l2
         - kuryr-kubernetes-tempest-pools-namespace
         - kuryr-kubernetes-tempest-multinode-ha
-        - kuryr-kubernetes-tempest-crio
         - kuryr-kubernetes-tempest-dual-stack
 
 - project-template:

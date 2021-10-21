@@ -25,20 +25,23 @@ mkdir -p ${K8S_LOG_DIR}
 mkdir ${HOME}/.kube
 sudo cp /opt/stack/.kube/config  ${HOME}/.kube/
 sudo chown ${USER}:${USER} ${HOME}/.kube/config
-/usr/bin/kubectl --kubeconfig=${HOME}/.kube/config get pods -o yaml --all-namespaces >> ${K8S_LOG_DIR}/pods.txt
-/usr/bin/kubectl --kubeconfig=${HOME}/.kube/config get svc -o yaml --all-namespaces >> ${K8S_LOG_DIR}/services.txt
-/usr/bin/kubectl --kubeconfig=${HOME}/.kube/config get cm -o yaml --all-namespaces >> ${K8S_LOG_DIR}/configmaps.txt
-/usr/bin/kubectl --kubeconfig=${HOME}/.kube/config get deploy -o yaml --all-namespaces >> ${K8S_LOG_DIR}/deployments.txt
-/usr/bin/kubectl --kubeconfig=${HOME}/.kube/config get ds -o yaml --all-namespaces >> ${K8S_LOG_DIR}/daemonsets.txt
-/usr/bin/kubectl --kubeconfig=${HOME}/.kube/config get nodes -o yaml --all-namespaces >> ${K8S_LOG_DIR}/nodes.txt
-/usr/bin/kubectl --kubeconfig=${HOME}/.kube/config get ingress -o yaml --all-namespaces >> ${K8S_LOG_DIR}/ingress.txt
-/usr/bin/kubectl --kubeconfig=${HOME}/.kube/config get namespaces -o yaml >> ${K8S_LOG_DIR}/namespaces.txt
-/usr/bin/kubectl --kubeconfig=${HOME}/.kube/config get kuryrnets -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrnets_crds.txt
-/usr/bin/kubectl --kubeconfig=${HOME}/.kube/config get kuryrnetworks -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrnetworks_crds.txt
-/usr/bin/kubectl --kubeconfig=${HOME}/.kube/config get endpoints -o yaml --all-namespaces >> ${K8S_LOG_DIR}/endpoints.txt
-/usr/bin/kubectl --kubeconfig=${HOME}/.kube/config get kuryrnetpolicy -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrnetpolicy_crds.txt
-/usr/bin/kubectl --kubeconfig=${HOME}/.kube/config get kuryrport -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrport_crds.txt
-/usr/bin/kubectl --kubeconfig=${HOME}/.kube/config get kuryrnetworkpolicy -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrnetworkpolicy_crds.txt
+
+KCTL="/usr/bin/kubectl --kubeconfig=${HOME}/.kube/config"
+$KCTL get pods -o yaml --all-namespaces >> ${K8S_LOG_DIR}/pods.txt
+$KCTL get svc -o yaml --all-namespaces >> ${K8S_LOG_DIR}/services.txt
+$KCTL get cm -o yaml --all-namespaces >> ${K8S_LOG_DIR}/configmaps.txt
+$KCTL get deploy -o yaml --all-namespaces >> ${K8S_LOG_DIR}/deployments.txt
+$KCTL get ds -o yaml --all-namespaces >> ${K8S_LOG_DIR}/daemonsets.txt
+$KCTL get nodes -o yaml --all-namespaces >> ${K8S_LOG_DIR}/nodes.txt
+$KCTL get ingress -o yaml --all-namespaces >> ${K8S_LOG_DIR}/ingress.txt
+$KCTL get namespaces -o yaml >> ${K8S_LOG_DIR}/namespaces.txt
+$KCTL get kuryrnets -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrnets_crds.txt
+$KCTL get kuryrnetworks -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrnetworks_crds.txt
+$KCTL get endpoints -o yaml --all-namespaces >> ${K8S_LOG_DIR}/endpoints.txt
+$KCTL get kuryrnetpolicy -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrnetpolicy_crds.txt
+$KCTL get kuryrport -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrport_crds.txt
+$KCTL get kuryrnetworkpolicy -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrnetworkpolicy_crds.txt
+sudo journalctl -o short-precise --unit kubelet | sudo tee ${K8S_LOG_DIR}/kubelet_log.txt > /dev/null
 # Kubernetes pods logs
 mkdir -p ${K8S_LOG_DIR}/pod_logs
 while read -r line
@@ -48,9 +51,11 @@ do
     containers=`/usr/bin/kubectl --kubeconfig=${HOME}/.kube/config -n ${namespace} get pods ${name} -o jsonpath="{.spec.containers[*].name} {.spec.initContainers[*].name}"`
     for container in ${containers}
     do
-        /usr/bin/kubectl --kubeconfig=${HOME}/.kube/config logs -n ${namespace} -c ${container} ${name} >> ${K8S_LOG_DIR}/pod_logs/${namespace}-${name}-${container}.txt
-        /usr/bin/kubectl --kubeconfig=${HOME}/.kube/config logs -n ${namespace} -p -c ${container} ${name} >> ${K8S_LOG_DIR}/pod_logs/${namespace}-${name}-${container}-prev.txt
+        $KCTL logs -n ${namespace} -c ${container} ${name} >> ${K8S_LOG_DIR}/pod_logs/${namespace}-${name}-${container}.txt
+        $KCTL logs -n ${namespace} -p -c ${container} ${name} >> ${K8S_LOG_DIR}/pod_logs/${namespace}-${name}-${container}-prev.txt
     done
 done < <(/usr/bin/kubectl get pods -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace --all-namespaces | tail -n +2)
 
+mkdir -p "${K8S_LOG_DIR}/kubernetes_conf"
+sudo cp -a /etc/kubernetes/* "${K8S_LOG_DIR}/kubernetes_conf"
 sudo chown -R zuul:zuul ${K8S_LOG_DIR}

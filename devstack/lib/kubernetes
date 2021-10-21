@@ -38,12 +38,22 @@ distribution.")
 }
 
 function kubeadm_init {
-
     local cluster_ip_ranges
     local output_dir="${DATA_DIR}/kuryr-kubernetes"
+    local cgroup_driver
+    local cri_socket
 
     mkdir -p "${output_dir}"
 
+    if [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
+        local crio_conf="/etc/crio/crio.conf"
+        cgroup_driver=$(iniget ${crio_conf} crio.runtime cgroup_manager)
+        cri_socket="unix:///var/run/crio/crio.sock"
+    else
+        # docker is used
+        cgroup_driver=$(docker info -f '{{.CgroupDriver}}')
+        cri_socket="/var/run/dockershim.sock"
+    fi
     cluster_ip_ranges=()
     for service_subnet_id in ${KURYR_SERVICE_SUBNETS_IDS[@]}; do
         service_cidr=$(openstack --os-cloud devstack-admin \
@@ -85,17 +95,17 @@ scheduler:
     leader-elect: "false"
 ---
 apiVersion: kubeadm.k8s.io/v1beta2
+kind: InitConfiguration
 bootstrapTokens:
 - token: "${KURYR_K8S_TOKEN}"
   ttl: 0s
-kind: InitConfiguration
 localAPIEndpoint:
   advertiseAddress: "${K8S_API_SERVER_IP}"
   bindPort: ${K8S_API_SERVER_PORT}
 nodeRegistration:
+  criSocket: "$cri_socket"
   kubeletExtraArgs:
-    cgroup-driver: "$(docker info -f '{{.CgroupDriver}}')"
-    cni-bin-dir: "$CNI_BIN_DIR"
+    cni-bin-dir: "$CNI_PLUGIN_DIR"
     cni-conf-dir: "$CNI_CONF_DIR"
     enable-server: "true"
   taints:
@@ -106,6 +116,7 @@ kind: KubeletConfiguration
 failSwapOn: false
 address: "0.0.0.0"
 enableServer: true
+cgroupDriver: $cgroup_driver
 EOF
     args="--config ${output_dir}/kubeadm-init.yaml"
     # NOTE(gryf): skip installing kube proxy, kuryr will handle services.
@@ -126,9 +137,20 @@ EOF
 
 function kubeadm_join {
     local output_dir="${DATA_DIR}/kuryr-kubernetes"
+    local cgroup_driver
+    local cri_socket
 
     mkdir -p "${output_dir}"
 
+    if [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
+        local crio_conf="/etc/crio/crio.conf"
+        cgroup_driver=$(iniget ${crio_conf} crio.runtime cgroup_manager)
+        cri_socket="unix:///var/run/crio/crio.sock"
+    else
+        # docker is used
+        cgroup_driver=$(docker info -f '{{.CgroupDriver}}')
+        cri_socket="/var/run/dockershim.sock"
+    fi
     cluster_ip_ranges=()
     for service_subnet_id in ${KURYR_SERVICE_SUBNETS_IDS[@]}; do
         service_cidr=$(openstack --os-cloud devstack-admin \
@@ -150,13 +172,20 @@ discovery:
   tlsBootstrapToken: "${KURYR_K8S_TOKEN}"
 kind: JoinConfiguration
 nodeRegistration:
+  criSocket: "$cri_socket"
   kubeletExtraArgs:
-    cgroup-driver: "$(docker info -f '{{.CgroupDriver}}')"
-    cni-bin-dir: "$CNI_BIN_DIR"
+    cni-bin-dir: "$CNI_PLUGIN_DIR"
     cni-conf-dir: "$CNI_CONF_DIR"
     enable-server: "true"
   taints:
     []
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+failSwapOn: false
+address: "0.0.0.0"
+enableServer: true
+cgroupDriver: $cgroup_driver
 EOF
     sudo -E kubeadm join --ignore-preflight-errors Swap \
         --config ${output_dir}/kubeadm-join.yaml

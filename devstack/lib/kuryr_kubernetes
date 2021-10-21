@@ -302,6 +302,7 @@ function build_kuryr_container_image {
     local target=$1  # controller or cni
     local build_args
     local build_dir
+    local tag="kuryr/${target}"
 
     build_dir="${DEST}/kuryr-kubernetes"
     pushd "$build_dir"
@@ -311,17 +312,19 @@ function build_kuryr_container_image {
             `"/opt/kuryr-kubernetes/lower-constraints.txt"
     fi
 
-    # Build images
-    # FIXME(dulek): Until https://github.com/containers/buildah/issues/1206 is
-    #               resolved instead of podman we need to use buildah directly,
-    #               hence this awful if clause.
     if [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
-        sudo buildah bud -t "docker.io/kuryr/${target}" \
-            -f "${target}.Dockerfile" .
-    else
-        container_runtime build -t "kuryr/${target}" \
-            -f "${target}.Dockerfile" ${build_args} .
+        # NOTE(gryf): for crio/podman we need to have it tagged with docker.io
+        # (or whatever registry), or we would need to setup one, otherwise the
+        # default tag would be 'localhost/kuryr/*' instead of 'kuryr/*' as in
+        # docker case (which by default becomes 'docker.io/kuryr/*' if no
+        # registry has been specified). Creating registry for just two images
+        # is a little bit of overkill, hence the trick with docker.io tag, and
+        # image pull policy set to "Never" on deployment definition, so that
+        # we assure for taking images that we built.
+        tag="docker.io/${tag}"
     fi
+    container_runtime build -t "${tag}" -f "${target}.Dockerfile" \
+        ${build_args} .
     popd
 }
 
@@ -600,6 +603,7 @@ function generate_cni_daemon_set {
     cni_health_server_port=$2
     cni_bin_dir=${3:-/opt/cni/bin}
     cni_conf_dir=${4:-/etc/cni/net.d}
+    local var_run=${VAR_RUN_PATH:-/var/run}
     mkdir -p "$output_dir"
     rm -f "${output_dir}/cni_ds.yml"
     cat >> "${output_dir}/cni_ds.yml" << EOF
@@ -653,14 +657,31 @@ spec:
           mountPath: /etc/cni/net.d
         - name: config-volume
           mountPath: /etc/kuryr
+EOF
+    if [ "$CONTAINER_ENGINE" != "crio" ]; then
+        cat >> "${output_dir}/cni_ds.yml" << EOF
         - name: proc
           mountPath: /host_proc
+EOF
+
+    fi
+    cat >> "${output_dir}/cni_ds.yml" << EOF
         - name: var-pci
           mountPath: /var/pci_address
         - name: var-run
           mountPath: /var/run
           mountPropagation: HostToContainer
 EOF
+    # NOTE(gryf): assuming the --namespaces-dir parameter would not be used,
+    # otherwise /var/run/$crio_netns_path is all wrong
+    if [ "$CONTAINER_ENGINE" = "crio" ] && \
+        [ "${VAR_RUN_PATH}" != "/var/run" ]; then
+        cat >> "${output_dir}/cni_ds.yml" << EOF
+        - name: netns
+          mountPath: /var/run/netns
+          mountPropagation: HostToContainer
+EOF
+    fi
     cat >> "${output_dir}/cni_ds.yml" << EOF
         readinessProbe:
           httpGet:
@@ -684,24 +705,28 @@ EOF
         - name: config-volume
           configMap:
             name: kuryr-config
+        - name: var-run
+          hostPath:
+            path: ${var_run}
+EOF
+    if [[ "$CONTAINER_ENGINE" != "crio" ]]; then
+        cat >> "${output_dir}/cni_ds.yml" << EOF
         - name: proc
           hostPath:
             path: /proc
+EOF
+    fi
+    cat >> "${output_dir}/cni_ds.yml" << EOF
         - name: var-pci
           hostPath:
             path: /var/pci_address
 EOF
-    if [[ -n "$VAR_RUN_PATH" ]]; then
-        cat >> "${output_dir}/cni_ds.yml" << EOF
-        - name: var-run
+    if [ "${CONTAINER_ENGINE}" = "crio" ] && \
+        [ "${VAR_RUN_PATH}" != "/var/run" ]; then
+            cat >> "${output_dir}/cni_ds.yml" << EOF
+        - name: netns
           hostPath:
-            path: ${VAR_RUN_PATH}
-EOF
-    else
-        cat >> "${output_dir}/cni_ds.yml" << EOF
-        - name: var-run
-          hostPath:
-            path: /var/run
+            path: /var/run/netns
 EOF
     fi
 }
@@ -917,7 +942,7 @@ function build_install_kuryr_cni {
     pushd "${KURYR_HOME}/kuryr_cni" || exit 1
     hack/build-go.sh
     sudo install -o "$STACK_USER" -m 0555 -D bin/kuryr-cni \
-        "${CNI_BIN_DIR}/kuryr-cni"
+        "${CNI_PLUGIN_DIR}/kuryr-cni"
     popd
 }
 
@@ -943,6 +968,15 @@ function _create_kuryr_lock_dir {
 
 function configure_kuryr {
     local dir
+
+    if [[ ${CONTAINER_ENGINE} == 'crio' ]]; then
+        # According of the documentation we need those kernel modules for
+        # CRI-O. They might already be loaded by neutron, so don't fail on it.
+        # https://kubernetes.io/docs/setup/production-environment/container-runtimes/#cri-o
+        sudo modprobe overlay || true
+        sudo modprobe br_netfilter || true
+    fi
+
     sudo install -d -o "$STACK_USER" "$KURYR_CONFIG_DIR"
     "${KURYR_HOME}/tools/generate_config_file_samples.sh"
     sudo install -o "$STACK_USER" -m 640 -D \
@@ -982,10 +1016,12 @@ function configure_kuryr {
         iniset "$KURYR_CONFIG" vif_plug_ovs_privileged helper_command privsep-helper
         iniset "$KURYR_CONFIG" vif_plug_linux_bridge_privileged helper_command privsep-helper
 
-        # When running kuryr-daemon or CNI in container we need to set up
-        # some configs.
-        iniset "$KURYR_CONFIG" cni_daemon docker_mode True
-        iniset "$KURYR_CONFIG" cni_daemon netns_proc_dir "/host_proc"
+        if [ "${CONTAINER_ENGINE}" = "docker" ]; then
+            # When running kuryr-daemon or CNI in container we need to set up
+            # some configs.
+            iniset "$KURYR_CONFIG" cni_daemon docker_mode True
+            iniset "$KURYR_CONFIG" cni_daemon netns_proc_dir "/host_proc"
+        fi
     else
         iniset "$KURYR_CONFIG" oslo_concurrency lock_path "$KURYR_LOCK_DIR"
         _create_kuryr_lock_dir
@@ -1051,7 +1087,7 @@ function _generate_containerized_kuryr_resources {
     generate_kuryr_certificates_secret $output_dir $SSL_BUNDLE_FILE
     generate_kuryr_service_account $output_dir
     generate_controller_deployment $output_dir $KURYR_HEALTH_SERVER_PORT $KURYR_CONTROLLER_HA
-    generate_cni_daemon_set $output_dir $KURYR_CNI_HEALTH_SERVER_PORT $CNI_BIN_DIR $CNI_CONF_DIR
+    generate_cni_daemon_set $output_dir $KURYR_CNI_HEALTH_SERVER_PORT $CNI_PLUGIN_DIR $CNI_CONF_DIR
 }
 
 function run_containerized_kuryr_resources {
@@ -1579,9 +1615,9 @@ function configure_neutron_defaults {
 }
 
 function uninstall_kuryr_cni {
-    sudo rm "${CNI_BIN_DIR}/kuryr-cni"
-    if [ -z "$(ls -A ${CNI_BIN_DIR})" ]; then
-        sudo rm -fr "${CNI_BIN_DIR}"
+    sudo rm "${CNI_PLUGIN_DIR}/kuryr-cni"
+    if [ -z "$(ls -A ${CNI_PLUGIN_DIR})" ]; then
+        sudo rm -fr "${CNI_PLUGIN_DIR}"
     fi
 }
 

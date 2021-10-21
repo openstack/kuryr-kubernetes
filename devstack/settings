@@ -1,5 +1,5 @@
 KURYR_HOME=${KURYR_HOME:-$DEST/kuryr-kubernetes}
-CNI_BIN_DIR=${CNI_BIN_DIR:-/opt/cni/bin}
+CNI_PLUGIN_DIR=${CNI_PLUGIN_DIR:-${CNI_BIN_DIR:-/opt/cni/bin}}
 CNI_CONF_DIR=${CNI_CONF_DIR:-$DEST/cni/conf}
 
 KURYR_CONFIG_DIR=${KURYR_CONFIG_DIR:-/etc/kuryr}
