@@ -746,16 +746,13 @@ class LBaaSv2Driver(base.LBaaSDriver):
         return result
 
     def _ensure_loadbalancer(self, loadbalancer):
-        try:
-            result = self._create_loadbalancer(loadbalancer)
-            LOG.debug("Created %(obj)s", {'obj': result})
-            return result
-        except os_exc.HttpException as e:
-            if e.status_code not in OKAY_CODES:
-                raise
         result = self._find_loadbalancer(loadbalancer)
         if result:
             LOG.debug("Found %(obj)s", {'obj': result})
+            return result
+
+        result = self._create_loadbalancer(loadbalancer)
+        LOG.debug("Created %(obj)s", {'obj': result})
         return result
 
     def _ensure_provisioned(self, loadbalancer, obj, create, find,
