@@ -296,9 +296,9 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
         kubernetes = clients.get_kubernetes_client()
         in_use_ports = []
         networks = {}
-        running_pods = kubernetes.get(constants.K8S_API_BASE + '/pods')
-        for pod in running_pods['items']:
-            vifs = c_utils.get_vifs(pod)
+        kuryr_ports = kubernetes.get(constants.K8S_API_CRD_KURYRPORTS)
+        for kp in kuryr_ports['items']:
+            vifs = c_utils.get_vifs(kp)
             for data in vifs.values():
                 in_use_ports.append(data.id)
                 networks[data.network.id] = data.network
@@ -434,10 +434,9 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
                         # getting the Network and Subnet info from
                         # Network defined on an existing KuryrPort CR.
                         # This assumes only one Subnet exists per Network.
-                        if in_use_networks.get(port.network_id):
-                            subnets[subnet_id] = {
-                                subnet_id: in_use_networks.get(
-                                    port.network_id)}
+                        network = in_use_networks.get(port.network_id)
+                        if network:
+                            subnets[subnet_id] = {subnet_id: network}
                         else:
                             subnets[subnet_id] = {
                                 subnet_id: utils.get_subnet(subnet_id)}
