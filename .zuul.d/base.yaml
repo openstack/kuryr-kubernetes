@@ -36,7 +36,9 @@
       # Default swap size got shrinked to 1 GB, it's way too small for us.
       configure_swap_size: 8192
       tempest_test_regex: '^(kuryr_tempest_plugin.tests.)'
-      tempest_test_timeout: 1800
+      # Since we switched the amphora image to focal, the tests started
+      # requiring more time.
+      tempest_test_timeout: 2400
       tox_envlist: 'all'
       tempest_plugins:
         - kuryr-tempest-plugin
