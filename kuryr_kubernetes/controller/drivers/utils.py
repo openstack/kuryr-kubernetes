@@ -691,6 +691,7 @@ def delete_port(leftover_port):
         # doesn't raise an exception if port doesn't exists nor
         # return any information.
         os_net.delete_port(leftover_port.id)
+        return True
     except os_exc.SDKException as e:
         if "currently a subport for trunk" in str(e):
             if leftover_port.status == "DOWN":
@@ -711,6 +712,7 @@ def delete_port(leftover_port):
                     leftover_port.id, trunk_id)
             try:
                 os_net.delete_port(leftover_port.id)
+                return True
             except os_exc.SDKException:
                 LOG.exception("Unexpected error deleting "
                               "leftover port %s. Skipping it "
@@ -721,3 +723,4 @@ def delete_port(leftover_port):
                           "port %s. Skipping it and "
                           "continue with the other "
                           "rest.", leftover_port.id)
+    return False

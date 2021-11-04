@@ -551,12 +551,8 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
                     del self._existing_vifs[subport.id]
                 except KeyError:
                     LOG.debug('Port %s is not in the ports list.', subport.id)
-                try:
-                    os_net.delete_port(subport.id)
-                except os_exc.SDKException:
-                    LOG.debug("Problem deleting leftover port %s. "
-                              "Skipping.", subport.id)
-                else:
+                port_deleted = c_utils.delete_port(subport)
+                if port_deleted:
                     previous_ports_to_remove.remove(subport.id)
 
             # normal ports, or subports not yet attached
