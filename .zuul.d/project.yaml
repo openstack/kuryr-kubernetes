@@ -31,7 +31,6 @@
       jobs:
         - kuryr-kubernetes-tempest
         - kuryr-kubernetes-tempest-systemd
-        - kuryr-kubernetes-tempest-amphora
     experimental:
       jobs:
         - kuryr-kubernetes-tempest-l2
