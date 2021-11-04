@@ -195,6 +195,12 @@ class DaemonServer(object):
             LOG.exception('Cannot start server on %s.', server_pair)
             raise
 
+        if CONF.cni_daemon.worker_num <= 1:
+            msg = ('[cni_daemon]worker_num needs to be set to a value higher '
+                   'than 1')
+            LOG.critical(msg)
+            raise exceptions.InvalidKuryrConfiguration(msg)
+
         try:
             self._server = serving.make_server(
                 address, port, self.application, threaded=False,
@@ -387,6 +393,7 @@ class CNIDaemonServiceManager(cotyledon.ServiceManager):
         # NOTE(mdulko): Default shutdown timeout is 60 seconds and K8s won't
         #               wait more by default anyway.
         super(CNIDaemonServiceManager, self).__init__()
+        self._server_service = None
         # TODO(dulek): Use cotyledon.oslo_config_glue to support conf reload.
 
         # TODO(vikasc): Should be done using dynamically loadable OVO types
@@ -403,11 +410,18 @@ class CNIDaemonServiceManager(cotyledon.ServiceManager):
         healthy = multiprocessing.Value(c_bool, True)
         metrics = self.manager.Queue()
         self.add(CNIDaemonWatcherService, workers=1, args=(registry, healthy,))
-        self.add(CNIDaemonServerService, workers=1, args=(registry, healthy,
-                                                          metrics,))
+        self._server_service = self.add(CNIDaemonServerService, workers=1,
+                                        args=(registry, healthy, metrics,))
         self.add(CNIDaemonHealthServerService, workers=1, args=(healthy,))
         self.add(CNIDaemonExporterService, workers=1, args=(metrics,))
-        self.register_hooks(on_terminate=self.terminate)
+
+        def shutdown_hook(service_id, worker_id, exit_code):
+            LOG.critical(f'Child Service {service_id} had exited with code '
+                         f'{exit_code}, stopping kuryr-daemon')
+            self.shutdown()
+
+        self.register_hooks(on_terminate=self.terminate,
+                            on_dead_worker=shutdown_hook)
 
     def run(self):
         # FIXME(darshna): Remove pyroute2 IPDB deprecation warning, remove
@@ -440,12 +454,13 @@ class CNIDaemonServiceManager(cotyledon.ServiceManager):
 
     def terminate(self):
         self._terminate_called.set()
-        LOG.info("Gracefully stopping DaemonServer service..")
-        self.reconfigure(self._server_service, 0)
-        for worker in self._running_services[self._server_service]:
-            worker.terminate()
-        for worker in self._running_services[self._server_service]:
-            worker.join()
+        if self._server_service:
+            LOG.info("Gracefully stopping DaemonServer service..")
+            self.reconfigure(self._server_service, 0)
+            for worker in self._running_services[self._server_service]:
+                worker.terminate()
+            for worker in self._running_services[self._server_service]:
+                worker.join()
         LOG.info("Stopping registry manager...")
         self.manager.shutdown()
         LOG.info("Continuing with shutdown")
