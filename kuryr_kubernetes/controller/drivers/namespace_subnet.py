@@ -102,8 +102,8 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
         try:
             os_net.delete_network(net_id)
         except os_exc.ConflictException:
-            LOG.exception("One or more ports in use on the network %s. "
-                          "Deleting leftovers ports before retrying", net_id)
+            LOG.warning("One or more ports in use on the network %s. "
+                        "Deleting leftovers ports before retrying", net_id)
             leftover_ports = os_net.ports(network_id=net_id)
             for leftover_port in leftover_ports:
                 # NOTE(dulek): '' is there because Neutron seems to unset
