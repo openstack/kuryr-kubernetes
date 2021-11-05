@@ -460,7 +460,8 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
         project_id = mock.sentinel.project_id
         target_ref = {'kind': k_const.K8S_OBJ_POD,
                       'name': 'pod-name',
-                      'namespace': 'default'}
+                      'namespace': 'default',
+                      'spec': {}}
         ip = '1.2.3.4'
         m_handler = mock.Mock(spec=h_lb.KuryrLoadBalancerHandler)
         m_drv_pod_project = mock.Mock()

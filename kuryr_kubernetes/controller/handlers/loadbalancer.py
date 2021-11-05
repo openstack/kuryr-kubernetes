@@ -434,10 +434,14 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
 
     def _get_pod_subnet(self, pod, ip):
         project_id = self._drv_pod_project.get_project(pod)
-        subnets_map = self._drv_pod_subnets.get_subnets(pod, project_id)
-        subnet_ids = [subnet_id for subnet_id, network in subnets_map.items()
-                      for subnet in network.subnets.objects
-                      if ip in subnet.cidr]
+
+        subnet_ids = []
+        if not utils.is_host_network(pod):
+            subnets_map = self._drv_pod_subnets.get_subnets(pod, project_id)
+            subnet_ids = [subnet_id
+                          for subnet_id, network in subnets_map.items()
+                          for subnet in network.subnets.objects
+                          if ip in subnet.cidr]
         if subnet_ids:
             return subnet_ids[0]
         else:
