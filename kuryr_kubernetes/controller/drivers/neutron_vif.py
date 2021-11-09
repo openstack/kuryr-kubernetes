@@ -111,7 +111,8 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
 
     def update_vif_sgs(self, pod, security_groups):
         os_net = clients.get_network_client()
-        vifs = utils.get_vifs(pod)
+        kp = utils.get_kuryrport(pod)
+        vifs = utils.get_vifs(kp)
         if vifs:
             # NOTE(ltomasbo): It just updates the default_vif security group
             port_id = vifs[constants.DEFAULT_IFNAME].id

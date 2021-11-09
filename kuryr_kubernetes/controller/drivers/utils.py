@@ -71,8 +71,7 @@ def get_kuryrport(pod):
         return None
 
 
-def get_vifs(pod):
-    kp = get_kuryrport(pod)
+def get_vifs(kp):
     try:
         return {k: objects.base.VersionedObject.obj_from_primitive(v['vif'])
                 for k, v in kp['status']['vifs'].items()}
