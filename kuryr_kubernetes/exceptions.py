@@ -24,6 +24,10 @@ class IntegrityError(RuntimeError):
     pass
 
 
+class InvalidKuryrConfiguration(RuntimeError):
+    pass
+
+
 class ResourceNotReady(Exception):
     def __init__(self, resource):
         msg = resource
