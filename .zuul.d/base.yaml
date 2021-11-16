@@ -25,7 +25,9 @@
       - openstack/kuryr-tempest-plugin
       - openstack/tempest
     timeout: 10800
-    post-run: playbooks/copy-k8s-logs.yaml
+    post-run:
+      - playbooks/copy-k8s-logs.yaml
+      - playbooks/copy-crio-logs.yaml
     host-vars:
       controller:
         devstack_plugins:
@@ -43,6 +45,8 @@
       tempest_plugins:
         - kuryr-tempest-plugin
       devstack_localrc:
+        CONTAINER_ENGINE: crio
+        CRIO_VERSION: "1.22"
         ENABLE_TLS: true
         ETCD_USE_RAMDISK: true
         KURYR_ENABLED_HANDLERS: vif,endpoints,service,namespace,pod_label,policy,kuryrnetworkpolicy,kuryrnetwork,kuryrport,kuryrloadbalancer
@@ -80,6 +84,7 @@
         tempest: true
       zuul_copy_output:
         '{{ devstack_log_dir }}/kubernetes': 'logs'
+        '{{ devstack_log_dir }}/crio': 'logs'
     irrelevant-files:
       - ^.*\.rst$
       - ^doc/.*$

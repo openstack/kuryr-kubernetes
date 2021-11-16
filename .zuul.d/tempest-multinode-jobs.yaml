@@ -53,6 +53,8 @@
                 health_update_threads: 2
                 stats_update_threads: 2
         devstack_localrc:
+          CONTAINER_ENGINE: crio
+          CRIO_VERSION: "1.22"
           KURYR_ENABLED_HANDLERS: vif,endpoints,service,namespace,pod_label,policy,kuryrnetworkpolicy,kuryrnetwork,kuryrport,kuryrloadbalancer
           KURYR_ENFORCE_SG_RULES: false
           KURYR_EP_DRIVER_OCTAVIA_PROVIDER: ovn
@@ -122,6 +124,8 @@
           q-ovn-metadata-agent: false
           q-svc: false
         devstack_localrc:
+          CONTAINER_ENGINE: crio
+          CRIO_VERSION: "1.22"
           KURYR_ENABLED_HANDLERS: vif,endpoints,service,namespace,pod_label,policy,kuryrnetworkpolicy,kuryrnetwork,kuryrport,kuryrloadbalancer
           KURYR_ENFORCE_SG_RULES: true
           KURYR_SG_DRIVER: policy

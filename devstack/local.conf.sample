@@ -23,7 +23,7 @@ disable_service cinder
 disable_service dstat
 disable_service n-novnc
 disable_service horizon
-# If you plan to run tempest tests on devstack, you should comment out/remove 
+# If you plan to run tempest tests on devstack, you should comment out/remove
 # below line
 disable_service tempest
 
@@ -73,15 +73,18 @@ enable_service o-da
 # OVN octavia provider plugin
 enable_plugin ovn-octavia-provider https://opendev.org/openstack/ovn-octavia-provider
 
-# Docker
-# ======
-# If you already have docker configured, running and with its socket writable
-# by the stack user, you can omit the following line.
+# CRI
+# ===
+# If you already have either CRI-O or Docker configured, running and with its
+# socket writable by the stack user, you can omit the following lines.
 enable_plugin devstack-plugin-container https://opendev.org/openstack/devstack-plugin-container
+# We are using CRI-O by default. The version should match K8s version:
+CONTAINER_ENGINE="crio"
+CRIO_VERSION="1.22"
 
 # Etcd
 # ====
-# The default is for devstack to run etcd for you. Remove comment to disable 
+# The default is for devstack to run etcd for you. Remove comment to disable
 # it, if you already have etcd running.
 #disable_service etcd3
 # If you already have an etcd cluster configured and running, you can just

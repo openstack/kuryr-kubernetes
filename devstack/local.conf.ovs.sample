@@ -23,7 +23,7 @@ disable_service cinder
 disable_service dstat
 disable_service n-novnc
 disable_service horizon
-# If you plan to run tempest tests on devstack, you should comment out/remove 
+# If you plan to run tempest tests on devstack, you should comment out/remove
 # below line
 disable_service tempest
 
@@ -42,7 +42,7 @@ Q_AGENT="openvswitch"
 Q_ML2_PLUGIN_MECHANISM_DRIVERS="openvswitch"
 Q_ML2_TENANT_NETWORK_TYPE="vxlan"
 
-# Set workaround for 
+# Set workaround for
 FLOATING_RANGE="172.24.5.0/24"
 PUBLIC_NETWORK_GATEWAY="172.24.5.1"
 
@@ -78,15 +78,18 @@ enable_service o-hk
 # OCTAVIA_AMP_IMAGE_SIZE=3
 # OCTAVIA_AMP_IMAGE_NAME=test-only-amphora-x64-haproxy-ubuntu-xenial
 
-# Docker
-# ======
-# If you already have docker configured, running and with its socket writable
-# by the stack user, you can omit the following line.
+# CRI
+# ===
+# If you already have either CRI-O or Docker configured, running and with its
+# socket writable by the stack user, you can omit the following lines.
 enable_plugin devstack-plugin-container https://opendev.org/openstack/devstack-plugin-container
+# We are using CRI-O by default. The version should match K8s version:
+CONTAINER_ENGINE="crio"
+CRIO_VERSION="1.22"
 
 # Etcd
 # ====
-# The default is for devstack to run etcd for you. Remove comment to disable 
+# The default is for devstack to run etcd for you. Remove comment to disable
 # it, if you already have etcd running.
 #disable_service etcd3
 # If you already have an etcd cluster configured and running, you can just

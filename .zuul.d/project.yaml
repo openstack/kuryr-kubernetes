@@ -17,8 +17,8 @@
     check:
       jobs:
         - kuryr-kubernetes-tempest
+        - kuryr-kubernetes-tempest-docker
         - kuryr-kubernetes-tempest-defaults
-        - kuryr-kubernetes-tempest-crio
         - kuryr-kubernetes-tempest-systemd
         - kuryr-kubernetes-tempest-lower-constraints
         - kuryr-kubernetes-tempest-multinode

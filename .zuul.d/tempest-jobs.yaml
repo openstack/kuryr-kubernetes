@@ -182,16 +182,11 @@
         KURYR_CONFIGMAP_MODIFIABLE: true
 
 - job:
-    name: kuryr-kubernetes-tempest-crio
+    name: kuryr-kubernetes-tempest-docker
     parent: kuryr-kubernetes-octavia-base
     vars:
       devstack_localrc:
-        CONTAINER_ENGINE: crio
-        CRIO_VERSION: "1.22"
-      zuul_copy_output:
-        '{{ devstack_log_dir }}/crio': 'logs'
-    post-run:
-        - playbooks/copy-crio-logs.yaml
+        CONTAINER_ENGINE: docker
     voting: true
 
 - job:

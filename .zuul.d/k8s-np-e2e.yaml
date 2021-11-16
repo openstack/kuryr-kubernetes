@@ -28,6 +28,7 @@
     post-run:
       - playbooks/run_k8s_e2e_tests.yaml
       - playbooks/copy-k8s-logs.yaml
+      - playbooks/copy-crio-logs.yaml
     post-timeout: 7200
     host-vars:
       controller:
@@ -41,6 +42,8 @@
       network_api_extensions_common:
         - tag-ports-during-bulk-creation
       devstack_localrc:
+        CONTAINER_ENGINE: crio
+        CRIO_VERSION: "1.22"
         ETCD_USE_RAMDISK: true
         KURYR_ENABLED_HANDLERS: vif,endpoints,service,namespace,pod_label,policy,kuryrnetworkpolicy,kuryrnetwork,kuryrport,kuryrloadbalancer
         KURYR_ENFORCE_SG_RULES: false
@@ -131,6 +134,7 @@
         '/home/zuul/np_kubetest.log': 'logs'
         '/home/zuul/np_sctp_kubetest.log': 'logs'
         '{{ devstack_log_dir }}/kubernetes': 'logs'
+        '{{ devstack_log_dir }}/crio': 'logs'
     irrelevant-files:
       - ^.*\.rst$
       - ^doc/.*$
