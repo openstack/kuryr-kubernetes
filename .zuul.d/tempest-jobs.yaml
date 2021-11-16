@@ -187,7 +187,7 @@
     vars:
       devstack_localrc:
         CONTAINER_ENGINE: crio
-        CRIO_VERSION: "1.20"
+        CRIO_VERSION: "1.22"
       zuul_copy_output:
         '{{ devstack_log_dir }}/crio': 'logs'
     post-run:
