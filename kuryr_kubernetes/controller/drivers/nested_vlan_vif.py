@@ -89,6 +89,8 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         try:
             ports = list(os_net.create_ports(bulk_port_rq))
         except os_exc.SDKException:
+            for subport_info in subports_info:
+                self._release_vlan_id(subport_info['segmentation_id'])
             LOG.exception("Error creating bulk ports: %s", bulk_port_rq)
             raise
         self._check_port_binding(ports)
@@ -104,12 +106,16 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
             except os_exc.ConflictException:
                 LOG.error("vlan ids already in use on trunk")
                 for port in ports:
-                    os_net.delete_port(port.id)
+                    utils.delete_port(port)
+                for subport_info in subports_info:
+                    self._release_vlan_id(subport_info['segmentation_id'])
                 return []
         except os_exc.SDKException:
             LOG.exception("Error happened during subport addition to trunk")
             for port in ports:
-                os_net.delete_port(port.id)
+                utils.delete_port(port)
+            for subport_info in subports_info:
+                self._release_vlan_id(subport_info['segmentation_id'])
             return []
 
         vifs = []
@@ -257,6 +263,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                               vlan_id)
                     raise
             except os_exc.SDKException:
+                self._release_vlan_id(vlan_id)
                 LOG.exception("Error happened during subport "
                               "addition to trunk %s", trunk_id)
                 raise
