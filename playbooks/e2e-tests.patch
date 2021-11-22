@@ -1,0 +1,58 @@
+diff --git a/test/e2e/framework/pod/wait.go b/test/e2e/framework/pod/wait.go
+index 61ab7997ce6..eabf38006ad 100644
+--- a/test/e2e/framework/pod/wait.go
++++ b/test/e2e/framework/pod/wait.go
+@@ -51,7 +51,7 @@ const (
+ 	podScheduledBeforeTimeout = podListTimeout + (20 * time.Second)
+ 
+ 	// podStartTimeout is how long to wait for the pod to be started.
+-	podStartTimeout = 5 * time.Minute
++	podStartTimeout = 2 * time.Minute
+ 
+ 	// poll is how often to poll pods, nodes and claims.
+ 	poll = 2 * time.Second
+diff --git a/test/e2e/network/netpol/network_legacy.go b/test/e2e/network/netpol/network_legacy.go
+index fb52460560c..895f4c3df85 100644
+--- a/test/e2e/network/netpol/network_legacy.go
++++ b/test/e2e/network/netpol/network_legacy.go
+@@ -435,6 +435,7 @@ var _ = common.SIGDescribe("NetworkPolicyLegacy [LinuxOnly]", func() {
+ 
+ 			policy, err = f.ClientSet.NetworkingV1().NetworkPolicies(nsA.Name).Create(context.TODO(), policy, metav1.CreateOptions{})
+ 			framework.ExpectNoError(err, "Error creating Network Policy %v: %v", policy.ObjectMeta.Name, err)
++			time.Sleep(60 * time.Second)
+ 			defer cleanupNetworkPolicy(f, policy)
+ 
+ 			testCannotConnect(f, nsB, "client-a", service, 80)
+@@ -957,6 +958,7 @@ var _ = common.SIGDescribe("NetworkPolicyLegacy [LinuxOnly]", func() {
+ 			// Client cannot connect to service after updating the server pod's labels to match the network policy's selector.
+ 			ginkgo.By(fmt.Sprintf("Updating server pod %s to be selected by network policy %s.", podServer.Name, policy.Name))
+ 			updatePodLabel(f, f.Namespace, podServer.Name, "add", "/metadata/labels/isolated", nil)
++			time.Sleep(60 * time.Second)
+ 			testCannotConnect(f, f.Namespace, "client-a", service, allowedPort)
+ 		})
+ 
+@@ -1103,6 +1105,7 @@ var _ = common.SIGDescribe("NetworkPolicyLegacy [LinuxOnly]", func() {
+ 			}
+ 
+ 			policyAllowToServerInNSB, err = f.ClientSet.NetworkingV1().NetworkPolicies(f.Namespace.Name).Create(context.TODO(), policyAllowToServerInNSB, metav1.CreateOptions{})
++			time.Sleep(60 * time.Second)
+ 			framework.ExpectNoError(err, "Error occurred while creating policy: policyAllowToServerInNSB.")
+ 			defer cleanupNetworkPolicy(f, policyAllowToServerInNSB)
+ 
+@@ -1807,6 +1810,7 @@ var _ = common.SIGDescribe("NetworkPolicy [Feature:SCTPConnectivity][LinuxOnly][
+ 
+ 			ginkgo.By("Testing pods can connect only to the port allowed by the policy.")
+ 			testCannotConnectProtocol(f, f.Namespace, "client-a", service, 80, v1.ProtocolSCTP)
++			time.Sleep(60 * time.Second)
+ 			testCanConnectProtocol(f, f.Namespace, "client-b", service, 81, v1.ProtocolSCTP)
+ 		})
+ 
+@@ -2143,7 +2147,7 @@ func createNetworkClientPodWithRestartPolicy(f *framework.Framework, namespace *
+ 					Command: []string{"/bin/sh"},
+ 					Args: []string{
+ 						"-c",
+-						fmt.Sprintf("for i in $(seq 1 5); do /agnhost connect %s --protocol %s --timeout 8s && exit 0 || sleep 1; done; exit 1", net.JoinHostPort(targetService.Spec.ClusterIP, strconv.Itoa(targetPort)), connectProtocol),
++						fmt.Sprintf("sleep 30; for i in $(seq 1 300); do /agnhost connect %s --protocol %s --timeout 8s && exit 0 || sleep 1; done; exit 1", net.JoinHostPort(targetService.Spec.ClusterIP, strconv.Itoa(targetPort)), connectProtocol),
+ 					},
+ 				},
+ 			},

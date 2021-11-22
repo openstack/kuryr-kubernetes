@@ -44,13 +44,12 @@
         force: yes
 
     - name: Patch e2e tests
-      shell: |
-        sed -i 's/podStartTimeout = .*/podStartTimeout = 2 * time.Minute/' test/e2e/framework/pod/wait.go
-        sed -i 's/for i in $(seq 1 5)/sleep {{ np_sleep }};for i in $(seq 1 300)/' test/e2e/network/network_policy.go
-        sed -i '/"add", "\/metadata\/labels\/isolated", nil)/a\\t\t\ttime.Sleep(60 * time.Second)' test/e2e/network/network_policy.go
-        sed -i '/f, f.Namespace, "client-a", service, 80, v1.ProtocolSCTP)/a \\t\t\ttime.Sleep(60 * time.Second)' test/e2e/network/network_policy.go
-      args:
-        chdir: ~/kubernetes
+      # TODO(gryf): for some reason 'patch' plugin doesn't work
+      block:
+      - name: patch the kubernetes tests
+        shell: patch -Np1 < /opt/stack/kuryr-kubernetes/playbooks/e2e-tests.patch
+        args:
+          chdir: ~/kubernetes
 
     - name: Build e2e tests
       block:
@@ -86,10 +85,10 @@
         group: zuul
       become: yes
 
-    - name: Run Network Policy tests
+    - name: Run Network Policy legacy tests
       block:
       - name: Run Network Policy tests without SCTPConnectivity
-        shell: kubetest --provider=local --check-version-skew=false --test --ginkgo-parallel={{ np_parallel_number }} --test_args="--ginkgo.focus=\[Feature:NetworkPolicy --ginkgo.skip=\[Feature:SCTPConnectivity|should.enforce.policies.to.check.ingress.and.egress.policies.can.be.controlled.independently.based.on.PodSelector" --dump=/tmp > ~/np_kubetest.log
+        shell: kubetest --provider=local --check-version-skew=false --test --ginkgo-parallel={{ np_parallel_number }} --test_args="--ginkgo.focus=NetworkPolicyLegacy --ginkgo.skip=\[Feature:SCTPConnectivity|should.enforce.policies.to.check.ingress.and.egress.policies.can.be.controlled.independently.based.on.PodSelector" --dump=/tmp > ~/np_kubetest.log
         args:
           chdir: ~/kubernetes
         environment:
