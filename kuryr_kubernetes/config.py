@@ -203,6 +203,14 @@ k8s_opts = [
                help=_("The prefix to use for additional vifs created by "
                       " multi_vif drivers"),
                default='eth'),
+    cfg.BoolOpt('use_events',
+                help=_('Use Kubernetes Events objects to indicate status of '
+                       'Kuryr created OpenStack objects like networking for '
+                       'pods (Neutron ports) or services (Octavia '
+                       'loadbalancers). It might have impact on performance '
+                       'on Kubernetes cluster, since all objects (so the '
+                       'Event objects too) are stored on etcd.'),
+                default=True),
 ]
 
 neutron_defaults = [
