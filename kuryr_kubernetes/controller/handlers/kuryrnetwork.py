@@ -133,10 +133,6 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
             try:
                 self._drv_subnets.delete_namespace_subnet(kuryrnet_crd)
             except k_exc.ResourceNotReady:
-                self.k8s.add_event(kuryrnet_crd,
-                                   'RemoveNeutronResourcesFailed',
-                                   f'Cannot remove Neutron resources for '
-                                   f'network {net_id}', type_='Warning')
                 LOG.debug("Subnet is not ready to be removed.")
                 # TODO(ltomasbo): Once KuryrPort CRDs is supported, we should
                 # execute a delete network ports method here to remove the
