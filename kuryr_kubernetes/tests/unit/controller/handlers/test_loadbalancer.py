@@ -259,81 +259,6 @@ class FakeLBaaSDriver(drv_base.LBaaSDriver):
 @mock.patch('kuryr_kubernetes.utils.get_subnets_id_cidrs',
             mock.Mock(return_value=[('id', 'cidr')]))
 class TestKuryrLoadBalancerHandler(test_base.TestCase):
-    @mock.patch('kuryr_kubernetes.utils.get_subnet_cidr')
-    @mock.patch('kuryr_kubernetes.controller.drivers.base.'
-                'ServiceProjectDriver.get_instance')
-    @mock.patch('kuryr_kubernetes.controller.drivers.base.'
-                'ServiceSecurityGroupsDriver.get_instance')
-    @mock.patch('kuryr_kubernetes.config.CONF')
-    @mock.patch('kuryr_kubernetes.controller.drivers.base'
-                '.ServicePubIpDriver.get_instance')
-    @mock.patch('kuryr_kubernetes.controller.drivers.base'
-                '.PodSubnetsDriver.get_instance')
-    @mock.patch('kuryr_kubernetes.controller.drivers.base'
-                '.PodProjectDriver.get_instance')
-    @mock.patch('kuryr_kubernetes.controller.drivers.base'
-                '.LBaaSDriver.get_instance')
-    @mock.patch('kuryr_kubernetes.controller.drivers.base'
-                '.NodesSubnetsDriver.get_instance')
-    def test_init(self, m_get_drv_node_subnets, m_get_drv_lbaas,
-                  m_get_drv_project, m_get_drv_subnets,
-                  m_get_drv_service_pub_ip, m_cfg, m_get_svc_sg_drv,
-                  m_get_svc_drv_project, m_get_cidr):
-        m_get_drv_lbaas.return_value = mock.sentinel.drv_lbaas
-        m_get_drv_project.return_value = mock.sentinel.drv_project
-        m_get_drv_subnets.return_value = mock.sentinel.drv_subnets
-        m_get_cidr.return_value = '10.0.0.128/26'
-        m_get_drv_service_pub_ip.return_value = mock.sentinel.drv_lb_ip
-        m_get_svc_drv_project.return_value = mock.sentinel.drv_svc_project
-        m_get_svc_sg_drv.return_value = mock.sentinel.drv_sg
-        m_get_drv_node_subnets.return_value = mock.sentinel.drv_node_subnets
-        handler = h_lb.KuryrLoadBalancerHandler()
-
-        self.assertEqual(mock.sentinel.drv_lbaas, handler._drv_lbaas)
-        self.assertEqual(mock.sentinel.drv_project, handler._drv_pod_project)
-        self.assertEqual(mock.sentinel.drv_subnets, handler._drv_pod_subnets)
-        self.assertEqual(mock.sentinel.drv_lb_ip, handler._drv_service_pub_ip)
-        self.assertEqual(mock.sentinel.drv_node_subnets,
-                         handler._drv_nodes_subnets)
-
-    @mock.patch('kuryr_kubernetes.utils.get_subnet_cidr')
-    @mock.patch('kuryr_kubernetes.controller.drivers.base.'
-                'ServiceProjectDriver.get_instance')
-    @mock.patch('kuryr_kubernetes.controller.drivers.base.'
-                'ServiceSecurityGroupsDriver.get_instance')
-    @mock.patch('kuryr_kubernetes.config.CONF')
-    @mock.patch('kuryr_kubernetes.controller.drivers.base'
-                '.ServicePubIpDriver.get_instance')
-    @mock.patch('kuryr_kubernetes.controller.drivers.base'
-                '.PodSubnetsDriver.get_instance')
-    @mock.patch('kuryr_kubernetes.controller.drivers.base'
-                '.PodProjectDriver.get_instance')
-    @mock.patch('kuryr_kubernetes.controller.drivers.base'
-                '.LBaaSDriver.get_instance')
-    @mock.patch('kuryr_kubernetes.controller.drivers.base'
-                '.NodesSubnetsDriver.get_instance')
-    def test_init_provider_ovn(self, m_get_drv_node_subnets, m_get_drv_lbaas,
-                               m_get_drv_project, m_get_drv_subnets,
-                               m_get_drv_service_pub_ip, m_cfg,
-                               m_get_svc_sg_drv, m_get_svc_drv_project,
-                               m_get_cidr):
-        m_get_cidr.return_value = '10.0.0.128/26'
-        m_get_drv_lbaas.return_value = mock.sentinel.drv_lbaas
-        m_get_drv_project.return_value = mock.sentinel.drv_project
-        m_get_drv_subnets.return_value = mock.sentinel.drv_subnets
-        m_get_drv_service_pub_ip.return_value = mock.sentinel.drv_lb_ip
-        m_get_svc_drv_project.return_value = mock.sentinel.drv_svc_project
-        m_get_svc_sg_drv.return_value = mock.sentinel.drv_sg
-        m_get_drv_node_subnets.return_value = mock.sentinel.drv_node_subnets
-        handler = h_lb .KuryrLoadBalancerHandler()
-
-        self.assertEqual(mock.sentinel.drv_lbaas, handler._drv_lbaas)
-        self.assertEqual(mock.sentinel.drv_project, handler._drv_pod_project)
-        self.assertEqual(mock.sentinel.drv_subnets, handler._drv_pod_subnets)
-        self.assertEqual(mock.sentinel.drv_lb_ip, handler._drv_service_pub_ip)
-        self.assertEqual(mock.sentinel.drv_node_subnets,
-                         handler._drv_nodes_subnets)
-
     def test_on_present(self):
         m_drv_service_pub_ip = mock.Mock()
         m_drv_service_pub_ip.acquire_service_pub_ip_info.return_value = None
@@ -670,14 +595,16 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
         lbaas_spec = {}
         lbaas.load_balancers.return_value = []
 
-        selflink = ['/apis/openstack.org/v1/namespaces/default/'
-                    'kuryrloadbalancers/test',
-                    '/apis/openstack.org/v1/namespaces/default/'
-                    'kuryrloadbalancers/demo']
+        expected_selflink = ['/apis/openstack.org/v1/namespaces/default/'
+                             'kuryrloadbalancers/test',
+                             '/apis/openstack.org/v1/namespaces/default/'
+                             'kuryrloadbalancers/demo']
         h_lb.KuryrLoadBalancerHandler._trigger_loadbalancer_reconciliation(
             m_handler, loadbalancer_crds)
         lbaas.load_balancers.assert_called_once_with(**lbaas_spec)
-        m_handler._reconcile_lbaas.assert_called_with(selflink)
+        selflink = [c['selflink'] for c
+                    in m_handler._reconcile_lbaas.call_args[0][0]]
+        self.assertEqual(expected_selflink, selflink)
 
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'

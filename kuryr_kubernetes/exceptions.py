@@ -42,6 +42,13 @@ class ResourceNotReady(Exception):
         super(ResourceNotReady, self).__init__("Resource not ready: %r" % msg)
 
 
+class KuryrLoadBalancerNotCreated(Exception):
+    def __init__(self, res):
+        name = utils.get_res_unique_name(res)
+        super().__init__(
+            'KuryrLoadBalancer not created yet for the Service %s' % name)
+
+
 class LoadBalancerNotReady(ResourceNotReady):
     def __init__(self, loadbalancer_id, status):
         super().__init__(

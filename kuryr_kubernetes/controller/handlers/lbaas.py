@@ -26,6 +26,7 @@ from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes import utils
 
 LOG = logging.getLogger(__name__)
+CONF = config.CONF
 
 SUPPORTED_SERVICE_TYPES = ('ClusterIP', 'LoadBalancer')
 
@@ -45,6 +46,15 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         self._drv_project = drv_base.ServiceProjectDriver.get_instance()
         self._drv_subnets = drv_base.ServiceSubnetsDriver.get_instance()
         self._drv_sg = drv_base.ServiceSecurityGroupsDriver.get_instance()
+        self._drv_lbaas = drv_base.LBaaSDriver.get_instance()
+        self.k8s = clients.get_kubernetes_client()
+
+        self._lb_provider = None
+        if self._drv_lbaas.providers_supported():
+            self._lb_provider = 'amphora'
+            config_provider = CONF.kubernetes.endpoints_driver_octavia_provider
+            if config_provider != 'default':
+                self._lb_provider = config_provider
 
     def _bump_network_policies(self, svc):
         if driver_utils.is_network_policy_enabled():
@@ -53,16 +63,21 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
     def on_present(self, service, *args, **kwargs):
         reason = self._should_ignore(service)
         if reason:
-            LOG.debug(reason, service['metadata']['name'])
+            reason %= utils.get_res_unique_name(service)
+            LOG.debug(reason)
+            self.k8s.add_event(service, 'KuryrServiceSkipped', reason)
             return
 
-        k8s = clients.get_kubernetes_client()
-        loadbalancer_crd = k8s.get_loadbalancer_crd(service)
+        loadbalancer_crd = self.k8s.get_loadbalancer_crd(service)
         try:
             if not self._patch_service_finalizer(service):
                 return
         except k_exc.K8sClientException as ex:
-            LOG.exception("Failed to set service finalizer: %s", ex)
+            msg = (f'K8s API error when adding finalizer to Service '
+                   f'{utils.get_res_unique_name(service)}')
+            LOG.exception(msg)
+            self.k8s.add_event(service, 'KuryrAddServiceFinalizerError',
+                               f'{msg}: {ex}', 'Warning')
             raise
 
         if loadbalancer_crd is None:
@@ -108,20 +123,17 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         return None
 
     def _patch_service_finalizer(self, service):
-        k8s = clients.get_kubernetes_client()
-        return k8s.add_finalizer(service, k_const.SERVICE_FINALIZER)
+        return self.k8s.add_finalizer(service, k_const.SERVICE_FINALIZER)
 
     def on_finalize(self, service, *args, **kwargs):
-        k8s = clients.get_kubernetes_client()
-
         klb_crd_path = utils.get_klb_crd_path(service)
         # Bump all the NPs in the namespace to force SG rules
         # recalculation.
         self._bump_network_policies(service)
         try:
-            k8s.delete(klb_crd_path)
+            self.k8s.delete(klb_crd_path)
         except k_exc.K8sResourceNotFound:
-            k8s.remove_finalizer(service, k_const.SERVICE_FINALIZER)
+            self.k8s.remove_finalizer(service, k_const.SERVICE_FINALIZER)
 
     def _has_clusterip(self, service):
         # ignore headless service, clusterIP is None
@@ -149,17 +161,25 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         svc_namespace = service['metadata']['namespace']
         kubernetes = clients.get_kubernetes_client()
         spec = self._build_kuryrloadbalancer_spec(service)
+
+        owner_reference = {
+            'apiVersion': service['apiVersion'],
+            'kind': service['kind'],
+            'name': service['metadata']['name'],
+            'uid': service['metadata']['uid'],
+        }
+
         loadbalancer_crd = {
             'apiVersion': 'openstack.org/v1',
             'kind': 'KuryrLoadBalancer',
             'metadata': {
                 'name': svc_name,
                 'finalizers': [k_const.KURYRLB_FINALIZER],
-                },
+                'ownerReferences': [owner_reference],
+            },
             'spec': spec,
-            'status': {
-                }
-            }
+            'status': {},
+        }
 
         try:
             kubernetes.post('{}/{}/kuryrloadbalancers'.format(
@@ -169,8 +189,12 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
             raise k_exc.ResourceNotReady(svc_name)
         except k_exc.K8sNamespaceTerminating:
             raise
-        except k_exc.K8sClientException:
+        except k_exc.K8sClientException as e:
             LOG.exception("Exception when creating KuryrLoadBalancer CRD.")
+            self.k8s.add_event(
+                service, 'CreateKLBFailed',
+                'Error when creating KuryrLoadBalancer object: %s' % e,
+                'Warning')
             raise
 
     def _update_crd_spec(self, loadbalancer_crd, service):
@@ -185,13 +209,17 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
             LOG.debug('KuryrLoadBalancer CRD not found %s', loadbalancer_crd)
         except k_exc.K8sConflict:
             raise k_exc.ResourceNotReady(svc_name)
-        except k_exc.K8sClientException:
+        except k_exc.K8sClientException as e:
             LOG.exception('Error updating kuryrnet CRD %s', loadbalancer_crd)
+            self.k8s.add_event(
+                service, 'UpdateKLBFailed',
+                'Error when updating KuryrLoadBalancer object: %s' % e,
+                'Warning')
             raise
 
     def _get_data_timeout_annotation(self, service):
-        default_timeout_cli = config.CONF.octavia_defaults.timeout_client_data
-        default_timeout_mem = config.CONF.octavia_defaults.timeout_member_data
+        default_timeout_cli = CONF.octavia_defaults.timeout_client_data
+        default_timeout_mem = CONF.octavia_defaults.timeout_member_data
         try:
             annotations = service['metadata']['annotations']
         except KeyError:
@@ -220,13 +248,16 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         subnet_id = self._get_subnet_id(service, project_id, svc_ip)
         spec_type = service['spec'].get('type')
         spec = {
-                'ip': svc_ip,
-                'ports': ports,
-                'project_id': project_id,
-                'security_groups_ids': sg_ids,
-                'subnet_id': subnet_id,
-                'type': spec_type
-            }
+            'ip': svc_ip,
+            'ports': ports,
+            'project_id': project_id,
+            'security_groups_ids': sg_ids,
+            'subnet_id': subnet_id,
+            'type': spec_type,
+        }
+
+        if self._lb_provider:
+            spec['provider'] = self._lb_provider
 
         if spec_lb_ip is not None:
             spec['lb_ip'] = spec_lb_ip
@@ -288,25 +319,13 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
 
     def __init__(self):
         super(EndpointsHandler, self).__init__()
-        self._drv_lbaas = drv_base.LBaaSDriver.get_instance()
-        # Note(yboaron) LBaaS driver supports 'provider' parameter in
-        # Load Balancer creation flow.
-        # We need to set the requested load balancer provider
-        # according to 'endpoints_driver_octavia_provider' configuration.
-        self._lb_provider = None
-        if self._drv_lbaas.providers_supported():
-            self._lb_provider = 'amphora'
-            if (config.CONF.kubernetes.endpoints_driver_octavia_provider
-                    != 'default'):
-                self._lb_provider = (
-                    config.CONF.kubernetes.endpoints_driver_octavia_provider)
+        self.k8s = clients.get_kubernetes_client()
 
     def on_present(self, endpoints, *args, **kwargs):
         ep_name = endpoints['metadata']['name']
         ep_namespace = endpoints['metadata']['namespace']
 
-        k8s = clients.get_kubernetes_client()
-        loadbalancer_crd = k8s.get_loadbalancer_crd(endpoints)
+        loadbalancer_crd = self.k8s.get_loadbalancer_crd(endpoints)
 
         if (not (self._has_pods(endpoints) or (loadbalancer_crd and
                                                loadbalancer_crd.get('status')))
@@ -318,15 +337,14 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
             return
 
         if loadbalancer_crd is None:
+            raise k_exc.KuryrLoadBalancerNotCreated(endpoints)
+        else:
             try:
-                self._create_crd_spec(endpoints)
+                self._update_crd_spec(loadbalancer_crd, endpoints)
             except k_exc.K8sNamespaceTerminating:
                 LOG.warning('Namespace %s is being terminated, ignoring '
                             'Endpoints %s in that namespace.',
                             ep_namespace, ep_name)
-                return
-        else:
-            self._update_crd_spec(loadbalancer_crd, endpoints)
 
     def on_deleted(self, endpoints, *args, **kwargs):
         self._remove_endpoints(endpoints)
@@ -365,84 +383,52 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
 
         return endpointslices
 
-    def _create_crd_spec(self, endpoints, spec=None, status=None):
-        endpoints_name = endpoints['metadata']['name']
-        namespace = endpoints['metadata']['namespace']
-        kubernetes = clients.get_kubernetes_client()
-
-        # TODO(maysams): Remove the convertion once we start handling
-        # Endpoint slices.
-        epslices = self._convert_subsets_to_endpointslice(endpoints)
-        if not status:
-            status = {}
-        if not spec:
-            spec = {'endpointSlices': epslices}
-
-        # NOTE(maysams): As the spec may already contain a
-        # ports field from the Service, a new endpointslice
-        # field is introduced to also hold ports from the
-        # Endpoints under the spec.
-        loadbalancer_crd = {
-            'apiVersion': 'openstack.org/v1',
-            'kind': 'KuryrLoadBalancer',
-            'metadata': {
-                'name': endpoints_name,
-                'finalizers': [k_const.KURYRLB_FINALIZER],
-            },
-            'spec': spec,
-            'status': status,
-        }
-
-        if self._lb_provider:
-            loadbalancer_crd['spec']['provider'] = self._lb_provider
-
+    def _add_event(self, endpoints, reason, message, type_=None):
+        """_add_event adds an event for the corresponding Service."""
         try:
-            kubernetes.post('{}/{}/kuryrloadbalancers'.format(
-                k_const.K8S_API_CRD_NAMESPACES, namespace), loadbalancer_crd)
-        except k_exc.K8sConflict:
-            raise k_exc.ResourceNotReady(loadbalancer_crd)
-        except k_exc.K8sNamespaceTerminating:
-            raise
+            service = self.k8s.get(utils.get_service_link(endpoints))
         except k_exc.K8sClientException:
-            LOG.exception("Exception when creating KuryrLoadBalancer CRD.")
-            raise
+            LOG.debug('Error when fetching Service to add an event %s, '
+                      'ignoring', utils.get_res_unique_name(endpoints))
+            return
+        kwargs = {'type_': type_} if type_ else {}
+        self.k8s.add_event(service, reason, message, **kwargs)
 
     def _update_crd_spec(self, loadbalancer_crd, endpoints):
-        kubernetes = clients.get_kubernetes_client()
-        # TODO(maysams): Remove the convertion once we start handling
-        # Endpoint slices.
+        # TODO(maysams): Remove the conversion once we start handling
+        # EndpointSlices.
         epslices = self._convert_subsets_to_endpointslice(endpoints)
-        spec = {'endpointSlices': epslices}
-        if self._lb_provider:
-            spec['provider'] = self._lb_provider
         try:
-            kubernetes.patch_crd(
-                'spec',
-                utils.get_res_link(loadbalancer_crd),
-                spec)
+            self.k8s.patch_crd('spec', utils.get_res_link(loadbalancer_crd),
+                               {'endpointSlices': epslices})
         except k_exc.K8sResourceNotFound:
             LOG.debug('KuryrLoadbalancer CRD not found %s', loadbalancer_crd)
         except k_exc.K8sConflict:
             raise k_exc.ResourceNotReady(loadbalancer_crd)
-        except k_exc.K8sClientException:
+        except k_exc.K8sClientException as e:
             LOG.exception('Error updating KuryrLoadbalancer CRD %s',
                           loadbalancer_crd)
+            self._add_event(
+                endpoints, 'UpdateKLBFailed',
+                'Error when updating KuryrLoadBalancer object: %s' % e,
+                'Warning')
             raise
 
         return True
 
     def _remove_endpoints(self, endpoints):
-        kubernetes = clients.get_kubernetes_client()
         lb_name = endpoints['metadata']['name']
         try:
-            kubernetes.patch_crd('spec',
-                                 utils.get_klb_crd_path(endpoints),
-                                 'endpointSlices',
-                                 action='remove')
+            self.k8s.patch_crd('spec', utils.get_klb_crd_path(endpoints),
+                               'endpointSlices', action='remove')
         except k_exc.K8sResourceNotFound:
             LOG.debug('KuryrLoadBalancer CRD not found %s', lb_name)
         except k_exc.K8sUnprocessableEntity:
             LOG.warning('KuryrLoadBalancer %s modified, ignoring.', lb_name)
-        except k_exc.K8sClientException:
+        except k_exc.K8sClientException as e:
             LOG.exception('Error updating KuryrLoadBalancer CRD %s', lb_name)
+            self._add_event(
+                endpoints, 'UpdateKLBFailed',
+                'Error when updating KuryrLoadBalancer object: %s' % e,
+                'Warning')
             raise

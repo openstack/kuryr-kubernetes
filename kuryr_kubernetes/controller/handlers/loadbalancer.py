@@ -53,26 +53,56 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         self._drv_svc_project = drv_base.ServiceProjectDriver.get_instance()
         self._drv_sg = drv_base.ServiceSecurityGroupsDriver.get_instance()
         self._drv_nodes_subnets = drv_base.NodesSubnetsDriver.get_instance()
+        self.k8s = clients.get_kubernetes_client()
 
     def _get_nodes_subnets(self):
         return utils.get_subnets_id_cidrs(
             self._drv_nodes_subnets.get_nodes_subnets())
 
+    def _add_event(self, klb, reason, message, type_=None):
+        """_add_event adds an event for the corresponding Service."""
+        klb_meta = klb['metadata']
+        for ref in klb_meta.get('ownerReferences', []):
+            # "mock" a Service based on ownerReference to it.
+            if ref['kind'] == 'Service' and ref['name'] == klb_meta['name']:
+                service = {
+                    'apiVersion': ref['apiVersion'],
+                    'kind': ref['kind'],
+                    'metadata': {
+                        'name': ref['name'],
+                        'uid': ref['uid'],
+                        'namespace': klb_meta['namespace'],  # ref shares ns
+                    },
+                }
+                break
+        else:
+            # No reference, just fetch the service from the API.
+            try:
+                service = self.k8s.get(
+                    f"{k_const.K8S_API_NAMESPACES}/{klb_meta['namespace']}"
+                    f"/services/{klb_meta['name']}")
+            except k_exc.K8sClientException:
+                LOG.debug('Error when fetching Service to add an event %s, '
+                          'ignoring', utils.get_res_unique_name(klb))
+                return
+        kwargs = {'type_': type_} if type_ else {}
+        self.k8s.add_event(service, reason, message, **kwargs)
+
     def on_present(self, loadbalancer_crd, *args, **kwargs):
         if loadbalancer_crd.get('status', None) is None:
-            kubernetes = clients.get_kubernetes_client()
             try:
-                kubernetes.patch_crd('status',
-                                     utils.get_res_link(loadbalancer_crd),
-                                     {})
+                self.k8s.patch_crd('status',
+                                   utils.get_res_link(loadbalancer_crd), {})
             except k_exc.K8sResourceNotFound:
                 LOG.debug('KuryrLoadbalancer CRD not found %s',
                           utils.get_res_unique_name(loadbalancer_crd))
             return
 
-        if self._should_ignore(loadbalancer_crd):
-            LOG.debug("Ignoring Kubernetes service %s",
-                      loadbalancer_crd['metadata']['name'])
+        reason = self._should_ignore(loadbalancer_crd)
+        if reason:
+            reason %= utils.get_res_unique_name(loadbalancer_crd)
+            LOG.debug(reason)
+            self._add_event(loadbalancer_crd, 'KuryrServiceSkipped', reason)
             return
 
         crd_lb = loadbalancer_crd['status'].get('loadbalancer')
@@ -83,15 +113,34 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
             if not lb_provider or lb_provider in OCTAVIA_DEFAULT_PROVIDERS:
                 if (spec_lb_provider and
                         spec_lb_provider not in OCTAVIA_DEFAULT_PROVIDERS):
+                    self._add_event(loadbalancer_crd, 'KuryrUpdateProvider',
+                                    'Deleting Amphora load balancer to '
+                                    'recreate it with OVN provider')
                     self._ensure_release_lbaas(loadbalancer_crd)
 
             # ovn to amphora downgrade
             elif lb_provider and lb_provider not in OCTAVIA_DEFAULT_PROVIDERS:
                 if (not spec_lb_provider or
                         spec_lb_provider in OCTAVIA_DEFAULT_PROVIDERS):
+                    self._add_event(loadbalancer_crd, 'KuryrUpdateProvider',
+                                    'Deleting OVN load balancer to '
+                                    'recreate it with Amphora provider')
                     self._ensure_release_lbaas(loadbalancer_crd)
 
-        if self._sync_lbaas_members(loadbalancer_crd):
+        if not crd_lb:
+            self._add_event(loadbalancer_crd, 'KuryrEnsureLB',
+                            'Provisioning a load balancer')
+        try:
+            changed = self._sync_lbaas_members(loadbalancer_crd)
+        except Exception as e:
+            self._add_event(
+                loadbalancer_crd, 'KuryrEnsureLBError',
+                f'Error when provisioning load balancer: {e}', 'Warning')
+            raise
+
+        if changed:
+            self._add_event(loadbalancer_crd, 'KuryrEnsuredLB',
+                            'Load balancer provisioned')
             # Note(yboaron) For LoadBalancer services, we should allocate FIP,
             # associate it to LB VIP and update K8S service status
             lb_ip = loadbalancer_crd['spec'].get('lb_ip')
@@ -106,6 +155,9 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                         loadbalancer_crd['status']['loadbalancer'][
                             'port_id']))
                 if service_pub_ip_info:
+                    self._add_event(
+                        loadbalancer_crd, 'KuryrEnsureFIP',
+                        'Associating floating IP to the load balancer')
                     self._drv_service_pub_ip.associate_pub_ip(
                         service_pub_ip_info, loadbalancer_crd['status'][
                             'loadbalancer']['port_id'])
@@ -128,10 +180,12 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
     def _trigger_loadbalancer_reconciliation(self, loadbalancer_crds):
         LOG.debug("Reconciling the loadbalancer CRDs")
         # get the loadbalancers id in the CRD status
-        crd_loadbalancer_ids = [{'id': loadbalancer_crd.get('status', {}).get(
-                                'loadbalancer', {}).get('id', {}), 'selflink':
-                                utils.get_res_link(loadbalancer_crd)} for
-                                loadbalancer_crd in loadbalancer_crds]
+        crd_loadbalancer_ids = [
+            {'id': loadbalancer_crd.get('status', {}).get(
+                'loadbalancer', {}).get('id', {}),
+             'selflink': utils.get_res_link(loadbalancer_crd),
+             'klb': loadbalancer_crd} for
+            loadbalancer_crd in loadbalancer_crds]
         lbaas = clients.get_loadbalancer_client()
         lbaas_spec = {}
         self._drv_lbaas.add_tags('loadbalancer', lbaas_spec)
@@ -140,21 +194,24 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                             for loadbalancer in loadbalancers]
         # for each loadbalancer id in the CRD status, check if exists in
         # OpenStack
-        crds_to_reconcile_selflink = [crd_lb['selflink'] for crd_lb in
-                                      crd_loadbalancer_ids if
-                                      crd_lb['id'] not in loadbalancers_id]
-        if not crds_to_reconcile_selflink:
+        crds_to_reconcile = [crd_lb for crd_lb in crd_loadbalancer_ids
+                             if crd_lb['id'] not in loadbalancers_id]
+        if not crds_to_reconcile:
             LOG.debug("KuryrLoadBalancer CRDs already in sync with OpenStack")
             return
         LOG.debug("Reconciling the following KuryrLoadBalancer CRDs: %r",
-                  crds_to_reconcile_selflink)
-        self._reconcile_lbaas(crds_to_reconcile_selflink)
+                  [klb['id'] for klb in crds_to_reconcile])
+        self._reconcile_lbaas(crds_to_reconcile)
 
-    def _reconcile_lbaas(self, crds_to_reconcile_selflink):
-        kubernetes = clients.get_kubernetes_client()
-        for selflink in crds_to_reconcile_selflink:
+    def _reconcile_lbaas(self, crds_to_reconcile):
+        for entry in crds_to_reconcile:
+            selflink = entry['selflink']
             try:
-                kubernetes.patch_crd('status', selflink, {})
+                self._add_event(
+                    entry['klb'], 'LoadBalancerRecreating',
+                    'Load balancer for the Service seems to not exist anymore.'
+                    ' Recreating it.', 'Warning')
+                self.k8s.patch_crd('status', selflink, {})
             except k_exc.K8sResourceNotFound:
                 LOG.debug('Unable to reconcile the KuryLoadBalancer CRD %s',
                           selflink)
@@ -165,9 +222,12 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                 continue
 
     def _should_ignore(self, loadbalancer_crd):
-        return (not(self._has_endpoints(loadbalancer_crd) or
-                    loadbalancer_crd.get('status')) or not
-                loadbalancer_crd['spec'].get('ip'))
+        if not(self._has_endpoints(loadbalancer_crd) or
+               loadbalancer_crd.get('status')):
+            return 'Skipping Service %s without Endpoints'
+        elif not loadbalancer_crd['spec'].get('ip'):
+            return 'Skipping Service %s without IP set yet'
+        return False
 
     def _has_endpoints(self, loadbalancer_crd):
         ep_slices = loadbalancer_crd['spec'].get('endpointSlices', [])
@@ -179,9 +239,20 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         LOG.debug("Deleting the loadbalancer CRD")
 
         if loadbalancer_crd['status'] != {}:
-            # NOTE(ivc): deleting pool deletes its members
-            self._drv_lbaas.release_loadbalancer(
-                loadbalancer=loadbalancer_crd['status'].get('loadbalancer'))
+            self._add_event(loadbalancer_crd, 'KuryrReleaseLB',
+                            'Releasing the load balancer')
+            try:
+                # NOTE(ivc): deleting pool deletes its members
+                self._drv_lbaas.release_loadbalancer(
+                    loadbalancer_crd['status'].get('loadbalancer'))
+            except Exception as e:
+                # FIXME(dulek): It seems like if loadbalancer will be stuck in
+                #               PENDING_DELETE we'll just silently time out
+                #               waiting for it to be deleted. Is that expected?
+                self._add_event(
+                    loadbalancer_crd, 'KuryrReleaseLBError',
+                    f'Error when releasing load balancer: {e}', 'Warning')
+                raise
 
             try:
                 pub_info = loadbalancer_crd['status']['service_pub_ip_info']
@@ -189,43 +260,53 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                 pub_info = None
 
             if pub_info:
+                self._add_event(
+                    loadbalancer_crd, 'KuryrReleaseFIP',
+                    'Dissociating floating IP from the load balancer')
                 self._drv_service_pub_ip.release_pub_ip(
                     loadbalancer_crd['status']['service_pub_ip_info'])
 
-        kubernetes = clients.get_kubernetes_client()
         LOG.debug('Removing finalizer from KuryrLoadBalancer CRD %s',
                   loadbalancer_crd)
         try:
-            kubernetes.remove_finalizer(loadbalancer_crd,
-                                        k_const.KURYRLB_FINALIZER)
-        except k_exc.K8sClientException:
-            LOG.exception('Error removing kuryrloadbalancer CRD finalizer '
-                          'for %s', loadbalancer_crd)
+            self.k8s.remove_finalizer(loadbalancer_crd,
+                                      k_const.KURYRLB_FINALIZER)
+        except k_exc.K8sClientException as e:
+            msg = (f'K8s API error when removing finalizer from '
+                   f'KuryrLoadBalancer of Service '
+                   f'{utils.get_res_unique_name(loadbalancer_crd)}')
+            LOG.exception(msg)
+            self._add_event(loadbalancer_crd, 'KuryrRemoveLBFinalizerError',
+                            f'{msg}: {e}', 'Warning')
             raise
 
         namespace = loadbalancer_crd['metadata']['namespace']
         name = loadbalancer_crd['metadata']['name']
         try:
-            service = kubernetes.get(f"{k_const.K8S_API_NAMESPACES}"
-                                     f"/{namespace}/services/{name}")
-        except k_exc.K8sResourceNotFound as ex:
-            LOG.warning("Failed to get service: %s", ex)
+            service = self.k8s.get(f"{k_const.K8S_API_NAMESPACES}/{namespace}"
+                                   f"/services/{name}")
+        except k_exc.K8sResourceNotFound:
+            LOG.warning('Service %s not found. This is unexpected.',
+                        utils.get_res_unique_name(loadbalancer_crd))
             return
 
-        LOG.debug('Removing finalizer from service %s',
-                  service["metadata"]["name"])
+        LOG.debug('Removing finalizer from Service %s',
+                  utils.get_res_unique_name(service))
         try:
-            kubernetes.remove_finalizer(service, k_const.SERVICE_FINALIZER)
-        except k_exc.K8sClientException:
-            LOG.exception('Error removing service finalizer '
-                          'for %s', service["metadata"]["name"])
+            self.k8s.remove_finalizer(service, k_const.SERVICE_FINALIZER)
+        except k_exc.K8sClientException as e:
+            msg = (f'K8s API error when removing finalizer from Service '
+                   f'{utils.get_res_unique_name(service)}')
+            LOG.exception(msg)
+            self._add_event(
+                loadbalancer_crd, 'KuryrRemoveServiceFinalizerError',
+                f'{msg}: {e}', 'Warning')
             raise
 
     def _patch_status(self, loadbalancer_crd):
-        kubernetes = clients.get_kubernetes_client()
         try:
-            kubernetes.patch_crd('status', utils.get_res_link(
-                loadbalancer_crd), loadbalancer_crd['status'])
+            self.k8s.patch_crd('status', utils.get_res_link(loadbalancer_crd),
+                               loadbalancer_crd['status'])
         except k_exc.K8sResourceNotFound:
             LOG.debug('KuryrLoadBalancer CRD not found %s', loadbalancer_crd)
             return False
@@ -233,16 +314,20 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
             LOG.warning('KuryrLoadBalancer %s modified, retrying later.',
                         utils.get_res_unique_name(loadbalancer_crd))
             return False
-        except k_exc.K8sClientException:
-            LOG.exception('Error updating KuryLoadbalancer CRD %s',
-                          loadbalancer_crd)
+        except k_exc.K8sClientException as e:
+            msg = (f'K8s API error when updating status of '
+                   f'{utils.get_res_unique_name(loadbalancer_crd)} Service '
+                   f'load balancer')
+            LOG.exception(msg)
+            self._add_event(loadbalancer_crd, 'KuryrUpdateLBStatusError',
+                            f'{msg}: {e}', 'Warning')
             raise
         return True
 
     def _sync_lbaas_members(self, loadbalancer_crd):
         changed = False
 
-        if (self._remove_unused_members(loadbalancer_crd)):
+        if self._remove_unused_members(loadbalancer_crd):
             changed = True
 
         if self._sync_lbaas_pools(loadbalancer_crd):
@@ -258,9 +343,8 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         lb = klb_crd['status'].get('loadbalancer')
         svc_name = klb_crd['metadata']['name']
         svc_namespace = klb_crd['metadata']['namespace']
-        k8s = clients.get_kubernetes_client()
         try:
-            service = k8s.get(
+            service = self.k8s.get(
                 f'{k_const.K8S_API_NAMESPACES}/{svc_namespace}/'
                 f'services/{svc_name}')
         except k_exc.K8sResourceNotFound:
@@ -275,8 +359,9 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         lb['security_groups'] = lb_sgs
 
         try:
-            k8s.patch_crd('status/loadbalancer', utils.get_res_link(klb_crd),
-                          {'security_groups': lb_sgs})
+            self.k8s.patch_crd('status/loadbalancer',
+                               utils.get_res_link(klb_crd),
+                               {'security_groups': lb_sgs})
         except k_exc.K8sResourceNotFound:
             LOG.debug('KuryrLoadBalancer %s not found', svc_name)
             return None
@@ -284,8 +369,13 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
             LOG.debug('KuryrLoadBalancer entity not processable '
                       'due to missing loadbalancer field.')
             return None
-        except k_exc.K8sClientException:
-            LOG.exception('Error syncing KuryrLoadBalancer %s', svc_name)
+        except k_exc.K8sClientException as e:
+            msg = (f'K8s API error when updating SGs status of '
+                   f'{utils.get_res_unique_name(klb_crd)} Service load '
+                   f'balancer')
+            LOG.exception(msg)
+            self._add_event(klb_crd, 'KuryrUpdateLBStatusError',
+                            f'{msg}: {e}', 'Warning')
             raise
         return klb_crd
 
@@ -359,8 +449,14 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                         target_pod, target_ip, loadbalancer_crd)
 
                     if not member_subnet_id:
-                        LOG.warning("Skipping member creation for %s",
-                                    target_ip)
+                        msg = (
+                            f'Unable to determine ID of the subnet of member '
+                            f'{target_ip} for service '
+                            f'{utils.get_res_unique_name(loadbalancer_crd)}. '
+                            f'Skipping its creation')
+                        self._add_event(loadbalancer_crd, 'KuryrSkipMember',
+                                        msg, 'Warning')
+                        LOG.warning(msg)
                         continue
 
                     target_name, target_namespace = self._get_target_info(
@@ -617,8 +713,6 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         for port_spec in lbaas_spec_ports:
             protocol = port_spec['protocol']
             port = port_spec['port']
-            name = "%s:%s" % (loadbalancer_crd['status']['loadbalancer'][
-                'name'], protocol)
 
             listener = []
             for l in loadbalancer_crd['status'].get('listeners', []):
@@ -638,12 +732,23 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                 'listeners', []) if l['port'] == port]
 
             if listener and not self._drv_lbaas.double_listeners_supported():
-                LOG.warning("Skipping listener creation for %s as another one"
-                            " already exists with port %s", name, port)
+                msg = (
+                    f'Octavia does not support multiple listeners listening '
+                    f'on the same port. Skipping creation of listener '
+                    f'{protocol}:{port} because {listener["protocol"]}:'
+                    f'{listener["port"]} already exists for Service '
+                    f'{utils.get_res_unique_name(loadbalancer_crd)}')
+                self._add_event(loadbalancer_crd, 'KuryrSkipListener', msg,
+                                'Warning')
+                LOG.warning(msg)
                 continue
             if protocol == "SCTP" and not self._drv_lbaas.sctp_supported():
-                LOG.warning("Skipping listener creation as provider does"
-                            " not support %s protocol", protocol)
+                msg = (
+                    f'Skipping listener {protocol}:{port} creation as Octavia '
+                    f'does not support {protocol} protocol.')
+                self._add_event(loadbalancer_crd, 'KuryrSkipListener', msg,
+                                'Warning')
+                LOG.warning(msg)
                 continue
             listener = self._drv_lbaas.ensure_listener(
                 loadbalancer=loadbalancer_crd['status'].get('loadbalancer'),
@@ -697,17 +802,18 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         ns = lb_crd['metadata']['namespace']
         status_data = {"loadBalancer": {
                        "ingress": [{"ip": lb_ip_address.format()}]}}
-        k8s = clients.get_kubernetes_client()
         try:
-            k8s.patch("status", f"{k_const.K8S_API_NAMESPACES}"
-                                f"/{ns}/services/{name}/status",
-                                status_data)
+            self.k8s.patch("status", f"{k_const.K8S_API_NAMESPACES}"
+                                     f"/{ns}/services/{name}/status",
+                           status_data)
         except k_exc.K8sConflict:
             raise k_exc.ResourceNotReady(name)
-        except k_exc.K8sClientException:
-            LOG.exception("Kubernetes Client Exception"
-                          "when updating the svc status %s"
-                          % name)
+        except k_exc.K8sClientException as e:
+            msg = (f'K8s API error when updating external FIP data of Service '
+                   f'{utils.get_res_unique_name(lb_crd)}')
+            LOG.exception(msg)
+            self._add_event(lb_crd, 'KuryrUpdateServiceStatusError',
+                            f'{msg}: {e}', 'Warning')
             raise
 
     def _sync_lbaas_loadbalancer(self, loadbalancer_crd):
@@ -754,29 +860,26 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
 
     def _ensure_release_lbaas(self, loadbalancer_crd):
         attempts = 0
-        deadline = 0
-        retry = True
         timeout = config.CONF.kubernetes.watch_retry_timeout
-        while retry:
+        deadline = time.time() + timeout
+        while True:
             try:
-                if attempts == 1:
-                    deadline = time.time() + timeout
-                if (attempts > 0 and
-                        utils.exponential_sleep(deadline, attempts) == 0):
-                    LOG.error("Failed releasing lbaas '%s': deadline exceeded",
-                              loadbalancer_crd['status']['loadbalancer'][
-                                  'name'])
+                if not utils.exponential_sleep(deadline, attempts):
+                    msg = (f'Timed out waiting for deletion of load balancer '
+                           f'{utils.get_res_unique_name(loadbalancer_crd)}')
+                    self._add_event(
+                        loadbalancer_crd, 'KuryrLBReleaseTimeout', msg,
+                        'Warning')
+                    LOG.error(msg)
                     return
                 self._drv_lbaas.release_loadbalancer(
-                    loadbalancer=loadbalancer_crd['status'].get('loadbalancer')
-                )
-                retry = False
+                    loadbalancer_crd['status'].get('loadbalancer'))
+                break
             except k_exc.ResourceNotReady:
-                LOG.debug("Attempt (%s) of loadbalancer release %s failed."
+                LOG.debug("Attempt %s to release LB %s failed."
                           " A retry will be triggered.", attempts,
-                          loadbalancer_crd['status']['loadbalancer']['name'])
+                          utils.get_res_unique_name(loadbalancer_crd))
                 attempts += 1
-                retry = True
 
             loadbalancer_crd['status'] = {}
             self._patch_status(loadbalancer_crd)
