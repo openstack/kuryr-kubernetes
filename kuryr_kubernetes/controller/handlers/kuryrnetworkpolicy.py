@@ -61,7 +61,11 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
         except exceptions.K8sResourceNotFound:
             LOG.debug('KuryrNetworkPolicy CRD not found %s', name)
             return None
-        except exceptions.K8sClientException:
+        except exceptions.K8sClientException as exc:
+            np = utils.get_referenced_object(knp, 'NetworkPolicy')
+            self.k8s.add_event(np, 'FailedToPatchKuryrNetworkPolicy',
+                               f'Failed to update KuryrNetworkPolicy CRD: '
+                               f'{exc}', 'Warning')
             LOG.exception('Error updating KuryrNetworkPolicy CRD %s', name)
             raise
 
@@ -134,7 +138,7 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
         for sg_rule in to_add:
             LOG.debug('Adding SG rule %s for NP %s', sg_rule, uniq_name)
             sg_rule['security_group_id'] = sg_id
-            sgr_id = driver_utils.create_security_group_rule(sg_rule)
+            sgr_id = driver_utils.create_security_group_rule(sg_rule, knp)
             sg_rule['id'] = sgr_id
             knp = self._patch_kuryrnetworkpolicy_crd(
                 knp, 'status', {'securityGroupRules/-': sg_rule}, 'add')
@@ -150,7 +154,7 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
         for i, sg_rule_id in to_remove:
             LOG.debug('Removing SG rule %s as it is no longer part of NP %s',
                       sg_rule_id, uniq_name)
-            driver_utils.delete_security_group_rule(sg_rule_id)
+            driver_utils.delete_security_group_rule(sg_rule_id, knp)
             knp = self._patch_kuryrnetworkpolicy_crd(
                 knp, 'status/securityGroupRules', i, 'remove')
 
@@ -224,11 +228,10 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
     def _get_policy_net_id(self, knp):
         policy_ns = knp['metadata']['namespace']
 
-        kubernetes = clients.get_kubernetes_client()
         try:
             path = (f'{constants.K8S_API_CRD_NAMESPACES}/{policy_ns}/'
                     f'kuryrnetworks/{policy_ns}')
-            net_crd = kubernetes.get(path)
+            net_crd = self.k8s.get(path)
         except exceptions.K8sClientException:
             LOG.exception("Kubernetes Client Exception.")
             raise
@@ -274,7 +277,16 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
                 # Probably the network got removed already, we can ignore it.
                 pass
 
-            self._drv_policy.delete_np_sg(crd_sg)
+            try:
+                self._drv_policy.delete_np_sg(crd_sg)
+            except os_exc.SDKException as exc:
+                np = utils.get_referenced_object(knp, 'NetworkPolicy')
+                if np:
+                    self.k8s.add_event(np, 'FailedToRemoveSecurityGroup',
+                                       f'Deleting security group for '
+                                       f'corresponding Network Policy has '
+                                       f'failed: {exc}', 'Warning')
+                    raise
 
             if (CONF.octavia_defaults.enforce_sg_rules and policy and
                     not self._is_egress_only_policy(policy)):
