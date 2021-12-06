@@ -18,7 +18,6 @@ import collections
 import eventlet
 import os
 import threading
-import time
 
 from kuryr.lib._i18n import _
 from kuryr.lib import constants as kl_const
@@ -146,9 +145,6 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
     are the 'port_id' and the values are the vif objects.
     _recyclable_ports is a dictionary with the Neutron ports to be
     recycled. The keys are the 'port_id' and their values are the 'pool_key'.
-    _last_update is a dictionary with the timestamp of the last population
-    action for each pool. The keys are the pool_keys and the values are the
-    timestamps.
     _populate_pool_lock is a dict with the pool_key as key and a lock as value.
     Also, there is a _lock to control access to _populate_pool_lock dict.
 
@@ -228,12 +224,49 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
                     pool_key, pod, subnets, tuple(sorted(security_groups)))
             raise
 
-    def _get_port_from_pool(self, pool_key, pod, subnets, security_groups):
+    def _set_port_debug(self, port_id, pod):
+        """_set_port_debug sets name to the port to simplify debugging"""
         raise NotImplementedError()
 
     def _get_populate_pool_lock(self, pool_key):
         with self._lock:
             return self._populate_pool_lock[pool_key]
+
+    def _get_port_from_pool(self, pool_key, pod, subnets, security_groups):
+        try:
+            pool_ports = self._available_ports_pools[pool_key]
+        except (KeyError, AttributeError):
+            raise exceptions.ResourceNotReady(pod)
+
+        try:
+            port_id = pool_ports[security_groups].pop()
+        except (KeyError, IndexError):
+            # Get another port from the pool and update the SG to the
+            # appropriate one. It uses a port from the group that was updated
+            # longer ago - these will be at the front of the OrderedDict.
+            for sg_group, ports in pool_ports.items():
+                try:
+                    port_id = pool_ports[sg_group].pop()
+                    break
+                except (IndexError, KeyError):
+                    continue
+            else:
+                # pool is empty, no port to reuse
+                raise exceptions.ResourceNotReady(pod)
+            os_net = clients.get_network_client()
+            os_net.update_port(port_id, security_groups=list(security_groups))
+        if config.CONF.kubernetes.port_debug:
+            self._set_port_debug(port_id, pod)
+        eventlet.spawn(self._populate_pool, pool_key, pod, subnets,
+                       security_groups)
+        # Add protection from port_id not in existing_vifs
+        try:
+            port = self._existing_vifs[port_id]
+        except KeyError:
+            LOG.debug('Missing port on existing_vifs, this should not happen.'
+                      ' Retrying.')
+            raise exceptions.ResourceNotReady(pod)
+        return port
 
     def _populate_pool(self, pool_key, pod, subnets, security_groups):
         # REVISIT(ltomasbo): Drop the subnets parameter and get the information
@@ -271,12 +304,12 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
 
                     for vif in vifs:
                         self._existing_vifs[vif.id] = vif
-                        self._available_ports_pools.setdefault(
-                            pool_key, {}).setdefault(
+                        self._available_ports_pools[pool_key].setdefault(
                                 security_groups, []).append(vif.id)
                     if vifs:
-                        now = time.time()
-                        self._last_update[pool_key] = {security_groups: now}
+                        # Mark it as updated most recently.
+                        self._available_ports_pools[pool_key].move_to_end(
+                            security_groups)
             finally:
                 lock.release()
         else:
@@ -350,11 +383,12 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
                     os_net.update_port(port_id, security_groups=None)
                     # add the port to the default pool
                     self._available_ports_pools[pool_key].setdefault(
-                        tuple([]), []).append(port_id)
+                        (), []).append(port_id)
                 # NOTE(ltomasbo): as this ports were not created for this
                 # pool, ensuring they are used first, marking them as the
                 # most outdated
-                self._last_update[pool_key] = {tuple([]): 0}
+                self._available_ports_pools[pool_key].move_to_end(
+                    (), last=False)
 
     def _create_healthcheck_file(self):
         # Note(ltomasbo): Create a health check file when the pre-created
@@ -378,10 +412,10 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
         except OSError:
             pass
 
-        self._available_ports_pools = collections.defaultdict()
+        self._available_ports_pools = collections.defaultdict(
+            collections.OrderedDict)
         self._existing_vifs = collections.defaultdict()
         self._recyclable_ports = collections.defaultdict()
-        self._last_update = collections.defaultdict()
         self._lock = threading.Lock()
         self._populate_pool_lock = collections.defaultdict(threading.Lock)
         semaphore = eventlet.semaphore.Semaphore(BULK_PORTS_CREATION_REQUESTS)
@@ -612,53 +646,10 @@ class NeutronVIFPool(BaseVIFPool):
     def _get_host_addr(self, pod):
         return pod['spec']['nodeName']
 
-    def _get_port_from_pool(self, pool_key, pod, subnets, security_groups):
-        try:
-            pool_ports = self._available_ports_pools[pool_key]
-        except (KeyError, AttributeError):
-            raise exceptions.ResourceNotReady(pod)
-        try:
-            port_id = pool_ports[security_groups].pop()
-        except (KeyError, IndexError):
-            # Get another port from the pool and update the SG to the
-            # appropriate one. It uses a port from the group that was updated
-            # longer ago
-            pool_updates = self._last_update.get(pool_key, {})
-            if not pool_updates:
-                # No pools update info. Selecting a random one
-                for sg_group, ports in list(pool_ports.items()):
-                    if len(ports) > 0:
-                        port_id = pool_ports[sg_group].pop()
-                        break
-                else:
-                    raise exceptions.ResourceNotReady(pod)
-            else:
-                min_date = -1
-                for sg_group, date in list(pool_updates.items()):
-                    if pool_ports.get(sg_group):
-                        if min_date == -1 or date < min_date:
-                            min_date = date
-                            min_sg_group = sg_group
-                if min_date == -1:
-                    # pool is empty, no port to reuse
-                    raise exceptions.ResourceNotReady(pod)
-                port_id = pool_ports[min_sg_group].pop()
-            os_net = clients.get_network_client()
-            os_net.update_port(port_id, security_groups=list(security_groups))
-        if config.CONF.kubernetes.port_debug:
-            os_net = clients.get_network_client()
-            os_net.update_port(port_id, name=c_utils.get_port_name(pod),
-                               device_id=pod['metadata']['uid'])
-        eventlet.spawn(self._populate_pool, pool_key, pod, subnets,
-                       security_groups)
-        # Add protection from port_id not in existing_vifs
-        try:
-            port = self._existing_vifs[port_id]
-        except KeyError:
-            LOG.debug('Missing port on existing_vifs, this should not happen.'
-                      ' Retrying.')
-            raise exceptions.ResourceNotReady(pod)
-        return port
+    def _set_port_debug(self, port_id, pod):
+        os_net = clients.get_network_client()
+        os_net.update_port(port_id, name=c_utils.get_port_name(pod),
+                           device_id=pod['metadata']['uid'])
 
     def _return_ports_to_pool(self):
         """Recycle ports to be reused by future pods.
@@ -716,9 +707,11 @@ class NeutronVIFPool(BaseVIFPool):
                                     "reused, put back on the cleanable "
                                     "pool.", port_id)
                         continue
-                self._available_ports_pools.setdefault(
-                    pool_key, {}).setdefault(
-                        sg_current.get(port_id), []).append(port_id)
+                sg = sg_current.get(port_id)
+                self._available_ports_pools[pool_key].setdefault(
+                        sg, []).append(port_id)
+                # Move it to the end of ports to update the SG.
+                self._available_ports_pools[pool_key].move_to_end(sg)
             else:
                 try:
                     del self._existing_vifs[port_id]
@@ -777,8 +770,7 @@ class NeutronVIFPool(BaseVIFPool):
                                           net_obj.id, None)
 
             self._existing_vifs[port.id] = vif
-            self._available_ports_pools.setdefault(
-                pool_key, {}).setdefault(
+            self._available_ports_pools[pool_key].setdefault(
                     tuple(sorted(port.security_group_ids)), []).append(port.id)
 
         LOG.info("PORTS POOL: pools updated with pre-created ports")
@@ -811,7 +803,7 @@ class NeutronVIFPool(BaseVIFPool):
                 # the port deos not exists
                 os_net.delete_port(port_id)
 
-            self._available_ports_pools[pool_key] = {}
+            del self._available_ports_pools[pool_key]
             with self._lock:
                 try:
                     del self._populate_pool_lock[pool_key]
@@ -880,53 +872,9 @@ class NestedVIFPool(BaseVIFPool):
         super(NestedVIFPool, self).release_vif(
             pod, vif, project_id, security_groups, host_addr=host_addr)
 
-    def _get_port_from_pool(self, pool_key, pod, subnets, security_groups):
-        try:
-            pool_ports = self._available_ports_pools[pool_key]
-        except (KeyError, AttributeError):
-            raise exceptions.ResourceNotReady(pod)
-
+    def _set_port_debug(self, port_id, pod):
         os_net = clients.get_network_client()
-
-        try:
-            port_id = pool_ports[security_groups].pop()
-        except (KeyError, IndexError):
-            # Get another port from the pool and update the SG to the
-            # appropriate one. It uses a port from the group that was updated
-            # longer ago
-            pool_updates = self._last_update.get(pool_key, {})
-            if not pool_updates:
-                # No pools update info. Selecting a random one
-                for sg_group, ports in list(pool_ports.items()):
-                    if len(ports) > 0:
-                        port_id = pool_ports[sg_group].pop()
-                        break
-                else:
-                    raise exceptions.ResourceNotReady(pod)
-            else:
-                min_date = -1
-                for sg_group, date in list(pool_updates.items()):
-                    if pool_ports.get(sg_group):
-                        if min_date == -1 or date < min_date:
-                            min_date = date
-                            min_sg_group = sg_group
-                if min_date == -1:
-                    # pool is empty, no port to reuse
-                    raise exceptions.ResourceNotReady(pod)
-                port_id = pool_ports[min_sg_group].pop()
-            os_net.update_port(port_id, security_groups=list(security_groups))
-        if config.CONF.kubernetes.port_debug:
-            os_net.update_port(port_id, name=c_utils.get_port_name(pod))
-        eventlet.spawn(self._populate_pool, pool_key, pod, subnets,
-                       security_groups)
-        # Add protection from port_id not in existing_vifs
-        try:
-            port = self._existing_vifs[port_id]
-        except KeyError:
-            LOG.debug('Missing port on existing_vifs, this should not happen.'
-                      ' Retrying.')
-            raise exceptions.ResourceNotReady(pod)
-        return port
+        os_net.update_port(port_id, name=c_utils.get_port_name(pod))
 
     def _return_ports_to_pool(self):
         """Recycle ports to be reused by future pods.
@@ -983,9 +931,11 @@ class NestedVIFPool(BaseVIFPool):
                                     "reused, put back on the cleanable "
                                     "pool.", port_id)
                         continue
-                self._available_ports_pools.setdefault(
-                    pool_key, {}).setdefault(
-                        sg_current.get(port_id), []).append(port_id)
+                sg = sg_current.get(port_id)
+                self._available_ports_pools[pool_key].setdefault(
+                    sg, []).append(port_id)
+                # Move it to the end of ports to update the SG.
+                self._available_ports_pools[pool_key].move_to_end(sg)
             else:
                 trunk_id = self._get_trunk_id(pool_key)
                 try:
@@ -1090,10 +1040,9 @@ class NestedVIFPool(BaseVIFPool):
                         kuryr_subport, subnet, subport['segmentation_id'])
 
                     self._existing_vifs[kuryr_subport.id] = vif
-                    self._available_ports_pools.setdefault(
-                        pool_key, {}).setdefault(tuple(sorted(
-                            kuryr_subport.security_group_ids)),
-                            []).append(kuryr_subport.id)
+                    self._available_ports_pools[pool_key].setdefault(
+                        tuple(sorted(kuryr_subport.security_group_ids)),
+                        []).append(kuryr_subport.id)
 
                 elif action == 'free':
                     try:
@@ -1154,7 +1103,7 @@ class NestedVIFPool(BaseVIFPool):
         pool_key = self._get_pool_key(trunk_ip, project_id, None, subnets)
         for vif in vifs:
             self._existing_vifs[vif.id] = vif
-            self._available_ports_pools.setdefault(pool_key, {}).setdefault(
+            self._available_ports_pools[pool_key].setdefault(
                 tuple(sorted(security_groups)), []).append(vif.id)
 
     def free_pool(self, trunk_ips=None):
@@ -1199,7 +1148,7 @@ class NestedVIFPool(BaseVIFPool):
                     LOG.debug('Port %s is not in the ports list.', port_id)
                 os_net.delete_port(port_id)
 
-            self._available_ports_pools[pool_key] = {}
+            del self._available_ports_pools[pool_key]
             with self._lock:
                 try:
                     del self._populate_pool_lock[pool_key]
