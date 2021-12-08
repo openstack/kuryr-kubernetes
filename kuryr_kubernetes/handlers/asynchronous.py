@@ -67,7 +67,7 @@ class Async(base.EventHandler):
         queue.put((event, args, kwargs))
 
     def _run(self, group, queue):
-        LOG.debug("Asynchronous handler started processing %s", group)
+        LOG.trace("Asynchronous handler started processing %s", group)
         for _ in itertools.count():
             # NOTE(ivc): this is a mock-friendly replacement for 'while True'
             # to allow more controlled environment for unit-tests (e.g. to
@@ -105,7 +105,7 @@ class Async(base.EventHandler):
             self._handler(event, *args, **kwargs)
 
     def _done(self, thread, group):
-        LOG.debug("Asynchronous handler stopped processing group %s", group)
+        LOG.trace("Asynchronous handler stopped processing group %s", group)
         queue = self._queues.pop(group)
 
         if not queue.empty():
@@ -114,4 +114,4 @@ class Async(base.EventHandler):
                          {'count': queue.qsize(), 'group': group})
 
         if not self._queues:
-            LOG.debug("Asynchronous handler is idle")
+            LOG.trace("Asynchronous handler is idle")

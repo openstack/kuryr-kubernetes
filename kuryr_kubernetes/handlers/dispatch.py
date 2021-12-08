@@ -61,7 +61,7 @@ class Dispatcher(h_base.EventHandler):
         obj = event.get('object', {})
         obj_meta = obj.get('metadata', {})
 
-        LOG.debug("%d handler(s) available for event %s %s:%s/%s (uid: %s)",
+        LOG.trace("%d handler(s) available for event %s %s:%s/%s (uid: %s)",
                   len(handlers), event.get('type'), obj.get('kind'),
                   obj_meta.get('namespace'), obj_meta.get('name'),
                   obj_meta.get('uid'))
