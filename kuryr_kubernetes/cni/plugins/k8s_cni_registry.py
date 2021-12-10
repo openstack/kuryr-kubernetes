@@ -94,11 +94,11 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
         def wait_for_active(kp_name):
             return self.registry[kp_name]['vifs']
 
-        vifs = wait_for_active(kp_name)
-        for vif in vifs.values():
-            if not vif.active:
-                LOG.error("Timed out waiting for vifs to become active")
-                raise exceptions.ResourceNotReady(kp_name)
+        try:
+            vifs = wait_for_active(kp_name)
+        except retrying.RetryError:
+            raise exceptions.CNINeutronPortActivationTimeout(
+                kp_name, self.registry[kp_name]['vifs'])
 
         return vifs[k_const.DEFAULT_IFNAME]
 
@@ -126,7 +126,7 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
         # delay before registry is populated by watcher.
         try:
             self._do_work(params, b_base.disconnect, 5)
-        except exceptions.ResourceNotReady:
+        except exceptions.CNIKuryrPortTimeout:
             # So the VIF info seems to be lost at this point, we don't even
             # know what binding driver was used to plug it. Let's at least
             # try to remove the interface we created from the netns to prevent
@@ -172,9 +172,7 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
             kp = d['kp']
             vifs = d['vifs']
         except KeyError:
-            LOG.error("Timed out waiting for requested KuryrPort to appear in "
-                      "registry")
-            raise exceptions.ResourceNotReady(kp_name)
+            raise exceptions.CNIKuryrPortTimeout(kp_name)
 
         for ifname, vif in vifs.items():
             is_default_gateway = (ifname == k_const.DEFAULT_IFNAME)

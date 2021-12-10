@@ -60,7 +60,7 @@ class TestDaemonServer(base.TestCase):
     @mock.patch('kuryr_kubernetes.cni.plugins.k8s_cni_registry.'
                 'K8sCNIRegistryPlugin.add')
     def test_add_timeout(self, m_add):
-        m_add.side_effect = exceptions.ResourceNotReady(mock.Mock())
+        m_add.side_effect = exceptions.CNIKuryrPortTimeout('bar')
 
         resp = self.test_client.post('/addNetwork', data=self.params_str,
                                      content_type='application/json')
@@ -91,7 +91,7 @@ class TestDaemonServer(base.TestCase):
     @mock.patch('kuryr_kubernetes.cni.plugins.k8s_cni_registry.'
                 'K8sCNIRegistryPlugin.delete')
     def test_delete_timeout(self, m_delete):
-        m_delete.side_effect = exceptions.ResourceNotReady(mock.Mock())
+        m_delete.side_effect = exceptions.CNIKuryrPortTimeout('foo')
         resp = self.test_client.post('/delNetwork', data=self.params_str,
                                      content_type='application/json')
 

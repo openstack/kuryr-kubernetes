@@ -108,11 +108,9 @@ class DaemonServer(object):
         try:
             vif = self.plugin.add(params)
             data = jsonutils.dumps(vif.obj_to_primitive())
-        except exceptions.ResourceNotReady as e:
-            self._check_failure()
-            LOG.error('Error when processing addNetwork request')
-            error = self._error(ErrTryAgainLater,
-                                f"{e}. Try Again Later.")
+        except exceptions.CNITimeout as e:
+            LOG.exception('Timeout on ADD request')
+            error = self._error(ErrTryAgainLater, f"{e}. Try Again Later.")
             return error, httplib.GATEWAY_TIMEOUT, self.headers
         except pyroute2.NetlinkError as e:
             if e.code == errno.EEXIST:
@@ -159,7 +157,7 @@ class DaemonServer(object):
 
         try:
             self.plugin.delete(params)
-        except exceptions.ResourceNotReady:
+        except exceptions.CNIKuryrPortTimeout:
             # NOTE(dulek): It's better to ignore this error - most of the time
             #              it will happen when pod is long gone and CRI
             #              overzealously tries to delete it from the network.

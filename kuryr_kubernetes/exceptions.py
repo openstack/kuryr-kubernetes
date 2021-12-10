@@ -133,6 +133,29 @@ class MultiPodDriverPoolConfigurationNotSupported(Exception):
     """
 
 
+class CNITimeout(Exception):
+    """Exception groups various timeouts happening in the CNI """
+
+
+class CNIKuryrPortTimeout(CNITimeout):
+    """Excepton raised on timeout waiting for KuryrPort to be created"""
+    def __init__(self, name):
+        super().__init__(
+            f'Timed out waiting for KuryrPort to be created for pod {name}. '
+            f'kuryr-controller is responsible for that, check logs there.')
+
+
+class CNINeutronPortActivationTimeout(CNITimeout):
+    """Excepton raised on time out waiting for Neutron ports to be ACITVE"""
+    def __init__(self, name, vifs):
+        inactive = ', '.join(vif.id for vif in vifs.values() if not vif.active)
+        super().__init__(
+            f'Timed out waiting for Neutron port(s) {inactive} to be marked '
+            f'as ACTIVE after being bound to a Pod {name}. Most likely this '
+            f'indicates an issue with OpenStack Neutron. You can also check '
+            f'logs of kuryr-controller to confirm.')
+
+
 class CNIBindingFailure(Exception):
     """Exception indicates a binding/unbinding VIF failure in CNI"""
     def __init__(self, message):
