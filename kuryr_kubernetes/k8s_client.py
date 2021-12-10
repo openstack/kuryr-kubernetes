@@ -51,6 +51,7 @@ class K8sClient(object):
         token_file = config.CONF.kubernetes.token_file
         self.token = None
         self.cert = (None, None)
+        self.are_events_enabled = config.CONF.kubernetes.use_events
 
         # Setting higher numbers regarding connection pools as we're running
         # with max of 1000 green threads.
@@ -450,6 +451,9 @@ class K8sClient(object):
 
     def add_event(self, resource, reason, message, type_='Normal'):
         """Create an Event object for the provided resource."""
+        if not self.are_events_enabled:
+            return {}
+
         involved_object = {'apiVersion': resource['apiVersion'],
                            'kind': resource['kind'],
                            'name': resource['metadata']['name'],
