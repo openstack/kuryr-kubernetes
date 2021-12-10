@@ -1584,7 +1584,11 @@ function update_tempest_conf_file {
     if [[ "$KURYR_IPV6" == "True" || "$KURYR_DUAL_STACK" == "True" ]]; then
         iniset "$TEMPEST_CONFIG" kuryr_kubernetes ipv6 True
     fi
-    iniset "$TEMPEST_CONFIG" kuryr_kubernetes enable_reconciliation True
+     # NOTE(digitalsimboja): Reconciliation tests create and delete LBs,
+     # so only enable them for OVN as it's faster when creating LBs
+    if [[ "$KURYR_EP_DRIVER_OCTAVIA_PROVIDER" == "ovn" ]]; then
+        iniset "$TEMPEST_CONFIG" kuryr_kubernetes enable_reconciliation True
+    fi
     iniset "$TEMPEST_CONFIG" kuryr_kubernetes validate_crd True
     iniset "$TEMPEST_CONFIG" kuryr_kubernetes kuryrports True
     iniset "$TEMPEST_CONFIG" kuryr_kubernetes kuryrloadbalancers True
