@@ -134,8 +134,6 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                 k8s.annotate(utils.get_res_link(kp),
                              {'KuryrTrigger': str(uuid.uuid4())})
             except k_exc.K8sResourceNotFound:
-                LOG.error('Cannot annotate existing KuryrPort %s.',
-                          kp['metadata']['name'])
                 k8s.remove_finalizer(pod, constants.POD_FINALIZER)
             except k_exc.K8sClientException:
                 raise k_exc.ResourceNotReady(pod['metadata']['name'])
