@@ -160,7 +160,10 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         os_net = clients.get_network_client()
         parent_port = self._get_parent_port(pod)
         trunk_id = self._get_trunk_id(parent_port)
-        self._remove_subport(trunk_id, vif.id)
+        try:
+            self._remove_subport(trunk_id, vif.id)
+        except os_exc.NotFoundException:
+            pass
         self._release_vlan_id(vif.vlan_id)
         os_net.delete_port(vif.id)
 
