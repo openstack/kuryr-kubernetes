@@ -155,5 +155,5 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
         m_getitem = mock.Mock(side_effect=KeyError)
         m_registry = mock.Mock(__getitem__=m_getitem, __contains__=False)
         self.plugin.registry = m_registry
-        self.assertRaises(exceptions.ResourceNotReady, self.plugin.add,
+        self.assertRaises(exceptions.CNIKuryrPortTimeout, self.plugin.add,
                           self.params)
