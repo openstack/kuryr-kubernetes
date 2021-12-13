@@ -56,7 +56,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         return ovu.neutron_to_osvif_vif_nested_vlan(port, subnets, vlan_id)
 
     def request_vifs(self, pod, project_id, subnets, security_groups,
-                     num_ports, trunk_ip=None):
+                     num_ports, semaphore, trunk_ip=None):
         """This method creates subports and returns a list with their vifs.
 
         It creates up to num_ports subports and attaches them to the trunk
@@ -86,13 +86,16 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
             return []
 
         bulk_port_rq = {'ports': [port_rq] * len(subports_info)}
-        try:
-            ports = list(os_net.create_ports(bulk_port_rq))
-        except os_exc.SDKException:
-            for subport_info in subports_info:
-                self._release_vlan_id(subport_info['segmentation_id'])
-            LOG.exception("Error creating bulk ports: %s", bulk_port_rq)
-            raise
+        # restrict amount of create Ports in bulk that might be running
+        # in parallel.
+        with semaphore:
+            try:
+                ports = list(os_net.create_ports(bulk_port_rq))
+            except os_exc.SDKException:
+                for subport_info in subports_info:
+                    self._release_vlan_id(subport_info['segmentation_id'])
+                LOG.exception("Error creating bulk ports: %s", bulk_port_rq)
+                raise
         self._check_port_binding(ports)
         if not self._tag_on_creation:
             utils.tag_neutron_resources(ports)

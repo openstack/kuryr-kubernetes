@@ -12,7 +12,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+import eventlet
 from unittest import mock
 
 from kuryr.lib import constants as kl_const
@@ -82,9 +82,11 @@ class NeutronPodVIFDriver(test_base.TestCase):
 
         os_net.create_ports.return_value = (p for p in [port, port])
         m_to_vif.return_value = vif
+        semaphore = mock.MagicMock(spec=eventlet.semaphore.Semaphore(20))
 
         self.assertEqual([vif, vif], cls.request_vifs(
-            m_driver, pod, project_id, subnets, security_groups, num_ports))
+            m_driver, pod, project_id, subnets, security_groups, num_ports,
+            semaphore))
 
         m_driver._get_port_request.assert_called_once_with(
             pod, project_id, subnets, security_groups, unbound=True)
@@ -115,13 +117,15 @@ class NeutronPodVIFDriver(test_base.TestCase):
         port1_1 = munch.Munch({'id': port_id, 'binding_vif_type': vif_plugin})
         vif = mock.sentinel.vif
         bulk_rq = {'ports': [port_request for _ in range(num_ports)]}
+        semaphore = mock.MagicMock(spec=eventlet.semaphore.Semaphore(20))
 
         os_net.create_ports.return_value = (p for p in [port1, port2])
         os_net.get_port.return_value = port1_1
         m_to_vif.return_value = vif
 
         self.assertEqual([vif, vif], cls.request_vifs(
-            m_driver, pod, project_id, subnets, security_groups, num_ports))
+            m_driver, pod, project_id, subnets, security_groups, num_ports,
+            semaphore))
 
         m_driver._get_port_request.assert_called_once_with(
             pod, project_id, subnets, security_groups, unbound=True)
@@ -148,11 +152,12 @@ class NeutronPodVIFDriver(test_base.TestCase):
         m_driver._get_port_request.return_value = port_request
         bulk_rq = {'ports': [port_request for _ in range(num_ports)]}
 
+        semaphore = mock.MagicMock(spec=eventlet.semaphore.Semaphore(20))
         os_net.create_ports.side_effect = os_exc.SDKException
 
         self.assertRaises(os_exc.SDKException, cls.request_vifs,
                           m_driver, pod, project_id, subnets,
-                          security_groups, num_ports)
+                          security_groups, num_ports, semaphore)
 
         m_driver._get_port_request.assert_called_once_with(
             pod, project_id, subnets, security_groups, unbound=True)

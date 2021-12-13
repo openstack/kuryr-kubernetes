@@ -331,7 +331,7 @@ class PodVIFDriver(DriverBase, metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     def request_vifs(self, pod, project_id, subnets, security_groups,
-                     num_ports):
+                     num_ports, semaphore):
         """Creates Neutron ports for pods and returns them as VIF objects list.
 
         It follows the same pattern as request_vif but creating the specified
@@ -351,6 +351,8 @@ class PodVIFDriver(DriverBase, metaclass=abc.ABCMeta):
                                 returned by
                                 `PodSecurityGroupsDriver.get_security_groups`
         :param num_ports: number of ports to be created
+        :param semaphore: a eventlet Semaphore to limit the number of create
+                          Port in bulk running in parallel
         :return: VIF objects list
         """
         raise NotImplementedError()
