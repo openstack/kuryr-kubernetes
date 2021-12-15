@@ -435,4 +435,4 @@ class TestEndpointsHandler(test_base.TestCase):
         m_handler.k8s.patch_crd.side_effect = k_exc.K8sUnprocessableEntity(
             'bar')
         h_lbaas.EndpointsHandler._remove_endpoints(m_handler, self._ep)
-        log.assert_called_once()
+        log.assert_not_called()

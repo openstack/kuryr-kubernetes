@@ -417,14 +417,16 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
         return True
 
     def _remove_endpoints(self, endpoints):
-        lb_name = endpoints['metadata']['name']
+        lb_name = utils.get_res_unique_name(endpoints)
         try:
             self.k8s.patch_crd('spec', utils.get_klb_crd_path(endpoints),
                                'endpointSlices', action='remove')
         except k_exc.K8sResourceNotFound:
             LOG.debug('KuryrLoadBalancer CRD not found %s', lb_name)
         except k_exc.K8sUnprocessableEntity:
-            LOG.warning('KuryrLoadBalancer %s modified, ignoring.', lb_name)
+            # This happens when endpointSlices doesn't exist on the KLB,
+            # safe to ignore, the resources is in the state we want already.
+            pass
         except k_exc.K8sClientException as e:
             LOG.exception('Error updating KuryrLoadBalancer CRD %s', lb_name)
             self._add_event(
