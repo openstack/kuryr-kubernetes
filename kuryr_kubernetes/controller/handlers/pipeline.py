@@ -58,11 +58,13 @@ class ControllerPipeline(h_dis.EventPipeline):
 
     def _wrap_consumer(self, consumer):
         # TODO(ivc): tune retry interval/timeout
-        return h_log.LogExceptions(h_retry.Retry(
-            consumer, exceptions=(
-                exceptions.ResourceNotReady,
-                key_exc.connection.ConnectFailure,
-                requests_exc.ConnectionError)))
+        return h_log.LogExceptions(
+            h_retry.Retry(
+                consumer,
+                exceptions=(exceptions.ResourceNotReady,
+                            key_exc.connection.ConnectFailure,
+                            requests_exc.ConnectionError)),
+            ignore_exceptions=(exceptions.KuryrLoadBalancerNotCreated,))
 
     def _wrap_dispatcher(self, dispatcher):
         return h_log.LogExceptions(h_async.Async(dispatcher, self._tg,

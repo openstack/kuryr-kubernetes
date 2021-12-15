@@ -50,7 +50,7 @@ def get_loadbalancer_client():
     return get_openstacksdk().load_balancer
 
 
-def get_kubernetes_client():
+def get_kubernetes_client() -> k8s_client.K8sClient:
     return _clients[_KUBERNETES_CLIENT]
 
 

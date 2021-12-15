@@ -97,7 +97,10 @@ class Retry(base.EventHandler):
                                     .get_instance())
                         method = getattr(exporter, cls_map[type(exc).__name__])
                         method()
-
+            except exceptions.KuryrLoadBalancerNotCreated:
+                with excutils.save_and_reraise_exception() as ex:
+                    if self._sleep(deadline, attempt, ex.value):
+                        ex.reraise = False
             except os_exc.ConflictException as ex:
                 if ex.details.startswith('Quota exceeded for resources'):
                     with excutils.save_and_reraise_exception() as ex:

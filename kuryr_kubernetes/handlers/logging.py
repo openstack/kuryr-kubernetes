@@ -28,13 +28,16 @@ class LogExceptions(base.EventHandler):
     instead.
     """
 
-    def __init__(self, handler, exceptions=Exception):
+    def __init__(self, handler, exceptions=Exception, ignore_exceptions=None):
         self._handler = handler
         self._exceptions = exceptions
+        self._ignore_exceptions = ignore_exceptions or ()
 
     def __call__(self, event, *args, **kwargs):
         try:
             self._handler(event, *args, **kwargs)
+        except self._ignore_exceptions:
+            pass
         except self._exceptions as ex:
             # If exception comes from OpenStack SDK and contains
             # 'request_id' then print this 'request_id' along the Exception.

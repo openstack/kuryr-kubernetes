@@ -27,23 +27,6 @@ _SUPPORTED_LISTENER_PROT = ('HTTP', 'HTTPS', 'TCP')
 
 
 class TestServiceHandler(test_base.TestCase):
-
-    @mock.patch('kuryr_kubernetes.controller.drivers.base'
-                '.ServiceSecurityGroupsDriver.get_instance')
-    @mock.patch('kuryr_kubernetes.controller.drivers.base'
-                '.ServiceSubnetsDriver.get_instance')
-    @mock.patch('kuryr_kubernetes.controller.drivers.base'
-                '.ServiceProjectDriver.get_instance')
-    def test_init(self, m_get_drv_project, m_get_drv_subnets, m_get_drv_sg):
-        m_get_drv_project.return_value = mock.sentinel.drv_project
-        m_get_drv_subnets.return_value = mock.sentinel.drv_subnets
-        m_get_drv_sg.return_value = mock.sentinel.drv_sg
-        handler = h_lbaas.ServiceHandler()
-
-        self.assertEqual(mock.sentinel.drv_project, handler._drv_project)
-        self.assertEqual(mock.sentinel.drv_subnets, handler._drv_subnets)
-        self.assertEqual(mock.sentinel.drv_sg, handler._drv_sg)
-
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     def test_on_present(self, get_k8s_client):
         svc_event = {
@@ -114,6 +97,7 @@ class TestServiceHandler(test_base.TestCase):
         m_handler.create_crd_spec.return_value = new_spec
         m_handler._should_ignore.return_value = False
         m_handler._drv_project = m_drv_project
+        m_handler.k8s = mock.Mock()
 
         h_lbaas.ServiceHandler.on_present(m_handler, svc_event)
         m_handler.create_crd_spec(svc_event)
@@ -179,6 +163,7 @@ class TestServiceHandler(test_base.TestCase):
         m_handler.create_crd_spec.return_value = old_spec
         m_handler._should_ignore.return_value = False
         m_handler._drv_project = m_drv_project
+        m_handler.k8s = mock.Mock()
 
         h_lbaas.ServiceHandler.on_present(m_handler, svc_event)
         m_handler.create_crd_spec(svc_event)
@@ -418,51 +403,36 @@ class TestEndpointsHandler(test_base.TestCase):
         h_lbaas.EndpointsHandler.on_deleted(m_handler, self._ep)
         m_handler._remove_endpoints.assert_called_once_with(self._ep)
 
-    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.utils.get_klb_crd_path')
-    def test__remove_endpoints(self, get_klb_crd_path, get_k8s_client):
-        k8s = mock.Mock()
-        get_k8s_client.return_value = k8s
-        h_lbaas.EndpointsHandler._remove_endpoints(self, self._ep)
-        k8s.patch_crd.assert_called_once_with('spec',
-                                              get_klb_crd_path(self._ep),
-                                              'endpointSlices',
-                                              action='remove')
+    def test__remove_endpoints(self, get_klb_crd_path):
+        m_handler = mock.Mock()
+        h_lbaas.EndpointsHandler._remove_endpoints(m_handler, self._ep)
+        m_handler.k8s.patch_crd.assert_called_once_with(
+            'spec', get_klb_crd_path(self._ep), 'endpointSlices',
+            action='remove')
 
-    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch.object(logging.getLogger(
                        'kuryr_kubernetes.controller.handlers.lbaas'),
                        'debug')
-    def test__remove_endpoints_not_found(self, get_k8s_client, log):
-        k8s = mock.Mock()
-        get_k8s_client.return_value = k8s
-        h_lbaas.EndpointsHandler._remove_endpoints(self, self._ep)
-
-        k8s.patch_crd.side_effect = k_exc.K8sResourceNotFound(self._ep)
-
+    def test__remove_endpoints_not_found(self, log):
+        m_handler = mock.Mock()
+        m_handler.k8s.patch_crd.side_effect = k_exc.K8sResourceNotFound('foo')
+        h_lbaas.EndpointsHandler._remove_endpoints(m_handler, self._ep)
         log.assert_called_once()
 
-    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
-    def test__remove_endpoints_client_exception(self, get_k8s_client):
-        k8s = mock.Mock()
-        get_k8s_client.return_value = k8s
-        h_lbaas.EndpointsHandler._remove_endpoints(self, self._ep)
-
-        k8s.patch_crd.side_effect = k_exc.K8sClientException(self._ep)
-
+    def test__remove_endpoints_client_exception(self):
+        m_handler = mock.Mock()
+        m_handler.k8s.patch_crd.side_effect = k_exc.K8sClientException()
         self.assertRaises(k_exc.K8sClientException,
                           h_lbaas.EndpointsHandler._remove_endpoints,
-                          self, self._ep)
+                          m_handler, self._ep)
 
-    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch.object(logging.getLogger(
                        'kuryr_kubernetes.controller.handlers.lbaas'),
                        'warning')
-    def test__remove_endpoints_unprocessable_entity(self, get_k8s_client, log):
-        k8s = mock.Mock()
-        get_k8s_client.return_value = k8s
-        h_lbaas.EndpointsHandler._remove_endpoints(self, self._ep)
-
-        k8s.patch_crd.side_effect = k_exc.K8sUnprocessableEntity(self._ep)
-
+    def test__remove_endpoints_unprocessable_entity(self, log):
+        m_handler = mock.Mock()
+        m_handler.k8s.patch_crd.side_effect = k_exc.K8sUnprocessableEntity(
+            'bar')
+        h_lbaas.EndpointsHandler._remove_endpoints(m_handler, self._ep)
         log.assert_called_once()

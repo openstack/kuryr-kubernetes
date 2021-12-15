@@ -37,7 +37,8 @@ class TestControllerPipeline(test_base.TestCase):
             ret = pipeline._wrap_consumer(consumer)
 
         self.assertEqual(logging_handler, ret)
-        m_logging_type.assert_called_with(retry_handler)
+        m_logging_type.assert_called_with(retry_handler,
+                                          ignore_exceptions=mock.ANY)
         m_retry_type.assert_called_with(consumer, exceptions=mock.ANY)
 
     @mock.patch('kuryr_kubernetes.handlers.logging.LogExceptions')
