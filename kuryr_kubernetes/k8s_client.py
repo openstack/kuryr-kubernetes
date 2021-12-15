@@ -449,7 +449,8 @@ class K8sClient(object):
                 time.sleep(t)
                 attempt += 1
 
-    def add_event(self, resource, reason, message, type_='Normal'):
+    def add_event(self, resource, reason, message, type_='Normal',
+                  component='kuryr-controller'):
         """Create an Event object for the provided resource."""
         if not self.are_events_enabled:
             return {}
@@ -478,7 +479,9 @@ class K8sClient(object):
                  'reason': reason,
                  'message': message,
                  'type': type_,
-                 'involvedObject': involved_object}
+                 'involvedObject': involved_object,
+                 'source': {'component': component,
+                            'host': utils.get_nodename()}}
 
         try:
             return self.post(f'{constants.K8S_API_BASE}/namespaces/'
