@@ -100,12 +100,12 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
 
         try:
             self.k8s.add_event(pod, 'CNIWaitingForVIFs',
-                               f' Waiting for Neutron ports of {kp_name} to '
+                               f'Waiting for Neutron ports of {kp_name} to '
                                f'become ACTIVE after binding.')
             vifs = wait_for_active(kp_name)
         except retrying.RetryError:
             self.k8s.add_event(pod, 'CNITimedOutWaitingForVIFs',
-                               f' Time out on waiting for Neutron ports of '
+                               f'Timed out waiting for Neutron ports of '
                                f'{kp_name} to become ACTIVE after binding.',
                                'Warning')
             raise exceptions.CNINeutronPortActivationTimeout(

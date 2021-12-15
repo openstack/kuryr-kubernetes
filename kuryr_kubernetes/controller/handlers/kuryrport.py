@@ -126,7 +126,7 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
                                                        project_id,
                                                        security_groups)
                     self.k8s.add_event(pod, 'UpdateKuryrPortCRDFailed',
-                                       f'Marking ports are ACTIVE in the '
+                                       f'Marking ports as ACTIVE in the '
                                        f'KuryrPort failed: {ex}', 'Warning')
                 except k_exc.K8sClientException:
                     raise k_exc.ResourceNotReady(pod['metadata']['name'])
