@@ -64,9 +64,8 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
                 net_id = self._drv_subnets.create_network(ns_name, project_id)
             except os_exc.SDKException as ex:
                 self.k8s.add_event(kuryrnet_crd, 'CreateNetworkFailed',
-                                   'Error during creating Neutron network: '
-                                   f'{ex.details}',
-                                   type_='Warning')
+                                   f'Error during creating Neutron network: '
+                                   f'{ex.details}', 'Warning')
                 raise
             status = {'netId': net_id}
             self._patch_kuryrnetwork_crd(kuryrnet_crd, status)
@@ -82,7 +81,7 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
                 self.k8s.add_event(kuryrnet_crd, 'CreateSubnetFailed',
                                    f'Error during creating Neutron subnet '
                                    f'for network {net_id}: {ex.details}',
-                                   type_='Warning')
+                                   'Warning')
                 raise
             status = {'subnetId': subnet_id, 'subnetCIDR': subnet_cidr}
             self._patch_kuryrnetwork_crd(kuryrnet_crd, status)
@@ -97,7 +96,7 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
                 self.k8s.add_event(kuryrnet_crd, 'AddingSubnetToRouterFailed',
                                    f'Error adding Neutron subnet {subnet_id} '
                                    f'to router {router_id}: {ex.details}',
-                                   type_='Warning')
+                                   'Warning')
                 raise
             status = {'routerId': router_id, 'populated': False}
             self._patch_kuryrnetwork_crd(kuryrnet_crd, status)
