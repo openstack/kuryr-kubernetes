@@ -39,12 +39,8 @@ in a bulk request upon pool population, can be modified:
 Note this value should be smaller than the ports_pool_max (if the
 ports_pool_max is enabled).
 
-Finally, the interval between pools updating actions (in seconds) can be
-modified, and it should be adjusted based on your specific deployment, e.g., if
-the port creation actions are slow, it is desirable to raise it in order not to
-have overlapping actions. As a simple rule of thumbs, the frequency should be
-at least as large as the time needed to perform the bulk requests (ports
-creation, including subports attachment for the nested case):
+Finally, to define the frequency (in seconds) of ports recycle to allow them
+to be reused by future pods, configure the following option:
 
 .. code-block:: ini
 
