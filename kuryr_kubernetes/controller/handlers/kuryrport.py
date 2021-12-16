@@ -22,14 +22,17 @@ from oslo_log import log as logging
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import base as drivers
+from kuryr_kubernetes.controller.drivers import nested_vlan_vif
 from kuryr_kubernetes.controller.drivers import utils as driver_utils
 from kuryr_kubernetes.controller.managers import prometheus_exporter as exp
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import k8s_base
 from kuryr_kubernetes import utils
 
+
 LOG = logging.getLogger(__name__)
 KURYRPORT_URI = constants.K8S_API_CRD_NAMESPACES + '/{ns}/kuryrports/{crd}'
+ACTIVE_TIMEOUT = nested_vlan_vif.ACTIVE_TIMEOUT
 
 
 class KuryrPortHandler(k8s_base.ResourceEventHandler):
@@ -95,7 +98,17 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
                         self._drv_vif_pool.activate_vif(data['vif'], pod=pod,
                                                         retry_info=retry_info)
                         changed = True
+                    except k_exc.ResourceNotReady:
+                        if retry_info and retry_info.get('elapsed',
+                                                         0) > ACTIVE_TIMEOUT:
+                            self.k8s.add_event(pod, 'ActivatePortFailed',
+                                               'Activating Neutron port has '
+                                               'timed out', 'Warning')
                     except os_exc.ResourceNotFound:
+                        self.k8s.add_event(pod, 'ActivatePortFailed',
+                                           'Activating Neutron port has '
+                                           'failed, possibly deleted',
+                                           'Warning')
                         LOG.debug("Port not found, possibly already deleted. "
                                   "No need to activate it")
         finally:
@@ -112,6 +125,9 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
                         self._drv_vif_pool.release_vif(pod, data['vif'],
                                                        project_id,
                                                        security_groups)
+                    self.k8s.add_event(pod, 'UpdateKuryrPortCRDFailed',
+                                       f'Marking ports are ACTIVE in the '
+                                       f'KuryrPort failed: {ex}', 'Warning')
                 except k_exc.K8sClientException:
                     raise k_exc.ResourceNotReady(pod['metadata']['name'])
                 try:
@@ -154,6 +170,9 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
             LOG.warning('Manually triggered KuryrPort %s removal. This '
                         'action should be avoided, since KuryrPort CRDs are '
                         'internal to Kuryr.', name)
+            self.k8s.add_event(pod, 'NoKuryrPort', 'KuryrPort was not found, '
+                               'most probably it was manually removed.',
+                               'Warning')
             return
 
         project_id = self._drv_project.get_project(pod)
@@ -172,6 +191,8 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
             # rules would be created too.
             LOG.debug("Skipping SG rules deletion associated to the pod %s",
                       pod)
+            self.k8s.add_event(pod, 'SkipingSGDeletion', 'Skipping SG rules '
+                               'deletion')
             crd_pod_selectors = []
         try:
             security_groups = self._drv_sg.get_security_groups(pod, project_id)
@@ -223,6 +244,11 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
                         "get a port as it will be deleted too. If the "
                         "default subnet driver is used, then you must "
                         "select an existing subnet to be used by Kuryr.")
+            self.k8s.add_event(pod, 'NoPodSubnetFound', 'Pod subnet not '
+                               'found. Namespace for this pod was probably '
+                               'deleted. For default subnet driver it must '
+                               'be existing subnet configured for Kuryr',
+                               'Warning')
             return False
 
         # Request the default interface of pod
@@ -265,6 +291,9 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
                 self._drv_vif_pool.release_vif(pod, data['vif'],
                                                project_id,
                                                security_groups)
+            self.k8s.add_event(pod, 'ExceptionOnKPUpdate', f'There was k8s '
+                               f'client exception on updating corresponding '
+                               f'KuryrPort CRD: {ex}', 'Warning')
         return True
 
     def _update_kuryrport_crd(self, kuryrport_crd, vifs):
@@ -305,5 +334,8 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
             return self.k8s.get(f"{constants.K8S_API_NAMESPACES}"
                                 f"/{namespace}/pods/{name}")
         except k_exc.K8sResourceNotFound as ex:
+            self.k8s.add_event(kuryrport_crd,
+                               f'Failed to get corresponding pod: {ex}',
+                               'Warning')
             LOG.exception("Failed to get pod: %s", ex)
             raise

@@ -91,6 +91,9 @@ RESOURCE_MAP = {'Endpoints': 'endpoints',
                 'Pod': 'pods',
                 'Service': 'services',
                 'Machine': 'machines'}
+API_VER_MAP = {'NetworkPolicy': 'networking.k8s.io/v1',
+               'Pod': 'v1',
+               'Service': 'v1'}
 API_RE = re.compile(r'v\d+')
 
 
@@ -659,3 +662,43 @@ def is_pod_completed(pod):
 
 def is_host_network(pod):
     return pod['spec'].get('hostNetwork', False)
+
+
+def get_referenced_object(obj, kind):
+    """Get referenced object.
+
+    Helper function for getting objects out of the CRDs like
+    KuryrLoadBalancer, KuryrNetworkPolicy or KuryrPort needed solely for
+    creating Event object, so there will be no exceptions raises from this
+    function.
+    """
+    for ref in obj['metadata'].get('ownerReferences', []):
+        try:
+            return {'kind': kind,
+                    'apiVersion': ref['apiVersion'],
+                    'metadata': {'namespace': obj['metadata']['namespace'],
+                                 'name': ref['name'],
+                                 'uid': ref['uid']}}
+        except KeyError:
+            LOG.debug("Not all needed keys was found in ownerReferences "
+                      "list: %s", ref)
+
+    # There was no ownerReferences field, let's query API
+    k8s = clients.get_kubernetes_client()
+    data = {'metadata': {'name': obj['metadata']['name']},
+            'kind': kind,
+            'apiVersion': API_VER_MAP[kind]}
+    if obj['metadata'].get('namespace'):
+        data['metadata']['namespace'] = obj['metadata']['namespace']
+    try:
+        url = get_res_link(data)
+    except KeyError:
+        LOG.debug("Not all needed data was found in provided object: %s",
+                  data)
+        return
+
+    try:
+        return k8s.get(url)
+    except exceptions.K8sClientException:
+        LOG.debug('Error when fetching %s to add an event %s, ignoring',
+                  kind, get_res_unique_name(obj))

@@ -454,6 +454,9 @@ class K8sClient(object):
         if not self.are_events_enabled:
             return {}
 
+        if not resource:
+            return {}
+
         involved_object = {'apiVersion': resource['apiVersion'],
                            'kind': resource['kind'],
                            'name': resource['metadata']['name'],

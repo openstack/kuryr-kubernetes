@@ -43,6 +43,10 @@ class VIFHandler(k8s_base.ResourceEventHandler):
     OBJECT_KIND = constants.K8S_OBJ_POD
     OBJECT_WATCH_PATH = "%s/%s" % (constants.K8S_API_BASE, "pods")
 
+    def __init__(self):
+        super(VIFHandler).__init__()
+        self.k8s = clients.get_kubernetes_client()
+
     def on_present(self, pod, *args, **kwargs):
         if utils.is_host_network(pod):
             return
@@ -61,7 +65,6 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             # networking solutions/CNI drivers.
             return
 
-        k8s = clients.get_kubernetes_client()
         namespace = pod['metadata']['namespace']
         kuryrnetwork_path = '{}/{}/kuryrnetworks/{}'.format(
             constants.K8S_API_CRD_NAMESPACES, namespace,
@@ -74,8 +77,8 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                 constants.K8S_API_NAMESPACES, namespace)
             LOG.debug("Triggering Namespace Handling %s", namespace_path)
             try:
-                k8s.annotate(namespace_path,
-                             {'KuryrTrigger': str(uuid.uuid4())})
+                self.k8s.annotate(namespace_path,
+                                  {'KuryrTrigger': str(uuid.uuid4())})
             except k_exc.K8sResourceNotFound:
                 LOG.warning('Ignoring Pod handling, no Namespace %s.',
                             namespace)
@@ -84,13 +87,16 @@ class VIFHandler(k8s_base.ResourceEventHandler):
 
         # NOTE(gryf): Set the finalizer as soon, as we have pod created. On
         # subsequent updates of the pod, add_finalizer will ignore this if
-        # finalizer exists.
+        # finalizer exist.
         try:
-            if not k8s.add_finalizer(pod, constants.POD_FINALIZER):
+            if not self.k8s.add_finalizer(pod, constants.POD_FINALIZER):
                 # NOTE(gryf) It might happen that pod will be deleted even
                 # before we got here.
                 return
         except k_exc.K8sClientException as ex:
+            self.k8s.add_event(pod, 'FailedToAddFinalizerToPod',
+                               f'Adding finalizer to pod has failed: {ex}',
+                               'Warning')
             LOG.exception("Failed to add finalizer to pod object: %s", ex)
             raise
 
@@ -108,20 +114,25 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                             pod_name)
                 return
             except k_exc.K8sClientException as ex:
+                self.k8s.add_event(pod, 'FailedToCreateKuryrPortCRD',
+                                   f'Creating corresponding KuryrPort CRD has '
+                                   f'failed: {ex}', 'Warning')
                 LOG.exception("Kubernetes Client Exception creating "
                               "KuryrPort CRD: %s", ex)
                 raise k_exc.ResourceNotReady(pod)
 
     def on_finalize(self, pod, *args, **kwargs):
-        k8s = clients.get_kubernetes_client()
 
         try:
-            kp = k8s.get(KURYRPORT_URI.format(ns=pod["metadata"]["namespace"],
-                                              crd=pod["metadata"]["name"]))
+            kp = self.k8s.get(KURYRPORT_URI.format(
+                ns=pod["metadata"]["namespace"], crd=pod["metadata"]["name"]))
         except k_exc.K8sResourceNotFound:
             try:
-                k8s.remove_finalizer(pod, constants.POD_FINALIZER)
+                self.k8s.remove_finalizer(pod, constants.POD_FINALIZER)
             except k_exc.K8sClientException as ex:
+                self.k8s.add_event(pod, 'FailedRemovingFinalizerFromPod',
+                                   f'Removing finalizer from pod has failed: '
+                                   f'{ex}', 'Warning')
                 LOG.exception('Failed to remove finalizer from pod: %s', ex)
                 raise
             return
@@ -131,21 +142,27 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             # annotations, force an emition of event to trigger on_finalize
             # method on the KuryrPort.
             try:
-                k8s.annotate(utils.get_res_link(kp),
-                             {'KuryrTrigger': str(uuid.uuid4())})
+                self.k8s.annotate(utils.get_res_link(kp),
+                                  {'KuryrTrigger': str(uuid.uuid4())})
             except k_exc.K8sResourceNotFound:
-                k8s.remove_finalizer(pod, constants.POD_FINALIZER)
-            except k_exc.K8sClientException:
+                self.k8s.remove_finalizer(pod, constants.POD_FINALIZER)
+            except k_exc.K8sClientException as ex:
+                self.k8s.add_event(pod, 'FailedRemovingPodFinalzier',
+                                   f'Failed removing finalizer from pod: {ex}',
+                                   'Warning')
                 raise k_exc.ResourceNotReady(pod['metadata']['name'])
         else:
             try:
-                k8s.delete(KURYRPORT_URI
-                           .format(ns=pod["metadata"]["namespace"],
-                                   crd=pod["metadata"]["name"]))
+                self.k8s.delete(KURYRPORT_URI
+                                .format(ns=pod["metadata"]["namespace"],
+                                        crd=pod["metadata"]["name"]))
             except k_exc.K8sResourceNotFound:
-                k8s.remove_finalizer(pod, constants.POD_FINALIZER)
+                self.k8s.remove_finalizer(pod, constants.POD_FINALIZER)
 
-            except k_exc.K8sClientException:
+            except k_exc.K8sClientException as ex:
+                self.k8s.add_event(pod, 'FailedRemovingKuryrPortCRD',
+                                   f'Failed removing corresponding KuryrPort '
+                                   f'CRD: {ex}', 'Warning')
                 LOG.exception("Could not remove KuryrPort CRD for pod %s.",
                               pod['metadata']['name'])
                 raise k_exc.ResourceNotReady(pod['metadata']['name'])
@@ -172,6 +189,11 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         if not vifs:
             vifs = {}
 
+        owner_reference = {'apiVersion': pod['apiVersion'],
+                           'kind': pod['kind'],
+                           'name': pod['metadata']['name'],
+                           'uid': pod['metadata']['uid']}
+
         kuryr_port = {
             'apiVersion': constants.K8S_API_CRD_VERSION,
             'kind': constants.K8S_OBJ_KURYRPORT,
@@ -180,7 +202,8 @@ class VIFHandler(k8s_base.ResourceEventHandler):
                 'finalizers': [constants.KURYRPORT_FINALIZER],
                 'labels': {
                     constants.KURYRPORT_LABEL: pod['spec']['nodeName']
-                }
+                },
+                'ownerReferences': [owner_reference]
             },
             'spec': {
                 'podUid': pod['metadata']['uid'],
@@ -191,6 +214,5 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             }
         }
 
-        k8s = clients.get_kubernetes_client()
-        k8s.post(KURYRPORT_URI.format(ns=pod["metadata"]["namespace"],
-                                      crd=''), kuryr_port)
+        self.k8s.post(KURYRPORT_URI.format(ns=pod["metadata"]["namespace"],
+                                           crd=''), kuryr_port)

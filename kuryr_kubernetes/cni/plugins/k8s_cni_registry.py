@@ -94,9 +94,20 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
         def wait_for_active(kp_name):
             return self.registry[kp_name]['vifs']
 
+        data = {'metadata': {'name': params.args.K8S_POD_NAME,
+                             'namespace': params.args.K8S_POD_NAMESPACE}}
+        pod = k_utils.get_referenced_object(data, 'Pod')
+
         try:
+            self.k8s.add_event(pod, 'CNIWaitingForVIFs',
+                               f' Waiting for Neutron ports of {kp_name} to '
+                               f'become ACTIVE after binding.')
             vifs = wait_for_active(kp_name)
         except retrying.RetryError:
+            self.k8s.add_event(pod, 'CNITimedOutWaitingForVIFs',
+                               f' Time out on waiting for Neutron ports of '
+                               f'{kp_name} to become ACTIVE after binding.',
+                               'Warning')
             raise exceptions.CNINeutronPortActivationTimeout(
                 kp_name, self.registry[kp_name]['vifs'])
 
@@ -172,6 +183,13 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
             kp = d['kp']
             vifs = d['vifs']
         except KeyError:
+            data = {'metadata': {'name': params.args.K8S_POD_NAME,
+                                 'namespace': params.args.K8S_POD_NAMESPACE}}
+            pod = k_utils.get_referenced_object(data, 'Pod')
+            self.k8s.add_event(pod, 'CNITimeoutKuryrPortRegistry',
+                               f'Timed out waiting for Neutron ports to be '
+                               f'created for {kp_name}. Check '
+                               f'kuryr-controller logs.', 'Warning')
             raise exceptions.CNIKuryrPortTimeout(kp_name)
 
         for ifname, vif in vifs.items():
