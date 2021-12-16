@@ -42,12 +42,8 @@ def get_network_client():
     return _clients[_OPENSTACKSDK].network
 
 
-def get_openstacksdk():
-    return _clients[_OPENSTACKSDK]
-
-
 def get_loadbalancer_client():
-    return get_openstacksdk().load_balancer
+    return _clients[_OPENSTACKSDK].load_balancer
 
 
 def get_kubernetes_client() -> k8s_client.K8sClient:
