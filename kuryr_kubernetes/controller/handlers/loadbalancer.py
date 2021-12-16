@@ -173,53 +173,61 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         except k_exc.K8sClientException:
             LOG.warning("Error retriving KuryrLoadBalanders CRDs")
         try:
-            self._trigger_loadbalancer_reconciliation(loadbalancer_crds)
+            self._trigger_reconciliation(loadbalancer_crds)
         except Exception:
             LOG.exception('Error while running loadbalancers reconciliation.')
 
-    def _trigger_loadbalancer_reconciliation(self, loadbalancer_crds):
-        LOG.debug("Reconciling the loadbalancer CRDs")
-        # get the loadbalancers id in the CRD status
-        crd_loadbalancer_ids = [
-            {'id': loadbalancer_crd.get('status', {}).get(
-                'loadbalancer', {}).get('id', {}),
-             'selflink': utils.get_res_link(loadbalancer_crd),
-             'klb': loadbalancer_crd} for
-            loadbalancer_crd in loadbalancer_crds]
+    def _trigger_reconciliation(self, loadbalancer_crds):
+        LOG.debug("Reconciling the KuryrLoadBalancer CRDs")
         lbaas = clients.get_loadbalancer_client()
-        lbaas_spec = {}
-        self._drv_lbaas.add_tags('loadbalancer', lbaas_spec)
-        loadbalancers = lbaas.load_balancers(**lbaas_spec)
-        loadbalancers_id = [loadbalancer['id']
-                            for loadbalancer in loadbalancers]
-        # for each loadbalancer id in the CRD status, check if exists in
-        # OpenStack
-        crds_to_reconcile = [crd_lb for crd_lb in crd_loadbalancer_ids
-                             if crd_lb['id'] not in loadbalancers_id]
-        if not crds_to_reconcile:
-            LOG.debug("KuryrLoadBalancer CRDs already in sync with OpenStack")
-            return
-        LOG.debug("Reconciling the following KuryrLoadBalancer CRDs: %r",
-                  [klb['id'] for klb in crds_to_reconcile])
-        self._reconcile_lbaas(crds_to_reconcile)
+        resources_fn = {
+                      'loadbalancer': lbaas.load_balancers,
+                      'listener': lbaas.listeners,
+                }
+        resources = {
+                    'loadbalancer': [],
+                    'listener': [],
+                }
+        for loadbalancer_crd in loadbalancer_crds:
+            if loadbalancer_crd['metadata'].get('deletionTimestamp'):
+                continue
+            selflink = utils.get_res_link(loadbalancer_crd)
+            lb_id = loadbalancer_crd.get('status', {}).get(
+                    'loadbalancer', {}).get('id')
+            if lb_id is not None:
+                resources['loadbalancer'].append({'id': loadbalancer_crd.get(
+                          'status', {}).get('loadbalancer', {}).get('id'),
+                          'selflink': selflink})
+            resources['listener'].extend({'id': l['id'], 'selflink': selflink}
+                                         for l in loadbalancer_crd.get(
+                                             'status', {}).get('listeners',
+                                                               []))
+        crd_to_reconcile_selflink = set()
+        for resource_type, resource_lists in resources.items():
+            filters = {}
+            self._drv_lbaas.add_tags(resource_type, filters)
+            os_list = resources_fn[resource_type]
+            os_resources = os_list(**filters)
+            os_resources_id = [rsrc['id'] for rsrc in os_resources]
+            for crd in resource_lists:
+                if crd['id'] not in os_resources_id:
+                    crd_to_reconcile_selflink.add(crd['selflink'])
 
-    def _reconcile_lbaas(self, crds_to_reconcile):
-        for entry in crds_to_reconcile:
-            selflink = entry['selflink']
-            try:
-                self._add_event(
-                    entry['klb'], 'LoadBalancerRecreating',
-                    'Load balancer for the Service seems to not exist anymore.'
-                    ' Recreating it.', 'Warning')
-                self.k8s.patch_crd('status', selflink, {})
-            except k_exc.K8sResourceNotFound:
-                LOG.debug('Unable to reconcile the KuryLoadBalancer CRD %s',
-                          selflink)
-                continue
-            except k_exc.K8sClientException:
-                LOG.warning('Unable to patch the KuryLoadBalancer CRD %s',
-                            selflink)
-                continue
+        for selflink in crd_to_reconcile_selflink:
+            LOG.debug("Reconciling KuryrLoadBalancer CRD: %s",
+                      selflink)
+            self._reconcile_lb(selflink)
+
+    def _reconcile_lb(self, selflink):
+        kubernetes = clients.get_kubernetes_client()
+        try:
+            kubernetes.patch_crd('status', selflink, {})
+        except k_exc.K8sResourceNotFound:
+            LOG.debug('Unable to reconcile the KuryLoadBalancer CRD %s',
+                      selflink)
+        except k_exc.K8sClientException:
+            LOG.warning('Unable to patch the KuryLoadBalancer CRD %s',
+                        selflink)
 
     def _should_ignore(self, loadbalancer_crd):
         if not(self._has_endpoints(loadbalancer_crd) or
