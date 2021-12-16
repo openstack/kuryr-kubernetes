@@ -39,7 +39,8 @@ class ResourceNotReady(Exception):
                     msg = f'{kind} {res_name}'
                 else:
                     msg = res_name
-        super(ResourceNotReady, self).__init__("Resource not ready: %r" % msg)
+        self.message = "Resource not ready: %r" % msg
+        super(ResourceNotReady, self).__init__(self.message)
 
 
 class KuryrLoadBalancerNotCreated(Exception):

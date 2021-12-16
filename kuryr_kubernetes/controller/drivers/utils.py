@@ -183,8 +183,9 @@ def replace_encoded_characters(labels):
     return labels
 
 
-def create_security_group_rule(body):
+def create_security_group_rule(body, knp):
     os_net = clients.get_network_client()
+    k8s = clients.get_kubernetes_client()
 
     try:
         params = dict(body)
@@ -198,6 +199,11 @@ def create_security_group_rule(body):
         return sgr.id
     except os_exc.ConflictException as ex:
         if 'quota' in ex.details.lower():
+            np = utils.get_referenced_object(knp, 'NetworkPolicy')
+            k8s.add_event(np, 'FailedToCreateSecurityGroupRule',
+                          f'Creating security group rule for corresponding '
+                          f'Network Policy has failed: {ex}',
+                          'Warning')
             LOG.error("Failed to create security group rule %s: %s", body,
                       ex.details)
             raise
@@ -206,7 +212,12 @@ def create_security_group_rule(body):
                       "rule %s", body)
             # Get existent sg rule id from exception message
             return str(ex).split()[-1][:-1]
-    except os_exc.SDKException:
+    except os_exc.SDKException as exc:
+        np = utils.get_referenced_object(knp, 'NetworkPolicy')
+        k8s.add_event(np, 'FailedToCreateSecurityGroupRule',
+                      f'Creating security group rule for corresponding '
+                      f'Network Policy has failed: {exc}',
+                      'Warning')
         LOG.debug("Error creating security group rule")
         raise
 
@@ -223,12 +234,19 @@ def check_tag_on_creation():
     return bool(extension)
 
 
-def delete_security_group_rule(security_group_rule_id):
+def delete_security_group_rule(security_group_rule_id, knp):
     os_net = clients.get_network_client()
+    k8s = clients.get_kubernetes_client()
+
     try:
         LOG.debug("Deleting sg rule with ID: %s", security_group_rule_id)
         os_net.delete_security_group_rule(security_group_rule_id)
-    except os_exc.SDKException:
+    except os_exc.SDKException as exc:
+        np = utils.get_referenced_object(knp, 'NetworkPolicy')
+        k8s.add_event(np, 'FailedToDeleteSecurityGroupRule',
+                      f'Deleting security group rule for corresponding '
+                      f'Network Policy has failed: {exc}',
+                      'Warning')
         LOG.debug("Error deleting security group rule: %s",
                   security_group_rule_id)
         raise

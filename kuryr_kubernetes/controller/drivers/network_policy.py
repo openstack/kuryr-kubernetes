@@ -72,7 +72,14 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             #              rules just after creation.
             for sgr in sg.security_group_rules:
                 self.os_net.delete_security_group_rule(sgr['id'])
-        except (os_exc.SDKException, exceptions.ResourceNotReady):
+        except (os_exc.SDKException, exceptions.ResourceNotReady) as exc:
+            np = utils.get_referenced_object(knp, 'NetworkPolicy')
+            if np:
+                self.kubernetes.add_event(np, 'FailedToAddSecurityGroup',
+                                          f'Adding new security group or '
+                                          f'security group rules for '
+                                          f'corresponding network policy has '
+                                          f'failed: {exc}', 'Warning')
             LOG.exception("Error creating security group for network policy "
                           " %s", knp['metadata']['name'])
             raise
@@ -679,6 +686,12 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         namespace = policy['metadata']['namespace']
         pod_selector = policy['spec'].get('podSelector')
         policy_types = policy['spec'].get('policyTypes', [])
+
+        owner_reference = {'apiVersion': policy['apiVersion'],
+                           'kind': policy['kind'],
+                           'name': policy['metadata']['name'],
+                           'uid': policy['metadata']['uid']}
+
         netpolicy_crd = {
             'apiVersion': 'openstack.org/v1',
             'kind': constants.K8S_OBJ_KURYRNETWORKPOLICY,
@@ -689,6 +702,7 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
                     'networkPolicyLink': utils.get_res_link(policy)
                 },
                 'finalizers': [constants.NETWORKPOLICY_FINALIZER],
+                'ownerReferences': [owner_reference]
             },
             'spec': {
                 'ingressSgRules': i_rules,
@@ -709,7 +723,11 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             netpolicy_crd = self.kubernetes.post(url, netpolicy_crd)
         except exceptions.K8sNamespaceTerminating:
             raise
-        except exceptions.K8sClientException:
+        except exceptions.K8sClientException as exc:
+            self.kubernetes.add_event(policy, 'FailedToCreateNetworkPolicyCRD',
+                                      f'Adding corresponding Kuryr Network '
+                                      f'Policy CRD has failed: {exc}',
+                                      'Warning')
             LOG.exception("Kubernetes Client Exception creating "
                           "KuryrNetworkPolicy CRD.")
             raise
@@ -744,7 +762,11 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
         except exceptions.K8sResourceNotFound:
             LOG.debug("KuryrNetworkPolicy CRD Object not found: %s", name)
             return False
-        except exceptions.K8sClientException:
+        except exceptions.K8sClientException as exc:
+            self.kubernetes.add_event(policy, 'FailedToDeleteNetworkPolicyCRD',
+                                      f'Deleting corresponding Kuryr Network '
+                                      f'Policy CRD has failed: {exc}',
+                                      'Warning')
             LOG.exception("Kubernetes Client Exception deleting "
                           "KuryrNetworkPolicy CRD %s." % name)
             raise
