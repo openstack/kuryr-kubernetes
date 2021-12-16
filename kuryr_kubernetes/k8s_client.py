@@ -484,6 +484,10 @@ class K8sClient(object):
             return self.post(f'{constants.K8S_API_BASE}/namespaces/'
                              f'{resource["metadata"]["namespace"]}/events',
                              event)
+        except exc.K8sNamespaceTerminating:
+            # We can't create events in a Namespace that is being terminated,
+            # there's no workaround, no need to log it, just ignore it.
+            return {}
         except exc.K8sClientException:
             LOG.warning(f'There was non critical error during creating an '
                         'Event for resource: "{resource}", with reason: '
