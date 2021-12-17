@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import collections
+import eventlet
 import threading
 from unittest import mock
 import uuid
@@ -165,6 +166,11 @@ class BaseVIFPool(test_base.TestCase):
         m_driver._available_ports_pools = {}
         m_driver._last_update = {pool_key: {tuple(security_groups): 1}}
         m_driver._recovered_pools = True
+        m_driver._lock = threading.Lock()
+        m_driver._populate_pool_lock = {
+            pool_key: mock.MagicMock(spec=threading.Lock())}
+        m_driver._create_ports_semaphore = mock.MagicMock(
+            spec=eventlet.semaphore.Semaphore(20))
 
         oslo_cfg.CONF.set_override('ports_pool_min',
                                    5,

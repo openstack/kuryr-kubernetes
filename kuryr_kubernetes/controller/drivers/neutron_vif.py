@@ -58,18 +58,21 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
         return ovu.neutron_to_osvif_vif(port.binding_vif_type, port, subnets)
 
     def request_vifs(self, pod, project_id, subnets, security_groups,
-                     num_ports):
+                     num_ports, semaphore):
         os_net = clients.get_network_client()
 
         rq = self._get_port_request(pod, project_id, subnets, security_groups,
                                     unbound=True)
 
         bulk_port_rq = {'ports': [rq] * num_ports}
-        try:
-            ports = list(os_net.create_ports(bulk_port_rq))
-        except os_exc.SDKException:
-            LOG.exception("Error creating bulk ports: %s", bulk_port_rq)
-            raise
+        # restrict amount of create Ports in bulk that might be running
+        # in parallel.
+        with semaphore:
+            try:
+                ports = list(os_net.create_ports(bulk_port_rq))
+            except os_exc.SDKException:
+                LOG.exception("Error creating bulk ports: %s", bulk_port_rq)
+                raise
 
         vif_plugin = ports[0].binding_vif_type
 
