@@ -624,7 +624,9 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
             m_handler, loadbalancer_crds)
         filters = {}
         lbaas.load_balancers.assert_called_once_with(**filters)
-        m_handler._reconcile_lb.assert_called_with(selflink)
+        m_handler._reconcile_lb.assert_called_with({'id': mock.ANY,
+                                                    'selflink': selflink,
+                                                    'klb': mock.ANY})
 
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.controller.drivers.base'
