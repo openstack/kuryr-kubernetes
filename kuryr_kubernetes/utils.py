@@ -11,6 +11,7 @@
 # under the License.
 
 import ipaddress
+import os
 import random
 import re
 import socket
@@ -662,6 +663,17 @@ def is_pod_completed(pod):
 
 def is_host_network(pod):
     return pod['spec'].get('hostNetwork', False)
+
+
+def get_nodename():
+    # NOTE(dulek): At first try to get it using environment variable,
+    #              otherwise assume hostname is the nodename.
+    try:
+        nodename = os.environ['KUBERNETES_NODE_NAME']
+    except KeyError:
+        # NOTE(dulek): By default K8s nodeName is lowercased hostname.
+        nodename = socket.gethostname().lower()
+    return nodename
 
 
 def get_referenced_object(obj, kind):

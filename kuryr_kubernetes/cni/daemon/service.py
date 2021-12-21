@@ -18,7 +18,6 @@ from http import client as httplib
 import multiprocessing
 import os
 import queue
-import socket
 import sys
 import threading
 import time
@@ -262,23 +261,13 @@ class CNIDaemonWatcherService(cotyledon.Service):
         self.registry = registry
         self.healthy = healthy
 
-    def _get_nodename(self):
-        # NOTE(dulek): At first try to get it using environment variable,
-        #              otherwise assume hostname is the nodename.
-        try:
-            nodename = os.environ['KUBERNETES_NODE_NAME']
-        except KeyError:
-            # NOTE(dulek): By default K8s nodeName is lowercased hostname.
-            nodename = socket.gethostname().lower()
-        return nodename
-
     def run(self):
         self.pipeline = h_cni.CNIPipeline()
         self.pipeline.register(h_cni.CallbackHandler(self.on_done,
                                                      self.on_deleted))
         self.watcher = k_watcher.Watcher(self.pipeline)
         query_label = urllib.parse.quote_plus(f'{k_const.KURYRPORT_LABEL}='
-                                              f'{self._get_nodename()}')
+                                              f'{utils.get_nodename()}')
 
         self.watcher.add(f'{k_const.K8S_API_CRD_KURYRPORTS}'
                          f'?labelSelector={query_label}')
