@@ -104,6 +104,7 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
                             self.k8s.add_event(pod, 'ActivatePortFailed',
                                                'Activating Neutron port has '
                                                'timed out', 'Warning')
+                        raise
                     except os_exc.ResourceNotFound:
                         self.k8s.add_event(pod, 'ActivatePortFailed',
                                            'Activating Neutron port has '
