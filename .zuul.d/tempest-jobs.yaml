@@ -179,7 +179,7 @@
         KURYR_USE_PORT_POOLS: true
         KURYR_POD_VIF_DRIVER: neutron-vif
         KURYR_VIF_POOL_DRIVER: neutron
-        KURYR_CONFIGMAP_MODIFIABLE: true
+        KURYR_CONFIGMAP_MODIFIABLE: false
 
 - job:
     name: kuryr-kubernetes-tempest-docker
