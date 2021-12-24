@@ -44,7 +44,6 @@ class TestK8sClient(test_base.TestCase):
 
         m_k8s.assert_called_with(k8s_api_root)
         self.assertIs(k8s_dummy, clients.get_kubernetes_client())
-        self.assertIs(openstacksdk_mock, clients.get_openstacksdk())
         self.assertIs(openstacksdk_mock.load_balancer,
                       clients.get_loadbalancer_client())
         self.assertIs(openstacksdk_mock.network,
