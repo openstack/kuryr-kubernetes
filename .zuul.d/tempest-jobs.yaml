@@ -192,6 +192,7 @@
 - job:
     name: kuryr-kubernetes-tempest-amphora
     parent: kuryr-kubernetes-base-ovn
+    nodeset: kuryr-nested-virt-ubuntu-focal
     required-projects:
       - openstack/octavia
       - openstack/python-octaviaclient
@@ -231,6 +232,7 @@
 - job:
     name: kuryr-kubernetes-tempest-amphora-ovs
     parent: kuryr-kubernetes-octavia-base-ovs
+    nodeset: kuryr-nested-virt-ubuntu-focal
     vars:
       devstack_localrc:
         KURYR_EP_DRIVER_OCTAVIA_PROVIDER: amphora
