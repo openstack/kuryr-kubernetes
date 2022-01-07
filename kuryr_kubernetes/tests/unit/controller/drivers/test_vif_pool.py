@@ -141,6 +141,23 @@ class BaseVIFPool(test_base.TestCase):
                                security_groups)
         self.assertIsNone(resp)
 
+    def test_request_vif_multi_vif_pod_without_host(self):
+        cls = vif_pool.MultiVIFPool
+        m_driver = mock.MagicMock(spec=cls)
+
+        pod = get_pod_obj().copy()
+        del pod['spec']['nodeName']
+        project_id = str(uuid.uuid4())
+        subnets = mock.sentinel.subnets
+        security_groups = [mock.sentinel.security_groups]
+        m_driver._vif_drvs = {}
+        m_driver._vif_drvs['nested-vlan'] = 'NestedVIFPool'
+        m_driver._get_pod_vif_type.side_effect = KeyError
+
+        resp = cls.request_vif(m_driver, pod, project_id, subnets,
+                               security_groups)
+        self.assertIsNone(resp)
+
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('time.time', return_value=50)
     @ddt.data((neutron_vif.NeutronPodVIFDriver),

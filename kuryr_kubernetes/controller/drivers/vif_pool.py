@@ -1244,7 +1244,16 @@ class MultiVIFPool(base.VIFPoolDriver):
             self._vif_drvs[pod_driver] = drv_pool
 
     def request_vif(self, pod, project_id, subnets, security_groups):
-        pod_vif_type = self._get_pod_vif_type(pod)
+        pod_info = "%s/%s" % (pod['metadata']['namespace'],
+                              pod['metadata']['name'])
+        try:
+            pod_vif_type = self._get_pod_vif_type(pod)
+        except KeyError:
+            # NOTE(maysams): No nodeName set. Event should be skipped
+            LOG.warning("Pod %s has no .spec.nodeName set. This is unexpected "
+                        "as it's supposed to be scheduled. Ignoring event.",
+                        pod_info)
+            return None
         return self._vif_drvs[pod_vif_type].request_vif(
             pod, project_id, subnets, security_groups)
 
