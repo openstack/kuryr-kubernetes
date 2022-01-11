@@ -478,6 +478,11 @@ rules:
   verbs: ["*"]
   resources:
     - kuryrports
+- apiGroups: ["", "events.k8s.io"]
+  resources:
+  - events
+  verbs:
+  - create
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
