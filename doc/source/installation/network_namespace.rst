@@ -16,9 +16,9 @@ the next steps are needed:
       enabled_handlers=vif,endpoints,service,kuryrloadbalancer,namespace,
                        kuryrnetwork,kuryrport
 
-   Note that if you also want to enable prepopulation of ports pools upon new
-   namespace creation, you need to also add the kuryrnetwork_population
-   handler (more details on :doc:`./ports-pool`):
+   Note that if you also want to enable prepopulation of ports pools upon
+   creation of first pod on pods network in a namespace, you need to also
+   add the kuryrnetwork_population handler (more details on :doc:`./ports-pool`):
 
    .. code-block:: ini
 

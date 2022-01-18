@@ -14,8 +14,9 @@ be found  at :doc:`./devstack/containerized`):
                     pod_label,namespace,kuryrnetwork,kuryrnetworkpolicy,
                     kuryrport
 
-Note that if you also want to enable prepopulation of ports pools upon new
-namespace creation, you need to also dd the kuryrnetwork_population handler
+Note that if you also want to enable prepopulation of ports pools upon creation
+of first pod on pods network in a namespace, you need to also add the
+kuryrnetwork_population handler
 (more details on :doc:`./ports-pool`):
 
 .. code-block:: ini
