@@ -76,6 +76,7 @@ K8S_ANNOTATION_CURRENT_DRIVER = 'current_driver'
 K8S_ANNOTATION_NEUTRON_PORT = 'neutron_id'
 
 K8S_ANNOTATION_HEADLESS_SERVICE = 'service.kubernetes.io/headless'
+K8S_ANNOTATION_CONFIG_SOURCE = 'kubernetes.io/config.source'
 
 POD_FINALIZER = KURYR_FQDN + '/pod-finalizer'
 KURYRNETWORK_FINALIZER = 'kuryrnetwork.finalizers.kuryr.openstack.org'

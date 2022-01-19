@@ -29,6 +29,8 @@ spec:
                   type: string
                 podNodeName:
                   type: string
+                podStatic:
+                  type: boolean
             status:
               type: object
               required:

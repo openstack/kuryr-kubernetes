@@ -170,6 +170,15 @@ class CNIBindingFailure(Exception):
         super(CNIBindingFailure, self).__init__(message)
 
 
+class CNIPodUidMismatch(CNITimeout):
+    """Excepton raised on a mismatch of CNI request's pod UID and KuryrPort"""
+    def __init__(self, name, expected, observed):
+        super().__init__(
+            f'uid {observed} of the pod {name} does not match the uid '
+            f'{expected} requested by the CNI. Dropping CNI request to prevent'
+            f' race conditions.')
+
+
 class UnreachableOctavia(Exception):
     """Exception indicates Octavia API failure and can not be reached
 
