@@ -114,16 +114,13 @@ class DaemonServer(object):
         except pyroute2.NetlinkError as e:
             if e.code == errno.EEXIST:
                 self._check_failure()
-                args = {'kind': 'vlan', 'vlan_id': vif.vlan_id}
                 LOG.warning(
                     f'Creation of pod interface failed due to VLAN ID '
-                    f'(vlan_info={args}) conflict. Probably the CRI had not '
-                    f'cleaned up the network namespace of deleted pods. '
-                    f'Attempting to retry.')
+                    f'conflict. Probably the CRI had not cleaned up the '
+                    f'network namespace of deleted pods. Attempting to retry.')
                 error = self._error(ErrTryAgainLater,
-                                    "Creation of pod interface failed due to"
-                                    " vlan_id. Try Again Later",
-                                    f"vlan_id:{vif.vlan_id}")
+                                    "Creation of pod interface failed due to "
+                                    "VLAN ID conflict. Try Again Later")
                 return error, httplib.GATEWAY_TIMEOUT, self.headers
             raise
         except Exception:
