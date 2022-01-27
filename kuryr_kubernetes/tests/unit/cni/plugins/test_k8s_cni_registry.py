@@ -197,8 +197,9 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
                                      is_default_gateway=False,
                                      container_id='cont_id')
 
+    @mock.patch('oslo_concurrency.lockutils.lock')
     @mock.patch('kuryr_kubernetes.cni.binding.base.disconnect')
-    def test_del_wrong_container_id(self, m_disconnect):
+    def test_del_wrong_container_id(self, m_disconnect, m_lock):
         registry = {'default/foo': {'kp': self.kp, 'vifs': self.vifs,
                                     'containerid': 'different'}}
         healthy = mock.Mock()
@@ -206,6 +207,7 @@ class TestK8sCNIRegistryPlugin(base.TestCase):
         self.plugin.delete(self.params)
 
         m_disconnect.assert_not_called()
+        m_lock.assert_called_with('default/foo', external=True)
 
     @mock.patch('oslo_concurrency.lockutils.lock')
     @mock.patch('time.sleep', mock.Mock())

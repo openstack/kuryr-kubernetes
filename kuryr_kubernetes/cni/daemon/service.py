@@ -21,7 +21,6 @@ import queue
 import sys
 import threading
 import time
-import urllib.parse
 import urllib3
 
 import cotyledon
@@ -31,27 +30,23 @@ from pyroute2.ipdb import transactional
 from werkzeug import serving
 
 import os_vif
-from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
 from kuryr_kubernetes import clients
-from kuryr_kubernetes.cni import handlers as h_cni
+from kuryr_kubernetes.cni.daemon import watcher_service
 from kuryr_kubernetes.cni import health
 from kuryr_kubernetes.cni.plugins import k8s_cni_registry
 from kuryr_kubernetes.cni import prometheus_exporter
 from kuryr_kubernetes.cni import utils as cni_utils
 from kuryr_kubernetes import config
-from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes import objects
-from kuryr_kubernetes import utils
-from kuryr_kubernetes import watcher as k_watcher
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
-HEALTH_CHECKER_DELAY = 5
+ErrContainerUnknown = 3
 ErrInvalidEnvironmentVariables = 4
 ErrTryAgainLater = 11
 ErrInternal = 999
@@ -107,6 +102,10 @@ class DaemonServer(object):
         try:
             vif = self.plugin.add(params)
             data = jsonutils.dumps(vif.obj_to_primitive())
+        except (exceptions.CNIPodGone, exceptions.CNIPodUidMismatch) as e:
+            LOG.warning('Pod deleted while processing ADD request')
+            error = self._error(ErrContainerUnknown, str(e))
+            return error, httplib.GONE, self.headers
         except exceptions.CNITimeout as e:
             LOG.exception('Timeout on ADD request')
             error = self._error(ErrTryAgainLater, f"{e}. Try Again Later.")
@@ -247,89 +246,6 @@ class CNIDaemonServerService(cotyledon.Service):
         self.server.stop()
 
 
-class CNIDaemonWatcherService(cotyledon.Service):
-    name = "watcher"
-
-    def __init__(self, worker_id, registry, healthy):
-        super(CNIDaemonWatcherService, self).__init__(worker_id)
-        self.pipeline = None
-        self.watcher = None
-        self.health_thread = None
-        self.registry = registry
-        self.healthy = healthy
-
-    def run(self):
-        self.pipeline = h_cni.CNIPipeline()
-        self.pipeline.register(h_cni.CallbackHandler(self.on_done,
-                                                     self.on_deleted))
-        self.watcher = k_watcher.Watcher(self.pipeline)
-        query_label = urllib.parse.quote_plus(f'{k_const.KURYRPORT_LABEL}='
-                                              f'{utils.get_nodename()}')
-
-        self.watcher.add(f'{k_const.K8S_API_CRD_KURYRPORTS}'
-                         f'?labelSelector={query_label}')
-
-        self.is_running = True
-        self.health_thread = threading.Thread(
-            target=self._start_watcher_health_checker)
-        self.health_thread.start()
-        self.watcher.start()
-
-    def _start_watcher_health_checker(self):
-        while self.is_running:
-            if not self.watcher.is_alive():
-                LOG.debug("Reporting watcher not healthy.")
-                with self.healthy.get_lock():
-                    self.healthy.value = False
-            time.sleep(HEALTH_CHECKER_DELAY)
-
-    def on_done(self, kuryrport, vifs):
-        kp_name = utils.get_res_unique_name(kuryrport)
-        with lockutils.lock(kp_name, external=True):
-            if (kp_name not in self.registry or
-                    self.registry[kp_name]['kp']['metadata']['uid']
-                    != kuryrport['metadata']['uid']):
-                self.registry[kp_name] = {'kp': kuryrport,
-                                          'vifs': vifs,
-                                          'containerid': None,
-                                          'vif_unplugged': False,
-                                          'del_received': False}
-            else:
-                old_vifs = self.registry[kp_name]['vifs']
-                for iface in vifs:
-                    if old_vifs[iface].active != vifs[iface].active:
-                        kp_dict = self.registry[kp_name]
-                        kp_dict['vifs'] = vifs
-                        self.registry[kp_name] = kp_dict
-
-    def on_deleted(self, kp):
-        kp_name = utils.get_res_unique_name(kp)
-        try:
-            if kp_name in self.registry:
-                # NOTE(ndesh): We need to lock here to avoid race condition
-                #              with the deletion code for CNI DEL so that
-                #              we delete the registry entry exactly once
-                with lockutils.lock(kp_name, external=True):
-                    if self.registry[kp_name]['vif_unplugged']:
-                        del self.registry[kp_name]
-                    else:
-                        kp_dict = self.registry[kp_name]
-                        kp_dict['del_received'] = True
-                        self.registry[kp_name] = kp_dict
-        except KeyError:
-            # This means someone else removed it. It's odd but safe to ignore.
-            LOG.debug('KuryrPort %s entry already removed from registry while '
-                      'handling DELETED event. Ignoring.', kp_name)
-            pass
-
-    def terminate(self):
-        self.is_running = False
-        if self.health_thread:
-            self.health_thread.join()
-        if self.watcher:
-            self.watcher.stop()
-
-
 class CNIDaemonHealthServerService(cotyledon.Service):
     name = "health"
 
@@ -393,7 +309,10 @@ class CNIDaemonServiceManager(cotyledon.ServiceManager):
         registry = self.manager.dict()  # For Watcher->Server communication.
         healthy = multiprocessing.Value(c_bool, True)
         metrics = self.manager.Queue()
-        self.add(CNIDaemonWatcherService, workers=1, args=(registry, healthy,))
+        self.add(watcher_service.KuryrPortWatcherService, workers=1,
+                 args=(registry, healthy,))
+        self.add(watcher_service.PodWatcherService, workers=1,
+                 args=(registry, healthy,))
         self._server_service = self.add(CNIDaemonServerService, workers=1,
                                         args=(registry, healthy, metrics,))
         self.add(CNIDaemonHealthServerService, workers=1, args=(healthy,))
