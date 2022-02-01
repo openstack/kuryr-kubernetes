@@ -19,6 +19,7 @@ import os
 from oslo_log import log as logging
 import psutil
 import pyroute2
+from pyroute2 import netlink as pyroute_netlink
 
 from kuryr_kubernetes.cni.binding import base as b_base
 from kuryr_kubernetes import config
@@ -72,7 +73,7 @@ class NestedDriver(health.HealthHandler, b_base.BaseBindingDriver,
             if type(name) is int:  # Skip ones duplicated by id
                 continue
 
-            if iface['flags'] & pyroute2.netlink.rtnl.ifinfmsg.IFF_LOOPBACK:
+            if iface['flags'] & pyroute_netlink.rtnl.ifinfmsg.IFF_LOOPBACK:
                 continue  # Skip loopback
 
             LOG.debug(f'Using interface {name} as bridge interface.')
