@@ -1,19 +1,19 @@
-FROM registry.centos.org/centos:8
+FROM quay.io/centos/centos:stream8
 LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redhat.com>"
 
 ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/master"
 
-RUN yum upgrade -y \
-    && yum install -y epel-release \
-    && yum install -y --setopt=tsflags=nodocs python3-pip libstdc++ \
-    && yum install -y --setopt=tsflags=nodocs gcc gcc-c++ python3-devel git
+RUN dnf upgrade -y \
+    && dnf install -y epel-release \
+    && dnf install -y --setopt=tsflags=nodocs python3-pip libstdc++ \
+    && dnf install -y --setopt=tsflags=nodocs gcc gcc-c++ python3-devel git
 
 COPY . /opt/kuryr-kubernetes
 
 RUN pip3 --no-cache-dir install -U pip \
     && python3 -m pip install -c $UPPER_CONSTRAINTS_FILE --no-cache-dir /opt/kuryr-kubernetes \
-    && yum -y history undo last \
-    && yum clean all \
+    && dnf -y history undo last \
+    && dnf clean all \
     && rm -rf /opt/kuryr-kubernetes \
     && groupadd -r kuryr -g 711 \
     && useradd -u 711 -g kuryr \
