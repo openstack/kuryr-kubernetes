@@ -838,11 +838,15 @@ class LBaaSv2Driver(base.LBaaSDriver):
                            interval=_LB_STS_POLL_FAST_INTERVAL):
         lbaas = clients.get_loadbalancer_client()
 
+        status = 'PENDING_DELETE'
         for remaining in self._provisioning_timer(timeout, interval):
             try:
-                lbaas.get_load_balancer(loadbalancer['id'])
+                lb = lbaas.get_load_balancer(loadbalancer['id'])
+                status = lb.provisioning_status
             except os_exc.NotFoundException:
                 return
+
+        raise k_exc.LoadBalancerNotReady(loadbalancer['id'], status)
 
     def _provisioning_timer(self, timeout,
                             interval=_LB_STS_POLL_FAST_INTERVAL):

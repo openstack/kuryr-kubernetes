@@ -269,7 +269,12 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
     def _has_lbaas_spec_changes(self, service, loadbalancer_crd):
         return (self._has_ip_changes(service, loadbalancer_crd) or
                 utils.has_port_changes(service, loadbalancer_crd) or
-                self._has_timeout_changes(service, loadbalancer_crd))
+                self._has_timeout_changes(service, loadbalancer_crd) or
+                self._has_provider_changes(loadbalancer_crd))
+
+    def _has_provider_changes(self, loadbalancer_crd):
+        return (self._lb_provider and
+                loadbalancer_crd['spec'].get('provider') != self._lb_provider)
 
     def _has_ip_changes(self, service, loadbalancer_crd):
         link = utils.get_res_link(service)

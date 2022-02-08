@@ -876,30 +876,10 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         return False
 
     def _ensure_release_lbaas(self, loadbalancer_crd):
-        attempts = 0
-        timeout = config.CONF.kubernetes.watch_retry_timeout
-        deadline = time.time() + timeout
-        while True:
-            try:
-                if not utils.exponential_sleep(deadline, attempts):
-                    msg = (f'Timed out waiting for deletion of load balancer '
-                           f'{utils.get_res_unique_name(loadbalancer_crd)}')
-                    self._add_event(
-                        loadbalancer_crd, 'KuryrLBReleaseTimeout', msg,
-                        'Warning')
-                    LOG.error(msg)
-                    return
-                self._drv_lbaas.release_loadbalancer(
-                    loadbalancer_crd['status'].get('loadbalancer'))
-                break
-            except k_exc.ResourceNotReady:
-                LOG.debug("Attempt %s to release LB %s failed."
-                          " A retry will be triggered.", attempts,
-                          utils.get_res_unique_name(loadbalancer_crd))
-                attempts += 1
-
-            loadbalancer_crd['status'] = {}
-            self._patch_status(loadbalancer_crd)
-            # NOTE(ltomasbo): give some extra time to ensure the Load
-            # Balancer VIP is also released
-            time.sleep(1)
+        self._drv_lbaas.release_loadbalancer(
+            loadbalancer_crd['status'].get('loadbalancer'))
+        utils.clean_lb_crd_status(
+            utils.get_res_unique_name(loadbalancer_crd))
+        # NOTE(ltomasbo): give some extra time to ensure the Load
+        # Balancer VIP is also released
+        time.sleep(1)
