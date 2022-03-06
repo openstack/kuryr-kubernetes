@@ -1465,26 +1465,18 @@ function wait_for {
     echo ""
 }
 
-function _wait_for_ok_health {
+function _wait_for_ok_ready {
     local name
-    local url
     local start_time
     local curr_time
     local time_diff
-    local apiserver
-    local token
 
     name="$1"
     timeout=${2:-$KURYR_WAIT_TIMEOUT}
-    apiserver=$(get_k8s_apiserver)
-    token=$(get_k8s_token)
-
-    url="${apiserver}/healthz"
-    extra_flags=("-s" "--insecure" "--header" "Authorization: Bearer $token")
 
     start_time=$(date +%s)
-    echo -n "Waiting for ${name} to be healthy"
-    until [[ "$(curl "${extra_flags[@]}" "$url")" == "ok" ]]; do
+    echo -n "Waiting for ${name} to be ready"
+    until [[ "$(kubectl get --raw='/readyz')" == "ok" ]]; do
         echo -n "."
         curr_time=$(date +%s)
         time_diff=$((curr_time - start_time))
@@ -1512,7 +1504,7 @@ function prepare_kubelet {
 function run_kuryr_kubernetes {
     local controller_bin
 
-    _wait_for_ok_health "kubernetes" 1200
+    _wait_for_ok_ready "kubernetes" 1200
 
     controller_bin=$(which kuryr-k8s-controller)
     run_process kuryr-kubernetes "$controller_bin --config-file $KURYR_CONFIG"
