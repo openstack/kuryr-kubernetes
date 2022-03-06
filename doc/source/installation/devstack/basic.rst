@@ -59,6 +59,9 @@ Now edit ``devstack/local.conf`` to set up some initial options:
   network interface.
 * If you already have Docker installed on the machine, you can comment out line
   starting with ``enable_plugin devstack-plugin-container``.
+* If you can't pull images from k8s.gcr.io, you can add the variable
+  ``KURYR_KUBEADMIN_IMAGE_REPOSITORY`` to ``devstack/local.conf`` and set it's
+  value to the repository that you can access.
 
 Once ``local.conf`` is configured, you can start the installation:
 

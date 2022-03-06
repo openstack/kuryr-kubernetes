@@ -58,6 +58,7 @@ function kubeadm_init {
     cat >> ${output_dir}/kubeadm-init.yaml << EOF
 apiVersion: kubeadm.k8s.io/v1beta2
 kind: ClusterConfiguration
+imageRepository: "${KURYR_KUBEADMIN_IMAGE_REPOSITORY}"
 etcd:
   external:
     endpoints:
@@ -107,6 +108,7 @@ failSwapOn: false
 address: "0.0.0.0"
 enableServer: true
 EOF
+    sudo kubeadm config images pull --image-repository=${KURYR_KUBEADMIN_IMAGE_REPOSITORY}
     args="--config ${output_dir}/kubeadm-init.yaml"
     # NOTE(gryf): skip installing kube proxy, kuryr will handle services.
     args+=" --skip-phases=addon/kube-proxy"
