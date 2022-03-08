@@ -29,17 +29,17 @@ sudo chown ${USER}:${USER} ${HOME}/.kube/config
 KCTL="/usr/bin/kubectl --kubeconfig=${HOME}/.kube/config"
 $KCTL get pods -o yaml --all-namespaces >> ${K8S_LOG_DIR}/pods.txt
 $KCTL get svc -o yaml --all-namespaces >> ${K8S_LOG_DIR}/services.txt
+$KCTL get endpoints -o yaml --all-namespaces >> ${K8S_LOG_DIR}/endpoints.txt
+$KCTL get networkpolicies -o yaml --all-namespaces >> ${K8S_LOG_DIR}/networkpolicies.txt
 $KCTL get cm -o yaml --all-namespaces >> ${K8S_LOG_DIR}/configmaps.txt
 $KCTL get deploy -o yaml --all-namespaces >> ${K8S_LOG_DIR}/deployments.txt
 $KCTL get ds -o yaml --all-namespaces >> ${K8S_LOG_DIR}/daemonsets.txt
 $KCTL get nodes -o yaml --all-namespaces >> ${K8S_LOG_DIR}/nodes.txt
-$KCTL get ingress -o yaml --all-namespaces >> ${K8S_LOG_DIR}/ingress.txt
 $KCTL get namespaces -o yaml >> ${K8S_LOG_DIR}/namespaces.txt
-$KCTL get kuryrnets -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrnets_crds.txt
+$KCTL get events -o yaml --all-namespaces >> ${K8S_LOG_DIR}/events.txt
 $KCTL get kuryrnetworks -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrnetworks_crds.txt
-$KCTL get endpoints -o yaml --all-namespaces >> ${K8S_LOG_DIR}/endpoints.txt
-$KCTL get kuryrnetpolicy -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrnetpolicy_crds.txt
 $KCTL get kuryrport -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrport_crds.txt
+$KCTL get kuryrloadbalancers -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrloadbalancer_crds.txt
 $KCTL get kuryrnetworkpolicy -o yaml --all-namespaces >> ${K8S_LOG_DIR}/kuryrnetworkpolicy_crds.txt
 sudo journalctl -o short-precise --unit kubelet | sudo tee ${K8S_LOG_DIR}/kubelet_log.txt > /dev/null
 # Kubernetes pods logs
