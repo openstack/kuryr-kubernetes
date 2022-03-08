@@ -31,3 +31,33 @@
       - name: tempest
         nodes:
           - controller
+
+- nodeset:
+    name: kuryr-nested-virt-two-node-focal
+    nodes:
+      - name: controller
+        label: nested-virt-ubuntu-focal
+      - name: compute1
+        label: nested-virt-ubuntu-focal
+    groups:
+      # Node where tests are executed and test results collected
+      - name: tempest
+        nodes:
+          - controller
+      # Nodes running the compute service
+      - name: compute
+        nodes:
+          - controller
+          - compute1
+      # Nodes that are not the controller
+      - name: subnode
+        nodes:
+          - compute1
+      # Switch node for multinode networking setup
+      - name: switch
+        nodes:
+          - controller
+      # Peer nodes for multinode networking setup
+      - name: peers
+        nodes:
+          - compute1

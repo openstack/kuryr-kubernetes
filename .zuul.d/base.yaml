@@ -219,6 +219,7 @@
 - job:
     name: kuryr-kubernetes-octavia-base-ovs
     parent: kuryr-kubernetes-base-ovs
+    nodeset: kuryr-nested-virt-ubuntu-focal
     description: |
       Kuryr-Kubernetes tempest job using octavia
     required-projects:
