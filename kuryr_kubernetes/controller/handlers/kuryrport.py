@@ -117,7 +117,11 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
                 project_id = self._drv_project.get_project(pod)
 
                 try:
+                    kp_name = kuryrport_crd['metadata']['name']
                     self._update_kuryrport_crd(kuryrport_crd, vifs)
+                    self.k8s.add_event(pod, 'KuryrPortUpdatedWithActiveVIFs',
+                                       f'KuryrPort CRD: {kp_name} updated with'
+                                       f' active VIFs')
                 except k_exc.K8sResourceNotFound as ex:
                     LOG.exception("Failed to update KuryrPort CRD: %s", ex)
                     security_groups = self._drv_sg.get_security_groups(
@@ -265,10 +269,13 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
             LOG.warning("SG not found during VIF requesting. Retrying.")
             raise k_exc.ResourceNotReady(pod['metadata']['name'])
 
+        pod_name = pod['metadata']['name']
         if not main_vif:
-            pod_name = pod['metadata']['name']
             LOG.warning("Ignoring event due to pod %s not being "
                         "scheduled yet.", pod_name)
+            self.k8s.add_event(pod, 'KuryrIgnoringPodEvent',
+                               f'Ignoring event: Pod not scheduled '
+                               f'{pod_name}')
             return False
 
         vifs = {constants.DEFAULT_IFNAME: {'default': True, 'vif': main_vif}}
@@ -285,6 +292,8 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
 
         try:
             self._update_kuryrport_crd(kuryrport_crd, vifs)
+            self.k8s.add_event(pod, 'KuryrPortUpdatedWithVIFs',
+                               f'KuryrPort CRD: {pod_name} updated with VIFs')
         except k_exc.K8sClientException as ex:
             LOG.exception("Kubernetes Client Exception creating "
                           "KuryrPort CRD: %s", ex)
@@ -335,7 +344,7 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
             return self.k8s.get(f"{constants.K8S_API_NAMESPACES}"
                                 f"/{namespace}/pods/{name}")
         except k_exc.K8sResourceNotFound as ex:
-            self.k8s.add_event(kuryrport_crd,
+            self.k8s.add_event(kuryrport_crd, 'KuryrFailedGettingPod'
                                f'Failed to get corresponding pod: {ex}',
                                'Warning')
             LOG.exception("Failed to get pod: %s", ex)
