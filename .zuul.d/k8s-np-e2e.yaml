@@ -59,7 +59,8 @@
         OCTAVIA_AMP_IMAGE_FILE: "/tmp/test-only-amphora-x64-haproxy-ubuntu-focal.qcow2"
         OCTAVIA_AMP_IMAGE_NAME: "test-only-amphora-x64-haproxy-ubuntu-focal"
         OCTAVIA_AMP_IMAGE_SIZE: 3
-        OVN_BRANCH: v20.06.2
+        OVN_BRANCH: v21.06.0
+        OVS_BRANCH: v2.16.0
         OVN_BUILD_FROM_SOURCE: true
         OVN_L3_CREATE_PUBLIC_NETWORK: true
         PHYSICAL_NETWORK: public
