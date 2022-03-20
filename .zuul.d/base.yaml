@@ -111,7 +111,7 @@
         KURYR_ENFORCE_SG_RULES: false
         ML2_L3_PLUGIN: ovn-router,trunk,qos
         OVN_BRANCH: v21.06.0
-        OVS_BRANCH: v2.16.0
+        OVS_BRANCH: "a4b04276ab5934d087669ff2d191a23931335c87"
         OVN_BUILD_FROM_SOURCE: true
         OVN_L3_CREATE_PUBLIC_NETWORK: true
         VAR_RUN_PATH: /usr/local/var/run
