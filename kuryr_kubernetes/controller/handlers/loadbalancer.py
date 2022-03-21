@@ -181,8 +181,9 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         LOG.debug("Reconciling the KuryrLoadBalancer CRDs")
         lbaas = clients.get_loadbalancer_client()
         resources_fn = {'loadbalancer': lbaas.load_balancers,
-                        'listener': lbaas.listeners}
-        resources = {'loadbalancer': [], 'listener': []}
+                        'listener': lbaas.listeners,
+                        'pool': lbaas.pools}
+        resources = {'loadbalancer': [], 'listener': [], 'pool': []}
 
         for klb in loadbalancer_crds:
             if klb['metadata'].get('deletionTimestamp'):
@@ -200,10 +201,15 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                 resources['listener'].append({'id': lbl['id'],
                                               'selflink': selflink,
                                               'lklb': klb})
+            for pl in klb.get('status', {}).get('pools', []):
+                resources['pool'].append({'id': pl['id'],
+                                          'selflink': selflink,
+                                          'pklb': klb})
 
         resources_already_triggered = []
-        # let's reconcile load balancers first, and than listeners
-        for resource_type in ('loadbalancer', 'listener'):
+        # let's reconcile load balancers first, listeners and then pools
+        resource_types = ('loadbalancer', 'listener', 'pool')
+        for resource_type in resource_types:
             filters = {}
             self._drv_lbaas.add_tags(resource_type, filters)
             os_list = resources_fn[resource_type]
@@ -223,13 +229,15 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         try:
             if data.get('klb'):
                 self._add_event(data['klb'], 'LoadBalancerRecreating',
-                                'Load balancer for the Service seems to not '
+                                'Load balancer for the Service does  not '
                                 'exist anymore. Recreating it.', 'Warning')
             if data.get('lklb'):
-                self._add_event(data['lklb'], 'LoadBalancerRecreating',
-                                'Listener of load balancer for the Service '
-                                'seems to not exist anymore. Recreating it.',
-                                'Warning')
+                self._add_event(data['lklb'], 'Load Balancer listener does not'
+                                ' exist anymore. Recreating it.', 'Warning')
+            if data.get('pklb'):
+                self._add_event(data['pklb'], 'Load Balancer pool does not '
+                                'exist anymore. Recreating it.', 'Warning')
+
             kubernetes.patch_crd('status', data['selflink'], {})
         except k_exc.K8sResourceNotFound:
             LOG.debug('Unable to reconcile the KuryLoadBalancer CRD %s',
