@@ -115,3 +115,48 @@ class TestUtils(test_base.TestCase):
                         group='kubernetes')
 
         self.assertTrue(utils.is_network_policy_enabled())
+
+    def test_get_resource_name_with_too_long_name(self):
+        name = 253 * "a"
+        prefix = 'ns/'
+        suffix = '-net'
+
+        new_name = utils.get_resource_name(name, prefix, suffix)
+
+        self.assertEqual(new_name,
+                         prefix + 248 * 'a' + suffix)
+        self.assertEqual(len(new_name), 255)
+
+    def test_get_resource_name_with_sane_name(self):
+        name = 'myns'
+        prefix = 'ns/'
+        suffix = '-foo'
+
+        new_name = utils.get_resource_name(name, prefix, suffix)
+
+        self.assertEqual(new_name, f'{prefix}{name}{suffix}')
+
+    def test_get_resource_name_with_prefix(self):
+        name = 'fun_name'
+        prefix = 'something/'
+
+        new_name = utils.get_resource_name(name, prefix)
+
+        self.assertEqual(new_name, f'{prefix}{name}')
+
+    def test_get_resource_name_with_sufix(self):
+        name = 'another'
+        suffix = '/something-else'
+
+        new_name = utils.get_resource_name(name, suffix=suffix)
+
+        self.assertEqual(new_name, f'{name}{suffix}')
+
+    def test_get_resource_name_non_ascii(self):
+        name = 'Ру́сский вое́нный кора́бль, иди́ на хуй!'
+        prefix = 'bar:'
+        suffix = ':baz'
+
+        new_name = utils.get_resource_name(name, prefix, suffix)
+
+        self.assertEqual(new_name, f'{prefix}{name}{suffix}')

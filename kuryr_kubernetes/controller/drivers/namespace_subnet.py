@@ -119,7 +119,8 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
 
     def create_network(self, ns_name, project_id):
         os_net = clients.get_network_client()
-        net_name = 'ns/' + ns_name + '-net'
+        net_name = c_utils.get_resource_name(ns_name, prefix='ns/',
+                                             suffix='-net')
         tags = oslo_cfg.CONF.neutron_defaults.resource_tags
         if tags:
             networks = os_net.networks(name=net_name, tags=tags)
@@ -148,7 +149,8 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
 
     def create_subnet(self, ns_name, project_id, net_id):
         os_net = clients.get_network_client()
-        subnet_name = "ns/" + ns_name + "-subnet"
+        subnet_name = c_utils.get_resource_name(ns_name, prefix='ns/',
+                                                suffix='-subnet')
         tags = oslo_cfg.CONF.neutron_defaults.resource_tags
         if tags:
             subnets = os_net.subnets(name=subnet_name, tags=tags)

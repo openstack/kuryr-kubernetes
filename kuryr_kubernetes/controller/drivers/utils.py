@@ -50,7 +50,8 @@ def get_network_id(subnets):
 
 
 def get_port_name(pod):
-    return "%(namespace)s/%(name)s" % pod['metadata']
+    return get_resource_name(pod['metadata']['name'],
+                             prefix=pod['metadata']['namespace'] + "/")
 
 
 def get_device_id(pod):
@@ -749,3 +750,23 @@ def delete_port(leftover_port):
                           "continue with the other "
                           "rest.", leftover_port.id)
     return False
+
+
+def get_resource_name(name, prefix='', suffix=''):
+    """Get OpenStack resource name out of Kubernetes resources
+
+    Return name for the OpenStack resource, which usually is up to 255 chars
+    long. And while Kubernetes allows to set resource names up to 253
+    characters, that makes a risk to have too long name. This function will
+    prefix and suffix over name of the k8s resource, which will get truncated
+    if needed.
+
+    https://kubernetes.io/docs/concepts/overview/working-with-objects/names/
+    """
+
+    length = len(f'{prefix}{name}{suffix}')
+
+    if length > 255:
+        name = name[:254-(length-254)]
+
+    return f'{prefix}{name}{suffix}'

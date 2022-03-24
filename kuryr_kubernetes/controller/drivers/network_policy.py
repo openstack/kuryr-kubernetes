@@ -54,8 +54,10 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             return self.namespaced_pods(policy)
 
     def create_security_group(self, knp, project_id):
-        sg_name = ("sg-" + knp['metadata']['namespace'] + "-" +
-                   knp['metadata']['name'])
+        sg_name = driver_utils.get_resource_name(knp['metadata']['namespace'] +
+                                                 '-' +
+                                                 knp['metadata']['name'],
+                                                 prefix='sg/')
         desc = ("Kuryr-Kubernetes Network Policy %s SG" %
                 utils.get_res_unique_name(knp))
         try:

@@ -26,6 +26,7 @@ from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes.controller.drivers import base
+from kuryr_kubernetes.controller.drivers import utils as c_utils
 from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes import utils
 
@@ -868,7 +869,8 @@ class LBaaSv2Driver(base.LBaaSDriver):
         svc_name = service['metadata']['name']
         svc_ports = service['spec'].get('ports', [])
 
-        lbaas_name = "%s/%s" % (svc_namespace, svc_name)
+        lbaas_name = c_utils.get_resource_name(svc_name,
+                                               prefix=svc_namespace + "/")
 
         endpoints_link = utils.get_endpoints_link(service)
         k8s = clients.get_kubernetes_client()
@@ -913,7 +915,9 @@ class LBaaSv2Driver(base.LBaaSDriver):
             port_protocol = port['protocol']
             lbaas_port = port['port']
             target_port = port['targetPort']
-            sg_rule_name = "%s:%s:%s" % (lbaas_name, port_protocol, lbaas_port)
+            suffix = f"{port_protocol}:{lbaas_port}"
+            sg_rule_name = c_utils.get_resource_name(lbaas_name,
+                                                     suffix=':' + suffix)
             listener_id = lsnr_ids.get((port_protocol, lbaas_port))
             if listener_id is None:
                 LOG.warning("There is no listener associated to the protocol "
