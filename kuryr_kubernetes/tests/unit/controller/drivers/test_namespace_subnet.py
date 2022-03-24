@@ -162,7 +162,8 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         cls = subnet_drv.NamespacePodSubnetDriver
         m_driver = mock.MagicMock(spec=cls)
 
-        namespace = 'test'
+        ns_uid = 'e65542a5-7e82-4b59-b3c5-c04b485d19eb'
+        namespace = {'metadata': {'name': 'test', 'uid': ns_uid}}
         project_id = mock.sentinel.project_id
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
         os_net.networks.return_value = iter([])
@@ -179,10 +180,12 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         cls = subnet_drv.NamespacePodSubnetDriver
         m_driver = mock.MagicMock(spec=cls)
 
-        namespace = 'test'
+        ns_uid = '4f7ea026-3ae4-4baa-84df-1942977fe1be'
+        namespace = {'metadata': {'name': 'test', 'uid': ns_uid}}
         project_id = mock.sentinel.project_id
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
-        net = munch.Munch({'id': mock.sentinel.net})
+        net = munch.Munch({'id': mock.sentinel.net, 'description': ns_uid,
+                           'name': 'test'})
         os_net.networks.return_value = iter([net])
 
         net_id_resp = cls.create_network(m_driver, namespace, project_id)
@@ -195,7 +198,8 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         cls = subnet_drv.NamespacePodSubnetDriver
         m_driver = mock.MagicMock(spec=cls)
 
-        namespace = 'test'
+        ns_uid = '95e2a3c5-f723-4936-b598-cf3a59861bcf'
+        namespace = {'metadata': {'name': 'test', 'uid': ns_uid}}
         project_id = mock.sentinel.project_id
         net_id = mock.sentinel.net_id
         subnet = munch.Munch({'id': mock.sentinel.subnet,
@@ -216,7 +220,8 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         cls = subnet_drv.NamespacePodSubnetDriver
         m_driver = mock.MagicMock(spec=cls)
 
-        namespace = 'test'
+        ns_uid = '7f3a59b4-dd81-490d-9904-8294a6c93326'
+        namespace = {'metadata': {'name': 'test', 'uid': ns_uid}}
         project_id = mock.sentinel.project_id
         net_id = mock.sentinel.net_id
         subnet = munch.Munch({'id': mock.sentinel.subnet,

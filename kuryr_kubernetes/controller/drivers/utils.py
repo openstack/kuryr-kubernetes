@@ -505,10 +505,11 @@ def get_namespace_subnet_cidr(namespace):
     return subnet_cidr
 
 
-def tag_neutron_resources(resources):
+def tag_neutron_resources(resources, exceptions=False):
     """Set tags to the provided resources.
 
     param resources: list of openstacksdk objects to tag.
+    param exceptions: if true, SDKException will not be ignored
     """
     tags = CONF.neutron_defaults.resource_tags
     if not tags:
@@ -521,6 +522,8 @@ def tag_neutron_resources(resources):
         except os_exc.SDKException:
             LOG.warning("Failed to tag %s with %s. Ignoring, but this is "
                         "still unexpected.", res, tags, exc_info=True)
+            if exceptions:
+                raise
 
 
 def get_services(namespace=None):

@@ -110,7 +110,8 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         subnet_id = mock.sentinel.subnet_id
         subnet_cidr = mock.sentinel.subnet_cidr
         router_id = mock.sentinel.router_id
-        ns = mock.sentinel.namespace
+        ns = {'metadata': {'uid': 'e28127f4-bc41-450a-97cf-56d9bc76d53e',
+                           'name': 'test'}}
 
         self._create_network.return_value = net_id
         self._create_subnet.return_value = (subnet_id, subnet_cidr)
@@ -123,10 +124,10 @@ class TestKuryrNetworkHandler(test_base.TestCase):
 
         self._handler._patch_kuryrnetwork_crd.assert_called()
         self._create_network.assert_called_once_with(
-            self._kuryrnet_crd['spec']['nsName'],
+            ns,
             self._kuryrnet_crd['spec']['projectId'])
         self._create_subnet.assert_called_once_with(
-            self._kuryrnet_crd['spec']['nsName'],
+            ns,
             self._kuryrnet_crd['spec']['projectId'],
             net_id)
         self._add_subnet_to_router.assert_called_once_with(subnet_id)
@@ -143,7 +144,8 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         subnet_id = mock.sentinel.subnet_id
         subnet_cidr = mock.sentinel.subnet_cidr
         router_id = mock.sentinel.router_id
-        ns = mock.sentinel.namespace
+        ns = {'metadata': {'uid': '843645f7-d255-4fd8-86fb-09140d57c392',
+                           'name': 'test'}}
 
         self._create_network.return_value = net_id
         self._create_subnet.return_value = (subnet_id, subnet_cidr)
@@ -161,10 +163,10 @@ class TestKuryrNetworkHandler(test_base.TestCase):
 
         self._handler._patch_kuryrnetwork_crd.assert_called()
         self._create_network.assert_called_once_with(
-            self._kuryrnet_crd['spec']['nsName'],
+            ns,
             self._kuryrnet_crd['spec']['projectId'])
         self._create_subnet.assert_called_once_with(
-            self._kuryrnet_crd['spec']['nsName'],
+            ns,
             self._kuryrnet_crd['spec']['projectId'],
             net_id)
         self._add_subnet_to_router.assert_called_once_with(subnet_id)
@@ -194,7 +196,6 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         self._create_network.assert_not_called()
         self._create_subnet.assert_not_called()
         self._add_subnet_to_router.assert_not_called()
-        m_get_ns.assert_not_called()
         self._handler.k8s.add_event.assert_not_called()
 
     @mock.patch.object(driver_utils, 'get_services')
