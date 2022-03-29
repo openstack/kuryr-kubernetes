@@ -14,6 +14,7 @@
 
 from unittest import mock
 
+import munch
 from oslo_config import cfg as oslo_cfg
 
 from kuryr_kubernetes.controller.drivers import base as drivers
@@ -218,11 +219,18 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         self._handler.k8s.remove_finalizer.assert_called_once()
         self._handler.k8s.add_event.assert_not_called()
 
+    @mock.patch('kuryr_kubernetes.clients.get_network_client')
     @mock.patch.object(driver_utils, 'get_services')
-    def test_on_finalize_no_network(self, m_get_svc):
+    def test_on_finalize_no_network(self, m_get_svc, m_get_net_client):
         crd_selector = mock.sentinel.crd_selector
         self._delete_ns_sg_rules.return_value = [crd_selector]
         m_get_svc.return_value = []
+        net_mock = mock.MagicMock()
+        net_mock.return_value = []
+        m_get_net_client.return_value = net_mock
+        self._handler.k8s.get.return_value = (
+            {'metadata': {'name': 'test-namespace',
+                          'uid': 'e237acaf-ea5f-4d96-b604-292268a938a1'}})
 
         kuryrnetwork.KuryrNetworkHandler.on_finalize(self._handler,
                                                      self._kuryrnet_crd)
@@ -230,6 +238,86 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         self._delete_network_pools.assert_not_called()
         self._delete_namespace_subnet.assert_not_called()
         self._delete_ns_sg_rules.assert_called_once()
+        m_get_svc.assert_called_once()
+        self._handler._update_services.assert_called_once()
+        self._handler.k8s.remove_finalizer.assert_called_once()
+        self._handler.k8s.add_event.assert_not_called()
+
+    @mock.patch('kuryr_kubernetes.clients.get_network_client')
+    @mock.patch.object(driver_utils, 'get_services')
+    def test_on_finalize_no_network_in_kn_no_desc(self, m_get_svc,
+                                                  m_get_net_client):
+        crd_selector = mock.sentinel.crd_selector
+        self._delete_ns_sg_rules.return_value = [crd_selector]
+        m_get_svc.return_value = []
+        net_mock = mock.MagicMock()
+        net_id = '1612ffb1-ff7d-4590-bd9c-95aeb043705a'
+        net_mock.networks.return_value = [munch.Munch({'id': net_id,
+                                                       'description': ''})]
+        m_get_net_client.return_value = net_mock
+        self._handler.k8s.get.return_value = (
+            {'metadata': {'name': 'test-namespace', 'uid': net_id}})
+
+        kuryrnetwork.KuryrNetworkHandler.on_finalize(self._handler,
+                                                     self._kuryrnet_crd)
+
+        self._delete_network_pools.assert_not_called()
+        self._delete_ns_sg_rules.assert_called_once()
+        m_get_svc.assert_called_once()
+        self._handler._update_services.assert_called_once()
+        self._handler.k8s.remove_finalizer.assert_called_once()
+        self._handler.k8s.add_event.assert_not_called()
+
+    @mock.patch('kuryr_kubernetes.clients.get_network_client')
+    @mock.patch.object(driver_utils, 'get_services')
+    def test_on_finalize_no_network_in_kn_with_subnet(self, m_get_svc,
+                                                      m_get_net_client):
+        crd_selector = mock.sentinel.crd_selector
+        self._delete_ns_sg_rules.return_value = [crd_selector]
+        m_get_svc.return_value = []
+        net_id = 'db0b2c83-dae3-47ff-b4b0-9a19b7c15589'
+        ns_id = '0b6d6f0b-4e44-4a1b-a711-71ab6c79bee8'
+        subnet_id = 'a595fc4b-6885-48ff-b90c-d3f7aefd6d1a'
+        net_mock = mock.MagicMock()
+        net_mock.networks.return_value = [munch.Munch({'id': net_id,
+                                                       'description': ns_id})]
+        net_mock.subnets.return_value = [munch.Munch({'id': subnet_id})]
+        m_get_net_client.return_value = net_mock
+        self._handler.k8s.get.return_value = (
+            {'metadata': {'name': 'test-namespace', 'uid': ns_id}})
+
+        kuryrnetwork.KuryrNetworkHandler.on_finalize(self._handler,
+                                                     self._kuryrnet_crd)
+
+        self._delete_network_pools.assert_called_once()
+        self._delete_ns_sg_rules.assert_called_once()
+        m_get_svc.assert_called_once()
+        self._handler._update_services.assert_called_once()
+        self._handler.k8s.remove_finalizer.assert_called_once()
+        self._handler.k8s.add_event.assert_not_called()
+
+    @mock.patch('kuryr_kubernetes.clients.get_network_client')
+    @mock.patch.object(driver_utils, 'get_services')
+    def test_on_finalize_no_network_in_kn_with_no_ns_match(self, m_get_svc,
+                                                           m_get_net_client):
+        crd_selector = mock.sentinel.crd_selector
+        self._delete_ns_sg_rules.return_value = [crd_selector]
+        m_get_svc.return_value = []
+        net_id = 'db0b2c83-dae3-47ff-b4b0-9a19b7c15589'
+        ns_id = '0b6d6f0b-4e44-4a1b-a711-71ab6c79bee8'
+        subnet_id = 'a595fc4b-6885-48ff-b90c-d3f7aefd6d1a'
+        net_mock = mock.MagicMock()
+        net_mock.networks.return_value = [munch.Munch({'id': net_id,
+                                                       'description': ns_id})]
+        net_mock.subnets.return_value = [munch.Munch({'id': subnet_id})]
+        m_get_net_client.return_value = net_mock
+        self._handler.k8s.get.return_value = (
+            {'metadata': {'name': 'test-namespace', 'uid': net_id}})
+
+        kuryrnetwork.KuryrNetworkHandler.on_finalize(self._handler,
+                                                     self._kuryrnet_crd)
+
+        self._delete_network_pools.assert_not_called()
         m_get_svc.assert_called_once()
         self._handler._update_services.assert_called_once()
         self._handler.k8s.remove_finalizer.assert_called_once()

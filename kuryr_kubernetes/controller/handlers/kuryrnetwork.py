@@ -139,6 +139,35 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
                 # ports associated to the namespace/subnet, ensuring next
                 # retry will be successful
                 raise
+        else:
+            # NOTE(gryf): It may happen, that even if KuryrNetworkCRD was not
+            # updated (when controller crash in between), but the network and
+            # possibly subnet is there, so it needs to be searched manually.
+            ns = self.k8s.get(f'{constants.K8S_API_NAMESPACES}/'
+                              f'{kuryrnet_crd["spec"]["nsName"]}')
+            ns_name = ns['metadata']['name']
+            ns_uid = ns['metadata']['uid']
+            net_name = driver_utils.get_resource_name(ns_name)
+            old_net_name = driver_utils.get_resource_name(ns_name,
+                                                          prefix='ns/',
+                                                          suffix='-net')
+            # TODO(gryf): remove old_net_name support in next release.
+            os_net = clients.get_network_client()
+            networks = os_net.networks(name=(net_name, old_net_name))
+            for net in networks:
+                if ns_uid == net.description:
+                    LOG.warning('Found Neutron network associated with '
+                                'namespace `%s`, while it is not registered '
+                                'on KuryrNetwork CRD. Trying to remove.',
+                                ns_name)
+                    self._drv_vif_pool.delete_network_pools(net.id)
+
+                    try:
+                        os_net.delete_network(net)
+                    except os_exc.ConflictException:
+                        LOG.warning("One or more ports in use on the network "
+                                    "%s. Retrying.", net.id)
+                        raise k_exc.ResourceNotReady(net.id)
 
         namespace = {
             'metadata': {'name': kuryrnet_crd['spec']['nsName']}}
