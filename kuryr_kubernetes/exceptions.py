@@ -170,13 +170,20 @@ class CNIBindingFailure(Exception):
         super(CNIBindingFailure, self).__init__(message)
 
 
-class CNIPodUidMismatch(CNITimeout):
+class CNIPodUidMismatch(Exception):
     """Excepton raised on a mismatch of CNI request's pod UID and KuryrPort"""
     def __init__(self, name, expected, observed):
         super().__init__(
             f'uid {observed} of the pod {name} does not match the uid '
             f'{expected} requested by the CNI. Dropping CNI request to prevent'
             f' race conditions.')
+
+
+class CNIPodGone(Exception):
+    """Excepton raised when Pod got deleted while processing a CNI request"""
+    def __init__(self, name):
+        super().__init__(
+            f'Pod {name} got deleted while processing the CNI ADD request.')
 
 
 class UnreachableOctavia(Exception):

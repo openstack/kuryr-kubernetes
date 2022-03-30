@@ -13,105 +13,98 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import abc
-
 from os_vif import objects as obj_vif
+from oslo_concurrency import lockutils
 from oslo_log import log as logging
 
-from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants as k_const
-from kuryr_kubernetes import exceptions as k_exc
 from kuryr_kubernetes.handlers import dispatch as k_dis
 from kuryr_kubernetes.handlers import k8s_base
+from kuryr_kubernetes import utils
 
 
 LOG = logging.getLogger(__name__)
 
 
-class CNIHandlerBase(k8s_base.ResourceEventHandler, metaclass=abc.ABCMeta):
+class CNIKuryrPortHandler(k8s_base.ResourceEventHandler):
     OBJECT_KIND = k_const.K8S_OBJ_KURYRPORT
 
-    def __init__(self, cni, on_done):
-        self._cni = cni
-        self._callback = on_done
-        self._vifs = {}
+    def __init__(self, registry):
+        super().__init__()
+        self.registry = registry
 
-    def on_present(self, pod, *args, **kwargs):
-        vifs = self._get_vifs(pod)
+    def on_vif(self, kuryrport, vifs):
+        kp_name = utils.get_res_unique_name(kuryrport)
+        with lockutils.lock(kp_name, external=True):
+            if (kp_name not in self.registry or
+                    self.registry[kp_name] == k_const.CNI_DELETED_POD_SENTINEL
+                    or self.registry[kp_name]['kp']['metadata']['uid'] !=
+                    kuryrport['metadata']['uid']):
+                self.registry[kp_name] = {'kp': kuryrport,
+                                          'vifs': vifs,
+                                          'containerid': None,
+                                          'vif_unplugged': False,
+                                          'del_received': False}
+            else:
+                old_vifs = self.registry[kp_name]['vifs']
+                for iface in vifs:
+                    if old_vifs[iface].active != vifs[iface].active:
+                        kp_dict = self.registry[kp_name]
+                        kp_dict['vifs'] = vifs
+                        self.registry[kp_name] = kp_dict
 
-        if self.should_callback(pod, vifs):
-            self.callback()
-
-    @abc.abstractmethod
-    def should_callback(self, pod, vifs):
-        """Called after all vifs have been processed
-
-        Should determine if the CNI is ready to call the callback
-
-        :param pod: dict containing Kubernetes Pod object
-        :param vifs: dict containing os_vif VIF objects and ifnames
-        :returns True/False
-        """
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def callback(self):
-        """Called if should_callback returns True"""
-        raise NotImplementedError()
-
-    def _get_vifs(self, pod):
-        k8s = clients.get_kubernetes_client()
+    def on_deleted(self, kuryrport, *args, **kwargs):
+        kp_name = utils.get_res_unique_name(kuryrport)
         try:
-            kuryrport_crd = k8s.get(f'{k_const.K8S_API_CRD_NAMESPACES}/'
-                                    f'{pod["metadata"]["namespace"]}/'
-                                    f'kuryrports/{pod["metadata"]["name"]}')
-            LOG.debug("Got CRD: %r", kuryrport_crd)
-        except k_exc.K8sClientException:
-            return {}
+            if (kp_name in self.registry and self.registry[kp_name]
+                    != k_const.CNI_DELETED_POD_SENTINEL):
+                # NOTE(ndesh): We need to lock here to avoid race condition
+                #              with the deletion code for CNI DEL so that
+                #              we delete the registry entry exactly once
+                with lockutils.lock(kp_name, external=True):
+                    if self.registry[kp_name]['vif_unplugged']:
+                        del self.registry[kp_name]
+                    else:
+                        kp_dict = self.registry[kp_name]
+                        kp_dict['del_received'] = True
+                        self.registry[kp_name] = kp_dict
+        except KeyError:
+            # This means someone else removed it. It's odd but safe to ignore.
+            LOG.debug('KuryrPort %s entry already removed from registry while '
+                      'handling DELETED event. Ignoring.', kp_name)
+            pass
 
-        vifs_dict = {k: obj_vif.base.VersionedObject
-                     .obj_from_primitive(v['vif'])
-                     for k, v in kuryrport_crd['status']['vifs'].items()}
+    def on_present(self, kuryrport, *args, **kwargs):
+        LOG.debug('MODIFIED event for KuryrPort %s',
+                  utils.get_res_unique_name(kuryrport))
+        vifs = self._get_vifs(kuryrport)
+        if vifs:
+            self.on_vif(kuryrport, vifs)
+
+    def _get_vifs(self, kuryrport):
+        vifs_dict = {
+            k: obj_vif.base.VersionedObject.obj_from_primitive(v['vif'])
+            for k, v in kuryrport['status']['vifs'].items()}
         LOG.debug("Got vifs: %r", vifs_dict)
 
         return vifs_dict
 
-    def _get_inst(self, pod):
-        return obj_vif.instance_info.InstanceInfo(
-            uuid=pod['metadata']['uid'], name=pod['metadata']['name'])
 
+class CNIPodHandler(k8s_base.ResourceEventHandler):
+    OBJECT_KIND = k_const.K8S_OBJ_POD
 
-class CallbackHandler(CNIHandlerBase):
+    def __init__(self, registry):
+        super().__init__()
+        self.registry = registry
 
-    def __init__(self, on_vif, on_del=None):
-        super(CallbackHandler, self).__init__(None, on_vif)
-        self._del_callback = on_del
-        self._kuryrport = None
-        self._callback_vifs = None
-
-    def should_callback(self, kuryrport, vifs):
-        """Called after all vifs have been processed
-
-        Calls callback if there was at least one vif in the CRD
-
-        :param kuryrport: dict containing Kubernetes KuryrPort CRD object
-        :param vifs: dict containing os_vif VIF objects and ifnames
-        :returns True/False
-        """
-        self._kuryrport = kuryrport
-        self._callback_vifs = vifs
-        if vifs:
-            return True
-        return False
-
-    def callback(self):
-        self._callback(self._kuryrport, self._callback_vifs)
-
-    def on_deleted(self, kuryrport, *args, **kwargs):
-        LOG.debug("Got kuryrport %s deletion event.",
-                  kuryrport['metadata']['name'])
-        if self._del_callback:
-            self._del_callback(kuryrport)
+    def on_finalize(self, pod, *args, **kwargs):
+        # TODO(dulek): Verify if this is the handler for such case.
+        kp_name = utils.get_res_unique_name(pod)
+        with lockutils.lock(kp_name, external=True):
+            # If there was no KP and Pod got deleted, we need inform the
+            # thread waiting for it about that. We'll insert sentinel value.
+            if kp_name not in self.registry:
+                self.registry[kp_name] = k_const.CNI_DELETED_POD_SENTINEL
 
 
 class CNIPipeline(k_dis.EventPipeline):

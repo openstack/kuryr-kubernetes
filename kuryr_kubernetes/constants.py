@@ -16,6 +16,7 @@
 KURYR_FQDN = 'kuryr.openstack.org'
 
 K8S_API_BASE = '/api/v1'
+K8S_API_PODS = K8S_API_BASE + '/pods'
 K8S_API_NAMESPACES = K8S_API_BASE + '/namespaces'
 K8S_API_CRD_VERSION = 'openstack.org/v1'
 K8S_API_CRD = '/apis/' + K8S_API_CRD_VERSION
@@ -91,6 +92,7 @@ K8S_OS_VIF_NOOP_PLUGIN = "noop"
 
 CNI_EXCEPTION_CODE = 100
 CNI_TIMEOUT_CODE = 200
+CNI_DELETED_POD_SENTINEL = None
 
 KURYR_PORT_NAME = 'kuryr-pool-port'
 KURYR_VIF_TYPE_SRIOV = 'sriov'

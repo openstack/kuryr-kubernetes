@@ -31,15 +31,6 @@ LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
 RETRY_DELAY = 1000  # 1 second in milliseconds
 
-# TODO(dulek, gryf): Another corner case is (and was) when pod is deleted
-# before it's corresponding CRD was created and populated by vifs by
-# controller or even noticed by any watcher. Kubelet will try to delete such
-# vif, but we will have no data about it. This is currently worked around by
-# returning successfully in case of timing out in delete. To solve this
-# properly we need to watch for pod deletes as well, or perhaps create
-# finalizer for the pod as soon, as we know, that kuryrport CRD will be
-# created.
-
 
 class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
     def __init__(self, registry, healthy):
@@ -57,6 +48,8 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
         try:
             return self.k8s.get(
                 f'{k_const.K8S_API_NAMESPACES}/{namespace}/pods/{name}')
+        except exceptions.K8sResourceNotFound:
+            return None
         except exceptions.K8sClientException:
             uniq_name = self._get_obj_name(params)
             LOG.exception('Error when getting Pod %s', uniq_name)
@@ -72,6 +65,8 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
         if 'K8S_POD_UID' not in params.args:
             # CRI doesn't pass K8S_POD_UID, get it from the API.
             pod = self._get_pod(params)
+            if not pod:
+                raise exceptions.CNIPodGone(kp_name)
             params.args.K8S_POD_UID = pod['metadata']['uid']
 
         vifs = self._do_work(params, b_base.connect, timeout)
@@ -117,6 +112,14 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
     def delete(self, params):
         kp_name = self._get_obj_name(params)
         try:
+            with lockutils.lock(kp_name, external=True):
+                kp = self.registry[kp_name]
+                if kp == k_const.CNI_DELETED_POD_SENTINEL:
+                    LOG.warning(
+                        'Received DEL request for deleted Pod %s without a'
+                        'KuryrPort. Ignoring.', kp_name)
+                    del self.registry[kp_name]
+                    return
             reg_ci = self.registry[kp_name]['containerid']
             LOG.debug('Read containerid = %s for KuryrPort %s', reg_ci,
                       kp_name)
@@ -179,6 +182,10 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
                             e, (KeyError, exceptions.CNIPodUidMismatch)))
         def find():
             d = self.registry[kp_name]
+            if d == k_const.CNI_DELETED_POD_SENTINEL:
+                # Pod got deleted meanwhile
+                raise exceptions.CNIPodGone(kp_name)
+
             static = d['kp']['spec'].get('podStatic', None)
             uid = d['kp']['spec']['podUid']
             # FIXME(dulek): This is weirdly structured for upgrades support.
