@@ -63,7 +63,8 @@ class CNIPrometheusExporter(object):
         self.registry = prometheus_client.CollectorRegistry()
         metric_name = 'kuryr_cni_request_duration_seconds'
         metric_description = 'The duration of CNI requests'
-        buckets = (5, 10, 15, 20, 25, 30, 40, 50, 60, _INF)
+        buckets = (10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120,
+                   130, 140, 150, 160, 170, 180, _INF)
         self.cni_requests_duration = prometheus_client.Histogram(
             metric_name, metric_description,
             labelnames={'command', 'error'}, buckets=buckets,
