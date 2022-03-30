@@ -207,7 +207,8 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             },
             'spec': {
                 'podUid': pod['metadata']['uid'],
-                'podNodeName': pod['spec']['nodeName']
+                'podNodeName': pod['spec']['nodeName'],
+                'podStatic': utils.is_pod_static(pod)
             },
             'status': {
                 'vifs': vifs

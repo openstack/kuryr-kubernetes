@@ -59,6 +59,9 @@ class CNIArgs(object):
             if not k.startswith('_'):
                 setattr(self, k, v)
 
+    def __contains__(self, key):
+        return hasattr(self, key)
+
 
 class CNIParameters(object):
     def __init__(self, env, cfg=None):

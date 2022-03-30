@@ -153,9 +153,9 @@ class DaemonServer(object):
 
         try:
             self.plugin.delete(params)
-        except exceptions.CNIKuryrPortTimeout:
-            # NOTE(dulek): It's better to ignore this error - most of the time
-            #              it will happen when pod is long gone and CRI
+        except (exceptions.CNIKuryrPortTimeout, exceptions.CNIPodUidMismatch):
+            # NOTE(dulek): It's better to ignore these errors - most of the
+            #              time it will happen when pod is long gone and CRI
             #              overzealously tries to delete it from the network.
             #              We cannot really do anything without VIF annotation,
             #              so let's just tell CRI to move along.
