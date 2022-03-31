@@ -226,26 +226,6 @@ class K8sClient(object):
         self._raise_from_response(response)
         return response.json().get('status')
 
-    def _jsonpatch_escape(self, value):
-        value = value.replace('~', '~0')
-        value = value.replace('/', '~1')
-        return value
-
-    def remove_annotations(self, path, annotation_name):
-        LOG.debug("Remove annotations %(path)s: %(name)s",
-                  {'path': path, 'name': annotation_name})
-        content_type = 'application/json-patch+json'
-        url, header = self._get_url_and_header(path, content_type)
-        annotation_name = self._jsonpatch_escape(annotation_name)
-
-        data = [{'op': 'remove',
-                 'path': f'/metadata/annotations/{annotation_name}'}]
-        response = self.session.patch(url, data=jsonutils.dumps(data),
-                                      headers=header)
-        if response.ok:
-            return response.json().get('status')
-        raise exc.K8sClientException(response.text)
-
     def post(self, path, body):
         LOG.debug("Post %(path)s: %(body)s", {'path': path, 'body': body})
         url = self._base_url + path
