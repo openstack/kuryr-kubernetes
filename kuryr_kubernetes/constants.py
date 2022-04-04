@@ -121,3 +121,5 @@ K8S_OPERATOR_EXISTS = 'exists'
 
 USERSPACE_DRIVERS = ['vfio-pci', 'uio', 'uio_pci_generic', 'igb_uio']
 MELLANOX_DRIVERS = ['mlx4_core', 'mlx5_core']
+
+LEFTOVER_RM_POOL_SIZE = 5

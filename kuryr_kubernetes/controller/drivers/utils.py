@@ -16,6 +16,7 @@
 import urllib
 import uuid
 
+import eventlet
 import netaddr
 from openstack import exceptions as os_exc
 from os_vif import objects
@@ -770,3 +771,21 @@ def get_resource_name(name, prefix='', suffix=''):
         name = name[:254-(length-254)]
 
     return f'{prefix}{name}{suffix}'
+
+
+def delete_ports(leftover_port_list):
+    pool = eventlet.GreenPool(constants.LEFTOVER_RM_POOL_SIZE)
+    return all([i for i in pool.imap(delete_port, leftover_port_list)])
+
+
+def delete_neutron_port(port):
+    os_net = clients.get_network_client()
+    try:
+        os_net.delete_port(port)
+    except Exception as ex:
+        # NOTE(gryf): Catching all the exceptions here is intentional, since
+        # this function is intended to be run in the greenthread. User needs
+        # to examine return value and decide which exception can be safely
+        # skipped, and which need to be handled/raised.
+        return ex
+    return None

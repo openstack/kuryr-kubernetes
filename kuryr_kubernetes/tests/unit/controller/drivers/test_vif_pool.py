@@ -29,6 +29,7 @@ from os_vif.objects import vif as osv_vif
 from kuryr_kubernetes import constants
 from kuryr_kubernetes.controller.drivers import nested_vlan_vif
 from kuryr_kubernetes.controller.drivers import neutron_vif
+from kuryr_kubernetes.controller.drivers import utils
 from kuryr_kubernetes.controller.drivers import vif_pool
 from kuryr_kubernetes import exceptions
 from kuryr_kubernetes import os_vif_util as ovu
@@ -449,7 +450,8 @@ class BaseVIFPool(test_base.TestCase):
         os_net.networks.assert_not_called()
         os_net.delete_port.assert_not_called()
 
-    def test_cleanup_leftover_ports_no_tagging_no_binding(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.delete_ports')
+    def test_cleanup_leftover_ports_no_tagging_no_binding(self, m_del_ports):
         cls = vif_pool.BaseVIFPool
         m_driver = mock.MagicMock(spec=cls)
 
@@ -462,7 +464,7 @@ class BaseVIFPool(test_base.TestCase):
 
         cls._cleanup_leftover_ports(m_driver)
         os_net.networks.assert_not_called()
-        os_net.delete_port.assert_called_once_with(port.id)
+        m_del_ports.assert_called_once_with([port])
 
 
 @ddt.ddt
@@ -911,11 +913,12 @@ class NeutronVIFPool(test_base.TestCase):
         m_get_subnet.assert_not_called()
         m_to_osvif.assert_not_called()
 
-    def test_delete_network_pools(self):
+    @mock.patch('eventlet.GreenPool')
+    def test_delete_network_pools(self, m_green_pool):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
-
-        os_net = self.useFixture(k_fix.MockNetworkClient()).client
+        m_pool = mock.MagicMock()
+        m_green_pool.return_value = m_pool
 
         net_id = mock.sentinel.net_id
         pool_key = ('node_ip', 'project_id')
@@ -934,7 +937,8 @@ class NeutronVIFPool(test_base.TestCase):
 
         m_driver._trigger_return_to_pool.assert_called_once()
         m_driver._get_pool_key_net.assert_called_once()
-        os_net.delete_port.assert_called_once_with(port_id)
+        m_pool.imap.assert_called_once_with(utils.delete_neutron_port,
+                                            [port_id])
 
     def test_delete_network_pools_not_ready(self):
         cls = vif_pool.NeutronVIFPool
@@ -951,11 +955,12 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver._get_pool_key_net.assert_not_called()
         os_net.delete_port.assert_not_called()
 
-    def test_delete_network_pools_missing_port_id(self):
+    @mock.patch('eventlet.GreenPool')
+    def test_delete_network_pools_missing_port_id(self, m_green_pool):
         cls = vif_pool.NeutronVIFPool
         m_driver = mock.MagicMock(spec=cls)
-
-        os_net = self.useFixture(k_fix.MockNetworkClient()).client
+        m_pool = mock.MagicMock()
+        m_green_pool.return_value = m_pool
 
         net_id = mock.sentinel.net_id
         pool_key = ('node_ip', 'project_id')
@@ -974,7 +979,8 @@ class NeutronVIFPool(test_base.TestCase):
 
         m_driver._trigger_return_to_pool.assert_called_once()
         m_driver._get_pool_key_net.assert_called_once()
-        os_net.delete_port.assert_called_once_with(port_id)
+        m_pool.imap.assert_called_once_with(utils.delete_neutron_port,
+                                            [port_id])
 
 
 @ddt.ddt
@@ -1815,14 +1821,15 @@ class NestedVIFPool(test_base.TestCase):
         self.assertEqual(m_driver._available_ports_pools, {})
         os_net.delete_port.assert_not_called()
 
-    def test_delete_network_pools(self):
+    @mock.patch('eventlet.GreenPool')
+    def test_delete_network_pools(self, m_green_pool):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
         cls_vif_driver = nested_vlan_vif.NestedVlanPodVIFDriver
         vif_driver = mock.MagicMock(spec=cls_vif_driver)
         m_driver._drv_vif = vif_driver
-
-        os_net = self.useFixture(k_fix.MockNetworkClient()).client
+        m_pool = mock.MagicMock()
+        m_green_pool.return_value = m_pool
 
         net_id = mock.sentinel.net_id
         pool_key = ('node_ip', 'project_id')
@@ -1850,7 +1857,8 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._drv_vif._remove_subports.assert_called_once_with(trunk_id,
                                                                    [port_id])
         m_driver._drv_vif._release_vlan_id.assert_called_once_with(vlan_id)
-        os_net.delete_port.assert_called_once_with(port_id)
+        m_pool.imap.assert_called_once_with(utils.delete_neutron_port,
+                                            [port_id])
 
     def test_delete_network_pools_not_ready(self):
         cls = vif_pool.NestedVIFPool
@@ -1907,14 +1915,15 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._drv_vif._release_vlan_id.assert_not_called()
         os_net.delete_port.assert_not_called()
 
-    def test_delete_network_pools_missing_port(self):
+    @mock.patch('eventlet.GreenPool')
+    def test_delete_network_pools_missing_port(self, m_green_pool):
         cls = vif_pool.NestedVIFPool
         m_driver = mock.MagicMock(spec=cls)
         cls_vif_driver = nested_vlan_vif.NestedVlanPodVIFDriver
         vif_driver = mock.MagicMock(spec=cls_vif_driver)
         m_driver._drv_vif = vif_driver
-
-        os_net = self.useFixture(k_fix.MockNetworkClient()).client
+        m_pool = mock.MagicMock()
+        m_green_pool.return_value = m_pool
 
         net_id = mock.sentinel.net_id
         pool_key = ('node_ip', 'project_id')
@@ -1942,4 +1951,5 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._drv_vif._remove_subports.assert_called_once_with(trunk_id,
                                                                    [port_id])
         m_driver._drv_vif._release_vlan_id.assert_not_called()
-        os_net.delete_port.assert_called_once_with(port_id)
+        m_pool.imap.assert_called_once_with(utils.delete_neutron_port,
+                                            [port_id])

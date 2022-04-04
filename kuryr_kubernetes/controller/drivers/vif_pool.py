@@ -15,11 +15,11 @@
 
 import abc
 import collections
-import eventlet
 import os
 import threading
 import time
 
+import eventlet
 from kuryr.lib._i18n import _
 from kuryr.lib import constants as kl_const
 from openstack import exceptions as os_exc
@@ -494,9 +494,8 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
                                       "Skipping.", port.id)
                             continue
         else:
-            for port in existing_ports:
-                if not port.binding_host_id:
-                    c_utils.delete_port(port)
+            c_utils.delete_ports([p for p in existing_ports
+                                  if not p.binding_host_id])
 
     def _cleanup_removed_nodes(self):
         """Remove ports associated to removed nodes."""
@@ -789,7 +788,8 @@ class NeutronVIFPool(BaseVIFPool):
             LOG.debug("Kuryr-controller not yet ready to delete network "
                       "pools.")
             raise exceptions.ResourceNotReady(net_id)
-        os_net = clients.get_network_client()
+
+        epool = eventlet.GreenPool(constants.LEFTOVER_RM_POOL_SIZE)
 
         # NOTE(ltomasbo): Note the pods should already be deleted, but their
         # associated ports may not have been recycled yet, therefore not being
@@ -809,7 +809,13 @@ class NeutronVIFPool(BaseVIFPool):
                     LOG.debug('Port %s is not in the ports list.', port_id)
                 # NOTE(gryf): openstack client doesn't return information, if
                 # the port deos not exists
-                os_net.delete_port(port_id)
+
+            # Delete ports concurrently
+            for result in epool.imap(c_utils.delete_neutron_port, ports_id):
+                if result:
+                    LOG.error('During Neutron port deletion an error occured: '
+                              '%s', result)
+                    raise result
 
             self._available_ports_pools[pool_key] = {}
             with self._lock:
@@ -1171,7 +1177,10 @@ class NestedVIFPool(BaseVIFPool):
             LOG.debug("Kuryr-controller not yet ready to delete network "
                       "pools.")
             raise exceptions.ResourceNotReady(net_id)
-        os_net = clients.get_network_client()
+
+        epool = eventlet.GreenPool(constants.LEFTOVER_RM_POOL_SIZE)
+        ports_to_remove = []
+
         # NOTE(ltomasbo): Note the pods should already be deleted, but their
         # associated ports may not have been recycled yet, therefore not being
         # on the available_ports_pools dict. The next call forces it to be on
@@ -1197,7 +1206,7 @@ class NestedVIFPool(BaseVIFPool):
                     del self._existing_vifs[port_id]
                 except KeyError:
                     LOG.debug('Port %s is not in the ports list.', port_id)
-                os_net.delete_port(port_id)
+                ports_to_remove.append(port_id)
 
             self._available_ports_pools[pool_key] = {}
             with self._lock:
@@ -1205,6 +1214,12 @@ class NestedVIFPool(BaseVIFPool):
                     del self._populate_pool_lock[pool_key]
                 except KeyError:
                     pass
+
+        for result in epool.imap(c_utils.delete_neutron_port, ports_to_remove):
+            if result:
+                LOG.error('During Neutron port deletion an error occured: %s',
+                          result)
+                raise result
 
 
 class MultiVIFPool(base.VIFPoolDriver):

@@ -108,15 +108,13 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                 os_net.add_trunk_subports(trunk_id, subports_info)
             except os_exc.ConflictException:
                 LOG.error("vlan ids already in use on trunk")
-                for port in ports:
-                    utils.delete_port(port)
+                utils.delete_ports(ports)
                 for subport_info in subports_info:
                     self._release_vlan_id(subport_info['segmentation_id'])
                 return []
         except os_exc.SDKException:
             LOG.exception("Error happened during subport addition to trunk")
-            for port in ports:
-                utils.delete_port(port)
+            utils.delete_ports(ports)
             for subport_info in subports_info:
                 self._release_vlan_id(subport_info['segmentation_id'])
             return []

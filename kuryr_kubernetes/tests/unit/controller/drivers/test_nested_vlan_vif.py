@@ -202,7 +202,8 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
             trunk_id, num_ports, unbound=True)
         os_net.create_ports.assert_called_once_with(bulk_rq)
 
-    def test_request_vifs_trunk_subports_conflict(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.delete_ports')
+    def test_request_vifs_trunk_subports_conflict(self, m_del_ports):
         cls = nested_vlan_vif.NestedVlanPodVIFDriver
         cls._tag_on_creation = True
         m_driver = mock.Mock(spec=cls)
@@ -246,9 +247,10 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         os_net.create_ports.assert_called_once_with(bulk_rq)
         os_net.add_trunk_subports.assert_called_once_with(trunk_id,
                                                           subports_info)
-        os_net.delete_port.assert_called_with(port['id'])
+        m_del_ports.assert_called_once_with([port, port])
 
-    def test_request_vifs_trunk_subports_exception(self):
+    @mock.patch('kuryr_kubernetes.controller.drivers.utils.delete_ports')
+    def test_request_vifs_trunk_subports_exception(self, m_del_ports):
         cls = nested_vlan_vif.NestedVlanPodVIFDriver
         cls._tag_on_creation = False
         m_driver = mock.Mock(spec=cls)
@@ -292,7 +294,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         os_net.create_ports.assert_called_once_with(bulk_rq)
         os_net.add_trunk_subports.assert_called_once_with(trunk_id,
                                                           subports_info)
-        os_net.delete_port.assert_called_with(port['id'])
+        m_del_ports.assert_called_once_with([port, port])
 
     def test_release_vif(self):
         cls = nested_vlan_vif.NestedVlanPodVIFDriver

@@ -104,14 +104,12 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
         except os_exc.ConflictException:
             LOG.warning("One or more ports in use on the network %s. "
                         "Deleting leftovers ports before retrying", net_id)
-            leftover_ports = os_net.ports(network_id=net_id)
-            for leftover_port in leftover_ports:
-                # NOTE(dulek): '' is there because Neutron seems to unset
-                #              device_owner on detach.
-                if leftover_port.device_owner not in ['', 'trunk:subport',
-                                                      kl_const.DEVICE_OWNER]:
-                    continue
-                c_utils.delete_port(leftover_port)
+            # NOTE(dulek): '' is there because Neutron seems to unset
+            #              device_owner on detach.
+            leftover_ports = [p for p in os_net.ports(network_id=net_id)
+                              if p.device_owner in
+                              ['', 'trunk:subport', kl_const.DEVICE_OWNER]]
+            c_utils.delete_ports(leftover_ports)
             raise exceptions.ResourceNotReady(net_id)
         except os_exc.SDKException:
             LOG.exception("Error deleting network %s.", net_id)
