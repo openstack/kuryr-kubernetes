@@ -229,7 +229,7 @@
         o-cw: true
         o-hk: true
         o-hm: true
-    voting: false
+    voting: true
 
 - job:
     name: kuryr-kubernetes-tempest-amphora-ovs
