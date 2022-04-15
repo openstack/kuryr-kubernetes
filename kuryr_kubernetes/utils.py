@@ -20,12 +20,14 @@ import time
 import requests
 
 from kuryr.lib._i18n import _
+from kuryr.lib import constants as kl_const
 from openstack import exceptions as os_exc
 from os_vif import objects
 from oslo_cache import core as cache
 from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
+from oslo_utils import timeutils
 
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import constants
@@ -50,6 +52,8 @@ DEFAULT_INTERVAL = 1
 DEFAULT_JITTER = 3
 MAX_BACKOFF = 60
 MAX_ATTEMPTS = 10
+ZOMBIE_AGE = 600
+
 
 subnet_caching_opts = [
     cfg.BoolOpt('caching', default=True,
@@ -727,3 +731,43 @@ def get_referenced_object(obj, kind):
     except exceptions.K8sClientException:
         LOG.debug('Error when fetching %s to add an event %s, ignoring',
                   kind, get_res_unique_name(obj))
+
+
+def cleanup_dead_ports():
+    tags = set(CONF.neutron_defaults.resource_tags)
+    if not tags:
+        # NOTE(gryf): there is no reliable way for removing kuryr-related
+        # ports if there are no tags enabled - without tags there is a chance,
+        # that ports are down, created by someone/something else and would
+        # be deleted.
+        # Perhaps a be better idea to would be to have some mark in other
+        # field during port creation to identify "our" ports.
+        return
+
+    os_net = clients.get_network_client()
+    k8s = clients.get_kubernetes_client()
+
+    try:
+        crds = k8s.get(constants.K8S_API_CRD_KURYRNETWORKS)
+    except exceptions.K8sClientException as ex:
+        LOG.exception('Error fetching KuryrNetworks: %s', ex)
+        return
+
+    for item in crds['items']:
+        network_id = item.get('status', {}).get('netId')
+        if not network_id:
+            continue
+
+        for port in os_net.ports(status='DOWN', network_id=network_id,
+                                 device_owner=kl_const.DEVICE_OWNER,
+                                 not_tags=list(tags)):
+            now = timeutils.utcnow(True)
+            port_time = timeutils.parse_isotime(port.updated_at)
+            # NOTE(gryf): if port hanging more than 10 minutes already in DOWN
+            # state, consider it as a dead one.
+            if (now - port_time).seconds > ZOMBIE_AGE:
+                try:
+                    os_net.delete_port(port)
+                except os_exc.SDKException as ex:
+                    LOG.warning('There was an issue with port "%s" '
+                                'removal: %s', port, ex)

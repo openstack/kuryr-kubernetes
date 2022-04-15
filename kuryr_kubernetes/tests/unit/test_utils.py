@@ -17,6 +17,7 @@ import munch
 from openstack import exceptions as os_exc
 from os_vif import objects
 from oslo_config import cfg
+from oslo_utils import timeutils
 
 from kuryr_kubernetes import constants as k_const
 from kuryr_kubernetes import exceptions as k_exc
@@ -29,6 +30,10 @@ CONF = cfg.CONF
 
 
 class TestUtils(test_base.TestCase):
+
+    def setUp(self):
+        super().setUp()
+        cfg.CONF.set_override('resource_tags', [], group='neutron_defaults')
 
     @mock.patch('socket.gethostname')
     def test_get_node_name(self, m_gethostname):
@@ -500,3 +505,72 @@ class TestUtils(test_base.TestCase):
     def test_is_pod_completed_failed(self):
         self.assertTrue(utils.is_pod_completed({'status': {'phase':
                         k_const.K8S_POD_STATUS_FAILED}}))
+
+    @mock.patch('kuryr_kubernetes.clients.get_network_client')
+    def test_cleanup_dead_ports_no_tags(self, m_get_net):
+        utils.cleanup_dead_ports()
+        m_get_net.assert_not_called()
+
+    @mock.patch('oslo_utils.timeutils.utcnow')
+    @mock.patch('kuryr_kubernetes.clients.get_network_client')
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    def test_cleanup_dead_ports(self, m_get_k8s, m_get_net, m_utcnow):
+        cfg.CONF.set_override('resource_tags', ['foo'],
+                              group='neutron_defaults')
+        m_net = mock.Mock()
+        time1 = '2022-04-14T09:00:00Z'
+        now = '2022-04-14T09:00:00Z'
+        m_utcnow.return_value = timeutils.parse_isotime(now)
+        port = munch.Munch({'updated_at': time1, 'tags': ['foo']})
+        m_net.ports.return_value = iter((port,))
+        m_get_net.return_value = m_net
+
+        m_k8s = mock.Mock()
+        m_k8s.get.return_value = {'items': [{'status': {'netId': 'netid'}}]}
+        m_get_k8s.return_value = m_k8s
+
+        utils.cleanup_dead_ports()
+
+        m_get_net.assert_called_once()
+
+    @mock.patch('oslo_utils.timeutils.utcnow')
+    @mock.patch('kuryr_kubernetes.clients.get_network_client')
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    def test_cleanup_dead_no_tagged_ports(self, m_get_k8s, m_get_net,
+                                          m_utcnow):
+        cfg.CONF.set_override('resource_tags', ['foo'],
+                              group='neutron_defaults')
+        m_net = mock.Mock()
+        time1 = '2022-04-14T09:00:00Z'
+        now = '2022-04-14T09:16:00Z'
+        m_utcnow.return_value = timeutils.parse_isotime(now)
+        port = munch.Munch({'updated_at': time1, 'tags': []})
+        m_net.ports.return_value = iter((port,))
+        m_get_net.return_value = m_net
+
+        m_k8s = mock.Mock()
+        m_k8s.get.return_value = {'items': [{'status': {'netId': 'netid'}}]}
+        m_get_k8s.return_value = m_k8s
+
+        utils.cleanup_dead_ports()
+
+        m_get_net.assert_called_once()
+        m_net.delete_port.assert_called_once_with(port)
+
+    @mock.patch('kuryr_kubernetes.clients.get_network_client')
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    def test_cleanup_dead_no_networks(self, m_get_k8s, m_get_net):
+        cfg.CONF.set_override('resource_tags', ['foo'],
+                              group='neutron_defaults')
+        m_net = mock.Mock()
+        m_net.ports.return_value = iter([])
+        m_get_net.return_value = m_net
+
+        m_k8s = mock.Mock()
+        m_k8s.get.return_value = {'items': []}
+        m_get_k8s.return_value = m_k8s
+
+        utils.cleanup_dead_ports()
+
+        m_get_net.assert_called_once()
+        m_net.delete_port.assert_not_called()

@@ -172,6 +172,10 @@ class KuryrK8sService(service.Service, periodic_task.PeriodicTasks,
         for handler in self.handlers:
             handler.reconcile()
 
+    @periodic_task.periodic_task(spacing=90, run_immediately=False)
+    def cleanup_dead_ports(self, context):
+        utils.cleanup_dead_ports()
+
 
 def start():
     urllib3.disable_warnings()
