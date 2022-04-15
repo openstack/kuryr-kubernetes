@@ -184,6 +184,16 @@
         KURYR_CONFIGMAP_MODIFIABLE: false
 
 - job:
+    name: kuryr-kubernetes-tempest-annotation-project-driver
+    parent: kuryr-kubernetes-octavia-base
+    description: |
+        Run kuryr-Kubernetes tempest job with annotation project driver
+    vars:
+      devstack_localrc:
+        KURYR_PROJECT_DRIVER: annotation
+    voting: true
+
+- job:
     name: kuryr-kubernetes-tempest-docker
     parent: kuryr-kubernetes-octavia-base
     vars:
