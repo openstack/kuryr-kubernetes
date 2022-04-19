@@ -38,6 +38,7 @@ namespace_subnet_driver_opts = [
 ]
 
 oslo_cfg.CONF.register_opts(namespace_subnet_driver_opts, "namespace_subnet")
+TAGS = oslo_cfg.CONF.neutron_defaults.resource_tags
 
 
 class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
@@ -115,49 +116,65 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
             LOG.exception("Error deleting network %s.", net_id)
             raise
 
-    def create_network(self, ns_name, project_id):
+    def create_network(self, ns, project_id):
         os_net = clients.get_network_client()
-        net_name = c_utils.get_resource_name(ns_name, prefix='ns/',
-                                             suffix='-net')
-        tags = oslo_cfg.CONF.neutron_defaults.resource_tags
-        if tags:
-            networks = os_net.networks(name=net_name, tags=tags)
-        else:
-            networks = os_net.networks(name=net_name)
+        ns_name = ns['metadata']['name']
+        ns_uid = ns['metadata']['uid']
+        net_name = c_utils.get_resource_name(ns_name)
+        old_net_name = c_utils.get_resource_name(ns_name, prefix='ns/',
+                                                 suffix='-net')
+        # TODO(gryf): remove old_net_name support in next release, and precise
+        # the query by adding additional query parameter 'description' which
+        # should contain namespace uid.
+        networks = os_net.networks(name=(net_name, old_net_name))
 
         try:
             # NOTE(ltomasbo): only one network must exists
-            return next(networks).id
-        except StopIteration:
+            net = next(networks)
+            if net.name == net_name and net.description != ns_uid:
+                # this condition would be unnecessary when guard for old names
+                # would be eventually removed.
+                raise ValueError
+            # NOTE(gryf): It might happen, that network has been created, but
+            # for some reason tagging has failed.
+            if TAGS and not set(TAGS).issubset(set(net.tags)):
+                c_utils.tag_neutron_resources([net], exceptions=True)
+            return net.id
+        except (StopIteration, ValueError):
             LOG.debug('Network does not exist. Creating.')
 
         mtu_cfg = oslo_cfg.CONF.neutron_defaults.network_device_mtu
-        attrs = {'name': net_name, 'project_id': project_id}
+        attrs = {'name': net_name, 'project_id': project_id,
+                 'description': ns_uid}
         if mtu_cfg:
             attrs['mtu'] = mtu_cfg
-        # create network with namespace as name
+
         try:
-            neutron_net = os_net.create_network(**attrs)
-            c_utils.tag_neutron_resources([neutron_net])
+            net = os_net.create_network(**attrs)
         except os_exc.SDKException:
             LOG.exception("Error creating neutron resources for the namespace "
                           "%s", ns_name)
             raise
-        return neutron_net.id
+        c_utils.tag_neutron_resources([net], exceptions=True)
+        return net.id
 
-    def create_subnet(self, ns_name, project_id, net_id):
+    def create_subnet(self, ns, project_id, net_id):
         os_net = clients.get_network_client()
-        subnet_name = c_utils.get_resource_name(ns_name, prefix='ns/',
-                                                suffix='-subnet')
-        tags = oslo_cfg.CONF.neutron_defaults.resource_tags
-        if tags:
-            subnets = os_net.subnets(name=subnet_name, tags=tags)
-        else:
-            subnets = os_net.subnets(name=subnet_name)
+        ns_name = ns['metadata']['name']
+
+        # NOTE(gryf): assumption is, that all the subnets (well, currently
+        # only one) in specific k8s namespaces are under exactly one network,
+        # which have proper namespace uid in its description, so there is no
+        # need to put it on the subnet as well.
+        subnet_name = c_utils.get_resource_name(ns_name)
+        subnets = os_net.subnets(network_id=net_id)
 
         try:
             # NOTE(ltomasbo): only one subnet must exists
             subnet = next(subnets)
+            # NOTE(gryf): same situation as in networks.
+            if TAGS and not set(TAGS).issubset(set(subnet.tags)):
+                c_utils.tag_neutron_resources([subnet], exceptions=True)
             return subnet.id, subnet.cidr
         except StopIteration:
             LOG.debug('Subnet does not exist. Creating.')
@@ -178,7 +195,7 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
                       "raising ResourceNotReady to retry subnet creation "
                       "for %s", subnet_name)
             raise exceptions.ResourceNotReady(subnet_name)
-        c_utils.tag_neutron_resources([neutron_subnet])
+        c_utils.tag_neutron_resources([neutron_subnet], exceptions=True)
 
         return neutron_subnet.id, neutron_subnet.cidr
 

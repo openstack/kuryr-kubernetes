@@ -56,12 +56,14 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
         ns_name = kuryrnet_crd['spec']['nsName']
         project_id = kuryrnet_crd['spec']['projectId']
         kns_status = kuryrnet_crd.get('status', {})
+        namespace = driver_utils.get_namespace(ns_name)
 
         crd_creation = False
         net_id = kns_status.get('netId')
         if not net_id:
             try:
-                net_id = self._drv_subnets.create_network(ns_name, project_id)
+                net_id = self._drv_subnets.create_network(namespace,
+                                                          project_id)
             except os_exc.SDKException as ex:
                 self.k8s.add_event(kuryrnet_crd, 'CreateNetworkFailed',
                                    f'Error during creating Neutron network: '
@@ -76,7 +78,7 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
         if not subnet_id or crd_creation:
             try:
                 subnet_id, subnet_cidr = self._drv_subnets.create_subnet(
-                    ns_name, project_id, net_id)
+                    namespace, project_id, net_id)
             except os_exc.ConflictException as ex:
                 self.k8s.add_event(kuryrnet_crd, 'CreateSubnetFailed',
                                    f'Error during creating Neutron subnet '
@@ -110,7 +112,6 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
         if (crd_creation or
                 ns_labels != kuryrnet_crd['spec']['nsLabels']):
             # update SG and svc SGs
-            namespace = driver_utils.get_namespace(ns_name)
             crd_selectors = self._drv_sg.update_namespace_sg_rules(namespace)
             if (driver_utils.is_network_policy_enabled() and crd_selectors and
                     oslo_cfg.CONF.octavia_defaults.enforce_sg_rules):
