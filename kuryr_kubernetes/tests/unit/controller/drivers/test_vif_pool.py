@@ -14,6 +14,7 @@
 
 import collections
 import eventlet
+import functools
 import threading
 from unittest import mock
 import uuid
@@ -67,6 +68,10 @@ def get_pod_obj():
 
 def get_pod_name(pod):
     return "%(namespace)s/%(name)s" % pod['metadata']
+
+
+AVAILABLE_PORTS_TYPE = functools.partial(collections.defaultdict,
+                                         collections.OrderedDict)
 
 
 @ddt.ddt
@@ -175,14 +180,13 @@ class BaseVIFPool(test_base.TestCase):
         pod = mock.sentinel.pod
         project_id = str(uuid.uuid4())
         subnets = mock.sentinel.subnets
-        security_groups = 'test-sg'
+        security_groups = ['test-sg']
         pool_key = (mock.sentinel.host_addr, project_id)
         vif = osv_vif.VIFOpenVSwitch(id='0fa0e837-d34e-4580-a6c4-04f5f607d93e')
         vifs = [vif]
 
         m_driver._existing_vifs = {}
-        m_driver._available_ports_pools = {}
-        m_driver._last_update = {pool_key: {tuple(security_groups): 1}}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         m_driver._recovered_pools = True
         m_driver._lock = threading.Lock()
         m_driver._populate_pool_lock = {
@@ -277,7 +281,6 @@ class BaseVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('ports_pool_min',
                                    3,
                                    group='vif_pool')
-        m_driver._last_update = {pool_key: {tuple(security_groups): 1}}
         m_driver._get_pool_size.return_value = 10
         m_driver._recovered_pools = True
 
@@ -473,71 +476,68 @@ class NeutronVIFPool(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_port_name')
     @mock.patch('eventlet.spawn')
     def test__get_port_from_pool(self, m_eventlet, m_get_port_name):
-        cls = vif_pool.NeutronVIFPool
-        m_driver = mock.MagicMock(spec=cls)
-
+        m_driver = vif_pool.NeutronVIFPool()
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         pool_key = mock.sentinel.pool_key
         port_id = str(uuid.uuid4())
         port = mock.sentinel.port
         subnets = mock.sentinel.subnets
-        security_groups = 'test-sg'
+        sgs = ('test-sg',)
 
         oslo_cfg.CONF.set_override('port_debug',
                                    True, group='kubernetes')
         pod = get_pod_obj()
         m_get_port_name.return_value = get_pod_name(pod)
 
-        m_driver._available_ports_pools = {
-            pool_key: {tuple(security_groups): collections.deque([port_id])}}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
+        m_driver._available_ports_pools[pool_key][sgs] = [port_id]
         m_driver._existing_vifs = {port_id: port}
         m_get_port_name.return_value = get_pod_name(pod)
 
-        self.assertEqual(port, cls._get_port_from_pool(
-            m_driver, pool_key, pod, subnets, tuple(security_groups)))
+        oslo_cfg.CONF.set_override('ports_pool_min', 5, group='vif_pool')
+        oslo_cfg.CONF.set_override('port_debug', True, group='kubernetes')
+        m_driver._get_pool_size = mock.Mock(return_value=5)
+
+        self.assertEqual(port, m_driver._get_port_from_pool(
+            pool_key, pod, subnets, sgs))
 
         os_net.update_port.assert_called_once_with(
             port_id, name=get_pod_name(pod), device_id=pod['metadata']['uid'])
-        m_eventlet.assert_called()
+        # 2 calls from the constructor, so no calls in _get_port_from_pool()
+        self.assertEqual(3, m_eventlet.call_count)
 
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_port_name')
     @mock.patch('eventlet.spawn')
     def test__get_port_from_pool_pool_populate(self, m_eventlet,
                                                m_get_port_name):
-        cls = vif_pool.NeutronVIFPool
-        m_driver = mock.MagicMock(spec=cls)
-
+        m_driver = vif_pool.NeutronVIFPool()
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         pool_key = mock.sentinel.pool_key
         port_id = str(uuid.uuid4())
         port = mock.sentinel.port
         subnets = mock.sentinel.subnets
-        security_groups = 'test-sg'
+        sgs = ('test-sg',)
 
         pod = get_pod_obj()
 
-        m_driver._available_ports_pools = {
-            pool_key: {tuple(security_groups): collections.deque([port_id])}}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
+        m_driver._available_ports_pools[pool_key][sgs] = [port_id]
         m_driver._existing_vifs = {port_id: port}
         m_get_port_name.return_value = get_pod_name(pod)
 
-        oslo_cfg.CONF.set_override('ports_pool_min',
-                                   5,
-                                   group='vif_pool')
-        oslo_cfg.CONF.set_override('port_debug',
-                                   True,
-                                   group='kubernetes')
-        pool_length = 3
-        m_driver._get_pool_size.return_value = pool_length
+        oslo_cfg.CONF.set_override('ports_pool_min', 5, group='vif_pool')
+        oslo_cfg.CONF.set_override('port_debug', True, group='kubernetes')
+        m_driver._get_pool_size = mock.Mock(return_value=3)
 
-        self.assertEqual(port, cls._get_port_from_pool(
-            m_driver, pool_key, pod, subnets, tuple(security_groups)))
+        self.assertEqual(port, m_driver._get_port_from_pool(
+            pool_key, pod, subnets, sgs))
 
         os_net.update_port.assert_called_once_with(
             port_id, name=get_pod_name(pod), device_id=pod['metadata']['uid'])
-        m_eventlet.assert_called_once()
+        # 2 calls come from the constructor, so 1 call in _get_port_from_pool()
+        self.assertEqual(3, m_eventlet.call_count)
 
     def test__get_port_from_pool_empty_pool(self):
         cls = vif_pool.NeutronVIFPool
@@ -548,15 +548,13 @@ class NeutronVIFPool(test_base.TestCase):
         pod = get_pod_obj()
         pool_key = mock.sentinel.pool_key
         subnets = mock.sentinel.subnets
-        security_groups = 'test-sg'
+        sgs = ('test-sg',)
 
-        m_driver._available_ports_pools = {
-            pool_key: {tuple(security_groups): collections.deque([])}}
-        m_driver._last_update = {pool_key: {tuple(security_groups): 1}}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
+        m_driver._available_ports_pools[pool_key][sgs] = []
 
         self.assertRaises(exceptions.ResourceNotReady, cls._get_port_from_pool,
-                          m_driver, pool_key, pod, subnets,
-                          tuple(security_groups))
+                          m_driver, pool_key, pod, subnets, sgs)
 
         os_net.update_port.assert_not_called()
 
@@ -569,63 +567,28 @@ class NeutronVIFPool(test_base.TestCase):
 
         pod = get_pod_obj()
         port_id = str(uuid.uuid4())
+        port_id_2 = str(uuid.uuid4())
         port = mock.sentinel.port
+        port_2 = mock.sentinel.port_2
         pool_key = mock.sentinel.pool_key
         subnets = mock.sentinel.subnets
-        security_groups = 'test-sg'
-        security_groups_2 = 'test-sg2'
+        sgs = ('test-sg',)
+        sgs_2 = ('test-sg2',)
+        sgs_3 = ('test-sg3',)
 
-        oslo_cfg.CONF.set_override('port_debug',
-                                   False,
-                                   group='kubernetes')
+        oslo_cfg.CONF.set_override('port_debug', False, group='kubernetes')
 
-        m_driver._available_ports_pools = {
-            pool_key: {tuple(security_groups): collections.deque([]),
-                       tuple(security_groups_2): collections.deque([port_id])}}
-        m_driver._last_update = {pool_key: {tuple(security_groups): 1,
-                                            tuple(security_groups_2): 0}}
-        m_driver._existing_vifs = {port_id: port}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
+        m_driver._available_ports_pools[pool_key][sgs] = []
+        m_driver._available_ports_pools[pool_key][sgs_2] = [port_id]
+        m_driver._available_ports_pools[pool_key][sgs_3] = [port_id_2]
+        m_driver._existing_vifs = {port_id: port, port_id_2: port_2}
 
         self.assertEqual(port, cls._get_port_from_pool(
-            m_driver, pool_key, pod, subnets, tuple(security_groups)))
+            m_driver, pool_key, pod, subnets, sgs))
 
         os_net.update_port.assert_called_once_with(
-            port_id, security_groups=list(security_groups))
-        m_eventlet.assert_called()
-
-    @mock.patch('eventlet.spawn')
-    def test__get_port_from_pool_empty_pool_reuse_no_update_info(self,
-                                                                 m_eventlet):
-        cls = vif_pool.NeutronVIFPool
-        m_driver = mock.MagicMock(spec=cls)
-
-        os_net = self.useFixture(k_fix.MockNetworkClient()).client
-
-        pod = get_pod_obj()
-        port_id = str(uuid.uuid4())
-        port = mock.sentinel.port
-        pool_key = mock.sentinel.pool_key
-        subnets = mock.sentinel.subnets
-        security_groups = 'test-sg'
-        security_groups_2 = 'test-sg2'
-
-        oslo_cfg.CONF.set_override('port_debug',
-                                   False,
-                                   group='kubernetes')
-        pool_length = 5
-        m_driver._get_pool_size.return_value = pool_length
-
-        m_driver._available_ports_pools = {
-            pool_key: {tuple(security_groups): collections.deque([]),
-                       tuple(security_groups_2): collections.deque([port_id])}}
-        m_driver._last_update = {}
-        m_driver._existing_vifs = {port_id: port}
-
-        self.assertEqual(port, cls._get_port_from_pool(
-            m_driver, pool_key, pod, subnets, tuple(security_groups)))
-
-        os_net.update_port.assert_called_once_with(
-            port_id, security_groups=list(security_groups))
+            port_id, security_groups=list(sgs))
         m_eventlet.assert_called()
 
     def test__get_port_from_pool_empty_pool_reuse_no_ports(self):
@@ -635,28 +598,21 @@ class NeutronVIFPool(test_base.TestCase):
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         pod = get_pod_obj()
-        port_id = str(uuid.uuid4())
-        port = mock.sentinel.port
         pool_key = mock.sentinel.pool_key
         subnets = mock.sentinel.subnets
-        security_groups = 'test-sg'
-        security_groups_2 = 'test-sg2'
+        sgs = ('test-sg',)
+        sgs_2 = ('test-sg2',)
 
-        oslo_cfg.CONF.set_override('port_debug',
-                                   False,
-                                   group='kubernetes')
+        oslo_cfg.CONF.set_override('port_debug', False, group='kubernetes')
         pool_length = 5
         m_driver._get_pool_size.return_value = pool_length
 
-        m_driver._available_ports_pools = {
-            pool_key: {tuple(security_groups): collections.deque([]),
-                       tuple(security_groups_2): collections.deque([])}}
-        m_driver._last_update = {}
-        m_driver._existing_vifs = {port_id: port}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
+        m_driver._available_ports_pools[pool_key][(sgs_2,)] = []
+        m_driver._available_ports_pools[pool_key][(sgs,)] = []
 
         self.assertRaises(exceptions.ResourceNotReady, cls._get_port_from_pool,
-                          m_driver, pool_key, pod, subnets, tuple(
-                              security_groups))
+                          m_driver, pool_key, pod, subnets, sgs)
 
         os_net.update_port.assert_not_called()
 
@@ -672,7 +628,7 @@ class NeutronVIFPool(test_base.TestCase):
         pool_length = 5
 
         m_driver._recyclable_ports = {port_id: pool_key}
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         m_driver._recovered_pools = True
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    max_pool,
@@ -703,7 +659,7 @@ class NeutronVIFPool(test_base.TestCase):
         pool_length = 5
 
         m_driver._recyclable_ports = {port_id: pool_key}
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    max_pool,
                                    group='vif_pool')
@@ -734,7 +690,7 @@ class NeutronVIFPool(test_base.TestCase):
         vif = mock.sentinel.vif
 
         m_driver._recyclable_ports = {port_id: pool_key}
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         m_driver._existing_vifs = {port_id: vif}
         m_driver._recovered_pools = True
         oslo_cfg.CONF.set_override('ports_pool_max',
@@ -761,7 +717,7 @@ class NeutronVIFPool(test_base.TestCase):
         pool_length = 5
 
         m_driver._recyclable_ports = {port_id: pool_key}
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         m_driver._recovered_pools = True
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    0,
@@ -796,7 +752,7 @@ class NeutronVIFPool(test_base.TestCase):
         vif = mock.sentinel.vif
 
         m_driver._recyclable_ports = {port_id: pool_key}
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         m_driver._existing_vifs = {port_id: vif}
         m_driver._recovered_pools = True
         oslo_cfg.CONF.set_override('ports_pool_max',
@@ -823,7 +779,7 @@ class NeutronVIFPool(test_base.TestCase):
         pool_length = 10
 
         m_driver._recyclable_ports = {port_id: pool_key}
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         m_driver._existing_vifs = {}
         m_driver._recovered_pools = True
         oslo_cfg.CONF.set_override('ports_pool_max',
@@ -851,7 +807,7 @@ class NeutronVIFPool(test_base.TestCase):
         m_driver._drv_vif = vif_driver
 
         m_driver._existing_vifs = {}
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
 
         port_id = str(uuid.uuid4())
         port = fake.get_port_obj(port_id=port_id)
@@ -923,8 +879,8 @@ class NeutronVIFPool(test_base.TestCase):
         net_id = mock.sentinel.net_id
         pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
-        m_driver._available_ports_pools = {pool_key: {
-            tuple(['security_group']): [port_id]}}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
+        m_driver._available_ports_pools[pool_key][('sg',)] = [port_id]
         m_driver._lock = threading.Lock()
         m_driver._populate_pool_lock = {
             pool_key: mock.MagicMock(spec=threading.Lock())}
@@ -965,8 +921,8 @@ class NeutronVIFPool(test_base.TestCase):
         net_id = mock.sentinel.net_id
         pool_key = ('node_ip', 'project_id')
         port_id = str(uuid.uuid4())
-        m_driver._available_ports_pools = {pool_key: {
-            tuple(['security_group']): [port_id]}}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
+        m_driver._available_ports_pools[pool_key][('sgs',)] = [port_id]
         m_driver._lock = threading.Lock()
         m_driver._populate_pool_lock = {
             pool_key: mock.MagicMock(spec=threading.Lock())}
@@ -1024,77 +980,64 @@ class NestedVIFPool(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_port_name')
     @mock.patch('eventlet.spawn')
     def test__get_port_from_pool(self, m_eventlet, m_get_port_name):
-        cls = vif_pool.NestedVIFPool
-        m_driver = mock.MagicMock(spec=cls)
-
+        m_driver = vif_pool.NestedVIFPool()
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         pool_key = mock.sentinel.pool_key
         port_id = str(uuid.uuid4())
         port = mock.sentinel.port
         subnets = mock.sentinel.subnets
-        security_groups = 'test-sg'
+        sgs = ('test-sg',)
 
         pod = get_pod_obj()
 
-        m_driver._available_ports_pools = {
-            pool_key: {tuple(security_groups): collections.deque([port_id])}}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
+        m_driver._available_ports_pools[pool_key][sgs] = [port_id]
         m_driver._existing_vifs = {port_id: port}
         m_get_port_name.return_value = get_pod_name(pod)
 
-        oslo_cfg.CONF.set_override('ports_pool_min',
-                                   5,
-                                   group='vif_pool')
-        oslo_cfg.CONF.set_override('port_debug',
-                                   True,
-                                   group='kubernetes')
-        pool_length = 5
-        m_driver._get_pool_size.return_value = pool_length
+        oslo_cfg.CONF.set_override('ports_pool_min', 5, group='vif_pool')
+        oslo_cfg.CONF.set_override('port_debug', True, group='kubernetes')
+        m_driver._get_pool_size = mock.Mock(return_value=5)
 
-        self.assertEqual(port, cls._get_port_from_pool(
-            m_driver, pool_key, pod, subnets, tuple(security_groups)))
+        self.assertEqual(port, m_driver._get_port_from_pool(
+            pool_key, pod, subnets, sgs))
 
         os_net.update_port.assert_called_once_with(
             port_id, name=get_pod_name(pod))
-        m_eventlet.assert_called()
+        self.assertEqual(3, m_eventlet.call_count)
 
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_port_name')
     @mock.patch('eventlet.spawn')
     def test__get_port_from_pool_pool_populate(self, m_eventlet,
                                                m_get_port_name):
-        cls = vif_pool.NestedVIFPool
-        m_driver = mock.MagicMock(spec=cls)
-
+        m_driver = vif_pool.NestedVIFPool()
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         pool_key = mock.sentinel.pool_key
         port_id = str(uuid.uuid4())
         port = mock.sentinel.port
         subnets = mock.sentinel.subnets
-        security_groups = 'test-sg'
+        sgs = ('test-sg',)
 
         pod = get_pod_obj()
 
-        m_driver._available_ports_pools = {
-            pool_key: {tuple(security_groups): collections.deque([port_id])}}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
+        m_driver._available_ports_pools[pool_key][sgs] = [port_id]
         m_driver._existing_vifs = {port_id: port}
         m_get_port_name.return_value = get_pod_name(pod)
 
-        oslo_cfg.CONF.set_override('ports_pool_min',
-                                   5,
-                                   group='vif_pool')
-        oslo_cfg.CONF.set_override('port_debug',
-                                   True,
-                                   group='kubernetes')
-        pool_length = 3
-        m_driver._get_pool_size.return_value = pool_length
+        oslo_cfg.CONF.set_override('ports_pool_min', 5, group='vif_pool')
+        oslo_cfg.CONF.set_override('port_debug', True, group='kubernetes')
+        m_driver._get_pool_size = mock.Mock(return_value=3)
 
-        self.assertEqual(port, cls._get_port_from_pool(
-            m_driver, pool_key, pod, subnets, tuple(security_groups)))
+        self.assertEqual(port, m_driver._get_port_from_pool(
+            pool_key, pod, subnets, sgs))
 
         os_net.update_port.assert_called_once_with(
             port_id, name=get_pod_name(pod))
-        m_eventlet.assert_called_once()
+        # 2 calls come from the constructor, so 1 call in _get_port_from_pool()
+        self.assertEqual(3, m_eventlet.call_count)
 
     def test__get_port_from_pool_empty_pool(self):
         cls = vif_pool.NestedVIFPool
@@ -1105,15 +1048,13 @@ class NestedVIFPool(test_base.TestCase):
         pod = mock.sentinel.pod
         pool_key = mock.sentinel.pool_key
         subnets = mock.sentinel.subnets
-        security_groups = 'test-sg'
+        sgs = ('test-sg',)
 
-        m_driver._available_ports_pools = {
-            pool_key: {tuple(security_groups): collections.deque([])}}
-        m_driver._last_update = {pool_key: {tuple(security_groups): 1}}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
+        m_driver._available_ports_pools[pool_key][sgs] = []
 
         self.assertRaises(exceptions.ResourceNotReady, cls._get_port_from_pool,
-                          m_driver, pool_key, pod, subnets, tuple(
-                              security_groups))
+                          m_driver, pool_key, pod, subnets, sgs)
 
         os_net.update_port.assert_not_called()
 
@@ -1126,65 +1067,30 @@ class NestedVIFPool(test_base.TestCase):
 
         pod = mock.sentinel.pod
         port_id = str(uuid.uuid4())
+        port_id_2 = str(uuid.uuid4())
         port = mock.sentinel.port
+        port_2 = mock.sentinel.port_2
         pool_key = mock.sentinel.pool_key
         subnets = mock.sentinel.subnets
-        security_groups = 'test-sg'
-        security_groups_2 = 'test-sg2'
+        sgs = ('test-sg',)
+        sgs_2 = ('test-sg2',)
+        sgs_3 = ('test-sg3',)
 
-        oslo_cfg.CONF.set_override('port_debug',
-                                   False,
-                                   group='kubernetes')
+        oslo_cfg.CONF.set_override('port_debug', False, group='kubernetes')
         pool_length = 5
         m_driver._get_pool_size.return_value = pool_length
 
-        m_driver._available_ports_pools = {
-            pool_key: {tuple(security_groups): collections.deque([]),
-                       tuple(security_groups_2): collections.deque([port_id])}}
-        m_driver._last_update = {pool_key: {tuple(security_groups): 1,
-                                            tuple(security_groups_2): 0}}
-        m_driver._existing_vifs = {port_id: port}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
+        m_driver._available_ports_pools[pool_key][sgs] = []
+        m_driver._available_ports_pools[pool_key][sgs_2] = [port_id]
+        m_driver._available_ports_pools[pool_key][sgs_3] = [port_id_2]
+        m_driver._existing_vifs = {port_id: port, port_id_2: port_2}
 
         self.assertEqual(port, cls._get_port_from_pool(
-            m_driver, pool_key, pod, subnets, tuple(security_groups)))
+            m_driver, pool_key, pod, subnets, sgs))
 
         os_net.update_port.assert_called_once_with(
-            port_id, security_groups=list(security_groups))
-        m_eventlet.assert_called()
-
-    @mock.patch('eventlet.spawn')
-    def test__get_port_from_pool_empty_pool_reuse_no_update_info(self,
-                                                                 m_eventlet):
-        cls = vif_pool.NestedVIFPool
-        m_driver = mock.MagicMock(spec=cls)
-
-        os_net = self.useFixture(k_fix.MockNetworkClient()).client
-
-        pod = mock.sentinel.pod
-        port_id = str(uuid.uuid4())
-        port = mock.sentinel.port
-        pool_key = mock.sentinel.pool_key
-        subnets = mock.sentinel.subnets
-        security_groups = 'test-sg'
-        security_groups_2 = 'test-sg2'
-
-        oslo_cfg.CONF.set_override('port_debug',
-                                   False,
-                                   group='kubernetes')
-        pool_length = 5
-        m_driver._get_pool_size.return_value = pool_length
-
-        m_driver._available_ports_pools = {
-            pool_key: {tuple(security_groups): collections.deque([]),
-                       tuple(security_groups_2): collections.deque([port_id])}}
-        m_driver._last_update = {}
-        m_driver._existing_vifs = {port_id: port}
-
-        self.assertEqual(port, cls._get_port_from_pool(
-            m_driver, pool_key, pod, subnets, tuple(security_groups)))
-
-        os_net.update_port.assert_called_once_with(
-            port_id, security_groups=list(security_groups))
+            port_id, security_groups=list(sgs))
         m_eventlet.assert_called()
 
     def test__get_port_from_pool_empty_pool_reuse_no_ports(self):
@@ -1194,28 +1100,21 @@ class NestedVIFPool(test_base.TestCase):
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
         pod = mock.sentinel.pod
-        port_id = str(uuid.uuid4())
-        port = mock.sentinel.port
         pool_key = mock.sentinel.pool_key
         subnets = mock.sentinel.subnets
-        security_groups = 'test-sg'
-        security_groups_2 = 'test-sg2'
+        sgs = ('test-sg',)
+        sgs_2 = ('test-sg2',)
 
-        oslo_cfg.CONF.set_override('port_debug',
-                                   False,
-                                   group='kubernetes')
+        oslo_cfg.CONF.set_override('port_debug', False, group='kubernetes')
         pool_length = 5
         m_driver._get_pool_size.return_value = pool_length
 
-        m_driver._available_ports_pools = {
-            pool_key: {tuple(security_groups): collections.deque([]),
-                       tuple(security_groups_2): collections.deque([])}}
-        m_driver._last_update = {}
-        m_driver._existing_vifs = {port_id: port}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
+        m_driver._available_ports_pools[pool_key][sgs] = []
+        m_driver._available_ports_pools[pool_key][sgs_2] = []
 
         self.assertRaises(exceptions.ResourceNotReady, cls._get_port_from_pool,
-                          m_driver, pool_key, pod, subnets, tuple(
-                              security_groups))
+                          m_driver, pool_key, pod, subnets, sgs)
 
         os_net.update_port.assert_not_called()
 
@@ -1231,7 +1130,7 @@ class NestedVIFPool(test_base.TestCase):
         pool_length = 5
 
         m_driver._recyclable_ports = {port_id: pool_key}
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    max_pool,
                                    group='vif_pool')
@@ -1263,7 +1162,7 @@ class NestedVIFPool(test_base.TestCase):
         pool_length = 5
 
         m_driver._recyclable_ports = {port_id: pool_key}
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    max_pool,
                                    group='vif_pool')
@@ -1299,7 +1198,7 @@ class NestedVIFPool(test_base.TestCase):
         trunk_id = str(uuid.uuid4())
 
         m_driver._recyclable_ports = {port_id: pool_key}
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         m_driver._existing_vifs = {port_id: vif}
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    10,
@@ -1331,7 +1230,7 @@ class NestedVIFPool(test_base.TestCase):
         pool_length = 5
 
         m_driver._recyclable_ports = {port_id: pool_key}
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    0,
                                    group='vif_pool')
@@ -1367,7 +1266,7 @@ class NestedVIFPool(test_base.TestCase):
         trunk_id = str(uuid.uuid4())
 
         m_driver._recyclable_ports = {port_id: pool_key}
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         m_driver._existing_vifs = {port_id: vif}
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    5,
@@ -1402,7 +1301,7 @@ class NestedVIFPool(test_base.TestCase):
         trunk_id = str(uuid.uuid4())
 
         m_driver._recyclable_ports = {port_id: pool_key}
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         m_driver._existing_vifs = {}
         oslo_cfg.CONF.set_override('ports_pool_max',
                                    5,
@@ -1514,7 +1413,7 @@ class NestedVIFPool(test_base.TestCase):
 
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         m_driver._existing_vifs = {}
 
         oslo_cfg.CONF.set_override('port_debug',
@@ -1559,7 +1458,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver = mock.MagicMock(spec=cls)
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         m_driver._existing_vifs = {}
 
         oslo_cfg.CONF.set_override('port_debug',
@@ -1634,8 +1533,9 @@ class NestedVIFPool(test_base.TestCase):
 
         pool_key = (port.binding_host_id, port.project_id, net_id)
         m_driver._get_pool_key.return_value = pool_key
-        m_driver._available_ports_pools = {
-            pool_key: {tuple(port.security_group_ids): [port_id]}}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
+        m_driver._available_ports_pools[pool_key][
+            tuple(port.security_group_ids)] = [port_id]
         m_driver._existing_vifs = {port_id: mock.sentinel.vif}
 
         cls._precreated_ports(m_driver, 'free')
@@ -1657,7 +1557,7 @@ class NestedVIFPool(test_base.TestCase):
 
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         m_driver._existing_vifs = {}
 
         oslo_cfg.CONF.set_override('port_debug',
@@ -1712,7 +1612,7 @@ class NestedVIFPool(test_base.TestCase):
 
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         m_driver._existing_vifs = {}
 
         oslo_cfg.CONF.set_override('port_debug',
@@ -1771,7 +1671,7 @@ class NestedVIFPool(test_base.TestCase):
         oslo_cfg.CONF.set_override('port_debug',
                                    True,
                                    group='kubernetes')
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         m_driver._existing_vifs = {}
 
         port_id = mock.sentinel.port_id
@@ -1798,7 +1698,7 @@ class NestedVIFPool(test_base.TestCase):
 
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
-        m_driver._available_ports_pools = {}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
         m_driver._existing_vifs = {}
         oslo_cfg.CONF.set_override('port_debug',
                                    True,
@@ -1838,8 +1738,8 @@ class NestedVIFPool(test_base.TestCase):
         vif = mock.MagicMock()
         vlan_id = mock.sentinel.vlan_id
         vif.vlan_id = vlan_id
-        m_driver._available_ports_pools = {pool_key: {
-            tuple(['security_group']): [port_id]}}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
+        m_driver._available_ports_pools[pool_key][('sg',)] = [port_id]
         m_driver._lock = threading.Lock()
         m_driver._populate_pool_lock = {
             pool_key: mock.MagicMock(spec=threading.Lock())}
@@ -1896,8 +1796,8 @@ class NestedVIFPool(test_base.TestCase):
         vif = mock.MagicMock()
         vlan_id = mock.sentinel.vlan_id
         vif.vlan_id = vlan_id
-        m_driver._available_ports_pools = {pool_key: {
-            tuple(['security_group']): [port_id]}}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
+        m_driver._available_ports_pools[pool_key][('sg',)] = [port_id]
         m_driver._existing_vifs = {port_id: vif}
         m_driver._recovered_pools = True
 
@@ -1932,8 +1832,8 @@ class NestedVIFPool(test_base.TestCase):
         vif = mock.MagicMock()
         vlan_id = mock.sentinel.vlan_id
         vif.vlan_id = vlan_id
-        m_driver._available_ports_pools = {pool_key: {
-            tuple(['security_group']): [port_id]}}
+        m_driver._available_ports_pools = AVAILABLE_PORTS_TYPE()
+        m_driver._available_ports_pools[pool_key][('sg',)] = [port_id]
         m_driver._lock = threading.Lock()
         m_driver._populate_pool_lock = {
             pool_key: mock.MagicMock(spec=threading.Lock())}
