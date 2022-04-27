@@ -183,11 +183,10 @@ class VIFHandler(k8s_base.ResourceEventHandler):
         except KeyError:
             return False
 
-    def _add_kuryrport_crd(self, pod, vifs=None):
+    def _add_kuryrport_crd(self, pod):
         LOG.debug('Adding CRD %s', pod["metadata"]["name"])
 
-        if not vifs:
-            vifs = {}
+        vifs = {}
 
         owner_reference = {'apiVersion': pod['apiVersion'],
                            'kind': pod['kind'],

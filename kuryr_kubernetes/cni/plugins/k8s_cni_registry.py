@@ -94,13 +94,13 @@ class K8sCNIRegistryPlugin(base_cni.CNIPlugin):
         pod = k_utils.get_referenced_object(data, 'Pod')
 
         try:
-            self.k8s.add_event(pod, 'CNIWaitingForVIFs',
+            self.k8s.add_event(pod, 'CNIWaitingForActiveVIFs',
                                f'Waiting for Neutron ports of {kp_name} to '
                                f'become ACTIVE after binding.',
                                component='kuryr-daemon')
             vifs = wait_for_active(kp_name)
         except retrying.RetryError:
-            self.k8s.add_event(pod, 'CNITimedOutWaitingForVIFs',
+            self.k8s.add_event(pod, 'CNITimedOutWaitingForActiveVIFs',
                                f'Timed out waiting for Neutron ports of '
                                f'{kp_name} to become ACTIVE after binding.',
                                'Warning', 'kuryr-daemon')
