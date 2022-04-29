@@ -49,7 +49,7 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
             return
 
         try:
-            self._add_kuryrnetwork_crd(ns_name, ns_labels)
+            self._add_kuryrnetwork_crd(namespace, ns_labels)
         except exceptions.K8sClientException:
             LOG.exception("Kuryrnetwork CRD creation failed.")
             raise exceptions.ResourceNotReady(namespace)
@@ -104,6 +104,7 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
         return kuryrnetwork_crd
 
     def _add_kuryrnetwork_crd(self, namespace, ns_labels):
+        ns_name = namespace['metadata']['name']
         project_id = self._drv_project.get_project(namespace)
         kubernetes = clients.get_kubernetes_client()
 
@@ -111,18 +112,18 @@ class NamespaceHandler(k8s_base.ResourceEventHandler):
             'apiVersion': 'openstack.org/v1',
             'kind': 'KuryrNetwork',
             'metadata': {
-                'name': namespace,
+                'name': ns_name,
                 'finalizers': [constants.KURYRNETWORK_FINALIZER],
             },
             'spec': {
-                'nsName': namespace,
+                'nsName': ns_name,
                 'projectId': project_id,
                 'nsLabels': ns_labels,
             }
         }
         try:
             kubernetes.post('{}/{}/kuryrnetworks'.format(
-                constants.K8S_API_CRD_NAMESPACES, namespace), kns_crd)
+                constants.K8S_API_CRD_NAMESPACES, ns_name), kns_crd)
         except exceptions.K8sClientException:
             LOG.exception("Kubernetes Client Exception creating kuryrnetwork "
                           "CRD.")

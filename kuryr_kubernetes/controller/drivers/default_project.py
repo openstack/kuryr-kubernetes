@@ -26,10 +26,6 @@ class DefaultPodProjectDriver(base.PodProjectDriver):
         project_id = config.CONF.neutron_defaults.project
 
         if not project_id:
-            # NOTE(ivc): this option is only required for
-            # DefaultPodProjectDriver and its subclasses, but it may be
-            # optional for other drivers (e.g. when each namespace has own
-            # project)
             raise cfg.RequiredOptError('project',
                                        cfg.OptGroup('neutron_defaults'))
 
