@@ -20,7 +20,6 @@
         - kuryr-kubernetes-tempest-docker
         - kuryr-kubernetes-tempest-defaults
         - kuryr-kubernetes-tempest-systemd
-        - kuryr-kubernetes-tempest-lower-constraints
         - kuryr-kubernetes-tempest-multinode
         - kuryr-kubernetes-tempest-multinode-ovs
         - kuryr-kubernetes-tempest-ipv6
@@ -39,22 +38,10 @@
         - kuryr-kubernetes-tempest-multinode-ha
         - kuryr-kubernetes-tempest-dual-stack
 
-- project-template:
-    name: kuryr-kubernetes-lower-constraints-focal-jobs
-    check:
-      jobs:
-      - openstack-tox-lower-constraints:
-          nodeset: ubuntu-focal
-    gate:
-      jobs:
-      - openstack-tox-lower-constraints:
-          nodeset: ubuntu-focal
-
 - project:
     templates:
       - openstack-python3-zed-jobs
       - publish-openstack-docs-pti
       - release-notes-jobs-python3
       - check-requirements
-      - kuryr-kubernetes-lower-constraints-focal-jobs
       - kuryr-kubernetes-tempest-jobs
