@@ -120,21 +120,18 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
         os_net = clients.get_network_client()
         ns_name = ns['metadata']['name']
         ns_uid = ns['metadata']['uid']
-        net_name = c_utils.get_resource_name(ns_name)
+        net_name = c_utils.get_resource_name(ns_name, ns_uid)
         old_net_name = c_utils.get_resource_name(ns_name, prefix='ns/',
                                                  suffix='-net')
         # TODO(gryf): remove old_net_name support in next release, and precise
         # the query by adding additional query parameter 'description' which
         # should contain namespace uid.
         networks = os_net.networks(name=(net_name, old_net_name))
+        tags = ",".join(TAGS)
 
         try:
             # NOTE(ltomasbo): only one network must exists
             net = next(networks)
-            if net.name == net_name and net.description != ns_uid:
-                # this condition would be unnecessary when guard for old names
-                # would be eventually removed.
-                raise ValueError
             # NOTE(gryf): It might happen, that network has been created, but
             # for some reason tagging has failed.
             if TAGS and not set(TAGS).issubset(set(net.tags)):
@@ -145,7 +142,7 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
 
         mtu_cfg = oslo_cfg.CONF.neutron_defaults.network_device_mtu
         attrs = {'name': net_name, 'project_id': project_id,
-                 'description': ns_uid}
+                 'description': tags}
         if mtu_cfg:
             attrs['mtu'] = mtu_cfg
 
@@ -161,12 +158,14 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
     def create_subnet(self, ns, project_id, net_id):
         os_net = clients.get_network_client()
         ns_name = ns['metadata']['name']
+        ns_uid = ns['metadata']['uid']
+        tags = ",".join(TAGS)
 
         # NOTE(gryf): assumption is, that all the subnets (well, currently
         # only one) in specific k8s namespaces are under exactly one network,
         # which have proper namespace uid in its description, so there is no
         # need to put it on the subnet as well.
-        subnet_name = c_utils.get_resource_name(ns_name)
+        subnet_name = c_utils.get_resource_name(ns_name, ns_uid)
         subnets = os_net.subnets(network_id=net_id)
 
         try:
@@ -185,6 +184,7 @@ class NamespacePodSubnetDriver(default_subnet.DefaultPodSubnetDriver):
         try:
             neutron_subnet = (os_net
                               .create_subnet(network_id=net_id,
+                                             description=tags,
                                              ip_version=ip_version,
                                              name=subnet_name,
                                              enable_dhcp=False,
