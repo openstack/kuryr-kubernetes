@@ -118,10 +118,10 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
             try:
                 self._create_knp_crd(policy, i_rules, e_rules)
             except exceptions.K8sNamespaceTerminating:
-                LOG.warning('Namespace %s is being terminated, ignoring '
-                            'NetworkPolicy %s in that namespace.',
-                            policy['metadata']['namespace'],
-                            policy['metadata']['name'])
+                LOG.debug('Namespace %s is being terminated, ignoring '
+                          'NetworkPolicy %s in that namespace.',
+                          policy['metadata']['namespace'],
+                          policy['metadata']['name'])
                 return
         else:
             self._patch_knp_crd(policy, i_rules, e_rules, knp)

@@ -108,10 +108,9 @@ class VIFHandler(k8s_base.ResourceEventHandler):
             except k_exc.K8sNamespaceTerminating:
                 # The underlying namespace is being terminated, we can
                 # ignore this and let `on_finalize` handle this now.
-                LOG.warning('Namespace %s is being terminated, ignoring Pod '
-                            '%s in that namespace.',
-                            pod['metadata']['namespace'],
-                            pod_name)
+                LOG.debug('Namespace %s is being terminated, ignoring Pod '
+                          '%s in that namespace.',
+                          pod['metadata']['namespace'], pod_name)
                 return
             except k_exc.K8sClientException as ex:
                 self.k8s.add_event(pod, 'FailedToCreateKuryrPortCRD',

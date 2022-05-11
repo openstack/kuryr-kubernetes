@@ -87,10 +87,10 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
                 self._bump_network_policies(service)
                 self.create_crd_spec(service)
             except k_exc.K8sNamespaceTerminating:
-                LOG.warning('Namespace %s is being terminated, ignoring '
-                            'Service %s in that namespace.',
-                            service['metadata']['namespace'],
-                            service['metadata']['name'])
+                LOG.debug('Namespace %s is being terminated, ignoring '
+                          'Service %s in that namespace.',
+                          service['metadata']['namespace'],
+                          service['metadata']['name'])
                 return
         elif self._has_lbaas_spec_changes(service, loadbalancer_crd):
             self._update_crd_spec(loadbalancer_crd, service)
@@ -347,9 +347,9 @@ class EndpointsHandler(k8s_base.ResourceEventHandler):
             try:
                 self._update_crd_spec(loadbalancer_crd, endpoints)
             except k_exc.K8sNamespaceTerminating:
-                LOG.warning('Namespace %s is being terminated, ignoring '
-                            'Endpoints %s in that namespace.',
-                            ep_namespace, ep_name)
+                LOG.debug('Namespace %s is being terminated, ignoring '
+                          'Endpoints %s in that namespace.',
+                          ep_namespace, ep_name)
 
     def on_deleted(self, endpoints, *args, **kwargs):
         self._remove_endpoints(endpoints)

@@ -1757,8 +1757,7 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._drv_vif._remove_subports.assert_called_once_with(trunk_id,
                                                                    [port_id])
         m_driver._drv_vif._release_vlan_id.assert_called_once_with(vlan_id)
-        m_pool.imap.assert_called_once_with(utils.delete_neutron_port,
-                                            [port_id])
+        m_pool.imap.assert_called_once_with(utils.delete_port, [port_id])
 
     def test_delete_network_pools_not_ready(self):
         cls = vif_pool.NestedVIFPool
@@ -1851,5 +1850,4 @@ class NestedVIFPool(test_base.TestCase):
         m_driver._drv_vif._remove_subports.assert_called_once_with(trunk_id,
                                                                    [port_id])
         m_driver._drv_vif._release_vlan_id.assert_not_called()
-        m_pool.imap.assert_called_once_with(utils.delete_neutron_port,
-                                            [port_id])
+        m_pool.imap.assert_called_once_with(utils.delete_port, [port_id])
