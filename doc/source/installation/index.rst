@@ -48,3 +48,4 @@ This section describes how you can install and configure kuryr-kubernetes
    testing_sriov_functional
    testing_sctp_services
    listener_timeouts
+   multiple_tenants

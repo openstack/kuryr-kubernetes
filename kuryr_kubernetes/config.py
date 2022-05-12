@@ -96,20 +96,20 @@ k8s_opts = [
                help=_("The token to talk to the k8s API"),
                default='/var/run/secrets/kubernetes.io/serviceaccount/token'),
     cfg.StrOpt('pod_project_driver',
-               help=_("The driver to determine OpenStack "
-                      "project for pod ports"),
+               help=_("The driver to determine OpenStack project for pod "
+                      "ports (default or annotation)"),
                default='default'),
     cfg.StrOpt('service_project_driver',
-               help=_("The driver to determine OpenStack "
-                      "project for services"),
+               help=_("The driver to determine OpenStack project for "
+                      "services (default or annotation)"),
                default='default'),
     cfg.StrOpt('namespace_project_driver',
-               help=_("The driver to determine OpenStack "
-                      "project for namespaces"),
+               help=_("The driver to determine OpenStack project for "
+                      "namespaces (default or annotation)"),
                default='default'),
     cfg.StrOpt('network_policy_project_driver',
-               help=_("The driver to determine OpenStack "
-                      "project for network policies"),
+               help=_("The driver to determine OpenStack project for network "
+                      "policies (default or annotation)"),
                default='default'),
     cfg.StrOpt('pod_subnets_driver',
                help=_("The driver to determine Neutron "

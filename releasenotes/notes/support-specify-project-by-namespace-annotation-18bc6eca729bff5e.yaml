@@ -1,0 +1,13 @@
+---
+features:
+  - |
+    Introduced a new project driver that is able to specify different project
+    for each namespace.
+
+    .. code-block:: ini
+
+      [kubernetes]
+      pod_project_driver = annotation
+      service_project_driver = annotation
+      namespace_project_driver = annotation
+      network_policy_project_driver = annotation

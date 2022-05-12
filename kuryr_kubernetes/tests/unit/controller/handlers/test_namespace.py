@@ -82,7 +82,7 @@ class TestNamespaceHandler(test_base.TestCase):
         self._get_kns_crd.assert_called_once_with(
             self._namespace['metadata']['name'])
         self._add_kuryrnetwork_crd.assert_called_once_with(
-            self._namespace['metadata']['name'], {})
+            self._namespace, {})
 
     def test_on_present_existing(self):
         net_crd = self._get_crd()
@@ -109,7 +109,7 @@ class TestNamespaceHandler(test_base.TestCase):
         self._get_kns_crd.assert_called_once_with(
             self._namespace['metadata']['name'])
         self._add_kuryrnetwork_crd.assert_called_once_with(
-            self._namespace['metadata']['name'], {})
+            self._namespace, {})
 
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     def test_handle_namespace_no_pods(self, m_get_k8s_client):
