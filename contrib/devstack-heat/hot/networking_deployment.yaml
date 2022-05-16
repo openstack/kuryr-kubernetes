@@ -53,10 +53,10 @@ resources:
       router_id: { get_resource: kuryr_router }
       subnet_id: { get_resource: vm_subnet }
 
-  k8s_api_sg:
+  vm_sg:
     type: OS::Neutron::SecurityGroup
     properties:
-      name: K8s_api_sg
+      name: vm_sg
       description: Ping and SSH
       rules:
       - protocol: icmp
@@ -76,5 +76,5 @@ outputs:
     value: { get_resource: vm_net }
   vm_subnet_id:
     value: { get_resource: vm_subnet }
-  k8s_api_sg_id:
-    value: { get_resource: k8s_api_sg }
+  vm_sg_id:
+    value: { get_resource: vm_sg }

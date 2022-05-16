@@ -36,7 +36,7 @@ parameters:
     type: string
     label: VM Subnet
     description: Neutron subnet for VMs
-  k8s_api_sg:
+  vm_sg:
     type: string
     label: kubernetes API sg
     description: Security Group for Kubernetes API
@@ -44,10 +44,38 @@ parameters:
     type: string
     label: Instance name
     description: devstack node instance name
-  change_number:
+  local_conf:
     type: string
-    label: Gerrit change number
-    description: Either the gerrit change number or master-sha_of_the_commit
+    label: local.conf file to use
+    description: URL of local.conf file to use when deploying DevStack
+  gerrit_change:
+    type: string
+    label: Gerrit change to deploy Kuryr from
+    description: Gerrit change number to clone Kuryr from
+  git_hash:
+    type: string
+    label: Commit from which to deploy Kuryr
+    description: Commit hash from which Kuryr should be deployed
+  bashrc:
+    type: string
+    label: bashrc file URL
+    description: URL of bashrc file that will be injected for stack user
+    default: ""
+  branch:
+    type: string
+    label: Branch which should be deployed
+    description: E.g. master or stable/queens
+    default: ""
+  devstack_branch:
+    type: string
+    label: Branch which should be deployed
+    description: E.g. master or stable/queens
+    default: ""
+  ssh_key:
+    type: string
+    label: Additional SSH key
+    description: To be added for stack user.
+    default: ""
 
 resources:
   instance_port:
@@ -56,7 +84,7 @@ resources:
       network: { get_param: vm_net }
       security_groups:
         - default
-        - { get_param: k8s_api_sg }
+        - { get_param: vm_sg }
       fixed_ips:
         - subnet: { get_param: vm_subnet }
 
@@ -80,37 +108,48 @@ resources:
         str_replace:
           params:
             __distro_deps__: { get_file: distro_deps.sh }
-            __change_number__: { get_param: change_number }
+            __gerrit_change__: { get_param: gerrit_change }
+            __git_hash__: { get_param: git_hash }
+            __local_conf__: { get_param: local_conf }
+            __bashrc__: { get_param: bashrc }
             __pubkey__: { get_param: public_key }
+            __branch__: { get_param: branch }
+            __devstack_branch__: { get_param: devstack_branch }
+            __ssh_key__: { get_param: ssh_key }
           template: |
             #!/bin/bash
             set -ex
 
             # Wait a bit for connectivity
-            sleep 10
-
-            # Deps for devstack
-            __distro_deps__
+            sleep 30
 
             # Stack user config
-            useradd -s /bin/bash -d /opt/stack -m stack
+            groupadd stack
+            useradd -s /bin/bash -d /opt/stack -m stack -g stack
             mkdir /opt/stack/.ssh
             cat > /opt/stack/.ssh/authorized_keys << EOF
             __pubkey__
             EOF
+            if [[ ! -z "__ssh_key__" ]]; then
+              curl "__ssh_key__" >> /opt/stack/.ssh/authorized_keys
+            fi
             echo "stack ALL=(ALL) NOPASSWD: ALL" | tee /etc/sudoers.d/stack
+            curl "__bashrc__" >> /opt/stack/.bashrc
+            chown -R stack:stack /opt/stack
+            chmod 755 /opt/stack
+
+            # Deps for devstack
+            __distro_deps__
 
             # Stacking
             sudo -i -u stack /bin/bash - <<"EOF"
             function get_from_gerrit() {
-                local stackname
-                local change_number
+                local gerrit_change
                 local ref
 
-                stackname="__change_number__"
-                change_number=${stackname#*_}
-                echo "Finding latest ref for change ${change_number}"
-                ref=$(curl -s "https://review.opendev.org/changes/${change_number}?o=CURRENT_REVISION" | tail -n +2 | jq -r '.revisions[].ref')
+                gerrit_change="__gerrit_change__"
+                echo "Finding latest ref for change ${gerrit_change}"
+                ref=$(curl -s "https://review.opendev.org/changes/${gerrit_change}?o=CURRENT_REVISION" | tail -n +2 | jq -r '.revisions[].ref')
                 echo "Fetching ref ${ref}"
                 git fetch https://opendev.org/openstack/kuryr-kubernetes "${ref}" && git checkout FETCH_HEAD
             }
@@ -118,34 +157,49 @@ resources:
             function get_from_sha() {
                 local commit_sha
 
-                commit_sha=$(echo "__change_number__" | cut -d'_' -f2)
+                commit_sha="__git_hash__"
                 echo "Sha to fetch: ${commit_sha}"
                 git checkout "$commit_sha"
             }
 
             cd /opt/stack
             git clone https://opendev.org/openstack-dev/devstack
+            if [[ ! -z "__devstack_branch__" ]]; then
+                pushd devstack
+                git checkout "__devstack_branch__"
+                popd
+            fi
             git clone https://github.com/openstack/kuryr-kubernetes
             pushd kuryr-kubernetes
 
-            if [[ "__change_number__" =~ ^master.* ]]; then
+            if [[ ! -z "__git_hash__" ]]; then
                 get_from_sha
-            elif [[ "__change_number__" =~ ^gerrit.* ]]; then
+            elif [[ ! -z "__gerrit_change__" ]]; then
                 get_from_gerrit
+            elif [[ ! -z "__branch__" ]]; then
+                git checkout "__branch__"
             else
-                echo "Unrecognized stack name. Quitting..."
-                exit 1
+                "Deploying from master"
             fi
             popd
             pushd devstack
 
-            # The change is already downloaded, do not reclone
-            sed -e 's/# RECLONE=/RECLONE=/' /opt/stack/kuryr-kubernetes/devstack/local.conf.sample > /opt/stack/devstack/local.conf
-            ./stack.sh
+            if [[ -z "__local_conf__" ]]; then
+              # The change is already downloaded, do not reclone
+              sed -e 's/# RECLONE=/RECLONE=/' /opt/stack/kuryr-kubernetes/devstack/local.conf.sample > /opt/stack/devstack/local.conf
+            else
+              curl "__local_conf__" > /opt/stack/devstack/local.conf
+            fi
             popd
+
+            touch stacking
+
+            pushd devstack
+            ./stack.sh >> /opt/stack/devstack.log 2>&1
+            popd
+
             touch ready
             EOF
-
 outputs:
   node_fip:
     description: FIP address of the node
