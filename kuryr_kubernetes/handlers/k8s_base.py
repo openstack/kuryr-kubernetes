@@ -31,6 +31,17 @@ def object_uid(event):
         return None
 
 
+def object_info(event):
+    try:
+        resource = event['object']
+        try:
+            return "%(kind)s %(namespace)s/%(name)s" % resource['metadata']
+        except KeyError:
+            return "%(kind)s: %(name)s" % resource['metadata']
+    except KeyError:
+        return None
+
+
 class ResourceEventHandler(dispatch.EventConsumer, health.HealthHandler):
     """Base class for K8s event handlers.
 

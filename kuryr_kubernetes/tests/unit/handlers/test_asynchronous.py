@@ -28,7 +28,9 @@ class TestAsyncHandler(test_base.TestCase):
         m_queue = mock.Mock()
         m_handler = mock.Mock()
         m_group_by = mock.Mock(return_value=group)
-        async_handler = h_async.Async(m_handler, mock.Mock(), m_group_by)
+        m_info = mock.Mock(return_value=group)
+        async_handler = h_async.Async(m_handler, mock.Mock(), m_group_by,
+                                      m_info)
         async_handler._queues[group] = m_queue
 
         async_handler(event)
@@ -49,7 +51,8 @@ class TestAsyncHandler(test_base.TestCase):
         m_tg = mock.Mock()
         m_tg.add_thread.return_value = m_th
         m_group_by = mock.Mock(return_value=group)
-        async_handler = h_async.Async(m_handler, m_tg, m_group_by,
+        m_info = mock.Mock(return_value=group)
+        async_handler = h_async.Async(m_handler, m_tg, m_group_by, m_info,
                                       queue_depth=queue_depth)
 
         async_handler(event)
@@ -58,8 +61,8 @@ class TestAsyncHandler(test_base.TestCase):
         m_queue_type.assert_called_once_with(queue_depth)
         self.assertEqual({group: m_queue}, async_handler._queues)
         m_tg.add_thread.assert_called_once_with(async_handler._run, group,
-                                                m_queue)
-        m_th.link.assert_called_once_with(async_handler._done, group)
+                                                m_queue, group)
+        m_th.link.assert_called_once_with(async_handler._done, group, group)
         m_queue.put.assert_called_once_with((event, (), {}))
 
     def test_call_injected(self):
@@ -68,7 +71,9 @@ class TestAsyncHandler(test_base.TestCase):
         m_queue = mock.Mock()
         m_handler = mock.Mock()
         m_group_by = mock.Mock(return_value=group)
-        async_handler = h_async.Async(m_handler, mock.Mock(), m_group_by)
+        m_info = mock.Mock(return_value=group)
+        async_handler = h_async.Async(m_handler, mock.Mock(), m_group_by,
+                                      m_info)
         async_handler._queues[group] = m_queue
 
         async_handler(event, injected=True)
@@ -87,10 +92,10 @@ class TestAsyncHandler(test_base.TestCase):
         m_handler = mock.Mock()
         m_count.return_value = [1]
         async_handler = h_async.Async(m_handler, mock.Mock(), mock.Mock(),
-                                      queue_depth=1)
+                                      mock.Mock(), queue_depth=1)
 
         with mock.patch('time.sleep'):
-            async_handler._run(group, m_queue)
+            async_handler._run(group, m_queue, None)
 
         m_handler.assert_called_once_with(event)
 
@@ -104,10 +109,11 @@ class TestAsyncHandler(test_base.TestCase):
         m_queue.get.side_effect = events + [queue.Empty()]
         m_handler = mock.Mock()
         m_count.return_value = list(range(5))
-        async_handler = h_async.Async(m_handler, mock.Mock(), mock.Mock())
+        async_handler = h_async.Async(m_handler, mock.Mock(), mock.Mock(),
+                                      mock.Mock())
 
         with mock.patch('time.sleep'):
-            async_handler._run(group, m_queue)
+            async_handler._run(group, m_queue, None)
 
         m_handler.assert_has_calls([mock.call(event[0]) for event in events])
         self.assertEqual(len(events), m_handler.call_count)
@@ -122,20 +128,22 @@ class TestAsyncHandler(test_base.TestCase):
         m_queue.get.side_effect = events + [queue.Empty()]
         m_handler = mock.Mock()
         m_count.return_value = list(range(5))
-        async_handler = h_async.Async(m_handler, mock.Mock(), mock.Mock())
+        async_handler = h_async.Async(m_handler, mock.Mock(), mock.Mock(),
+                                      mock.Mock())
 
         with mock.patch('time.sleep'):
-            async_handler._run(group, m_queue)
+            async_handler._run(group, m_queue, None)
 
         m_handler.assert_called_once_with(mock.sentinel.event2)
 
     def test_done(self):
         group = mock.sentinel.group
         m_queue = mock.Mock()
-        async_handler = h_async.Async(mock.Mock(), mock.Mock(), mock.Mock())
+        async_handler = h_async.Async(mock.Mock(), mock.Mock(), mock.Mock(),
+                                      mock.Mock())
         async_handler._queues[group] = m_queue
 
-        async_handler._done(mock.Mock(), group)
+        async_handler._done(mock.Mock(), group, None)
 
         self.assertFalse(async_handler._queues)
 
@@ -144,9 +152,10 @@ class TestAsyncHandler(test_base.TestCase):
         group = mock.sentinel.group
         m_queue = mock.Mock()
         m_queue.empty.return_value = False
-        async_handler = h_async.Async(mock.Mock(), mock.Mock(), mock.Mock())
+        async_handler = h_async.Async(mock.Mock(), mock.Mock(), mock.Mock(),
+                                      mock.Mock())
         async_handler._queues[group] = m_queue
 
-        async_handler._done(mock.Mock(), group)
+        async_handler._done(mock.Mock(), group, None)
 
         m_critical.assert_called_once()
