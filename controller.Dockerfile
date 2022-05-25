@@ -1,4 +1,4 @@
-FROM quay.io/centos/centos:stream8
+FROM quay.io/centos/centos:stream9
 LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redhat.com>"
 
 ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/master"
@@ -15,8 +15,8 @@ RUN pip3 --no-cache-dir install -U pip \
     && dnf -y history undo last \
     && dnf clean all \
     && rm -rf /opt/kuryr-kubernetes \
-    && groupadd -r kuryr -g 711 \
-    && useradd -u 711 -g kuryr \
+    && groupadd -r kuryr -g 1000 \
+    && useradd -u 1000 -g kuryr \
          -d /opt/kuryr-kubernetes \
          -s /sbin/nologin \
          -c "Kuryr controller user" \

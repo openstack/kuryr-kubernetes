@@ -5,20 +5,14 @@ COPY . .
 
 RUN GO111MODULE=auto go build -o /go/bin/kuryr-cni ./kuryr_cni/pkg/*
 
-FROM quay.io/centos/centos:stream8
+FROM quay.io/centos/centos:stream9
 LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redhat.com>"
 
 ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/master"
 ARG OSLO_LOCK_PATH=/var/kuryr-lock
-ARG RDO_REPO=https://repos.fedorapeople.org/repos/openstack/openstack-xena/rdo-release-xena-1.el8.noarch.rpm
+ARG RDO_REPO=https://repos.fedorapeople.org/repos/openstack/openstack-yoga/rdo-release-yoga-1.el9s.noarch.rpm
 
-# NOTE(gryf): There is a sed substitution to make package manager to
-# cooperate. It might be a subject to change in the future, either when
-# yum/dnf starts to respect yum.conf variables, or mirror location would
-# change.
 RUN dnf upgrade -y && dnf install -y epel-release $RDO_REPO \
-    && sed -e 's/$releasever/8-stream/' -i /etc/yum.repos.d/messaging.repo \
-    && sed -e 's/$basearch/x86_64/' -i /etc/yum.repos.d/messaging.repo \
     && dnf install -y --setopt=tsflags=nodocs python3-pip openvswitch sudo iproute libstdc++ pciutils kmod-libs \
     && dnf install -y --setopt=tsflags=nodocs gcc gcc-c++ python3-devel git
 
