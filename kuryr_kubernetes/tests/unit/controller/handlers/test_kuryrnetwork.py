@@ -52,8 +52,8 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         self._handler = mock.MagicMock(
             spec=kuryrnetwork.KuryrNetworkHandler)
         self._handler._drv_project = mock.Mock(spec=drivers.PodProjectDriver)
-        # NOTE(ltomasbo): The KuryrNet handler is associated to the usage of
-        # namespace subnet driver,
+        # NOTE(ltomasbo): The KuryrNetwork handler is associated to the usage
+        # of namespace subnet driver,
         self._handler._drv_subnets = mock.Mock(
             spec=subnet_drv.NamespacePodSubnetDriver)
         self._handler._drv_sg = mock.Mock(spec=drivers.PodSecurityGroupsDriver)

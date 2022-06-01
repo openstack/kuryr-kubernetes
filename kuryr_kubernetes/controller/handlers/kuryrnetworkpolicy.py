@@ -54,7 +54,7 @@ class KuryrNetworkPolicyHandler(k8s_base.ResourceEventHandler):
     def _patch_kuryrnetworkpolicy_crd(self, knp, field, data,
                                       action='replace'):
         name = knp['metadata']['name']
-        LOG.debug('Patching KuryrNet CRD %s', name)
+        LOG.debug('Patching KuryrNetwork CRD %s', name)
         try:
             status = self.k8s.patch_crd(field, utils.get_res_link(knp),
                                         data, action=action)

@@ -210,7 +210,8 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
         except k_exc.K8sConflict:
             raise k_exc.ResourceNotReady(svc_name)
         except k_exc.K8sClientException as e:
-            LOG.exception('Error updating kuryrnet CRD %s', loadbalancer_crd)
+            LOG.exception('Error updating KuryrNetwork CRD %s',
+                          loadbalancer_crd)
             self.k8s.add_event(
                 service, 'UpdateKLBFailed',
                 'Error when updating KuryrLoadBalancer object: %s' % e,

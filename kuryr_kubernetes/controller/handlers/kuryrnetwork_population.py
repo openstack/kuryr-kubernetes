@@ -93,5 +93,5 @@ class KuryrNetworkPopulationHandler(k8s_base.ResourceEventHandler):
             kubernetes.patch_crd('status', utils.get_res_link(kns_crd),
                                  {'populated': populated})
         except exceptions.K8sClientException:
-            LOG.exception('Error updating kuryrnet CRD %s', crd_name)
+            LOG.exception('Error updating KuryrNetwork CRD %s', crd_name)
             raise

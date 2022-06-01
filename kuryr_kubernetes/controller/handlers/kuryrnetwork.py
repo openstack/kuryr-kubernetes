@@ -179,12 +179,12 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
             services = driver_utils.get_services()
             self._update_services(services, crd_selectors, project_id)
 
-        LOG.debug('Removing finalizer for KuryrNet CRD %s', kuryrnet_crd)
+        LOG.debug('Removing finalizer for KuryrNetwork CRD %s', kuryrnet_crd)
         try:
             self.k8s.remove_finalizer(kuryrnet_crd,
                                       constants.KURYRNETWORK_FINALIZER)
         except k_exc.K8sClientException:
-            LOG.exception('Error removing kuryrnetwork CRD finalizer for %s',
+            LOG.exception('Error removing KuryrNetwork CRD finalizer for %s',
                           kuryrnet_crd)
             raise
 

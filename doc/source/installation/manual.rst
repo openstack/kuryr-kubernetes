@@ -92,7 +92,6 @@ Edit ``kuryr.conf``:
           - openstack.org
         verbs: ["*"]
         resources:
-          - kuryrnets
           - kuryrnetworks
           - kuryrnetpolicies
           - kuryrnetworkpolicies

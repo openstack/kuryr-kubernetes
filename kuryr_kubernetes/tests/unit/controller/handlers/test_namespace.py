@@ -55,7 +55,7 @@ class TestNamespaceHandler(test_base.TestCase):
 
     def _get_crd(self):
         crd = {
-            'kind': 'KuryrNet',
+            'kind': 'KuryrNetwork',
             'metadata': {
                 'name': self._namespace_name,
                 'namespace': self._namespace_name,
@@ -96,7 +96,7 @@ class TestNamespaceHandler(test_base.TestCase):
         self._update_labels.assert_called_once_with(net_crd, {})
         self._add_kuryrnetwork_crd.assert_not_called()
 
-    def test_on_present_add_kuryrnet_crd_exception(self):
+    def test_on_present_add_kuryrnetwork_crd_exception(self):
         self._get_kns_crd.return_value = None
         self._add_kuryrnetwork_crd.side_effect = k_exc.K8sClientException
         self._handle_namespace.return_value = True
