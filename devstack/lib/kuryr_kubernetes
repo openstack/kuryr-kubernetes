@@ -415,7 +415,6 @@ rules:
   verbs: ["*"]
   resources:
     - kuryrnetworks
-    - kuryrnetpolicies
     - kuryrnetworkpolicies
     - kuryrloadbalancers
     - kuryrports

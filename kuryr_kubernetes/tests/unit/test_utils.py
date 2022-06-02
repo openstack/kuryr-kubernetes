@@ -132,29 +132,9 @@ class TestUtils(test_base.TestCase):
 
         self.assertEqual(resp, True)
 
-    def test__has_kuryrnetpolicy_crd(self):
-        kuryrnetpolicies_crd = {
-            "apiVersion": "openstack.org/v1",
-            "items": [
-
-            ],
-            "kind": "KuryrNetPolicyList",
-            "metadata": {
-                "continue": "",
-                "resourceVersion": "34186",
-            }
-        }
-        kubernetes = self.useFixture(k_fix.MockK8sClient()).client
-        kubernetes.get.return_value = kuryrnetpolicies_crd
-
-        kuryrnetpolicies_url = k_const.K8S_API_CRD_KURYRNETPOLICIES
-        resp = utils.has_kuryr_crd(kuryrnetpolicies_url)
-
-        self.assertEqual(resp, True)
-
     def test__has_kuryr_crd_error(self):
         crds = [k_const.K8S_API_CRD_KURYRNETWORKS,
-                k_const.K8S_API_CRD_KURYRNETPOLICIES,
+                k_const.K8S_API_CRD_KURYRNETWORKPOLICIES,
                 k_const.K8S_API_CRD_KURYRLOADBALANCERS]
 
         for crd_url in crds:

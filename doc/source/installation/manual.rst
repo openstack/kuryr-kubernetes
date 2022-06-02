@@ -93,7 +93,6 @@ Edit ``kuryr.conf``:
         verbs: ["*"]
         resources:
           - kuryrnetworks
-          - kuryrnetpolicies
           - kuryrnetworkpolicies
           - kuryrloadbalancers
       - apiGroups: ["networking.k8s.io"]

@@ -100,7 +100,7 @@ def get_matched_crd_obj():
 
 def get_crd_obj_no_match():
     return {
-        "kind": "KuryrNetPolicy",
+        "kind": "KuryrNetworkPolicy",
         "metadata": {"name": "np-test-network-policy",
                      "namespace": "default"},
         "spec": {
@@ -122,7 +122,7 @@ def get_crd_obj_no_match():
 
 def get_crd_obj_with_all_selectors():
     return {
-        "kind": "KuryrNetPolicy",
+        "kind": "KuryrNetworkPolicy",
         "metadata": {"name": "np-test-network-policy",
                      "namespace": "default"},
         "spec": {
@@ -304,7 +304,7 @@ class TestNetworkPolicySecurityGroupsDriver(test_base.TestCase):
         self._new_rule_id = mock.sentinel.id
         self._crd_with_rule = {
             "apiVersion": "openstack.org/v1",
-            "kind": "KuryrNetPolicy",
+            "kind": "KuryrNetworkPolicy",
             "metadata": {"name": "np-test-network-policy",
                           "namespace": "default"},
             "spec": {
