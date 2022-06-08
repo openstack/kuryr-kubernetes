@@ -13,7 +13,7 @@ ARG OSLO_LOCK_PATH=/var/kuryr-lock
 ARG RDO_REPO=https://repos.fedorapeople.org/repos/openstack/openstack-yoga/rdo-release-yoga-1.el9s.noarch.rpm
 
 RUN dnf upgrade -y && dnf install -y epel-release $RDO_REPO \
-    && dnf install -y --setopt=tsflags=nodocs python3-pip openvswitch sudo iproute libstdc++ pciutils kmod-libs \
+    && dnf install -y --setopt=tsflags=nodocs python3-pip python3-setuptools-53.0.0-10.el9 openvswitch sudo iproute pciutils kmod-libs \
     && dnf install -y --setopt=tsflags=nodocs gcc gcc-c++ python3-devel git
 
 COPY . /opt/kuryr-kubernetes
