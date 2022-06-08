@@ -10,6 +10,11 @@ RUN dnf upgrade -y \
 
 COPY . /opt/kuryr-kubernetes
 
+ARG VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv $VIRTUAL_ENV
+# This is enough to activate a venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
 RUN pip3 --no-cache-dir install -U pip \
     && python3 -m pip install -c $UPPER_CONSTRAINTS_FILE --no-cache-dir /opt/kuryr-kubernetes \
     && dnf -y history undo last \
