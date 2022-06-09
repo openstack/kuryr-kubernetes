@@ -26,6 +26,9 @@ from kuryr_kubernetes.tests import base as test_base
 _SUPPORTED_LISTENER_PROT = ('HTTP', 'HTTPS', 'TCP')
 
 
+@mock.patch('kuryr_kubernetes.controller.drivers.base.LBaaSDriver.'
+            'get_instance', mock.Mock())
+@mock.patch('kuryr_kubernetes.clients.get_kubernetes_client', mock.Mock())
 class TestServiceHandler(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     def test_on_present(self, get_k8s_client):
@@ -171,18 +174,23 @@ class TestServiceHandler(test_base.TestCase):
 
     def test_get_service_ip(self):
         svc_body = {'spec': {'type': 'ClusterIP',
-                             'clusterIP': mock.sentinel.cluster_ip}}
-        m_handler = mock.Mock(spec=h_lbaas.ServiceHandler)
-
-        ret = h_lbaas.ServiceHandler._get_service_ip(m_handler, svc_body)
-        self.assertEqual(mock.sentinel.cluster_ip, ret)
+                             'clusterIP': '192.168.0.11'}}
+        handler = h_lbaas.ServiceHandler()
+        ret = handler._get_service_ip(svc_body)
+        self.assertEqual('192.168.0.11', ret)
 
         svc_body = {'spec': {'type': 'LoadBalancer',
-                             'clusterIP': mock.sentinel.cluster_ip}}
-        m_handler = mock.Mock(spec=h_lbaas.ServiceHandler)
+                             'clusterIP': '192.168.0.11'}}
+        ret = handler._get_service_ip(svc_body)
+        self.assertEqual('192.168.0.11', ret)
 
-        ret = h_lbaas.ServiceHandler._get_service_ip(m_handler, svc_body)
-        self.assertEqual(mock.sentinel.cluster_ip, ret)
+    def test_get_service_ip_funny(self):
+        svc_body = {'spec': {'type': 'ClusterIP',
+                             'clusterIP': '172.30.0.011'}}
+        handler = h_lbaas.ServiceHandler()
+
+        ret = handler._get_service_ip(svc_body)
+        self.assertEqual('172.30.0.11', ret)
 
     def test_is_supported_type_clusterip(self):
         m_handler = mock.Mock(spec=h_lbaas.ServiceHandler)
