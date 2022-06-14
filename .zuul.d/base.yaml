@@ -239,6 +239,8 @@
         OCTAVIA_AMP_IMAGE_FILE: /tmp/test-only-amphora-x64-haproxy-ubuntu-focal.qcow2
         OCTAVIA_AMP_IMAGE_NAME: test-only-amphora-x64-haproxy-ubuntu-focal
         OCTAVIA_AMP_IMAGE_SIZE: 3
+        LIBVIRT_TYPE: kvm
+        LIBVIRT_CPU_MODE: host-passthrough
       devstack_local_conf:
         post-config:
           $OCTAVIA_CONF:
