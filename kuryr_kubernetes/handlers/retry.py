@@ -101,13 +101,12 @@ class Retry(base.EventHandler):
                 with excutils.save_and_reraise_exception() as ex:
                     if self._sleep(deadline, attempt, ex.value):
                         ex.reraise = False
-            except os_exc.ConflictException as ex:
-                if ex.details.startswith('Quota exceeded for resources'):
-                    with excutils.save_and_reraise_exception() as ex:
+            except os_exc.ConflictException:
+                with excutils.save_and_reraise_exception() as ex:
+                    error_type = clients.get_neutron_error_type(ex.value)
+                    if error_type == 'OverQuota':
                         if self._sleep(deadline, attempt, ex.value):
                             ex.reraise = False
-                else:
-                    raise
             except self._exceptions:
                 with excutils.save_and_reraise_exception() as ex:
                     if self._sleep(deadline, attempt, ex.value):

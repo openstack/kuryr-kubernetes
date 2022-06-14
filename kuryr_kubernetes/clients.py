@@ -98,10 +98,7 @@ def _create_ports(self, payload):
                 port[mapping] = port.pop(key)
 
     response = self.post(os_port.Port.base_path, json=payload)
-
-    if not response.ok:
-        raise os_exc.SDKException('Error when bulk creating ports: %s' %
-                                  response.text)
+    os_exc.raise_from_response(response)
     return (os_port.Port(**item) for item in response.json()['ports'])
 
 
@@ -131,6 +128,20 @@ def _delete_trunk_subports(self, trunk, subports):
     os_exc.raise_from_response(response)
     trunk._body.attributes.update({'sub_ports': subports})
     return trunk
+
+
+def get_neutron_error_type(ex):
+    try:
+        response = ex.response.json()
+    except (ValueError, AttributeError):
+        return None
+
+    if response:
+        try:
+            return response['NeutronError']['type']
+        except KeyError:
+            pass
+    return None
 
 
 def handle_neutron_errors(method, *args, **kwargs):
