@@ -13,6 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import netaddr
+
 from kuryr.lib._i18n import _
 from oslo_log import log as logging
 
@@ -105,7 +107,7 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
 
     def _get_service_ip(self, service):
         if self._is_supported_type(service):
-            return service['spec'].get('clusterIP')
+            return self._strip_funny_ip(service['spec'].get('clusterIP'))
         return None
 
     def _should_ignore(self, service):
@@ -261,7 +263,7 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
             spec['provider'] = self._lb_provider
 
         if spec_lb_ip is not None:
-            spec['lb_ip'] = spec_lb_ip
+            spec['lb_ip'] = self._strip_funny_ip(spec_lb_ip)
         timeout_cli, timeout_mem = self._get_data_timeout_annotation(service)
         spec['timeout_client_data'] = timeout_cli
         spec['timeout_member_data'] = timeout_mem
@@ -310,6 +312,9 @@ class ServiceHandler(k8s_base.ResourceEventHandler):
                 return True
 
         return False
+
+    def _strip_funny_ip(self, ip):
+        return str(netaddr.IPAddress(ip, flags=netaddr.core.ZEROFILL))
 
 
 class EndpointsHandler(k8s_base.ResourceEventHandler):
