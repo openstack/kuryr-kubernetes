@@ -182,8 +182,9 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         lbaas = clients.get_loadbalancer_client()
         resources_fn = {'loadbalancer': lbaas.load_balancers,
                         'listener': lbaas.listeners,
-                        'pool': lbaas.pools}
-        resources = {'loadbalancer': [], 'listener': [], 'pool': []}
+                        'pool': lbaas.pools, 'member': lbaas.members}
+        resources = {'loadbalancer': [], 'listener': [], 'pool': [],
+                     'member': []}
 
         for klb in loadbalancer_crds:
             if klb['metadata'].get('deletionTimestamp'):
@@ -205,16 +206,32 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
                 resources['pool'].append({'id': pl['id'],
                                           'selflink': selflink,
                                           'pklb': klb})
+            for lbm in klb.get('status', {}).get('members', []):
+                resources['member'].append({'id': lbm['id'],
+                                            'selflink': selflink,
+                                            'mklb': klb,
+                                            'pool_id': lbm['pool_id']})
 
         resources_already_triggered = []
-        # let's reconcile load balancers first, listeners and then pools
-        resource_types = ('loadbalancer', 'listener', 'pool')
+        # let's reconcile load balancers first, listeners, pools
+        # and then members
+        resource_types = ('loadbalancer', 'listener', 'pool', 'member')
         for resource_type in resource_types:
             filters = {}
             self._drv_lbaas.add_tags(resource_type, filters)
             os_list = resources_fn[resource_type]
-            os_resources = os_list(**filters)
-            os_resources_id = [rsrc['id'] for rsrc in os_resources]
+            if resource_type == 'member':
+                pool_ids = [cr_member['pool_id'] for cr_member in
+                            resources[resource_type]]
+                pool_ids = list(set(pool_ids))
+                os_resources_id = []
+                for pl_id in pool_ids:
+                    os_resources = os_list(pl_id, **filters)
+                    os_resources_id.extend([rsrc['id'] for rsrc in
+                                           os_resources])
+            else:
+                os_resources = os_list(**filters)
+                os_resources_id = [rsrc['id'] for rsrc in os_resources]
             for data in resources[resource_type]:
                 if data['selflink'] in resources_already_triggered:
                     continue
@@ -228,15 +245,21 @@ class KuryrLoadBalancerHandler(k8s_base.ResourceEventHandler):
         kubernetes = clients.get_kubernetes_client()
         try:
             if data.get('klb'):
-                self._add_event(data['klb'], 'LoadBalancerRecreating',
+                self._add_event(data['klb'], 'LoadBalancerMissing',
                                 'Load balancer for the Service does  not '
                                 'exist anymore. Recreating it.', 'Warning')
             if data.get('lklb'):
-                self._add_event(data['lklb'], 'Load Balancer listener does not'
-                                ' exist anymore. Recreating it.', 'Warning')
+                self._add_event(data['lklb'], 'LoadBalancerListenerMissing',
+                                'Load Balancer listener does not exist '
+                                'anymore. Recreating it.', 'Warning')
             if data.get('pklb'):
-                self._add_event(data['pklb'], 'Load Balancer pool does not '
-                                'exist anymore. Recreating it.', 'Warning')
+                self._add_event(data['pklb'], 'LoadBalancerPoolMissing',
+                                'Load Balancer pool does not exist anymore. '
+                                'Recreating it.', 'Warning')
+            if data.get('mklb'):
+                self._add_event(data['mklb'], 'LoadBalancerMemberMissing',
+                                'Load Balancer member does not exist anymore. '
+                                'Recreating it.', 'Warning')
 
             kubernetes.patch_crd('status', data['selflink'], {})
         except k_exc.K8sResourceNotFound:
