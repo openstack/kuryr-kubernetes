@@ -121,7 +121,7 @@ class TestUtils(test_base.TestCase):
         prefix = 'ns/'
         suffix = '-net'
 
-        new_name = utils.get_resource_name(name, prefix, suffix)
+        new_name = utils.get_resource_name(name, prefix=prefix, suffix=suffix)
 
         self.assertEqual(new_name,
                          prefix + 248 * 'a' + suffix)
@@ -132,7 +132,7 @@ class TestUtils(test_base.TestCase):
         prefix = 'ns/'
         suffix = '-foo'
 
-        new_name = utils.get_resource_name(name, prefix, suffix)
+        new_name = utils.get_resource_name(name, prefix=prefix, suffix=suffix)
 
         self.assertEqual(new_name, f'{prefix}{name}{suffix}')
 
@@ -140,7 +140,7 @@ class TestUtils(test_base.TestCase):
         name = 'fun_name'
         prefix = 'something/'
 
-        new_name = utils.get_resource_name(name, prefix)
+        new_name = utils.get_resource_name(name, prefix=prefix)
 
         self.assertEqual(new_name, f'{prefix}{name}')
 
@@ -157,6 +157,16 @@ class TestUtils(test_base.TestCase):
         prefix = 'bar:'
         suffix = ':baz'
 
-        new_name = utils.get_resource_name(name, prefix, suffix)
+        new_name = utils.get_resource_name(name, prefix=prefix, suffix=suffix)
 
         self.assertEqual(new_name, f'{prefix}{name}{suffix}')
+
+    def test_get_resource_name_uid(self):
+        name = 'ns name'
+        prefix = 'foo:'
+        suffix = ':bar'
+        uid = 'b0f21afa-6d7b-496e-b151-6d7f252b8c6c'
+
+        new_name = utils.get_resource_name(name, uid, prefix, suffix)
+
+        self.assertEqual(new_name, f'{prefix}{uid}/{name}{suffix}')

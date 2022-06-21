@@ -756,24 +756,26 @@ def delete_port(leftover_port):
     return False
 
 
-def get_resource_name(name, prefix='', suffix=''):
+def get_resource_name(name, uid='', prefix='', suffix=''):
     """Get OpenStack resource name out of Kubernetes resources
 
     Return name for the OpenStack resource, which usually is up to 255 chars
     long. And while Kubernetes allows to set resource names up to 253
     characters, that makes a risk to have too long name. This function will
-    prefix and suffix over name of the k8s resource, which will get truncated
-    if needed.
+    favor UID, prefix and suffix over name of the k8s resource, which will get
+    truncated if needed.
 
     https://kubernetes.io/docs/concepts/overview/working-with-objects/names/
     """
+    if uid:
+        uid += '/'
 
-    length = len(f'{prefix}{name}{suffix}')
+    length = len(f'{prefix}{uid}{name}{suffix}')
 
     if length > 255:
         name = name[:254-(length-254)]
 
-    return f'{prefix}{name}{suffix}'
+    return f'{prefix}{uid}{name}{suffix}'
 
 
 def delete_ports(leftover_port_list):
