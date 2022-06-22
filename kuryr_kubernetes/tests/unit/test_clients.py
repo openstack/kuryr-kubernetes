@@ -62,6 +62,7 @@ class TestOpenStackSDKHack(test_base.TestCase):
     def test_create_no_ports(self):
         m_response = mock.Mock()
         m_response.json.return_value = {'ports': []}
+        m_response.status_code = 201
         m_post = mock.Mock()
         m_post.return_value = m_response
         m_osdk = mock.Mock()
@@ -75,6 +76,7 @@ class TestOpenStackSDKHack(test_base.TestCase):
     def test_create_ports(self):
         m_response = mock.Mock()
         m_response.json.return_value = {'ports': []}
+        m_response.status_code = 201
         m_post = mock.Mock()
         m_post.return_value = m_response
         m_osdk = mock.Mock()
@@ -136,6 +138,8 @@ class TestOpenStackSDKHack(test_base.TestCase):
                            '"Quota exceeded for resources: [\'port\'].", '
                            '"detail": ""}}')
         m_response.ok = False
+        m_response.status_code = 409
+        m_response.headers = {'content-type': 'application/json'}
         m_post = mock.Mock()
         m_post.return_value = m_response
         m_osdk = mock.Mock()
@@ -145,7 +149,7 @@ class TestOpenStackSDKHack(test_base.TestCase):
 
         try:
             clients._create_ports(m_osdk, payload)
-        except os_exc.SDKException as ex:
+        except os_exc.ConflictException as ex:
             # no additional params passed to the exception class
             self.assertIsNone(ex.extra_data)
             # no formatting placeholders in message
