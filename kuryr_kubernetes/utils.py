@@ -769,3 +769,56 @@ def cleanup_dead_ports():
                 except os_exc.SDKException as ex:
                     LOG.warning('There was an issue with port "%s" '
                                 'removal: %s', port, ex)
+
+
+def cleanup_dead_networks():
+    """Cleanup all the dead networks and subnets without ports"""
+
+    tags = set(CONF.neutron_defaults.resource_tags)
+    if not tags:
+        return
+
+    os_net = clients.get_network_client()
+    k8s = clients.get_kubernetes_client()
+
+    desc = ",".join(CONF.neutron_defaults.resource_tags)
+
+    try:
+        crds = k8s.get(constants.K8S_API_CRD_KURYRNETWORKS)
+    except exceptions.K8sClientException as ex:
+        LOG.exception('Error fetching KuryrNetworks: %s', ex)
+        return
+
+    kuryr_net_ids = [i['status']['netId'] for i in crds['items']
+                     if i.get('status', {}).get('netId')]
+
+    for net in os_net.networks(description=desc):
+
+        if net.id in kuryr_net_ids:
+            # Find out, if there are more subnets than expected, which suppose
+            # to not have tags.
+            for subnet in os_net.subnets(network_id=net.id,
+                                         not_tags=list(tags)):
+                now = timeutils.utcnow(True)
+                subnet_time = timeutils.parse_isotime(subnet.updated_at)
+                if (now - subnet_time).seconds > ZOMBIE_AGE:
+                    try:
+                        os_net.delete_subnet(subnet)
+                    except os_exc.SDKException as ex:
+                        LOG.warning('There was an issue with removing subnet '
+                                    '"%s": %s', subnet, ex)
+                        continue
+
+        if len(os_net.ports(network_id=net.id)) > 0:
+            continue
+
+        now = timeutils.utcnow(True)
+        net_time = timeutils.parse_isotime(net.updated_at)
+        # NOTE(gryf): if network hanging more than 10 minutes consider it as a
+        # orphaned.
+        if (now - net_time).seconds > ZOMBIE_AGE:
+            try:
+                os_net.delete_network(net)
+            except os_exc.SDKException as ex:
+                LOG.warning('There was an issue with network "%s" '
+                            'removal: %s', net, ex)

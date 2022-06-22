@@ -173,8 +173,9 @@ class KuryrK8sService(service.Service, periodic_task.PeriodicTasks,
             handler.reconcile()
 
     @periodic_task.periodic_task(spacing=90, run_immediately=False)
-    def cleanup_dead_ports(self, context):
+    def cleanup_dead_resources(self, context):
         utils.cleanup_dead_ports()
+        utils.cleanup_dead_networks()
 
 
 def start():
