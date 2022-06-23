@@ -809,7 +809,7 @@ def cleanup_dead_networks():
                                     '"%s": %s', subnet, ex)
                         continue
 
-        if len(os_net.ports(network_id=net.id)) > 0:
+        if len(list(os_net.ports(network_id=net.id))) > 0:
             continue
 
         now = timeutils.utcnow(True)
