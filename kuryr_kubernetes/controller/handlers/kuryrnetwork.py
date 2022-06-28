@@ -97,7 +97,7 @@ class KuryrNetworkHandler(k8s_base.ResourceEventHandler):
             except os_exc.SDKException as ex:
                 self.k8s.add_event(kuryrnet_crd, 'AddingSubnetToRouterFailed',
                                    f'Error adding Neutron subnet {subnet_id} '
-                                   f'to router {router_id}: {ex.details}',
+                                   f'to router: {ex.details}',
                                    'Warning')
                 raise
             status = {'routerId': router_id, 'populated': False}
