@@ -270,33 +270,6 @@ class TestKuryrPortHandler(test_base.TestCase):
 
         update_crd.assert_called_once_with(self._kp, self._vifs)
 
-    @mock.patch('kuryr_kubernetes.controller.drivers.vif_pool.MultiVIFPool.'
-                'activate_vif')
-    @mock.patch('kuryr_kubernetes.controller.drivers.utils.'
-                'update_port_pci_info')
-    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
-    @mock.patch('kuryr_kubernetes.controller.drivers.base.MultiVIFDriver.'
-                'get_enabled_drivers')
-    def test_on_present_sriov(self, ged, get_k8s_client, update_port_pci_info,
-                              activate_vif):
-        ged.return_value = [self._driver]
-        kp = kuryrport.KuryrPortHandler()
-        self._vif2.plugin = constants.KURYR_VIF_TYPE_SRIOV
-        self._vif2.active = True
-        self._kp['status']['vifs'] = {
-            'eth0': {'default': True,
-                     'vif': self._vif2.obj_to_primitive()},
-            'eth1': {'default': False,
-                     'vif': self._vif1.obj_to_primitive()}}
-        CONF.set_override('enable_node_annotations', True, group='sriov')
-        self.addCleanup(CONF.clear_override, 'enable_node_annotations',
-                        group='sriov')
-        activate_vif.side_effect = os_exc.ResourceNotFound()
-
-        kp.on_present(self._kp)
-
-        update_port_pci_info.assert_called_once_with(self._host, self._vif2)
-
     @mock.patch('kuryr_kubernetes.controller.drivers.default_project.'
                 'DefaultPodProjectDriver.get_project')
     @mock.patch('kuryr_kubernetes.controller.drivers.utils.get_services')

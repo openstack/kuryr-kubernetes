@@ -17,7 +17,6 @@ from kuryr.lib import config as lib_config
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from kuryr_kubernetes import constants
 from kuryr_kubernetes import version
 
 LOG = logging.getLogger(__name__)
@@ -300,45 +299,6 @@ nested_vif_driver_opts = [
                default=3),
 ]
 
-DEFAULT_PHYSNET_SUBNET_MAPPINGS = {}
-DEFAULT_DEVICE_MAPPINGS = []
-sriov_opts = [
-    cfg.StrOpt('kubelet_root_dir',
-               help=_("The root directory of the Kubelet daemon"),
-               default='/var/lib/kubelet'),
-    cfg.BoolOpt('enable_pod_resource_service',
-                help=_("Enable PodResources service"),
-                default=False),
-    cfg.DictOpt('default_physnet_subnets',
-                help=_("A mapping of default subnets for certain physnets "
-                       "in a form of physnet-name:<SUBNET-ID>"),
-                default=DEFAULT_PHYSNET_SUBNET_MAPPINGS),
-    cfg.DictOpt('physnet_resource_mappings',
-                help=_("A mapping of physnets for certain sriov dp "
-                       "resource name in a form of "
-                       "physnet-name:resource name. "
-                       "Resource name is listed in sriov device plugin "
-                       "configuation file."),
-                default=DEFAULT_PHYSNET_SUBNET_MAPPINGS),
-    cfg.StrOpt('device_plugin_resource_prefix',
-               help=_("This prefix is used by sriov-network-device-plugin "
-                      "It concatenates with resource suffix defined in "
-                      "sriov device plugin configuration file."),
-               default=constants.K8S_SRIOV_PREFIX),
-    cfg.DictOpt('resource_driver_mappings',
-                help=_("A mappping driver names for certain resource "
-                       "names. Expected that device of VIF related to "
-                       "exact physnet should be binded on specified driver."),
-                default=DEFAULT_PHYSNET_SUBNET_MAPPINGS),
-    cfg.BoolOpt('enable_node_annotations',
-                help=_("Enable node annotations. This option allows to "
-                       "set annotations required by neutron to set active "
-                       "state of ports. This option is useless when "
-                       "sriov-nic-agent is not running on node."),
-                default=False),
-]
-
-
 vhostuser = [
     cfg.StrOpt('mount_point',
                help=_("Path where vhost-user port will be created "
@@ -367,7 +327,6 @@ CONF.register_opts(neutron_defaults, group='neutron_defaults')
 CONF.register_opts(octavia_defaults, group='octavia_defaults')
 CONF.register_opts(cache_defaults, group='cache_defaults')
 CONF.register_opts(nested_vif_driver_opts, group='pod_vif_nested')
-CONF.register_opts(sriov_opts, group='sriov')
 CONF.register_opts(vhostuser, group='vhostuser')
 CONF.register_opts(prometheus_exporter_opts, "prometheus_exporter")
 

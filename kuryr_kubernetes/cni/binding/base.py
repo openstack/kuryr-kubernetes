@@ -24,8 +24,6 @@ from pyroute2 import netns as pyroute_netns
 from stevedore import driver as stv_driver
 
 from kuryr_kubernetes.cni import utils as cni_utils
-from kuryr_kubernetes import config
-from kuryr_kubernetes import constants
 from kuryr_kubernetes import utils
 
 _BINDING_NAMESPACE = 'kuryr_kubernetes.cni.binding'
@@ -130,25 +128,6 @@ def _need_configure_l3(vif):
             return vif.port_profile.l3_setup
         # NOTE(danil): by default kuryr-kubernetes has to setup l3
         return True
-    # NOTE(danil): sriov vif. Figure out what driver should compute it
-    physnet = vif.physnet
-    mapping_res = config.CONF.sriov.physnet_resource_mappings
-    try:
-        resource = mapping_res[physnet]
-    except KeyError:
-        LOG.exception("No resource name for physnet %s", physnet)
-        raise
-    mapping_driver = config.CONF.sriov.resource_driver_mappings
-    try:
-        driver_name = mapping_driver[resource]
-    except KeyError:
-        LOG.exception("No driver for resource_name %s", resource)
-        raise
-    if driver_name in constants.USERSPACE_DRIVERS:
-        LOG.info("_configure_l3 will not be called for vif %s "
-                 "because of it's driver", vif)
-        return False
-    # NOTE(danil): sriov vif computed by kernel driver
     return True
 
 

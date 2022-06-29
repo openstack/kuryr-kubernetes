@@ -198,34 +198,6 @@ class K8sClient(object):
         self._raise_from_response(response)
         return response.json().get('status')
 
-    def patch_node_annotations(self, node, annotation_name, value):
-        content_type = 'application/json-patch+json'
-        path = '{}/nodes/{}/'.format(constants.K8S_API_BASE, node)
-        value = jsonutils.dumps(value)
-        url, header = self._get_url_and_header(path, content_type)
-
-        data = [{'op': 'add',
-                 'path': '/metadata/annotations/{}'.format(annotation_name),
-                 'value': value}]
-
-        response = self.session.patch(url, data=jsonutils.dumps(data),
-                                      headers=header)
-        self._raise_from_response(response)
-        return response.json().get('status')
-
-    def remove_node_annotations(self, node, annotation_name):
-        content_type = 'application/json-patch+json'
-        path = '{}/nodes/{}/'.format(constants.K8S_API_BASE, node)
-        url, header = self._get_url_and_header(path, content_type)
-
-        data = [{'op': 'remove',
-                 'path': '/metadata/annotations/{}'.format(annotation_name)}]
-
-        response = self.session.patch(url, data=jsonutils.dumps(data),
-                                      headers=header)
-        self._raise_from_response(response)
-        return response.json().get('status')
-
     def post(self, path, body):
         LOG.debug("Post %(path)s: %(body)s", {'path': path, 'body': body})
         url = self._base_url + path
