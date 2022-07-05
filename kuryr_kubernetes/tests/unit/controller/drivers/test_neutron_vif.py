@@ -78,7 +78,7 @@ class NeutronPodVIFDriver(test_base.TestCase):
         vif_plugin = mock.sentinel.vif_plugin
         port.binding_vif_type = vif_plugin
         vif = mock.sentinel.vif
-        bulk_rq = {'ports': [port_request for _ in range(num_ports)]}
+        bulk_rq = [port_request for _ in range(num_ports)]
 
         os_net.create_ports.return_value = (p for p in [port, port])
         m_to_vif.return_value = vif
@@ -116,7 +116,7 @@ class NeutronPodVIFDriver(test_base.TestCase):
         port2 = munch.Munch({'id': port_id, 'binding_vif_type': vif_plugin})
         port1_1 = munch.Munch({'id': port_id, 'binding_vif_type': vif_plugin})
         vif = mock.sentinel.vif
-        bulk_rq = {'ports': [port_request for _ in range(num_ports)]}
+        bulk_rq = [port_request for _ in range(num_ports)]
         semaphore = mock.MagicMock(spec=eventlet.semaphore.Semaphore(20))
 
         os_net.create_ports.return_value = (p for p in [port1, port2])
@@ -150,7 +150,7 @@ class NeutronPodVIFDriver(test_base.TestCase):
 
         port_request = mock.sentinel.port_request
         m_driver._get_port_request.return_value = port_request
-        bulk_rq = {'ports': [port_request for _ in range(num_ports)]}
+        bulk_rq = [port_request for _ in range(num_ports)]
 
         semaphore = mock.MagicMock(spec=eventlet.semaphore.Semaphore(20))
         os_net.create_ports.side_effect = os_exc.SDKException

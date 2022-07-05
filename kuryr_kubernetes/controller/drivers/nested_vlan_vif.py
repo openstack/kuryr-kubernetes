@@ -85,7 +85,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
             LOG.error("There are no vlan ids available to create subports")
             return []
 
-        bulk_port_rq = {'ports': [port_rq] * len(subports_info)}
+        bulk_port_rq = [port_rq] * len(subports_info)
         # restrict amount of create Ports in bulk that might be running
         # in parallel.
         with semaphore:

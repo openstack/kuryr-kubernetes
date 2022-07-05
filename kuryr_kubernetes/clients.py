@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from functools import partial
 import ipaddress
 import os
 
@@ -21,11 +20,6 @@ from keystoneauth1 import session as k_session
 from kuryr.lib import utils
 from openstack import connection
 from openstack import exceptions as os_exc
-from openstack.load_balancer.v2 import listener as os_listener
-from openstack.network.v2 import port as os_port
-from openstack.network.v2 import trunk as os_trunk
-from openstack import resource as os_resource
-from openstack import utils as os_utils
 
 from kuryr_kubernetes import config
 from kuryr_kubernetes import k8s_client
@@ -82,54 +76,6 @@ def setup_kubernetes_client():
     _clients[_KUBERNETES_CLIENT] = k8s_client.K8sClient(api_root)
 
 
-def _create_ports(self, payload):
-    """bulk create ports using openstacksdk module"""
-    # TODO(gryf): this function should be removed while we update openstacksdk
-    # version to 0.42.
-    key_map = {'binding_host_id': 'binding:host_id',
-               'binding_profile': 'binding:profile',
-               'binding_vif_details': 'binding:vif_details',
-               'binding_vif_type': 'binding:vif_type',
-               'binding_vnic_type': 'binding:vnic_type'}
-
-    for port in payload['ports']:
-        for key, mapping in key_map.items():
-            if key in port:
-                port[mapping] = port.pop(key)
-
-    response = self.post(os_port.Port.base_path, json=payload)
-    os_exc.raise_from_response(response)
-    return (os_port.Port(**item) for item in response.json()['ports'])
-
-
-def _add_trunk_subports(self, trunk, subports):
-    """Set sub_ports on trunk
-
-    The original method on openstacksdk doesn't care about any errors. This is
-    a replacement that does.
-    """
-    trunk = self._get_resource(os_trunk.Trunk, trunk)
-    url = os_utils.urljoin('/trunks', trunk.id, 'add_subports')
-    response = self.put(url, json={'sub_ports': subports})
-    os_exc.raise_from_response(response)
-    trunk._body.attributes.update({'sub_ports': subports})
-    return trunk
-
-
-def _delete_trunk_subports(self, trunk, subports):
-    """Remove sub_ports from trunk
-
-    The original method on openstacksdk doesn't care about any errors. This is
-    a replacement that does.
-    """
-    trunk = self._get_resource(os_trunk.Trunk, trunk)
-    url = os_utils.urljoin('/trunks', trunk.id, 'remove_subports')
-    response = self.put(url, json={'sub_ports': subports})
-    os_exc.raise_from_response(response)
-    trunk._body.attributes.update({'sub_ports': subports})
-    return trunk
-
-
 def get_neutron_error_type(ex):
     try:
         response = ex.response.json()
@@ -170,24 +116,9 @@ def setup_openstacksdk():
         session.session.mount(scheme, k_session.TCPKeepAliveAdapter(
             pool_maxsize=1000))
 
-    # TODO(mdulko): To use Neutron's ability to do compare-and-swap updates we
-    #               need to manually add support for inserting If-Match header
-    #               into requests. At the moment we only need it for ports.
-    #               Remove when lower-constraints openstacksdk supports this.
-    os_port.Port.if_match = os_resource.Header('If-Match')
-    # TODO(maysams): We need to manually insert allowed_cidrs option
-    # as it's only supported from 0.41.0 version. Remove it once
-    # lower-constraints supports it.
-    os_listener.Listener.allowed_cidrs = os_resource.Body('allowed_cidrs',
-                                                          type=list)
     conn = connection.Connection(
         session=session,
         region_name=getattr(config.CONF.neutron, 'region_name', None))
-    conn.network.create_ports = partial(_create_ports, conn.network)
-    conn.network.add_trunk_subports = partial(_add_trunk_subports,
-                                              conn.network)
-    conn.network.delete_trunk_subports = partial(_delete_trunk_subports,
-                                                 conn.network)
     _clients[_OPENSTACKSDK] = conn
 
 
