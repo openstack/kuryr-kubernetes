@@ -164,7 +164,7 @@
         KURYR_ENFORCE_SG_RULES: true
         ML2_L3_PLUGIN: router
         Q_AGENT: openvswitch
-        Q_ML2_PLUGIN_MECHANISM_DRIVERS: openvswitch,linuxbridge
+        Q_ML2_PLUGIN_MECHANISM_DRIVERS: openvswitch
         Q_ML2_TENANT_NETWORK_TYPE: vxlan
       zuul_copy_output:
         '{{ devstack_log_dir }}/ovsdb-server-nb.log': 'logs'
