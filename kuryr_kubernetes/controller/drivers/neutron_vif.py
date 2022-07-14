@@ -64,7 +64,7 @@ class NeutronPodVIFDriver(base.PodVIFDriver):
         rq = self._get_port_request(pod, project_id, subnets, security_groups,
                                     unbound=True)
 
-        bulk_port_rq = {'ports': [rq] * num_ports}
+        bulk_port_rq = [rq] * num_ports
         # restrict amount of create Ports in bulk that might be running
         # in parallel.
         with semaphore:

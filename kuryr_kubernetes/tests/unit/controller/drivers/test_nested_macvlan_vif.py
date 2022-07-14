@@ -436,9 +436,7 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
                                        revision_number=9)
 
         os_net.update_port.assert_called_with(
-            port_id,
-            allowed_address_pairs=pairs,
-            if_match='revision_number=9')
+            port_id, allowed_address_pairs=pairs, if_revision=9)
 
     def test_update_port_address_pairs_failure(self):
         cls = nested_macvlan_vif.NestedMacvlanPodVIFDriver
@@ -454,9 +452,7 @@ class TestNestedMacvlanPodVIFDriver(test_base.TestCase):
                           port_id, pairs, revision_number=9)
 
         os_net.update_port.assert_called_with(
-            port_id,
-            allowed_address_pairs=pairs,
-            if_match='revision_number=9')
+            port_id, allowed_address_pairs=pairs, if_revision=9)
 
     @mock.patch('kuryr_kubernetes.controller.drivers.nested_macvlan_vif.'
                 'NestedMacvlanPodVIFDriver._add_to_allowed_address_pairs')

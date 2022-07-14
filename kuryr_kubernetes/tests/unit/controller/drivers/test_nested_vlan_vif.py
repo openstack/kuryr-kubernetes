@@ -98,7 +98,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         port = munch.Munch({'id': mock.sentinel.id})
         vif = mock.sentinel.vif
 
-        bulk_rq = {'ports': [port_request for _ in range(len(subports_info))]}
+        bulk_rq = [port_request for _ in range(len(subports_info))]
 
         m_driver._get_parent_port.return_value = parent_port
         m_driver._get_trunk_id.return_value = trunk_id
@@ -181,7 +181,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
                           'port_id': '',
                           'segmentation_type': 'vlan'}]
 
-        bulk_rq = {'ports': [port_request for _ in range(len(subports_info))]}
+        bulk_rq = [port_request for _ in range(len(subports_info))]
 
         m_driver._get_parent_port.return_value = parent_port
         m_driver._get_trunk_id.return_value = trunk_id
@@ -226,7 +226,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
                           'segmentation_type': 'vlan'}]
         port = munch.Munch({'id': mock.sentinel.id})
 
-        bulk_rq = {'ports': [port_request for _ in range(len(subports_info))]}
+        bulk_rq = [port_request for _ in range(len(subports_info))]
 
         m_driver._get_parent_port.return_value = parent_port
         m_driver._get_trunk_id.return_value = trunk_id
@@ -273,7 +273,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
                           'segmentation_type': 'vlan'}]
         port = munch.Munch({'id': mock.sentinel.id})
 
-        bulk_rq = {'ports': [port_request for _ in range(len(subports_info))]}
+        bulk_rq = [port_request for _ in range(len(subports_info))]
 
         m_driver._get_parent_port.return_value = parent_port
         m_driver._get_trunk_id.return_value = trunk_id

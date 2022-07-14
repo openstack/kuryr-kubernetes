@@ -161,7 +161,7 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                                    revision_number=None):
         os_net = clients.get_network_client()
         os_net.update_port(port_id, allowed_address_pairs=address_pairs,
-                           if_match=f'revision_number={revision_number}')
+                           if_revision=revision_number)
 
     def _try_update_port(self, attempts, f,
                          vm_port, container_ips, container_mac):
