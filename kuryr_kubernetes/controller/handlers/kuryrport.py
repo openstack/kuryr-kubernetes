@@ -87,12 +87,6 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
 
         try:
             for ifname, data in vifs.items():
-                if (data['vif'].plugin == constants.KURYR_VIF_TYPE_SRIOV and
-                        oslo_cfg.CONF.sriov.enable_node_annotations):
-                    pod_node = kuryrport_crd['spec']['podNodeName']
-                    # TODO(gryf): This probably will need adoption, so it will
-                    # add information to CRD instead of the pod.
-                    driver_utils.update_port_pci_info(pod_node, data['vif'])
                 if not data['vif'].active:
                     try:
                         self._drv_vif_pool.activate_vif(data['vif'], pod=pod,

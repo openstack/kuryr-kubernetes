@@ -54,8 +54,7 @@ Multi-VIF driver
 The new type of drivers which is used to call other VIF-drivers to attach
 additional interfaces to Pods. The main aim of this kind of drivers is to get
 additional interfaces from the Pods definition, then invoke real VIF-drivers
-like neutron-vif, nested-macvlan or sriov to retrieve the VIF objects
-accordingly.
+like neutron-vif, nested-macvlan to retrieve the VIF objects accordingly.
 
 All Multi-VIF drivers should be derived from class *MultiVIFDriver*. And all
 should implement the *request_additional_vifs* method which returns a list of
@@ -87,7 +86,7 @@ Option in config file might look like this:
 .. code-block:: ini
 
    [kubernetes]
-   multi_vif_drivers =  sriov, additional_subnets
+   multi_vif_drivers =  additional_subnets
 
 Or like this:
 
@@ -120,26 +119,6 @@ additional subnets requests might look like:
            openstack.org/kuryr-additional-subnets: '[
                "id_of_neutron_subnet_created_previously"
            ]'
-
-
-SRIOV Driver
-~~~~~~~~~~~~
-
-SRIOV driver gets pod object from Multi-vif driver, according to parsed
-information (sriov requests) by Multi-vif driver. It should return a list of
-created vif objects. Method request_vif() has unified interface with
-PodVIFDriver as a base class.
-Here's how a Pod Spec with sriov requests might look like:
-
-.. code-block:: yaml
-
-   spec:
-     containers:
-     - name: vf-container
-       image: vf-image
-       resources:
-         requests:
-           pod.alpha.kubernetes.io/opaque-int-resource-sriov-vf-physnet2: 1
 
 
 Specific ports support

@@ -68,12 +68,6 @@ K8S_ANNOTATION_NPWG_NETWORK = K8S_ANNOTATION_NPWG_PREFIX + '/networks'
 K8S_ANNOTATION_NPWG_CRD_SUBNET_ID = 'subnetId'
 K8S_ANNOTATION_NPWG_CRD_DRIVER_TYPE = 'driverType'
 
-K8S_ANNOTATION_NODE_PCI_DEVICE_INFO = 'openstack.org/kuryr-pci-info'
-K8S_ANNOTATION_PCI_DEVICES = K8S_ANNOTATION_PREFIX + '-pci-devices'
-K8S_ANNOTATION_OLD_DRIVER = 'old_driver'
-K8S_ANNOTATION_CURRENT_DRIVER = 'current_driver'
-K8S_ANNOTATION_NEUTRON_PORT = 'neutron_id'
-
 K8S_ANNOTATION_HEADLESS_SERVICE = 'service.kubernetes.io/headless'
 K8S_ANNOTATION_CONFIG_SOURCE = 'kubernetes.io/config.source'
 
@@ -93,7 +87,6 @@ CNI_TIMEOUT_CODE = 200
 CNI_DELETED_POD_SENTINEL = None
 
 KURYR_PORT_NAME = 'kuryr-pool-port'
-KURYR_VIF_TYPE_SRIOV = 'sriov'
 
 OCTAVIA_L2_MEMBER_MODE = "L2"
 OCTAVIA_L3_MEMBER_MODE = "L3"
@@ -110,14 +103,9 @@ VIF_POOL_SHOW = '/showPool'
 
 DEFAULT_IFNAME = 'eth0'
 
-K8S_SRIOV_PREFIX = 'intel.com'
-
 K8S_OPERATOR_IN = 'in'
 K8S_OPERATOR_NOT_IN = 'notin'
 K8S_OPERATOR_DOES_NOT_EXIST = 'doesnotexist'
 K8S_OPERATOR_EXISTS = 'exists'
-
-USERSPACE_DRIVERS = ['vfio-pci', 'uio', 'uio_pci_generic', 'igb_uio']
-MELLANOX_DRIVERS = ['mlx4_core', 'mlx5_core']
 
 LEFTOVER_RM_POOL_SIZE = 5

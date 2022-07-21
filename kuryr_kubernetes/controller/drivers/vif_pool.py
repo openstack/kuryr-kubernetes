@@ -99,7 +99,6 @@ VIF_TYPE_TO_DRIVER_MAPPING = {
     'VIFBridge': 'neutron-vif',
     'VIFVlanNested': 'nested-vlan',
     'VIFMacvlanNested': 'nested-macvlan',
-    'VIFSriov': 'sriov',
     'VIFDPDKNested': 'nested-dpdk',
     'VIFVHostUser': 'neutron-vif',
 }

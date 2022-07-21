@@ -1,0 +1,8 @@
+---
+prelude: >
+    In this release we're removing SR-IOV support completely from Kuryr. The
+    motivation is that it is not tested upstream or maintained. Moreover the
+    preferred way of attaching additional SR-IOV ports is to use Multus.
+upgrade:
+  - |
+    Support for SR-IOV additional ports is removed in this release.

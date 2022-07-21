@@ -16,7 +16,6 @@
 CLI interface for kuryr status commands.
 """
 
-import copy
 import sys
 import textwrap
 import traceback
@@ -31,10 +30,7 @@ from oslo_serialization import jsonutils
 from kuryr_kubernetes import clients
 from kuryr_kubernetes import config
 from kuryr_kubernetes import constants
-from kuryr_kubernetes import exceptions
 from kuryr_kubernetes import objects
-from kuryr_kubernetes.objects import vif
-from kuryr_kubernetes import utils
 from kuryr_kubernetes import version
 
 CONF = config.CONF
@@ -108,8 +104,6 @@ class UpgradeCommands(object):
 
             if obj.obj_name() != objects.vif.PodState.obj_name():
                 old_count += 1
-            elif not self._has_valid_sriov_annot(obj):
-                old_count += 1
 
         if malformed_count == 0 and old_count == 0:
             return UpgradeCheckResult(0, 'All annotations are updated.')
@@ -149,96 +143,11 @@ class UpgradeCommands(object):
 
         return max(res.code for res in check_results)
 
-    def _convert_annotations(self, test_fn, update_fn):
-        updated_count = 0
-        not_updated_count = 0
-        malformed_count = 0
-        pods = self.k8s.get('/api/v1/pods')['items']
-        for pod in pods:
-            try:
-                obj = self._get_annotation(pod)
-                if not obj:
-                    # NOTE(dulek): We ignore pods without annotation, those
-                    # probably are hostNetworking.
-                    continue
-            except Exception:
-                malformed_count += 1
-                continue
-
-            if test_fn(obj):
-                obj = update_fn(obj)
-                serialized = obj.obj_to_primitive()
-                try:
-                    ann = {
-                        constants.K8S_ANNOTATION_VIF:
-                            jsonutils.dumps(serialized)
-                    }
-                    self.k8s.annotate(
-                        utils.get_res_link(pod), ann,
-                        pod['metadata']['resourceVersion'])
-                except exceptions.K8sClientException:
-                    print('Error when updating annotation for pod %s/%s' %
-                          (pod['metadata']['namespace'],
-                           pod['metadata']['name']))
-                    not_updated_count += 1
-
-                updated_count += 1
-
-        t = prettytable.PrettyTable(['Stat', 'Number'],
-                                    hrules=prettytable.ALL)
-        t.align = 'l'
-
-        cells = [['Updated annotations', updated_count],
-                 ['Malformed annotations', malformed_count],
-                 ['Annotations left', not_updated_count]]
-        for cell in cells:
-            t.add_row(cell)
-        print(t)
-
-    def _has_valid_sriov_annot(self, state):
-        for obj in state.vifs.values():
-            if obj.obj_name() != objects.vif.VIFSriov.obj_name():
-                continue
-            if hasattr(obj, 'pod_name') and hasattr(obj, 'pod_link'):
-                continue
-            return False
-        return True
-
-    def _convert_sriov(self, state):
-        new_state = copy.deepcopy(state)
-        for iface, obj in new_state.additional_vifs.items():
-            if obj.obj_name() != objects.vif.VIFSriov.obj_name():
-                continue
-            if hasattr(obj, 'pod_name') and hasattr(obj, 'pod_link'):
-                continue
-            new_obj = objects.vif.VIFSriov()
-            new_obj.__dict__ = obj.__dict__.copy()
-            new_state.additional_vifs[iface] = new_obj
-        return new_state
-
     def update_annotations(self):
-        def test_fn(obj):
-            return (obj.obj_name() != objects.vif.PodState.obj_name() or
-                    not self._has_valid_sriov_annot(obj))
-
-        def update_fn(obj):
-            if obj.obj_name() != objects.vif.PodState.obj_name():
-                return vif.PodState(default_vif=obj)
-            return self._convert_sriov(obj)
-
-        self._convert_annotations(test_fn, update_fn)
+        pass
 
     def downgrade_annotations(self):
-        # NOTE(danil): There is no need to downgrade sriov vifs
-        # when annotations has old format. After downgrade annotations
-        # will have only one default vif and it could not be sriov vif
-        def test_fn(obj):
-            return obj.obj_name() == objects.vif.PodState.obj_name()
-
-        def update_fn(obj):
-            return obj.default_vif
-
-        self._convert_annotations(test_fn, update_fn)
+        pass
 
 
 def print_version():

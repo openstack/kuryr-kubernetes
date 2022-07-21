@@ -43,9 +43,7 @@ This section describes how you can install and configure kuryr-kubernetes
    testing_nested_connectivity
    containerized
    multi_vif_with_npwg_spec
-   sriov
    testing_udp_services
-   testing_sriov_functional
    testing_sctp_services
    listener_timeouts
    multiple_tenants

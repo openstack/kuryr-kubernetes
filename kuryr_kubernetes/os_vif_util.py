@@ -360,34 +360,6 @@ def neutron_to_osvif_vif_nested_macvlan(neutron_port, subnets):
         vif_name=_get_vif_name(neutron_port))
 
 
-def neutron_to_osvif_vif_sriov(vif_plugin, os_port, subnets):
-    """Converts Neutron port to VIF object for SRIOV containers.
-
-    :param vif_plugin: name of the os-vif plugin to use (i.e. 'noop')
-    :param os_port: openstack.network.v2.port.Port object
-    :param subnets: subnet mapping as returned by PodSubnetsDriver.get_subnets
-    :return: osv_vif VIFSriov object
-    """
-
-    details = os_port.binding_vif_details or {}
-    network = _make_vif_network(os_port, subnets)
-    vlan_name = network.vlan if network.should_provide_vlan else ''
-    vif = k_vif.VIFSriov(
-        id=os_port.id,
-        address=os_port.mac_address,
-        network=network,
-        has_traffic_filtering=details.get('port_filter', False),
-        preserve_on_delete=False,
-        active=_is_port_active(os_port),
-        plugin=vif_plugin,
-        mode='passthrough',
-        vlan_name=vlan_name,
-        vif_name=_get_vif_name(os_port),
-    )
-
-    return vif
-
-
 def neutron_to_osvif_vif_dpdk(os_port, subnets, pod):
     """Converts Neutron port to VIF object for nested dpdk containers.
 
