@@ -153,26 +153,6 @@
     voting: false
 
 - job:
-    name: kuryr-kubernetes-tempest-lower-constraints
-    parent: kuryr-kubernetes-octavia-base
-    description: |
-        Kuryr-Kubernetes tempest job running kuryr containerized with
-        requirments from lower-constraints.txt
-    vars:
-      devstack_localrc:
-        KURYR_CONTAINERS_USE_LOWER_CONSTRAINTS: true
-    voting: false
-
-- job:
-    name: kuryr-kubernetes-tempest-l2
-    parent: kuryr-kubernetes-octavia-base
-    description: |
-        Kuryr-Kubernetes tempest job using octavia in l2 mode, kuryr containerized
-    vars:
-      devstack_localrc:
-        KURYR_K8S_OCTAVIA_MEMBER_MODE: L2
-
-- job:
     name: kuryr-kubernetes-tempest-pools-namespace
     parent: kuryr-kubernetes-octavia-base
     description: |

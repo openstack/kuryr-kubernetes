@@ -108,7 +108,6 @@
         - tag-ports-during-bulk-creation
       devstack_localrc:
         KURYR_NEUTRON_DEFAULT_ROUTER: kuryr-router
-        KURYR_ENFORCE_SG_RULES: false
         ML2_L3_PLUGIN: ovn-router,trunk,qos
         OVN_BRANCH: v21.06.0
         OVS_BRANCH: "a4b04276ab5934d087669ff2d191a23931335c87"
@@ -174,7 +173,7 @@
     name: kuryr-kubernetes-octavia-base
     parent: kuryr-kubernetes-base-ovn
     description: |
-      Kuryr-Kubernetes tempest job using octavia
+      Kuryr-Kubernetes tempest job using OVN and ovn-octavia driver for Kuryr
     required-projects:
       - openstack/octavia
       - openstack/python-octaviaclient
@@ -193,6 +192,7 @@
         - octavia-tempest-plugin
       devstack_localrc:
         KURYR_EP_DRIVER_OCTAVIA_PROVIDER: ovn
+        KURYR_ENFORCE_SG_RULES: false
         KURYR_K8S_OCTAVIA_MEMBER_MODE: L2
         KURYR_LB_ALGORITHM: SOURCE_IP_PORT
         OCTAVIA_AMP_IMAGE_FILE: /tmp/test-only-amphora-x64-haproxy-ubuntu-focal.qcow2
@@ -222,7 +222,7 @@
     parent: kuryr-kubernetes-base-ovs
     nodeset: kuryr-nested-virt-ubuntu-focal
     description: |
-      Kuryr-Kubernetes tempest job using octavia
+      Kuryr-Kubernetes tempest job using OVS and amphora driver for Octavia
     required-projects:
       - openstack/octavia
       - openstack/python-octaviaclient
