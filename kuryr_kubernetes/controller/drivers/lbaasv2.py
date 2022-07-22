@@ -700,7 +700,18 @@ class LBaaSv2Driver(base.LBaaSDriver):
         }
         self.add_tags('member', request)
         lbaas = clients.get_loadbalancer_client()
-        response = lbaas.create_member(member['pool_id'], **request)
+        try:
+            response = lbaas.create_member(member['pool_id'], **request)
+        except os_exc.BadRequestException as e:
+            details = e.response.json()
+            if (details['faultstring'] == f'Subnet {member["subnet_id"]} not '
+                                          f'found.'):
+                # Most likely the subnet is deleted already as the namespace is
+                # being deleted. Ignore, we'll delete that LB soon anyway.
+                LOG.warning('Member %s not created as subnet %s is being '
+                            'deleted.', member['name'], member['subnet_id'])
+                return None
+            raise
         member['id'] = response.id
         return member
 

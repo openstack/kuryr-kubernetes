@@ -280,6 +280,12 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
             subports_body.append({'port_id': subport_id})
         try:
             os_net.delete_trunk_subports(trunk_id, subports_body)
+        except os_exc.NotFoundException:
+            if len(subports_id) > 1:
+                LOG.debug('Not Found on subport deletion, most likely some '
+                          'subports in the list got detached already.')
+                raise  # We don't know if all ports are detached, so raise.
+            # If single requested port is detached already, we're cool, ignore.
         except os_exc.SDKException:
             LOG.exception("Error happened during subport removal from "
                           "trunk %s", trunk_id)
