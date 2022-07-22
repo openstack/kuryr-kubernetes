@@ -58,4 +58,4 @@ class TestControllerPipeline(test_base.TestCase):
         self.assertEqual(logging_handler, ret)
         m_logging_type.assert_called_with(async_handler)
         m_async_type.assert_called_with(dispatcher, thread_group,
-                                        h_k8s.object_uid)
+                                        h_k8s.object_uid, h_k8s.object_info)

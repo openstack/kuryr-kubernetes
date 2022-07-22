@@ -40,12 +40,13 @@ class Async(base.EventHandler):
     handled serially and in the same order they arrived to `Async`.
     """
 
-    def __init__(self, handler, thread_group, group_by,
+    def __init__(self, handler, thread_group, group_by, info_func,
                  queue_depth=DEFAULT_QUEUE_DEPTH,
                  grace_period=DEFAULT_GRACE_PERIOD):
         self._handler = handler
         self._thread_group = thread_group
         self._group_by = group_by
+        self._info_func = info_func
         self._queue_depth = queue_depth
         self._grace_period = grace_period
         self._queues = {}
@@ -62,12 +63,15 @@ class Async(base.EventHandler):
             except KeyError:
                 queue = py_queue.Queue(self._queue_depth)
                 self._queues[group] = queue
-                thread = self._thread_group.add_thread(self._run, group, queue)
-                thread.link(self._done, group)
+                info = self._info_func(event)
+                thread = self._thread_group.add_thread(self._run, group, queue,
+                                                       info)
+                thread.link(self._done, group, info)
         queue.put((event, args, kwargs))
 
-    def _run(self, group, queue):
-        LOG.trace("Asynchronous handler started processing %s", group)
+    def _run(self, group, queue, info):
+        LOG.trace("Asynchronous handler started processing %s (%s)", group,
+                  info)
         for _ in itertools.count():
             # NOTE(ivc): this is a mock-friendly replacement for 'while True'
             # to allow more controlled environment for unit-tests (e.g. to
@@ -104,14 +108,16 @@ class Async(base.EventHandler):
                     time.sleep(STALE_PERIOD)
             self._handler(event, *args, **kwargs)
 
-    def _done(self, thread, group):
-        LOG.trace("Asynchronous handler stopped processing group %s", group)
+    def _done(self, thread, group, info):
+        LOG.trace("Asynchronous handler stopped processing group %s (%s)",
+                  group, info)
         queue = self._queues.pop(group)
 
         if not queue.empty():
-            LOG.critical("Asynchronous handler terminated abnormally; "
-                         "%(count)s events dropped for %(group)s",
-                         {'count': queue.qsize(), 'group': group})
+            LOG.critical(
+                "Asynchronous handler thread terminated abnormally; %(count)s "
+                "events dropped for %(group)s (%(info)s)",
+                {'count': queue.qsize(), 'group': group, 'info': info})
 
         if not self._queues:
             LOG.trace("Asynchronous handler is idle")
