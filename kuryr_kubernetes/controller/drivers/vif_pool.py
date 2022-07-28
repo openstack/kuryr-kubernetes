@@ -1138,6 +1138,7 @@ class NestedVIFPool(BaseVIFPool):
                       "pools.")
             raise exceptions.ResourceNotReady(net_id)
 
+        epool = eventlet.GreenPool(constants.LEFTOVER_RM_POOL_SIZE)
         ports_to_remove = []
 
         # NOTE(ltomasbo): Note the pods should already be deleted, but their
@@ -1160,7 +1161,7 @@ class NestedVIFPool(BaseVIFPool):
             except (os_exc.SDKException, os_exc.HttpException):
                 LOG.exception('Error removing subports from trunk: %s',
                               trunk_id)
-                continue
+                raise exceptions.ResourceNotReady(net_id)
 
             for port_id in ports_id:
                 try:
@@ -1178,9 +1179,14 @@ class NestedVIFPool(BaseVIFPool):
                 except KeyError:
                     pass
 
-        if not c_utils.delete_ports(ports_to_remove):
-            LOG.error('Some ports failed to be deleted.')
-            raise exceptions.ResourceNotReady(net_id)
+        # Parallelize Ports deletion. At this point the Ports
+        # should have been detatched from Trunk and if not operation
+        # will be retried
+        for result in epool.imap(c_utils.delete_neutron_port, ports_to_remove):
+            if result:
+                LOG.error('During Neutron port deletion an error occured: %s',
+                          result)
+                raise exceptions.ResourceNotReady(net_id)
 
 
 class MultiVIFPool(base.VIFPoolDriver):
