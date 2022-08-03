@@ -80,7 +80,8 @@ class EventConsumer(h_base.EventHandler, metaclass=abc.ABCMeta):
     def __init__(self):
         super(EventConsumer, self).__init__()
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def consumes(self):
         """Predicates determining events supported by this handler.
 
