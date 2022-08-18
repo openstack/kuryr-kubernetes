@@ -1013,6 +1013,14 @@ function configure_kuryr {
     # Let Kuryr retry connections to K8s API for 20 minutes.
     iniset "$KURYR_CONFIG" kubernetes watch_retry_timeout 1200
 
+
+    if [[ "$KURYR_PROJECT_DRIVER" == "annotation" ]]; then
+        iniset "$KURYR_CONFIG" kubernetes pod_project_driver annotation
+        iniset "$KURYR_CONFIG" kubernetes service_project_driver annotation
+        iniset "$KURYR_CONFIG" kubernetes namespace_project_driver annotation
+        iniset "$KURYR_CONFIG" kubernetes network_policy_project_driver annotation
+    fi
+
     if [ "${KURYR_CONT}" == "True" ]; then
         # This works around the issue of being unable to set oslo.privsep mode
         # to FORK in os-vif. When running in a container we disable `sudo` that
@@ -1586,6 +1594,9 @@ function update_tempest_conf_file {
      # so only enable them for OVN as it's faster when creating LBs
     if [[ "$KURYR_EP_DRIVER_OCTAVIA_PROVIDER" == "ovn" ]]; then
         iniset "$TEMPEST_CONFIG" kuryr_kubernetes enable_reconciliation True
+    fi
+    if [[ "$KURYR_PROJECT_DRIVER" == "annotation" ]]; then
+        iniset "$TEMPEST_CONFIG" kuryr_kubernetes annotation_project_driver True
     fi
     iniset "$TEMPEST_CONFIG" kuryr_kubernetes validate_crd True
     iniset "$TEMPEST_CONFIG" kuryr_kubernetes kuryrports True
