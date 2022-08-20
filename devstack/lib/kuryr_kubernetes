@@ -1598,6 +1598,7 @@ function update_tempest_conf_file {
     if [[ "$KURYR_PROJECT_DRIVER" == "annotation" ]]; then
         iniset "$TEMPEST_CONFIG" kuryr_kubernetes annotation_project_driver True
     fi
+    iniset "$TEMPEST_CONFIG" kuryr_kubernetes enable_listener_reconciliation True
     iniset "$TEMPEST_CONFIG" kuryr_kubernetes validate_crd True
     iniset "$TEMPEST_CONFIG" kuryr_kubernetes kuryrports True
     iniset "$TEMPEST_CONFIG" kuryr_kubernetes kuryrloadbalancers True
