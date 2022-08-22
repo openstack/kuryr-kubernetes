@@ -45,13 +45,13 @@ def _get_session_from_kubeconfig():
         client_key_file = tempfile.NamedTemporaryFile(delete=False)
         ca_cert_file = tempfile.NamedTemporaryFile(delete=False)
 
-        client_cert_file.write(base64.decodestring(client_cert_data.encode()))
+        client_cert_file.write(base64.decodebytes(client_cert_data.encode()))
         client_cert_file.close()
 
-        client_key_file.write(base64.decodestring(client_key_data.encode()))
+        client_key_file.write(base64.decodebytes(client_key_data.encode()))
         client_key_file.close()
 
-        ca_cert_file.write(base64.decodestring(ca_cert_data.encode()))
+        ca_cert_file.write(base64.decodebytes(ca_cert_data.encode()))
         ca_cert_file.close()
 
         session = requests.Session()
