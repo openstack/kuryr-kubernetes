@@ -358,7 +358,7 @@ class PodVIFDriver(DriverBase, metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def release_vif(self, pod, vif, project_id=None, security_groups=None):
+    def release_vif(self, pod, vif, project_id=None):
         """Unlinks Neutron port corresponding to VIF object from pod.
 
         Implementing drivers must ensure the port is either deleted or made
@@ -367,13 +367,10 @@ class PodVIFDriver(DriverBase, metaclass=abc.ABCMeta):
         :param pod: dict containing Kubernetes Pod object
         :param vif: VIF object as returned by `PodVIFDriver.request_vif`
         :param project_id: OpenStack project ID
-        :param security_groups: list containing security groups'
-                                IDs as returned by
-                                `PodSecurityGroupsDriver.get_security_groups`
         """
         raise NotImplementedError()
 
-    def release_vifs(self, pods, vifs, project_id=None, security_groups=None):
+    def release_vifs(self, pods, vifs, project_id=None):
         """Unlinks Neutron ports corresponding to VIF objects.
 
          It follows the same pattern as release_vif but releasing num_ports
@@ -383,9 +380,6 @@ class PodVIFDriver(DriverBase, metaclass=abc.ABCMeta):
         :param vifs: list of VIF objects as returned by
                      `PodVIFDriver.request_vif`
         :param project_id: (optional) OpenStack project ID
-        :param security_groups: (optional) list containing security groups'
-                                IDs as returned by
-                                `PodSecurityGroupsDriver.get_security_groups`
         """
         raise NotImplementedError()
 

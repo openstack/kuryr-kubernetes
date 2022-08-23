@@ -65,7 +65,7 @@ class NestedMacvlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         # TODO(mchiappe): provide an implementation
         raise NotImplementedError()
 
-    def release_vif(self, pod, vif, project_id=None, security_groups=None):
+    def release_vif(self, pod, vif, project_id=None):
         os_net = clients.get_network_client()
 
         attempts = kuryr_config.CONF.pod_vif_nested.rev_update_attempts

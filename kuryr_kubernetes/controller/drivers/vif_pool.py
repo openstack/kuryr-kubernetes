@@ -315,8 +315,7 @@ class BaseVIFPool(base.VIFPoolDriver, metaclass=abc.ABCMeta):
             return False
         return True
 
-    def release_vif(self, pod, vif, project_id, security_groups,
-                    host_addr=None):
+    def release_vif(self, pod, vif, project_id, host_addr=None):
         if not self._recovered_pools:
             LOG.debug("Kuryr-controller not yet ready to remove pods.")
             raise exceptions.ResourceNotReady(pod)
@@ -836,23 +835,7 @@ class NestedVIFPool(BaseVIFPool):
     def set_vif_driver(self, driver):
         self._drv_vif = driver
 
-    def _get_parent_port_id(self, vif):
-        os_net = clients.get_network_client()
-        tags = []
-
-        if config.CONF.neutron_defaults.resource_tags:
-            tags = config.CONF.neutron_defaults.resource_tags
-
-        trunks = os_net.trunks(tags=tags)
-
-        for trunk in trunks:
-            for sp in trunk.sub_ports:
-                if sp['port_id'] == vif.id:
-                    return trunk.port_id
-
-        return None
-
-    def release_vif(self, pod, vif, project_id, security_groups):
+    def release_vif(self, pod, vif, project_id):
         if not self._recovered_pools:
             LOG.debug("Kuryr-controller not yet ready to remove pods.")
             raise exceptions.ResourceNotReady(pod)
@@ -865,17 +848,17 @@ class NestedVIFPool(BaseVIFPool):
                         "determine the IP by calling Neutron.",
                         name)
 
-            parent_id = self._get_parent_port_id(vif)
+            parent_id = utils.get_parent_port_id(vif)
             if not parent_id:
                 LOG.warning("Port %s not found, ignoring its release request.",
                             vif.id)
                 return
 
-            host_addr = self._get_parent_port_ip(parent_id)
+            host_addr = utils.get_parent_port_ip(parent_id)
             LOG.debug("Determined hostIP for pod %s is %s", name, host_addr)
 
         super(NestedVIFPool, self).release_vif(
-            pod, vif, project_id, security_groups, host_addr=host_addr)
+            pod, vif, project_id, host_addr=host_addr)
 
     def _set_port_debug(self, port_id, pod):
         os_net = clients.get_network_client()
@@ -966,11 +949,6 @@ class NestedVIFPool(BaseVIFPool):
             trunk_id = self._drv_vif._get_trunk_id(p_port)
             self._known_trunk_ids[pool_key] = trunk_id
         return trunk_id
-
-    def _get_parent_port_ip(self, port_id):
-        os_net = clients.get_network_client()
-        parent_port = os_net.get_port(port_id)
-        return parent_port.fixed_ips[0]['ip_address']
 
     def sync_pools(self):
         super(NestedVIFPool, self).sync_pools()

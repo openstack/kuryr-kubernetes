@@ -45,13 +45,17 @@ class TestKuryrPortHandler(test_base.TestCase):
         self._kp_namespace = mock.sentinel.namespace
         self._kp_uid = mock.sentinel.kp_uid
         self._kp_name = 'pod1'
+        self._pod_uid = 'deadbeef'
 
         self._pod = {'apiVersion': 'v1',
                      'kind': 'Pod',
-                     'metadata': {'resourceVersion': self._pod_version,
-                                  'name': self._kp_name,
-                                  'deletionTimestamp': mock.sentinel.date,
-                                  'namespace': self._kp_namespace},
+                     'metadata': {
+                         'resourceVersion': self._pod_version,
+                         'name': self._kp_name,
+                         'deletionTimestamp': mock.sentinel.date,
+                         'namespace': self._kp_namespace,
+                         'uid': self._pod_uid,
+                     },
                      'spec': {'nodeName': self._host}}
 
         self._kp = {
@@ -63,10 +67,11 @@ class TestKuryrPortHandler(test_base.TestCase):
                 'namespace': self._kp_namespace,
                 'labels': {
                     constants.KURYRPORT_LABEL: self._host
-                }
+                },
+                'finalizers': [],
             },
             'spec': {
-                'podUid': 'deadbeef',
+                'podUid': self._pod_uid,
                 'podNodeName': self._host
             },
             'status': {'vifs': {}}
@@ -91,6 +96,7 @@ class TestKuryrPortHandler(test_base.TestCase):
         self._pod_uri = (f"{constants.K8S_API_NAMESPACES}"
                          f"/{self._kp['metadata']['namespace']}/pods/"
                          f"{self._kp['metadata']['name']}")
+        self._kp_uri = utils.get_res_link(self._kp)
         self.useFixture(k_fix.MockNetworkClient())
         self._driver = multi_vif.NoopMultiVIFDriver()
 
@@ -312,12 +318,18 @@ class TestKuryrPortHandler(test_base.TestCase):
         update_crd.assert_called_once_with(self._kp, self._vifs)
         create_sgr.assert_called_once_with(self._pod)
 
+    @mock.patch('kuryr_kubernetes.controller.drivers.default_project.'
+                'DefaultPodProjectDriver.get_project')
+    @mock.patch('kuryr_kubernetes.utils.get_parent_port_id')
+    @mock.patch('kuryr_kubernetes.utils.get_parent_port_ip')
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.controller.drivers.base.MultiVIFDriver.'
                 'get_enabled_drivers')
-    def test_on_finalize_exception_on_pod(self, ged, k8s):
+    def test_on_finalize_exception_on_pod(self, ged, k8s, gppip, gppid,
+                                          project_driver):
         ged.return_value = [self._driver]
         kp = kuryrport.KuryrPortHandler()
+        self._kp['metadata']['deletionTimestamp'] = 'foobar'
         self._kp['status']['vifs'] = self._vifs_primitive
 
         with mock.patch.object(kp, 'k8s') as k8s:
@@ -326,45 +338,9 @@ class TestKuryrPortHandler(test_base.TestCase):
             self.assertIsNone(kp.on_finalize(self._kp))
 
             k8s.get.assert_called_once_with(self._pod_uri)
-            k8s.remove_finalizer.assert_called_once_with(
-                self._kp, constants.KURYRPORT_FINALIZER)
-
-    @mock.patch('kuryr_kubernetes.controller.drivers.vif_pool.MultiVIFPool.'
-                'release_vif')
-    @mock.patch('kuryr_kubernetes.controller.drivers.default_security_groups.'
-                'DefaultPodSecurityGroupsDriver.get_security_groups')
-    @mock.patch('kuryr_kubernetes.controller.drivers.default_security_groups.'
-                'DefaultPodSecurityGroupsDriver.delete_sg_rules')
-    @mock.patch('kuryr_kubernetes.controller.drivers.default_project.'
-                'DefaultPodProjectDriver.get_project')
-    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
-    @mock.patch('kuryr_kubernetes.controller.drivers.base.MultiVIFDriver.'
-                'get_enabled_drivers')
-    def test_on_finalize_crd_sg_exceptions(self, ged, k8s, get_project,
-                                           delete_sg_rules, get_sg,
-                                           release_vif):
-        ged.return_value = [self._driver]
-        kp = kuryrport.KuryrPortHandler()
-        self._kp['status']['vifs'] = self._vifs_primitive
-        get_project.return_value = self._project_id
-        delete_sg_rules.side_effect = k_exc.ResourceNotReady(self._pod)
-        get_sg.side_effect = k_exc.ResourceNotReady(self._pod)
-
-        with mock.patch.object(kp, 'k8s') as k8s:
-            k8s.get.return_value = self._pod
-
-            kp.on_finalize(self._kp)
-
-            k8s.get.assert_called_once_with(self._pod_uri)
             k8s.remove_finalizer.assert_has_calls(
-                [mock.call(self._pod, constants.POD_FINALIZER),
-                 mock.call(self._kp, constants.KURYRPORT_FINALIZER)])
-        delete_sg_rules.assert_called_once_with(self._pod)
-        get_sg.assert_called_once_with(self._pod, self._project_id)
-        release_vif.assert_has_calls([mock.call(self._pod, self._vif1,
-                                                self._project_id, []),
-                                      mock.call(self._pod, self._vif2,
-                                                self._project_id, [])])
+                (mock.call(mock.ANY, constants.POD_FINALIZER),
+                 mock.call(self._kp, constants.KURYRPORT_FINALIZER)))
 
     @mock.patch('kuryr_kubernetes.controller.handlers.kuryrport.'
                 'KuryrPortHandler._update_services')
@@ -378,8 +354,6 @@ class TestKuryrPortHandler(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.controller.drivers.vif_pool.MultiVIFPool.'
                 'release_vif')
     @mock.patch('kuryr_kubernetes.controller.drivers.default_security_groups.'
-                'DefaultPodSecurityGroupsDriver.get_security_groups')
-    @mock.patch('kuryr_kubernetes.controller.drivers.default_security_groups.'
                 'DefaultPodSecurityGroupsDriver.delete_sg_rules')
     @mock.patch('kuryr_kubernetes.controller.drivers.default_project.'
                 'DefaultPodProjectDriver.get_project')
@@ -387,9 +361,8 @@ class TestKuryrPortHandler(test_base.TestCase):
     @mock.patch('kuryr_kubernetes.controller.drivers.base.MultiVIFDriver.'
                 'get_enabled_drivers')
     def test_on_finalize_np(self, ged, k8s, get_project, delete_sg_rules,
-                            get_sg, release_vif, is_np_enabled,
-                            get_lb_instance, get_sg_instance, get_services,
-                            update_services):
+                            release_vif, is_np_enabled, get_lb_instance,
+                            get_sg_instance, get_services, update_services):
         ged.return_value = [self._driver]
         CONF.set_override('enforce_sg_rules', True, group='octavia_defaults')
         self.addCleanup(CONF.clear_override, 'enforce_sg_rules',
@@ -399,7 +372,6 @@ class TestKuryrPortHandler(test_base.TestCase):
         get_project.return_value = self._project_id
         selector = mock.sentinel.selector
         delete_sg_rules.return_value = selector
-        get_sg.return_value = self._security_groups
         get_services.return_value = mock.sentinel.services
 
         with mock.patch.object(kp, 'k8s') as k8s:
@@ -413,13 +385,10 @@ class TestKuryrPortHandler(test_base.TestCase):
                  mock.call(self._kp, constants.KURYRPORT_FINALIZER)])
 
         delete_sg_rules.assert_called_once_with(self._pod)
-        get_sg.assert_called_once_with(self._pod, self._project_id)
         release_vif.assert_has_calls([mock.call(self._pod, self._vif1,
-                                                self._project_id,
-                                                self._security_groups),
+                                                self._project_id),
                                       mock.call(self._pod, self._vif2,
-                                                self._project_id,
-                                                self._security_groups)])
+                                                self._project_id)])
 
         get_services.assert_called_once()
         update_services.assert_called_once_with(mock.sentinel.services,
@@ -486,11 +455,10 @@ class TestKuryrPortHandler(test_base.TestCase):
         kp = kuryrport.KuryrPortHandler()
         kp.k8s.get.side_effect = k_exc.K8sResourceNotFound(self._pod)
 
-        self.assertRaises(k_exc.K8sResourceNotFound, kp.get_vifs, self._kp)
+        self.assertFalse(kp.get_vifs(self._kp))
 
         kp.k8s.get.assert_called_once_with(self._pod_uri)
-        kp.k8s.remove_finalizer.assert_called_once_with(
-            self._kp, constants.KURYRPORT_FINALIZER)
+        kp.k8s.delete.assert_called_once_with(self._kp_uri)
 
     @mock.patch('kuryr_kubernetes.controller.drivers.default_subnet.'
                 'DefaultPodSubnetDriver.get_subnets')

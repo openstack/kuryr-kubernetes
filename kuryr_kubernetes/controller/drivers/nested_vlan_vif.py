@@ -157,7 +157,7 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
                             "rechecked when event will be retried.", vif.id)
             raise
 
-    def release_vif(self, pod, vif, project_id=None, security_groups=None):
+    def release_vif(self, pod, vif, project_id=None):
         os_net = clients.get_network_client()
         parent_port = self._get_parent_port(pod)
         trunk_id = self._get_trunk_id(parent_port)
