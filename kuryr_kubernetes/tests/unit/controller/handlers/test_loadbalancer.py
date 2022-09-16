@@ -187,6 +187,17 @@ def get_lb_crds():
                             "protocol": "TCP"
                         }
                     ],
+                    "members": [
+                        {
+                            "id": "0123456789a",
+                            "ip": "1.1.1.1",
+                            "name": "default/test-f87976f9c-thjbk:8080",
+                            "pool_id": "1234567890",
+                            "port": 2,
+                            "project_id": "12345678912",
+                            "subnet_id": "123456789120"
+                        }
+                    ],
                 }
             },
             {
@@ -237,7 +248,17 @@ def get_lb_crds():
                          "protocol": "TCP"
                      }
                  ],
-
+                 "members": [
+                     {
+                         "id": "0123456789b",
+                         "ip": "1.1.1.1",
+                         "name": "default/test_1-f87976f9c-thjbk:8080",
+                         "pool_id": "1234567891",
+                         "port": 2,
+                         "project_id": "12345678913",
+                         "subnet_id": "123456789121"
+                     }
+                 ],
                 }
             }
         ]
@@ -639,6 +660,7 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
         lbaas.load_balancers.return_value = []
         lbaas.listeners.return_value = []
         lbaas.pools.return_value = []
+        lbaas.members.return_value = []
         selflink = ('/apis/openstack.org/v1/namespaces/default/'
                     'kuryrloadbalancers/test')
         m_get_res_link.return_value = selflink
@@ -663,9 +685,11 @@ class TestKuryrLoadBalancerHandler(test_base.TestCase):
         loadbalancers_id = [{'id': '01234567890'}, {'id': '01234567891'}]
         listeners_id = [{'id': '012345678912'}, {'id': '012345678913'}]
         pools_id = [{'id': '1234567890'}, {'id': '1234567891'}]
+        members_id = [{"id": "0123456789a"}, {"id": "0123456789b"}]
         lbaas.load_balancers.return_value = loadbalancers_id
         lbaas.listeners.return_value = listeners_id
         lbaas.pools.return_value = pools_id
+        lbaas.members.return_value = members_id
 
         h_lb.KuryrLoadBalancerHandler._trigger_reconciliation(
                 m_handler, loadbalancer_crds)
