@@ -29,7 +29,7 @@ RUN pip3 --no-cache-dir install -U pip \
     && cp /opt/kuryr-kubernetes/cni_ds_init /usr/bin/cni_ds_init \
     && mkdir -p /etc/kuryr-cni \
     && cp /opt/kuryr-kubernetes/etc/cni/net.d/* /etc/kuryr-cni \
-    && dnf -y history undo last \
+    && dnf -y remove gcc gcc-c++ python3-devel git \
     && dnf clean all \
     && rm -rf /opt/kuryr-kubernetes \
     && mkdir ${OSLO_LOCK_PATH}
