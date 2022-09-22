@@ -142,24 +142,52 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
                         self._update_services(services, crd_pod_selectors,
                                               project_id)
 
+    def _mock_cleanup_pod(self, kuryrport_crd):
+        """Mock Pod that doesn't exist anymore for cleanup purposes"""
+        pod = {
+            'apiVersion': 'v1',
+            'kind': 'Pod',
+            'metadata': kuryrport_crd['metadata'].copy(),
+        }
+        # No need to try to delete the finalizer from the pod later, as
+        # pod's gone.
+        del pod['metadata']['finalizers']
+
+        main_vif = objects.base.VersionedObject.obj_from_primitive(
+            kuryrport_crd['status']['vifs'][constants.DEFAULT_IFNAME]
+            ['vif'])
+        port_id = utils.get_parent_port_id(main_vif)
+        host_ip = utils.get_parent_port_ip(port_id)
+        pod['status'] = {'hostIP': host_ip}
+        return pod
+
     def on_finalize(self, kuryrport_crd, *args, **kwargs):
         name = kuryrport_crd['metadata']['name']
         namespace = kuryrport_crd['metadata']['namespace']
+        cleanup = False  # If we're doing a cleanup, raise no error.
         try:
             pod = self.k8s.get(f"{constants.K8S_API_NAMESPACES}"
                                f"/{namespace}/pods/{name}")
+            if pod['metadata']['uid'] != kuryrport_crd['spec']['podUid']:
+                # Seems like this is KuryrPort created for an old Pod instance,
+                # with the same name. Cleaning it up instead of regular delete.
+                raise k_exc.K8sResourceNotFound(
+                    'Pod %s' % pod['metadata']['uid'])
         except k_exc.K8sResourceNotFound:
-            LOG.error("Pod %s/%s doesn't exists, deleting orphaned KuryrPort",
-                      namespace, name)
-            # TODO(gryf): Free resources
-            try:
+            LOG.warning('Pod for KuryrPort %s was forcibly deleted. '
+                        'Attempting a cleanup before releasing KuryrPort.',
+                        utils.get_res_unique_name(kuryrport_crd))
+            self.k8s.add_event(kuryrport_crd, 'MissingPod',
+                               'Pod does not exist anymore, attempting to '
+                               'cleanup orphaned KuryrPort', 'Warning')
+            if kuryrport_crd['status']['vifs']:
+                pod = self._mock_cleanup_pod(kuryrport_crd)
+                cleanup = True  # Make sure we don't raise on release_vif()
+            else:
+                # Remove the finalizer, most likely ports never got created.
                 self.k8s.remove_finalizer(kuryrport_crd,
                                           constants.KURYRPORT_FINALIZER)
-            except k_exc.K8sClientException as ex:
-                LOG.exception("Failed to remove finalizer from KuryrPort %s",
-                              ex)
-                raise
-            return
+                return
 
         if ('deletionTimestamp' not in pod['metadata'] and
                 not utils.is_pod_completed(pod)):
@@ -193,21 +221,16 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
             self.k8s.add_event(pod, 'SkipingSGDeletion', 'Skipping SG rules '
                                'deletion')
             crd_pod_selectors = []
-        try:
-            security_groups = self._drv_sg.get_security_groups(pod, project_id)
-        except k_exc.ResourceNotReady:
-            # NOTE(ltomasbo): If the namespace object gets deleted first the
-            # namespace security group driver will raise a ResourceNotReady
-            # exception as it cannot access anymore the kuryrnetwork CRD
-            # annotated on the namespace object. In such case we set security
-            # groups to empty list so that if pools are enabled they will be
-            # properly released.
-            security_groups = []
 
         for data in kuryrport_crd['status']['vifs'].values():
             vif = objects.base.VersionedObject.obj_from_primitive(data['vif'])
-            self._drv_vif_pool.release_vif(pod, vif, project_id,
-                                           security_groups)
+            try:
+                self._drv_vif_pool.release_vif(pod, vif, project_id)
+            except Exception:
+                if not cleanup:
+                    raise
+                LOG.warning('Error when cleaning up VIF %s, ignoring.',
+                            utils.get_res_unique_name(kuryrport_crd))
         if (driver_utils.is_network_policy_enabled() and crd_pod_selectors and
                 oslo_cfg.CONF.octavia_defaults.enforce_sg_rules):
             services = driver_utils.get_services()
@@ -225,12 +248,27 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
                                f"/{kuryrport_crd['metadata']['namespace']}"
                                f"/pods"
                                f"/{kuryrport_crd['metadata']['name']}")
-        except k_exc.K8sResourceNotFound as ex:
-            LOG.exception("Failed to get pod: %s", ex)
-            # TODO(gryf): Release resources
-            self.k8s.remove_finalizer(kuryrport_crd,
-                                      constants.KURYRPORT_FINALIZER)
-            raise
+            if pod['metadata']['uid'] != kuryrport_crd['spec']['podUid']:
+                # Seems like this is KuryrPort created for an old Pod, deleting
+                # it anyway.
+                raise k_exc.K8sResourceNotFound(
+                    'Pod %s' % pod['metadata']['uid'])
+        except k_exc.K8sResourceNotFound:
+            LOG.warning('Pod for KuryrPort %s was forcibly deleted. Deleting'
+                        'the KuryrPort too to attempt resource cleanup.',
+                        utils.get_res_unique_name(kuryrport_crd))
+            self.k8s.add_event(kuryrport_crd, 'MissingPod',
+                               'Pod does not exist anymore, attempting to '
+                               'delete orphaned KuryrPort', 'Warning')
+            try:
+                self.k8s.delete(utils.get_res_link(kuryrport_crd))
+            except k_exc.K8sResourceNotFound:
+                pass
+            except k_exc.K8sClientException:
+                LOG.exception('Error when trying to delete KuryrPort %s. Will '
+                              'retry later.',
+                              utils.get_res_unique_name(kuryrport_crd))
+            return False
 
         project_id = self._drv_project.get_project(pod)
         security_groups = self._drv_sg.get_security_groups(pod, project_id)

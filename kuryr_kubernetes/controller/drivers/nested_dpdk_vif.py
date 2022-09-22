@@ -51,7 +51,7 @@ class NestedDpdkPodVIFDriver(nested_vif.NestedPodVIFDriver):
         # TODO(garyloug): provide an implementation
         raise NotImplementedError()
 
-    def release_vif(self, pod, vif, project_id=None, security_groups=None):
+    def release_vif(self, pod, vif, project_id=None):
         compute = clients.get_compute_client()
 
         vm_id = self._get_parent_port(pod).device_id

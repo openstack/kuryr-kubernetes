@@ -1322,21 +1322,6 @@ class NestedVIFPool(test_base.TestCase):
                                                                   port_id)
         os_net.delete_port.assert_not_called()
 
-    def test__get_parent_port_ip(self):
-        cls = vif_pool.NestedVIFPool
-        m_driver = mock.MagicMock(spec=cls)
-
-        os_net = self.useFixture(k_fix.MockNetworkClient()).client
-
-        port_id = str(uuid.uuid4())
-        ip_address = mock.sentinel.ip_address
-
-        port_obj = fake.get_port_obj(ip_address=ip_address)
-        os_net.get_port.return_value = port_obj
-
-        self.assertEqual(ip_address, cls._get_parent_port_ip(m_driver,
-                                                             port_id))
-
     @mock.patch('kuryr_kubernetes.utils.get_subnet')
     def test__get_trunk_info(self, m_get_subnet):
         cls = vif_pool.NestedVIFPool
