@@ -24,10 +24,11 @@ distribution.")
     REPOS_UPDATED=False apt_get_update
 
     # NOTE(gryf): kubectl will be installed alongside with the kubeadm as
-    # a dependency
+    # a dependency, although let's pin it to the k8s version as well.
     apt_get install \
         kubelet="${KURYR_KUBERNETES_VERSION}-00" \
-        kubeadm="${KURYR_KUBERNETES_VERSION}-00"
+        kubeadm="${KURYR_KUBERNETES_VERSION}-00" \
+        kubectl="${KURYR_KUBERNETES_VERSION}-00"
     sudo apt-mark hold kubelet kubeadm kubectl
     # NOTE(hongbin): This work-around an issue that kubelet pick a wrong
     # IP address if the node has multiple network interfaces.
