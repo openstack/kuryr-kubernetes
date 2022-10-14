@@ -607,8 +607,6 @@ EOF
 function generate_cni_daemon_set {
     output_dir=$1
     cni_health_server_port=$2
-    cni_bin_dir=${3:-/opt/cni/bin}
-    cni_conf_dir=${4:-/etc/cni/net.d}
     local var_run=${VAR_RUN_PATH:-/var/run}
     mkdir -p "$output_dir"
     rm -f "${output_dir}/cni_ds.yml"
@@ -704,10 +702,10 @@ EOF
       volumes:
         - name: bin
           hostPath:
-            path: ${cni_bin_dir}
+            path: ${CNI_PLUGIN_DIR}
         - name: net-conf
           hostPath:
-            path: ${cni_conf_dir}
+            path: ${CNI_CONF_DIR}
         - name: config-volume
           configMap:
             name: kuryr-config
@@ -1101,7 +1099,7 @@ function _generate_containerized_kuryr_resources {
     generate_kuryr_certificates_secret $output_dir $SSL_BUNDLE_FILE
     generate_kuryr_service_account $output_dir
     generate_controller_deployment $output_dir $KURYR_HEALTH_SERVER_PORT $KURYR_CONTROLLER_HA
-    generate_cni_daemon_set $output_dir $KURYR_CNI_HEALTH_SERVER_PORT $CNI_PLUGIN_DIR $CNI_CONF_DIR
+    generate_cni_daemon_set $output_dir $KURYR_CNI_HEALTH_SERVER_PORT
 }
 
 function run_containerized_kuryr_resources {

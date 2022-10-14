@@ -1,5 +1,18 @@
 #!/bin/bash
 
+# Ugly hack for the image repository. Kubernetes team switched to new registry
+# starting from 1.25 version.
+# TODO(gryf): Remove this when kubernetes version will be bumped beyond 1.24.
+MINOR=${KURYR_KUBERNETES_VERSION#*.}
+MINOR=${MINOR%.*}
+
+if [[ $MINOR -gt 23 ]]; then
+    KURYR_KUBEADMIN_IMAGE_REPOSITORY="registry.k8s.io"
+else
+    KURYR_KUBEADMIN_IMAGE_REPOSITORY="k8s.gcr.io"
+    PULLARGS="--image-repository=${KURYR_KUBEADMIN_IMAGE_REPOSITORY}"
+fi
+
 function get_k8s_log_level {
     if [[ ${ENABLE_DEBUG_LOG_LEVEL} == "True" ]]; then
         echo "4"
@@ -107,8 +120,6 @@ localAPIEndpoint:
 nodeRegistration:
   criSocket: "$cri_socket"
   kubeletExtraArgs:
-    cni-bin-dir: "$CNI_PLUGIN_DIR"
-    cni-conf-dir: "$CNI_CONF_DIR"
     enable-server: "true"
   taints:
     []
@@ -120,7 +131,7 @@ address: "0.0.0.0"
 enableServer: true
 cgroupDriver: $cgroup_driver
 EOF
-    sudo kubeadm config images pull --image-repository=${KURYR_KUBEADMIN_IMAGE_REPOSITORY}
+    sudo kubeadm config images pull ${PULLARGS}
     args="--config ${output_dir}/kubeadm-init.yaml"
     # NOTE(gryf): skip installing kube proxy, kuryr will handle services.
     args+=" --skip-phases=addon/kube-proxy"
@@ -177,8 +188,6 @@ kind: JoinConfiguration
 nodeRegistration:
   criSocket: "$cri_socket"
   kubeletExtraArgs:
-    cni-bin-dir: "$CNI_PLUGIN_DIR"
-    cni-conf-dir: "$CNI_CONF_DIR"
     enable-server: "true"
   taints:
     []
