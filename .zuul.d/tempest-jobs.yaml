@@ -183,6 +183,7 @@
     vars:
       devstack_localrc:
         CONTAINER_ENGINE: docker
+        KURYR_KUBERNETES_VERSION: 1.23.13
     voting: true
 
 - job:
