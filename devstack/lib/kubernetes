@@ -91,6 +91,7 @@ networking:
   serviceSubnet: "$(IFS=, ; echo "${cluster_ip_ranges[*]}")"
 apiServer:
   extraArgs:
+    endpoint-reconciler-type: "none"
     min-request-timeout: "300"
     allow-privileged: "true"
     v: "$(get_k8s_log_level)"
