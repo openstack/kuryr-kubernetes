@@ -15,6 +15,8 @@
 
 from unittest import mock
 
+import munch
+from openstack import exceptions as os_exc
 from oslo_config import cfg
 
 from kuryr_kubernetes.controller.drivers import node_subnets
@@ -130,8 +132,9 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
         self.assertRaises(exceptions.ResourceNotReady,
                           driver.get_nodes_subnets, raise_on_empty=True)
 
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.utils.get_subnet_id')
-    def test_add_node(self, m_get_subnet_id):
+    def test_add_node(self, m_get_subnet_id, m_get_k8s):
         driver = node_subnets.OpenShiftNodesSubnets()
         m_get_subnet_id.return_value = 'foobar'
         self.assertTrue(driver.add_node(self.machine))
@@ -139,8 +142,9 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
             name='foo-tv22d-nodes', tags='openshiftClusterID=foo-tv22d')
         self.assertEqual(['foobar'], driver.get_nodes_subnets())
 
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.utils.get_subnet_id')
-    def test_add_node_exists(self, m_get_subnet_id):
+    def test_add_node_exists(self, m_get_subnet_id, m_get_k8s):
         driver = node_subnets.OpenShiftNodesSubnets()
         m_get_subnet_id.return_value = 'foobar'
         driver.subnets.add('foobar')
@@ -149,8 +153,9 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
             name='foo-tv22d-nodes', tags='openshiftClusterID=foo-tv22d')
         self.assertEqual(['foobar'], driver.get_nodes_subnets())
 
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.utils.get_subnet_id')
-    def test_add_node_uuid(self, m_get_subnet_id):
+    def test_add_node_uuid(self, m_get_subnet_id, m_get_k8s):
         driver = node_subnets.OpenShiftNodesSubnets()
         net = self.machine['spec']['providerSpec']['value']['networks'][0]
         del net['subnets'][0]['filter']
@@ -159,8 +164,9 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
         m_get_subnet_id.assert_not_called()
         self.assertEqual(['barfoo'], driver.get_nodes_subnets())
 
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.utils.get_subnet_id')
-    def test_add_node_cannot(self, m_get_subnet_id):
+    def test_add_node_cannot(self, m_get_subnet_id, m_get_k8s):
         driver = node_subnets.OpenShiftNodesSubnets()
         net = self.machine['spec']['providerSpec']['value']['networks'][0]
         del net['subnets']
@@ -210,14 +216,17 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
             name='foo-tv22d-nodes', tags='openshiftClusterID=foo-tv22d')
         self.assertEqual(['foobar'], driver.get_nodes_subnets())
 
-    def test_get_subnet_from_machine_no_networks(self):
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    def test_get_subnet_from_machine_no_networks(self, m_get_k8s):
         driver = node_subnets.OpenShiftNodesSubnets()
         del self.machine['spec']['providerSpec']['value']['networks']
 
         self.assertIsNone(driver._get_subnet_from_machine(self.machine))
 
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.utils.get_subnet_id')
-    def test_get_subnet_from_machine_networks_subnets(self, m_get_subnet_id):
+    def test_get_subnet_from_machine_networks_subnets(self, m_get_subnet_id,
+                                                      m_get_k8s):
         subnetid = 'd467451b-ab28-4578-882f-347f0dff4c9a'
         m_get_subnet_id.return_value = subnetid
         driver = node_subnets.OpenShiftNodesSubnets()
@@ -225,7 +234,8 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
         self.assertEqual(subnetid,
                          driver._get_subnet_from_machine(self.machine))
 
-    def test_get_subnet_from_machine_networks_wo_filters(self):
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    def test_get_subnet_from_machine_networks_wo_filters(self, m_get_k8s):
         driver = node_subnets.OpenShiftNodesSubnets()
         nets = self.machine['spec']['providerSpec']['value']['networks']
         nets[0]['subnets'] = [{'uuid': 'f8a458e5-c280-47b7-9c8a-dbd4ecd65545'}]
@@ -235,16 +245,23 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
 
         self.assertEqual(nets[0]['subnets'][0]['uuid'], result)
 
-    def test_get_subnet_from_machine_primary_subnet(self):
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    @mock.patch('kuryr_kubernetes.clients.get_network_client')
+    def test_get_subnet_from_machine_primary_subnet(self, m_get_net,
+                                                    m_get_k8s):
         driver = node_subnets.OpenShiftNodesSubnets()
         psub = '622c5fd4-804c-40e8-95ab-ecd1565ac8e2'
+        m_net = mock.Mock()
+        m_net.find_subnet.return_value = munch.Munch({'id': psub})
+        m_get_net.return_value = m_net
         self.machine['spec']['providerSpec']['value']['primarySubnet'] = psub
 
         result = driver._get_subnet_from_machine(self.machine)
 
         self.assertEqual(psub, result)
 
-    def test_get_subnet_from_machine_ports(self):
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    def test_get_subnet_from_machine_ports(self, m_get_k8s):
         driver = node_subnets.OpenShiftNodesSubnets()
         subnet_id = '0530f763-899b-4acb-a2ca-deeedd760409'
         ports = [{'fixedIPs': [{'subnetID': subnet_id}]}]
@@ -255,20 +272,10 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
 
         self.assertEqual(subnet_id, result)
 
-    def test_get_subnet_from_machine_networks_ports_and_primary(self):
-        driver = node_subnets.OpenShiftNodesSubnets()
-        subnet_id = 'ec4c50ac-e3f6-426e-ad91-6ddc10b5c391'
-        ports = [{'fixedIPs': [{'subnetID': subnet_id}]}]
-        self.machine['spec']['providerSpec']['value']['ports'] = ports
-        psub = 'cdf08c3d-0918-4f1d-92ab-3f1e657395d7'
-        self.machine['spec']['providerSpec']['value']['primarySubnet'] = psub
-
-        result = driver._get_subnet_from_machine(self.machine)
-
-        self.assertEqual(psub, result)
-
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.utils.get_subnet_id')
-    def test_get_subnet_from_machine_networks_and_ports(self, m_get_subnet_id):
+    def test_get_subnet_from_machine_networks_and_ports(self, m_get_subnet_id,
+                                                        m_get_k8s):
         """Test both: networks and ports presence, but no primarySubnet.
 
         Precedence would have networks over ports.
@@ -284,7 +291,8 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
 
         self.assertEqual(subnet_id, result)
 
-    def test_get_subnet_from_machine_empty_networks(self):
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    def test_get_subnet_from_machine_empty_networks(self, m_get_k8s):
         """Test both: networks and ports presence, but no primarySubnet.
 
         Precedence would have networks over ports.
@@ -296,7 +304,8 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
 
         self.assertIsNone(result)
 
-    def test_get_subnet_from_machine_empty_ports(self):
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    def test_get_subnet_from_machine_empty_ports(self, m_get_k8s):
         """Test both: networks and ports presence, but no primarySubnet.
 
         Precedence would have networks over ports.
@@ -309,13 +318,15 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
 
         self.assertIsNone(result)
 
-    def test_get_subnet_from_machine_networks_no_trunk(self):
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    def test_get_subnet_from_machine_networks_no_trunk(self, m_get_k8s):
         del self.machine['spec']['providerSpec']['value']['trunk']
         driver = node_subnets.OpenShiftNodesSubnets()
 
         self.assertIsNone(driver._get_subnet_from_machine(self.machine))
 
-    def test_get_subnet_from_machine_ports_no_trunk(self):
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    def test_get_subnet_from_machine_ports_no_trunk(self, m_get_k8s):
         del self.machine['spec']['providerSpec']['value']['trunk']
         del self.machine['spec']['providerSpec']['value']['networks']
         subnet_id = '0530f763-899b-4acb-a2ca-deeedd760409'
@@ -327,7 +338,9 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
 
         self.assertIsNone(result)
 
-    def test_get_subnet_from_machine_ports_no_trunk_one_with_trunk(self):
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    def test_get_subnet_from_machine_ports_no_trunk_one_with_trunk(self,
+                                                                   m_get_k8s):
         del self.machine['spec']['providerSpec']['value']['trunk']
         del self.machine['spec']['providerSpec']['value']['networks']
         subnet_id = '0530f763-899b-4acb-a2ca-deeedd760409'
@@ -340,7 +353,8 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
 
         self.assertEqual(subnet_id, result)
 
-    def test_get_subnet_from_machine_ports_both_with_trunk(self):
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    def test_get_subnet_from_machine_ports_both_with_trunk(self, m_get_k8s):
         del self.machine['spec']['providerSpec']['value']['networks']
         subnet_id1 = '0530f763-899b-4acb-a2ca-deeedd760409'
         subnet_id2 = 'ccfe75a8-c15e-4504-9596-02e397362abf'
@@ -353,7 +367,8 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
 
         self.assertEqual(subnet_id2, result)
 
-    def test_get_subnet_from_machine_ports_both_wrong(self):
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    def test_get_subnet_from_machine_ports_both_wrong(self, m_get_k8s):
         del self.machine['spec']['providerSpec']['value']['networks']
         ports = [{'trunk': True},
                  {'fixedIPs': [{'foo': 'bar'}], 'trunk': True}]
@@ -363,3 +378,49 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
         result = driver._get_subnet_from_machine(self.machine)
 
         self.assertIsNone(result)
+
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    @mock.patch('kuryr_kubernetes.clients.get_network_client')
+    def test_get_subnet_from_machine_two_primary_subnet(self, m_get_net,
+                                                        m_get_k8s):
+        driver = node_subnets.OpenShiftNodesSubnets()
+        sname = 'multiple subnets with the same name'
+        m_net = mock.Mock()
+        m_net.find_subnet.side_effect = os_exc.DuplicateResource
+        m_get_net.return_value = m_net
+        self.machine['spec']['providerSpec']['value']['primarySubnet'] = sname
+
+        result = driver._get_subnet_from_machine(self.machine)
+
+        self.assertIsNone(result)
+
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    @mock.patch('kuryr_kubernetes.clients.get_network_client')
+    def test_get_subnet_from_machine_single_named_primary_subnet(self,
+                                                                 m_get_net,
+                                                                 m_get_k8s):
+        driver = node_subnets.OpenShiftNodesSubnets()
+        sname = 'single named subnet'
+        subnet_id = '9bcf85c8-1f15-4e3d-8e1e-0e2270ffd2b9'
+        m_net = mock.Mock()
+        m_net.find_subnet.return_value = munch.Munch({'id': subnet_id})
+        m_get_net.return_value = m_net
+        self.machine['spec']['providerSpec']['value']['primarySubnet'] = sname
+
+        result = driver._get_subnet_from_machine(self.machine)
+
+        self.assertEqual(subnet_id, result)
+
+    @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
+    @mock.patch('kuryr_kubernetes.clients.get_network_client')
+    def test_get_subnet_from_machine_primary_subnet_exc(self, m_get_net,
+                                                        m_get_k8s):
+        driver = node_subnets.OpenShiftNodesSubnets()
+        subnet = 'e621f2f5-38a4-4a9c-873f-1d447290939c'
+        m_net = mock.Mock()
+        m_net.find_subnet.side_effect = os_exc.SDKException
+        m_get_net.return_value = m_net
+        self.machine['spec']['providerSpec']['value']['primarySubnet'] = subnet
+
+        self.assertRaises(exceptions.ResourceNotReady,
+                          driver._get_subnet_from_machine, self.machine)

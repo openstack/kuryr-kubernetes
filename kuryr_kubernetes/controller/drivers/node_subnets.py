@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from openstack import exceptions as os_exc
 from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -60,14 +61,46 @@ class OpenShiftNodesSubnets(base.NodesSubnetsDriver):
         spec = machine['spec'].get('providerSpec', {}).get('value')
         subnet_id = None
         trunk = spec.get('trunk')
+        k8s = clients.get_kubernetes_client()
 
         if 'primarySubnet' in spec:
-            # NOTE(gryf) in new OpenShift implementation, primarySubnet is
-            # required (or at least desired), so it should point to the
-            # primary subnet id.
-            subnet_id = spec['primarySubnet']
+            # NOTE(gryf) in old OpenShift versions, primarySubnet was used for
+            # selecting primary subnet from multiple networks. In the future
+            # this field will be deprecated.
 
-        if trunk and not subnet_id and 'networks' in spec and spec['networks']:
+            os_net = clients.get_network_client()
+            try:
+                subnet = os_net.find_subnet(spec['primarySubnet'])
+            except os_exc.DuplicateResource:
+                LOG.error('Name "%s" defined in primarySubnet for Machine/'
+                          'MachineSet found in more than one subnets, which '
+                          'may lead to issues. Please, use desired subnet id '
+                          'instead.', spec['primarySubnet'])
+                k8s.add_event(machine, 'AmbiguousPrimarySubnet',
+                              f'Name "{spec["primarySubnet"]}" defined in '
+                              f'primarySubnet for Machine/MachineSet found in '
+                              f'multiple subnets, which may lead to issues. '
+                              f'Please, use desired subnet id instead.',
+                              'Warning', 'kuryr-controller')
+                return None
+            except os_exc.SDKException as ex:
+                raise exceptions.ResourceNotReady(f'OpenStackSDK threw an '
+                                                  f'exception {ex}, retrying.')
+
+            if not subnet:
+                LOG.error('Subnet name/id `%s` provided in MachineSet '
+                          'primarySubnet field does not match any subnet. '
+                          'Check the configuration.', spec['primarySubnet'])
+                k8s.add_event(machine, 'PrimarySubnetNotFound',
+                              f'Name "{spec["primarySubnet"]}" defined in '
+                              f'primarySubnet for Machine/MachineSet does '
+                              f'not match any subnet. Check the configuration.'
+                              'Warning', 'kuryr-controller')
+                return None
+
+            return subnet.id
+
+        if trunk and 'networks' in spec and spec['networks']:
             subnets = spec['networks'][0].get('subnets')
             if not subnets:
                 LOG.warning('No `subnets` in Machine `providerSpec.values.'
