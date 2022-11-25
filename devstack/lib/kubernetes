@@ -2,7 +2,8 @@
 
 # Ugly hack for the image repository. Kubernetes team switched to new registry
 # starting from 1.25 version.
-# TODO(gryf): Remove this when kubernetes version will be bumped beyond 1.24.
+# TODO(gryf): Remove this when kubernetes version will be bumped beyond 1.24
+# and we drop docker support, as it is pinned to 1.23.
 MINOR=${KURYR_KUBERNETES_VERSION#*.}
 MINOR=${MINOR%.*}
 

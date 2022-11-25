@@ -46,7 +46,7 @@
         - kuryr-tempest-plugin
       devstack_localrc:
         CONTAINER_ENGINE: crio
-        CRIO_VERSION: "1.22"
+        CRIO_VERSION: "1.25"
         ENABLE_TLS: true
         ETCD_USE_RAMDISK: true
         KURYR_ENABLED_HANDLERS: vif,endpoints,service,namespace,pod_label,policy,kuryrnetworkpolicy,kuryrnetwork,kuryrport,kuryrloadbalancer
