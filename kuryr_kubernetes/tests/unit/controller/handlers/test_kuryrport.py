@@ -630,8 +630,7 @@ class TestKuryrPortHandler(test_base.TestCase):
                                             {'default': True,
                                              'vif': self._vif1}})
         release_vif.assert_called_once_with(self._pod, self._vif1,
-                                            self._project_id,
-                                            self._security_groups)
+                                            self._project_id)
 
     @mock.patch('kuryr_kubernetes.clients.get_kubernetes_client')
     @mock.patch('kuryr_kubernetes.controller.drivers.base.MultiVIFDriver.'
