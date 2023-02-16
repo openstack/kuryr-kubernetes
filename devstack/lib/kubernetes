@@ -1,19 +1,6 @@
 #!/bin/bash
 
-# Ugly hack for the image repository. Kubernetes team switched to new registry
-# starting from 1.25 version.
-# TODO(gryf): Remove this when kubernetes version will be bumped beyond 1.24
-# and we drop docker support, as it is pinned to 1.23.
-MINOR=${KURYR_KUBERNETES_VERSION#*.}
-MINOR=${MINOR%.*}
-
-if [[ $MINOR -gt 23 ]]; then
-    KURYR_KUBEADMIN_IMAGE_REPOSITORY="registry.k8s.io"
-else
-    KURYR_KUBEADMIN_IMAGE_REPOSITORY="k8s.gcr.io"
-    PULLARGS="--image-repository=${KURYR_KUBEADMIN_IMAGE_REPOSITORY}"
-fi
-
+KURYR_KUBEADMIN_IMAGE_REPOSITORY="registry.k8s.io"
 function get_k8s_log_level {
     if [[ ${ENABLE_DEBUG_LOG_LEVEL} == "True" ]]; then
         echo "4"
@@ -133,7 +120,7 @@ address: "0.0.0.0"
 enableServer: true
 cgroupDriver: $cgroup_driver
 EOF
-    sudo kubeadm config images pull ${PULLARGS}
+    sudo kubeadm config images pull --image-repository=${KURYR_KUBEADMIN_IMAGE_REPOSITORY}
     args="--config ${output_dir}/kubeadm-init.yaml"
     # NOTE(gryf): skip installing kube proxy, kuryr will handle services.
     args+=" --skip-phases=addon/kube-proxy"
