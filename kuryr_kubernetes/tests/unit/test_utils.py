@@ -11,11 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from unittest import mock
 import uuid
 
-import munch
 from openstack import exceptions as os_exc
+from openstack.network.v2 import port as os_port
+from openstack.network.v2 import subnet as os_subnet
 from os_vif import objects
 from oslo_config import cfg
 from oslo_utils import timeutils
@@ -80,7 +82,7 @@ class TestUtils(test_base.TestCase):
         subnet_id = mock.sentinel.subnet_id
         network_id = mock.sentinel.network_id
 
-        neutron_subnet = munch.Munch({'network_id': network_id})
+        neutron_subnet = os_subnet.Subnet(**{'network_id': network_id})
         neutron_network = mock.sentinel.neutron_network
 
         os_net.get_subnet.return_value = neutron_subnet
@@ -300,18 +302,22 @@ class TestUtils(test_base.TestCase):
 
     def test_get_nodes_ips(self):
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
-        ip1 = munch.Munch({'fixed_ips': [{'ip_address': '10.0.0.1',
-                                          'subnet_id': 'foo'}],
-                           'trunk_details': True})
-        ip2 = munch.Munch({'fixed_ips': [{'ip_address': '10.0.0.2',
-                                         'subnet_id': 'bar'}],
-                           'trunk_details': True})
-        ip3 = munch.Munch({'fixed_ips': [{'ip_address': '10.0.0.3',
-                                          'subnet_id': 'baz'}],
-                           'trunk_details': None})
-        ip4 = munch.Munch({'fixed_ips': [{'ip_address': '10.0.0.4',
-                                          'subnet_id': 'zab'}],
-                           'trunk_details': True})
+        ip1 = os_port.Port(
+            fixed_ips=[{'ip_address': '10.0.0.1', 'subnet_id': 'foo'}],
+            trunk_details={'trunk_id': 'wow', 'sub_ports': []},
+        )
+        ip2 = os_port.Port(
+            fixed_ips=[{'ip_address': '10.0.0.2', 'subnet_id': 'bar'}],
+            trunk_details={'trunk_id': 'odd', 'sub_ports': []},
+        )
+        ip3 = os_port.Port(
+            fixed_ips=[{'ip_address': '10.0.0.3', 'subnet_id': 'baz'}],
+            trunk_details=None,
+        )
+        ip4 = os_port.Port(
+            fixed_ips=[{'ip_address': '10.0.0.4', 'subnet_id': 'zab'}],
+            trunk_details={'trunk_id': 'eek', 'sub_ports': []},
+        )
         ports = (p for p in [ip1, ip2, ip3, ip4])
 
         os_net.ports.return_value = ports
@@ -326,12 +332,14 @@ class TestUtils(test_base.TestCase):
                         group='neutron_defaults')
 
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
-        ip1 = munch.Munch({'fixed_ips': [{'ip_address': '10.0.0.1',
-                                          'subnet_id': 'foo'}],
-                           'trunk_details': True})
-        ip2 = munch.Munch({'fixed_ips': [{'ip_address': '10.0.0.2',
-                                          'subnet_id': 'bar'}],
-                           'trunk_details': False})
+        ip1 = os_port.Port(
+            fixed_ips=[{'ip_address': '10.0.0.1', 'subnet_id': 'foo'}],
+            trunk_details={'trunk_id': 'wow', 'sub_ports': []},
+        )
+        ip2 = os_port.Port(
+            fixed_ips=[{'ip_address': '10.0.0.2', 'subnet_id': 'bar'}],
+            trunk_details=None,
+        )
         ports = (p for p in [ip1, ip2])
 
         os_net.ports.return_value = ports
@@ -342,7 +350,7 @@ class TestUtils(test_base.TestCase):
     def test_get_subnet_cidr(self):
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
         subnet_id = mock.sentinel.subnet_id
-        subnet = munch.Munch(cidr='10.0.0.0/24')
+        subnet = os_subnet.Subnet(cidr='10.0.0.0/24')
         os_net.get_subnet.return_value = subnet
 
         result = utils.get_subnet_cidr(subnet_id)
@@ -503,7 +511,7 @@ class TestUtils(test_base.TestCase):
         time1 = '2022-04-14T09:00:00Z'
         now = '2022-04-14T09:00:00Z'
         m_utcnow.return_value = timeutils.parse_isotime(now)
-        port = munch.Munch({'updated_at': time1, 'tags': ['foo']})
+        port = os_port.Port(updated_at=time1, tags=['foo'])
         m_net.ports.return_value = iter((port,))
         m_get_net.return_value = m_net
 
@@ -526,7 +534,7 @@ class TestUtils(test_base.TestCase):
         time1 = '2022-04-14T09:00:00Z'
         now = '2022-04-14T09:16:00Z'
         m_utcnow.return_value = timeutils.parse_isotime(now)
-        port = munch.Munch({'updated_at': time1, 'tags': []})
+        port = os_port.Port(updated_at=time1, tags=[])
         m_net.ports.return_value = iter((port,))
         m_get_net.return_value = m_net
 

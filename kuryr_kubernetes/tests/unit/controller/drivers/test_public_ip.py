@@ -12,8 +12,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import munch
+
 from openstack import exceptions as os_exc
+from openstack.network.v2 import floating_ip as os_fip
 from unittest import mock
 
 from kuryr_kubernetes.controller.drivers import public_ip\
@@ -33,9 +34,11 @@ class TestFipPubIpDriver(test_base.TestCase):
         self.assertIsNone(fip_id)
 
     def test_is_ip_available_ip_not_exist(self):
-        fip = munch.Munch({'floating_ip_address': '1.2.3.4',
-                           'port_id': None,
-                           'id': 'a2a62ea7-e3bf-40df-8c09-aa0c29876a6b'})
+        fip = os_fip.FloatingIP(
+            floating_ip_address='1.2.3.4',
+            port_id=None,
+            id='a2a62ea7-e3bf-40df-8c09-aa0c29876a6b',
+        )
         self.os_net.ips.return_value = (ip for ip in [fip])
 
         fip_ip_addr = '1.1.1.1'
@@ -50,16 +53,21 @@ class TestFipPubIpDriver(test_base.TestCase):
         self.assertIsNone(fip_id)
 
     def test_is_ip_available_occupied_fip(self):
-        fip = munch.Munch({'floating_ip_address': '1.2.3.4',
-                           'port_id': 'ec29d641-fec4-4f67-928a-124a76b3a8e6'})
+        fip = os_fip.FloatingIP(
+            floating_ip_address='1.2.3.4',
+            port_id='ec29d641-fec4-4f67-928a-124a76b3a8e6',
+        )
         self.os_net.ips.return_value = (ip for ip in [fip])
         fip_ip_addr = '1.2.3.4'
         fip_id = self.driver.is_ip_available(fip_ip_addr)
         self.assertIsNone(fip_id)
 
     def test_is_ip_available_ip_exist_and_available(self):
-        fip = munch.Munch({'floating_ip_address': '1.2.3.4', 'port_id': None,
-                           'id': 'a2a62ea7-e3bf-40df-8c09-aa0c29876a6b'})
+        fip = os_fip.FloatingIP(
+            floating_ip_address='1.2.3.4',
+            port_id=None,
+            id='a2a62ea7-e3bf-40df-8c09-aa0c29876a6b',
+        )
         self.os_net.ips.return_value = (ip for ip in [fip])
 
         fip_ip_addr = '1.2.3.4'
@@ -72,8 +80,10 @@ class TestFipPubIpDriver(test_base.TestCase):
         project_id = mock.sentinel.project_id
         description = mock.sentinel.description
 
-        fip = munch.Munch({'floating_ip_address': '1.2.3.5',
-                           'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
+        fip = os_fip.FloatingIP(
+            floating_ip_address='1.2.3.5',
+            id='ec29d641-fec4-4f67-928a-124a76b3a888',
+        )
         self.os_net.create_ip.return_value = fip
 
         fip_id, fip_addr = self.driver.allocate_ip(pub_net_id, project_id,
@@ -121,8 +131,9 @@ class TestFipPubIpDriver(test_base.TestCase):
 
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
         os_net.update_ip.side_effect = os_exc.ConflictException
-        os_net.get_ip.return_value = munch.Munch({'id': res_id,
-                                                  'port_id': vip_port_id})
+        os_net.get_ip.return_value = os_fip.FloatingIP(
+            id=res_id, port_id=vip_port_id,
+        )
         self.assertIsNone(driver.associate(res_id, vip_port_id))
 
     def test_associate_conflict_incorrect(self):
@@ -132,8 +143,9 @@ class TestFipPubIpDriver(test_base.TestCase):
 
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
         os_net.update_ip.side_effect = os_exc.ConflictException
-        os_net.get_ip.return_value = munch.Munch({'id': res_id,
-                                                  'port_id': 'foo'})
+        os_net.get_ip.return_value = os_fip.FloatingIP(
+            id=res_id, port_id='foo',
+        )
         self.assertRaises(os_exc.ConflictException, driver.associate, res_id,
                           vip_port_id)
 

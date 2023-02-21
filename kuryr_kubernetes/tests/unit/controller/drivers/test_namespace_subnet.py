@@ -15,8 +15,9 @@
 
 from unittest import mock
 
-import munch
 from openstack import exceptions as os_exc
+from openstack.network.v2 import network as os_network
+from openstack.network.v2 import subnet as os_subnet
 from oslo_config import cfg as oslo_cfg
 
 from kuryr_kubernetes.controller.drivers import namespace_subnet as subnet_drv
@@ -167,7 +168,7 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         project_id = mock.sentinel.project_id
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
         os_net.networks.return_value = iter([])
-        net = munch.Munch({'id': mock.sentinel.net})
+        net = os_network.Network(id=mock.sentinel.net)
         os_net.create_network.return_value = net
 
         net_id_resp = cls.create_network(m_driver, namespace, project_id)
@@ -184,8 +185,11 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         namespace = {'metadata': {'name': 'test', 'uid': ns_uid}}
         project_id = mock.sentinel.project_id
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
-        net = munch.Munch({'id': mock.sentinel.net, 'description': ns_uid,
-                           'name': 'test'})
+        net = os_network.Network(
+            id=mock.sentinel.net,
+            description=ns_uid,
+            name='test',
+        )
         os_net.networks.return_value = iter([net])
 
         net_id_resp = cls.create_network(m_driver, namespace, project_id)
@@ -202,8 +206,10 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         namespace = {'metadata': {'name': 'test', 'uid': ns_uid}}
         project_id = mock.sentinel.project_id
         net_id = mock.sentinel.net_id
-        subnet = munch.Munch({'id': mock.sentinel.subnet,
-                              'cidr': mock.sentinel.cidr})
+        subnet = os_subnet.Subnet(
+            id=mock.sentinel.subnet,
+            cidr=mock.sentinel.cidr,
+        )
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
         os_net.subnets.return_value = iter([])
         os_net.create_subnet.return_value = subnet
@@ -224,8 +230,10 @@ class TestNamespacePodSubnetDriver(test_base.TestCase):
         namespace = {'metadata': {'name': 'test', 'uid': ns_uid}}
         project_id = mock.sentinel.project_id
         net_id = mock.sentinel.net_id
-        subnet = munch.Munch({'id': mock.sentinel.subnet,
-                              'cidr': mock.sentinel.cidr})
+        subnet = os_subnet.Subnet(
+            id=mock.sentinel.subnet,
+            cidr=mock.sentinel.cidr,
+        )
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
         os_net.subnets.return_value = iter([subnet])
 

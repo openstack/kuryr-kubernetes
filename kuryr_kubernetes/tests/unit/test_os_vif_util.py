@@ -16,8 +16,8 @@
 from unittest import mock
 import uuid
 
-import munch
-
+from openstack.network.v2 import network as os_network
+from openstack.network.v2 import subnet as os_subnet
 from os_vif.objects import fixed_ip as osv_fixed_ip
 from os_vif.objects import network as osv_network
 from os_vif.objects import route as osv_route
@@ -40,12 +40,12 @@ class TestOSVIFUtils(test_base.TestCase):
         network_id = str(uuid.uuid4())
         network_name = 'test-net'
         network_mtu = 1500
-        neutron_network = munch.Munch({
-            'id': network_id,
-            'name': network_name,
-            'mtu': network_mtu,
-            'provider_network_type': None
-        })
+        neutron_network = os_network.Network(
+            id=network_id,
+            name=network_name,
+            mtu=network_mtu,
+            provider_network_type=None,
+        )
 
         network = ovu.neutron_to_osvif_network(neutron_network)
 
@@ -56,12 +56,12 @@ class TestOSVIFUtils(test_base.TestCase):
     def test_neutron_to_osvif_network_no_name(self):
         network_id = str(uuid.uuid4())
         network_mtu = 1500
-        neutron_network = munch.Munch({
-            'id': network_id,
-            'name': None,
-            'mtu': network_mtu,
-            'provider_network_type': None
-        })
+        neutron_network = os_network.Network(
+            id=network_id,
+            name=None,
+            mtu=network_mtu,
+            provider_network_type=None,
+        )
 
         network = ovu.neutron_to_osvif_network(neutron_network)
 
@@ -70,12 +70,12 @@ class TestOSVIFUtils(test_base.TestCase):
     def test_neutron_to_osvif_network_no_mtu(self):
         network_id = str(uuid.uuid4())
         network_name = 'test-net'
-        neutron_network = munch.Munch({
-            'id': network_id,
-            'name': network_name,
-            'mtu': None,
-            'provider_network_type': None
-        })
+        neutron_network = os_network.Network(
+            id=network_id,
+            name=network_name,
+            mtu=None,
+            provider_network_type=None,
+        )
 
         network = ovu.neutron_to_osvif_network(neutron_network)
 
@@ -86,16 +86,16 @@ class TestOSVIFUtils(test_base.TestCase):
         gateway = '1.1.1.1'
         cidr = '1.1.1.1/8'
         dns = ['2.2.2.2', '3.3.3.3']
-        host_routes = mock.sentinel.host_routes
+        host_routes = [mock.sentinel.host_route]
         route_list = osv_route.RouteList(objects=[
             osv_route.Route(cidr='4.4.4.4/8', gateway='5.5.5.5')])
         m_conv_routes.return_value = route_list
-        neutron_subnet = munch.Munch({
-            'cidr': cidr,
-            'dns_nameservers': dns,
-            'host_routes': host_routes,
-            'gateway_ip': gateway,
-        })
+        neutron_subnet = os_subnet.Subnet(
+            cidr=cidr,
+            dns_nameservers=dns,
+            host_routes=host_routes,
+            gateway_ip=gateway,
+        )
 
         subnet = ovu.neutron_to_osvif_subnet(neutron_subnet)
 
@@ -110,12 +110,12 @@ class TestOSVIFUtils(test_base.TestCase):
         cidr = '1.1.1.1/8'
         route_list = osv_route.RouteList()
         m_conv_routes.return_value = route_list
-        neutron_subnet = munch.Munch({
-            'cidr': cidr,
-            'dns_nameservers': [],
-            'host_routes': [],
-            'gateway_ip': None
-        })
+        neutron_subnet = os_subnet.Subnet(
+            cidr=cidr,
+            dns_nameservers=[],
+            host_routes=[],
+            gateway_ip=None,
+        )
 
         subnet = ovu.neutron_to_osvif_subnet(neutron_subnet)
 

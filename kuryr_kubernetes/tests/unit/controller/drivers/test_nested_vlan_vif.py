@@ -9,13 +9,15 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import eventlet
-import munch
 from unittest import mock
 
 from kuryr.lib import constants as kl_const
 from kuryr.lib import exceptions as kl_exc
 from openstack import exceptions as os_exc
+from openstack.network.v2 import port as os_port
+from openstack.network.v2 import trunk as os_trunk
 from oslo_config import cfg as oslo_cfg
 
 from kuryr_kubernetes import constants
@@ -43,7 +45,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         parent_port = mock.sentinel.parent_port
         trunk_id = mock.sentinel.trunk_id
         port_id = mock.sentinel.port_id
-        port = munch.Munch({'id': port_id})
+        port = os_port.Port(id=port_id)
         port_request = {'project_id': project_id,
                         'name': mock.sentinel.name,
                         'network_id': mock.sentinel.network_id,
@@ -95,7 +97,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
                          {'segmentation_id': 2,
                           'port_id': '',
                           'segmentation_type': 'vlan'}]
-        port = munch.Munch({'id': mock.sentinel.id})
+        port = os_port.Port(id=mock.sentinel.id)
         vif = mock.sentinel.vif
 
         bulk_rq = [port_request for _ in range(len(subports_info))]
@@ -224,7 +226,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
                          {'segmentation_id': 2,
                           'port_id': '',
                           'segmentation_type': 'vlan'}]
-        port = munch.Munch({'id': mock.sentinel.id})
+        port = os_port.Port(id=mock.sentinel.id)
 
         bulk_rq = [port_request for _ in range(len(subports_info))]
 
@@ -271,7 +273,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
                          {'segmentation_id': 2,
                           'port_id': '',
                           'segmentation_type': 'vlan'}]
-        port = munch.Munch({'id': mock.sentinel.id})
+        port = os_port.Port(id=mock.sentinel.id)
 
         bulk_rq = [port_request for _ in range(len(subports_info))]
 
@@ -642,8 +644,8 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         trunk_id = mock.sentinel.trunk_id
         vlan_ids.add('100')
 
-        port = munch.Munch({'segmentation_id': '100'})
-        trunk_obj = munch.Munch({'sub_ports': [port]})
+        port = os_port.Port(segmentation_id='100')
+        trunk_obj = os_trunk.Trunk(sub_ports=[port])
         os_net.get_trunk.return_value = trunk_obj
         self.assertEqual(vlan_ids,
                          cls._get_in_use_vlan_ids_set(m_driver, trunk_id))

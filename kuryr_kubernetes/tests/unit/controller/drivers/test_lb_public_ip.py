@@ -12,8 +12,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import munch
+
 from openstack import exceptions as os_exc
+from openstack.network.v2 import floating_ip as os_fip
+from openstack.network.v2 import subnet as os_subnet
 from unittest import mock
 
 from oslo_config import cfg
@@ -48,9 +50,11 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         m_driver._drv_pub_ip = public_ip.FipPubIpDriver()
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
-        fip = munch.Munch({'floating_ip_address': '1.2.3.4',
-                           'port_id': None,
-                           'id': 'a2a62ea7-e3bf-40df-8c09-aa0c29876a6b'})
+        fip = os_fip.FloatingIP(
+            floating_ip_address='1.2.3.4',
+            port_id=None,
+            id='a2a62ea7-e3bf-40df-8c09-aa0c29876a6b',
+        )
         os_net.ips.return_value = (ip for ip in [fip])
         project_id = mock.sentinel.project_id
         spec_type = 'LoadBalancer'
@@ -75,8 +79,10 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         m_driver._drv_pub_ip = public_ip.FipPubIpDriver()
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
-        fip = munch.Munch({'floating_ip_address': '1.2.3.5',
-                           'port_id': None})
+        fip = os_fip.FloatingIP(
+            floating_ip_address='1.2.3.5',
+            port_id=None,
+        )
         os_net.ips.return_value = (ip for ip in [fip])
 
         project_id = mock.sentinel.project_id
@@ -94,8 +100,10 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         m_driver._drv_pub_ip = public_ip.FipPubIpDriver()
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
 
-        fip = munch.Munch({'floating_ip_address': '1.2.3.4',
-                           'port_id': 'ec29d641-fec4-4f67-928a-124a76b3a8e6'})
+        fip = os_fip.FloatingIP(
+            floating_ip_address='1.2.3.4',
+            port_id='ec29d641-fec4-4f67-928a-124a76b3a8e6',
+        )
         os_net.ips.return_value = (ip for ip in [fip])
 
         project_id = mock.sentinel.project_id
@@ -131,10 +139,13 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         m_cfg.neutron_defaults.external_svc_net = public_net
         m_cfg.neutron_defaults.external_svc_subnet = None
 
-        os_net.get_subnet.return_value = munch.Munch(
-            {'network_id': 'ec29d641-fec4-4f67-928a-124a76b3a8e6'})
-        fip = munch.Munch({'floating_ip_address': '1.2.3.5',
-                           'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
+        os_net.get_subnet.return_value = os_subnet.Subnet(
+            network_id='ec29d641-fec4-4f67-928a-124a76b3a8e6',
+        )
+        fip = os_fip.FloatingIP(
+            floating_ip_address='1.2.3.5',
+            id='ec29d641-fec4-4f67-928a-124a76b3a888',
+        )
         os_net.create_ip.return_value = fip
 
         project_id = mock.sentinel.project_id
@@ -160,10 +171,13 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         m_cfg.neutron_defaults.external_svc_subnet = (mock.sentinel
                                                       .external_svc_subnet)
 
-        os_net.get_subnet.return_value = munch.Munch(
-            {'network_id': 'ec29d641-fec4-4f67-928a-124a76b3a8e6'})
-        fip = munch.Munch({'floating_ip_address': '1.2.3.5',
-                           'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
+        os_net.get_subnet.return_value = os_subnet.Subnet(
+            network_id='ec29d641-fec4-4f67-928a-124a76b3a8e6',
+        )
+        fip = os_fip.FloatingIP(
+            floating_ip_address='1.2.3.5',
+            id='ec29d641-fec4-4f67-928a-124a76b3a888',
+        )
         os_net.create_ip.return_value = fip
 
         project_id = mock.sentinel.project_id
@@ -192,8 +206,10 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         cls = d_lb_public_ip.FloatingIpServicePubIPDriver
         m_driver = mock.Mock(spec=cls)
 
-        fip = munch.Munch({'floating_ip_address': '1.2.3.5',
-                           'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
+        fip = os_fip.FloatingIP(
+            floating_ip_address='1.2.3.5',
+            id='ec29d641-fec4-4f67-928a-124a76b3a888',
+        )
 
         service_pub_ip_info = {
             'ip_id': fip.id,
@@ -208,8 +224,10 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         cls = d_lb_public_ip.FloatingIpServicePubIPDriver
         m_driver = mock.Mock(spec=cls)
 
-        fip = munch.Munch({'floating_ip_address': '1.2.3.5',
-                           'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
+        fip = os_fip.FloatingIP(
+            floating_ip_address='1.2.3.5',
+            id='ec29d641-fec4-4f67-928a-124a76b3a888',
+        )
 
         service_pub_ip_info = {
             'ip_id': fip.id,
@@ -227,8 +245,10 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
         os_net.delete_ip.side_effect = os_exc.SDKException
 
-        fip = munch.Munch({'floating_ip_address': '1.2.3.5',
-                           'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
+        fip = os_fip.FloatingIP(
+            floating_ip_address='1.2.3.5',
+            id='ec29d641-fec4-4f67-928a-124a76b3a888',
+        )
 
         service_pub_ip_info = {
             'ip_id': fip.id,
@@ -244,8 +264,10 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         m_driver._drv_pub_ip = public_ip.FipPubIpDriver()
         self.useFixture(k_fix.MockNetworkClient()).client
 
-        fip = munch.Munch({'floating_ip_address': '1.2.3.5',
-                           'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
+        fip = os_fip.FloatingIP(
+            floating_ip_address='1.2.3.5',
+            id='ec29d641-fec4-4f67-928a-124a76b3a888',
+        )
 
         service_pub_ip_info = {
             'ip_id': fip.id,
@@ -275,8 +297,10 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         os_net.update_floatingip.return_value = None
         m_driver._drv_pub_ip = public_ip.FipPubIpDriver()
 
-        fip = munch.Munch({'floating_ip_address': '1.2.3.5',
-                           'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
+        fip = os_fip.FloatingIP(
+            floating_ip_address='1.2.3.5',
+            id='ec29d641-fec4-4f67-928a-124a76b3a888',
+        )
         service_pub_ip_info = (obj_lbaas
                                .LBaaSPubIp(ip_id=0,
                                            ip_addr=fip.floating_ip_address,
@@ -300,8 +324,10 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
         os_net.update_ip.side_effect = os_exc.SDKException
 
-        fip = munch.Munch({'floating_ip_address': '1.2.3.5',
-                           'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
+        fip = os_fip.FloatingIP(
+            floating_ip_address='1.2.3.5',
+            id='ec29d641-fec4-4f67-928a-124a76b3a888',
+        )
 
         service_pub_ip_info = {
             'ip_id': fip.id,
@@ -329,8 +355,10 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         m_driver._drv_pub_ip = public_ip.FipPubIpDriver()
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
         os_net.update_floatingip.return_value = None
-        fip = munch.Munch({'floating_ip_address': '1.2.3.5',
-                           'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
+        fip = os_fip.FloatingIP(
+            floating_ip_address='1.2.3.5',
+            id='ec29d641-fec4-4f67-928a-124a76b3a888',
+        )
         service_pub_ip_info = {
             'ip_id': 0,
             'ip_addr': fip.floating_ip_address,
@@ -347,8 +375,10 @@ class TestFloatingIpServicePubIPDriverDriver(test_base.TestCase):
         m_driver._drv_pub_ip = public_ip.FipPubIpDriver()
         os_net = self.useFixture(k_fix.MockNetworkClient()).client
         os_net.update_ip.side_effect = os_exc.SDKException
-        fip = munch.Munch({'floating_ip_address': '1.2.3.5',
-                           'id': 'ec29d641-fec4-4f67-928a-124a76b3a888'})
+        fip = os_fip.FloatingIP(
+            floating_ip_address='1.2.3.5',
+            id='ec29d641-fec4-4f67-928a-124a76b3a888',
+        )
 
         service_pub_ip_info = {
             'ip_id': fip.id,

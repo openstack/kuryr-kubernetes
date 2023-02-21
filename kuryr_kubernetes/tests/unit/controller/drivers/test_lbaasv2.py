@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import munch
 from unittest import mock
 
 from openstack import exceptions as os_exc
@@ -21,6 +20,7 @@ from openstack.load_balancer.v2 import listener as o_lis
 from openstack.load_balancer.v2 import load_balancer as o_lb
 from openstack.load_balancer.v2 import member as o_mem
 from openstack.load_balancer.v2 import pool as o_pool
+from openstack.network.v2 import port as os_port
 from oslo_config import cfg
 
 from kuryr_kubernetes import constants as k_const
@@ -255,8 +255,9 @@ class TestLBaaSv2Driver(test_base.TestCase):
         os_net.security_group_rules.return_value = (x for x in [])
         cls = d_lbaasv2.LBaaSv2Driver
         m_driver = mock.Mock(spec=d_lbaasv2.LBaaSv2Driver)
-        m_driver._get_vip_port.return_value = munch.Munch({
-            'security_group_ids': [mock.sentinel.sg_id]})
+        m_driver._get_vip_port.return_value = os_port.Port(
+            security_group_ids=[mock.sentinel.sg_id],
+        )
         loadbalancer = {
             'name': 'TEST_NAME',
             'project_id': 'TEST_PROJECT',
@@ -418,8 +419,9 @@ class TestLBaaSv2Driver(test_base.TestCase):
         }
         resp = o_lb.LoadBalancer(id=loadbalancer_id, provider='haproxy')
         lbaas.create_load_balancer.return_value = resp
-        m_driver._get_vip_port.return_value = munch.Munch(
-            {'id': mock.sentinel.port_id})
+        m_driver._get_vip_port.return_value = os_port.Port(
+            id=mock.sentinel.port_id,
+        )
 
         ret = cls._create_loadbalancer(m_driver, loadbalancer)
         lbaas.create_load_balancer.assert_called_once_with(**req)
@@ -448,8 +450,9 @@ class TestLBaaSv2Driver(test_base.TestCase):
         }
         resp = o_lb.LoadBalancer(id=loadbalancer_id, provider='amphora')
         lbaas.create_load_balancer.return_value = resp
-        m_driver._get_vip_port.return_value = munch.Munch(
-            {'id': mock.sentinel.port_id})
+        m_driver._get_vip_port.return_value = os_port.Port(
+            id=mock.sentinel.port_id,
+        )
 
         ret = cls._create_loadbalancer(m_driver, loadbalancer)
         lbaas.create_load_balancer.assert_called_once_with(**req)
@@ -478,8 +481,9 @@ class TestLBaaSv2Driver(test_base.TestCase):
         }
         resp = o_lb.LoadBalancer(id=loadbalancer_id, provider='haproxy')
         lbaas.create_load_balancer.return_value = resp
-        m_driver._get_vip_port.return_value = munch.Munch(
-            {'id': mock.sentinel.port_id})
+        m_driver._get_vip_port.return_value = os_port.Port(
+            id=mock.sentinel.port_id,
+        )
 
         ret = cls._create_loadbalancer(m_driver, loadbalancer)
         lbaas.create_load_balancer.assert_called_once_with(**req)
@@ -501,8 +505,9 @@ class TestLBaaSv2Driver(test_base.TestCase):
         resp = iter([o_lb.LoadBalancer(id=loadbalancer_id, provider='haproxy',
                                        provisioning_status='ACTIVE')])
         lbaas.load_balancers.return_value = resp
-        m_driver._get_vip_port.return_value = munch.Munch(
-            {'id': mock.sentinel.port_id})
+        m_driver._get_vip_port.return_value = os_port.Port(
+            id=mock.sentinel.port_id,
+        )
 
         ret = cls._find_loadbalancer(m_driver, loadbalancer)
         lbaas.load_balancers.assert_called_once_with(
@@ -557,8 +562,9 @@ class TestLBaaSv2Driver(test_base.TestCase):
         resp = iter([o_lb.LoadBalancer(id=loadbalancer_id, provider='haproxy',
                                        provisioning_status='ERROR')])
         lbaas.load_balancers.return_value = resp
-        m_driver._get_vip_port.return_value = munch.Munch(
-            {'id': mock.sentinel.port_id})
+        m_driver._get_vip_port.return_value = os_port.Port(
+            id=mock.sentinel.port_id,
+        )
 
         ret = cls._find_loadbalancer(m_driver, loadbalancer)
         lbaas.load_balancers.assert_called_once_with(

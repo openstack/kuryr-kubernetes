@@ -14,7 +14,8 @@
 
 from unittest import mock
 
-import munch
+from openstack.network.v2 import network as os_network
+from openstack.network.v2 import subnet as os_subnet
 from oslo_config import cfg as oslo_cfg
 
 from kuryr_kubernetes.controller.drivers import base as drivers
@@ -252,8 +253,9 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         m_get_svc.return_value = []
         net_mock = mock.MagicMock()
         net_id = '1612ffb1-ff7d-4590-bd9c-95aeb043705a'
-        net_mock.networks.return_value = [munch.Munch({'id': net_id,
-                                                       'description': ''})]
+        net_mock.networks.return_value = [
+            os_network.Network(id=net_id, description=''),
+        ]
         m_get_net_client.return_value = net_mock
         self._handler.k8s.get.return_value = (
             {'metadata': {'name': 'test-namespace', 'uid': net_id}})
@@ -279,9 +281,10 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         ns_id = '0b6d6f0b-4e44-4a1b-a711-71ab6c79bee8'
         subnet_id = 'a595fc4b-6885-48ff-b90c-d3f7aefd6d1a'
         net_mock = mock.MagicMock()
-        net_mock.networks.return_value = [munch.Munch({'id': net_id,
-                                                       'description': ns_id})]
-        net_mock.subnets.return_value = [munch.Munch({'id': subnet_id})]
+        net_mock.networks.return_value = [
+            os_network.Network(id=net_id, description=ns_id),
+        ]
+        net_mock.subnets.return_value = [os_subnet.Subnet(id=subnet_id)]
         m_get_net_client.return_value = net_mock
         self._handler.k8s.get.return_value = (
             {'metadata': {'name': 'test-namespace', 'uid': ns_id}})
@@ -307,9 +310,10 @@ class TestKuryrNetworkHandler(test_base.TestCase):
         ns_id = '0b6d6f0b-4e44-4a1b-a711-71ab6c79bee8'
         subnet_id = 'a595fc4b-6885-48ff-b90c-d3f7aefd6d1a'
         net_mock = mock.MagicMock()
-        net_mock.networks.return_value = [munch.Munch({'id': net_id,
-                                                       'description': ns_id})]
-        net_mock.subnets.return_value = [munch.Munch({'id': subnet_id})]
+        net_mock.networks.return_value = [
+            os_network.Network(id=net_id, description=ns_id),
+        ]
+        net_mock.subnets.return_value = [os_subnet.Subnet(id=subnet_id)]
         m_get_net_client.return_value = net_mock
         self._handler.k8s.get.return_value = (
             {'metadata': {'name': 'test-namespace', 'uid': net_id}})

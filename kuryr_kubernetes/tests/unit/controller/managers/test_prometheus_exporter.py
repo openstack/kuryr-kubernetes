@@ -11,9 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import munch
+
 import prometheus_client
 from unittest import mock
+
+from openstack.load_balancer.v2 import load_balancer as os_lb
+from openstack.load_balancer.v2 import pool as os_pool
+from openstack.network.v2 import subnet as os_subnet
 
 from kuryr_kubernetes.controller.managers import prometheus_exporter
 from kuryr_kubernetes.tests import base
@@ -97,10 +101,16 @@ class TestControllerPrometheusExporter(base.TestCase):
         subnet_id = mock.sentinel.id
         subnet_name = 'ns/cluster-version-net'
         network_id = mock.sentinel.network_id
-        subnets = [munch.Munch(
-            {'id': subnet_id, 'name': subnet_name,
-             'network_id': network_id, 'allocation_pools': [
-                 {'start': '10.128.70.2', 'end': '10.128.71.254'}]})]
+        subnets = [
+            os_subnet.Subnet(
+                id=subnet_id,
+                name=subnet_name,
+                network_id=network_id,
+                allocation_pools=[
+                    {'start': '10.128.70.2', 'end': '10.128.71.254'},
+                ],
+            ),
+        ]
         ports = [mock.MagicMock()]
         self.srv._os_net.subnets.return_value = subnets
         self.srv._os_net.ports.return_value = ports
@@ -123,13 +133,20 @@ class TestControllerPrometheusExporter(base.TestCase):
                 }
             }
         }
-        self.srv._os_lb.find_load_balancer.return_value = munch.Munch(
-            {'id': lb_id, 'name': lb_name,
-             'provisioning_status': lb_state, 'pools': [{'id': pool_id}]})
-        self.srv._os_lb.pools.return_value = [munch.Munch(
-            {'id': pool_id, 'name': pool_name,
-             'loadbalancers': [{'id': lb_id}],
-             'members': [{'id': mock.sentinel.id}]})]
+        self.srv._os_lb.find_load_balancer.return_value = os_lb.LoadBalancer(
+            id=lb_id,
+            name=lb_name,
+            provisioning_status=lb_state,
+            pools=[{'id': pool_id}],
+        )
+        self.srv._os_lb.pools.return_value = [
+            os_pool.Pool(
+                id=pool_id,
+                name=pool_name,
+                loadbalancers=[{'id': lb_id}],
+                members=[{'id': mock.sentinel.id}],
+            ),
+        ]
 
         self.cls._record_lbs_metrics(self.srv)
 

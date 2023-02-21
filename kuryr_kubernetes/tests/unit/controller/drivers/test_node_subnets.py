@@ -15,8 +15,8 @@
 
 from unittest import mock
 
-import munch
 from openstack import exceptions as os_exc
+from openstack.network.v2 import subnet as os_subnet
 from oslo_config import cfg
 
 from kuryr_kubernetes.controller.drivers import node_subnets
@@ -252,7 +252,7 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
         driver = node_subnets.OpenShiftNodesSubnets()
         psub = '622c5fd4-804c-40e8-95ab-ecd1565ac8e2'
         m_net = mock.Mock()
-        m_net.find_subnet.return_value = munch.Munch({'id': psub})
+        m_net.find_subnet.return_value = os_subnet.Subnet(id=psub)
         m_get_net.return_value = m_net
         self.machine['spec']['providerSpec']['value']['primarySubnet'] = psub
 
@@ -403,7 +403,7 @@ class TestOpenShiftNodesSubnetsDriver(test_base.TestCase):
         sname = 'single named subnet'
         subnet_id = '9bcf85c8-1f15-4e3d-8e1e-0e2270ffd2b9'
         m_net = mock.Mock()
-        m_net.find_subnet.return_value = munch.Munch({'id': subnet_id})
+        m_net.find_subnet.return_value = os_subnet.Subnet(id=subnet_id)
         m_get_net.return_value = m_net
         self.machine['spec']['providerSpec']['value']['primarySubnet'] = sname
 

@@ -16,8 +16,8 @@ import eventlet
 from unittest import mock
 
 from kuryr.lib import constants as kl_const
-import munch
 from openstack import exceptions as os_exc
+from openstack.network.v2 import port as os_port
 from oslo_config import cfg as oslo_cfg
 
 from kuryr_kubernetes import constants
@@ -41,7 +41,7 @@ class NeutronPodVIFDriver(test_base.TestCase):
         project_id = mock.sentinel.project_id
         subnets = mock.sentinel.subnets
         security_groups = mock.sentinel.security_groups
-        port = munch.Munch({'id': '910b1183-1f4a-450a-a298-0e80ad06ec8b'})
+        port = os_port.Port(id='910b1183-1f4a-450a-a298-0e80ad06ec8b')
         port_request = {'fake_req': mock.sentinel.port_request}
         vif = mock.sentinel.vif
         vif_plugin = mock.sentinel.vif_plugin
@@ -74,7 +74,7 @@ class NeutronPodVIFDriver(test_base.TestCase):
 
         port_request = mock.sentinel.port_request
         m_driver._get_port_request.return_value = port_request
-        port = munch.Munch({'id': '910b1183-1f4a-450a-a298-0e80ad06ec8b'})
+        port = os_port.Port(id='910b1183-1f4a-450a-a298-0e80ad06ec8b')
         vif_plugin = mock.sentinel.vif_plugin
         port.binding_vif_type = vif_plugin
         vif = mock.sentinel.vif
@@ -111,10 +111,10 @@ class NeutronPodVIFDriver(test_base.TestCase):
         port_request = mock.sentinel.port_request
         m_driver._get_port_request.return_value = port_request
         port_id = mock.sentinel.port_id
-        port1 = munch.Munch({'id': port_id, 'binding_vif_type': 'unbound'})
+        port1 = os_port.Port(id=port_id, binding_vif_type='unbound')
         vif_plugin = mock.sentinel.vif_plugin
-        port2 = munch.Munch({'id': port_id, 'binding_vif_type': vif_plugin})
-        port1_1 = munch.Munch({'id': port_id, 'binding_vif_type': vif_plugin})
+        port2 = os_port.Port(id=port_id, binding_vif_type=vif_plugin)
+        port1_1 = os_port.Port(id=port_id, binding_vif_type=vif_plugin)
         vif = mock.sentinel.vif
         bulk_rq = [port_request for _ in range(num_ports)]
         semaphore = mock.MagicMock(spec=eventlet.semaphore.Semaphore(20))
