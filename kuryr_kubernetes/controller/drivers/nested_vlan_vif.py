@@ -306,6 +306,6 @@ class NestedVlanPodVIFDriver(nested_vif.NestedPodVIFDriver):
         os_net = clients.get_network_client()
         trunk = os_net.get_trunk(trunk_id)
         for port in trunk.sub_ports:
-            vlan_ids.add(port['segmentation_id'])
+            vlan_ids.add(port.segmentation_id)
 
         return vlan_ids
