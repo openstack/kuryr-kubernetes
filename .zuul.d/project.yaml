@@ -27,7 +27,6 @@
         - kuryr-kubernetes-tempest-amphora
         - kuryr-kubernetes-tempest-amphora-ovs
         - kuryr-kubernetes-tempest-annotation-project-driver
-        - kuryr-kubernetes-e2e-np
     gate:
       jobs:
         - kuryr-kubernetes-tempest
