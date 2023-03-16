@@ -1603,6 +1603,9 @@ function update_tempest_conf_file {
     iniset "$TEMPEST_CONFIG" kuryr_kubernetes test_services_without_selector True
     iniset "$TEMPEST_CONFIG" kuryr_kubernetes test_sctp_services True
     iniset "$TEMPEST_CONFIG" kuryr_kubernetes test_configurable_listener_timeouts True
+    if [[ "$KURYR_SUPPORT_POD_SECURITY" == "True" ]]; then
+        iniset "$TEMPEST_CONFIG" kuryr_kubernetes set_pod_security_context True
+    fi
 }
 
 function configure_neutron_defaults {
