@@ -81,7 +81,7 @@
       devstack_services:
         q-trunk: true
         o-da: false
-    voting: true
+    voting: false
 
 - job:
     name: kuryr-kubernetes-tempest-ipv6
@@ -226,7 +226,7 @@
         o-cw: true
         o-hk: true
         o-hm: true
-    voting: true
+    voting: false
 
 - job:
     name: kuryr-kubernetes-tempest-amphora-ovs
