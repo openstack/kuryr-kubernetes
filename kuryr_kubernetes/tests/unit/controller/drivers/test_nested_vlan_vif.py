@@ -644,7 +644,7 @@ class TestNestedVlanPodVIFDriver(test_base.TestCase):
         trunk_id = mock.sentinel.trunk_id
         vlan_ids.add('100')
 
-        port = os_port.Port(segmentation_id='100')
+        port = {"segmentation_id": '100'}  # Trunk.sub_ports is a list of dicts
         trunk_obj = os_trunk.Trunk(sub_ports=[port])
         os_net.get_trunk.return_value = trunk_obj
         self.assertEqual(vlan_ids,
