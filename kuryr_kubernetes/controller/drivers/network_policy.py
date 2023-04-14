@@ -637,6 +637,8 @@ class NetworkPolicyDriver(base.NetworkPolicyDriver):
     def _pods_in_ip_block(self, pods, resource):
         for pod in pods:
             pod_ip = driver_utils.get_pod_ip(pod)
+            if pod_ip is None:
+                continue
             if (ipaddress.ip_address(pod_ip)
                     in ipaddress.ip_network(resource.get('cidr'))):
                 return True
