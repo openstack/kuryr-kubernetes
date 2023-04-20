@@ -97,6 +97,7 @@ class TestKuryrPortHandler(test_base.TestCase):
                          f"/{self._kp['metadata']['namespace']}/pods/"
                          f"{self._kp['metadata']['name']}")
         self._kp_uri = utils.get_res_link(self._kp)
+        self._node_uri = f"{constants.K8S_API_BASE}/nodes/{self._host}"
         self.useFixture(k_fix.MockNetworkClient())
         self._driver = multi_vif.NoopMultiVIFDriver()
 
@@ -337,7 +338,8 @@ class TestKuryrPortHandler(test_base.TestCase):
 
             self.assertIsNone(kp.on_finalize(self._kp))
 
-            k8s.get.assert_called_once_with(self._pod_uri)
+            k8s.get.assert_has_calls([mock.call(self._pod_uri),
+                                      mock.call(self._node_uri)])
             k8s.remove_finalizer.assert_has_calls(
                 (mock.call(mock.ANY, constants.POD_FINALIZER),
                  mock.call(self._kp, constants.KURYRPORT_FINALIZER)))

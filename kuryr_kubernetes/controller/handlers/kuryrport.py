@@ -156,9 +156,31 @@ class KuryrPortHandler(k8s_base.ResourceEventHandler):
         main_vif = objects.base.VersionedObject.obj_from_primitive(
             kuryrport_crd['status']['vifs'][constants.DEFAULT_IFNAME]
             ['vif'])
-        port_id = utils.get_parent_port_id(main_vif)
-        host_ip = utils.get_parent_port_ip(port_id)
-        pod['status'] = {'hostIP': host_ip}
+
+        # Let's try to get the node's address using nodeName saved in CRD
+        host_ip = None
+        try:
+            node = self.k8s.get(f"{constants.K8S_API_BASE}/nodes/"
+                                f"{kuryrport_crd['spec']['podNodeName']}")
+            for address in node['status']['addresses']:
+                if address['type'] == constants.K8S_NODE_ADDRESS_INTERNAL:
+                    host_ip = address['address']
+                    break
+        except k_exc.K8sClientException:
+            LOG.warning('Could not find node %s when cleaning up port.',
+                        kuryrport_crd['spec']['podNodeName'])
+
+        if not host_ip:
+            # We can still try to use OpenStack API if this is nested VIF
+            port_id = utils.get_parent_port_id(main_vif)
+            if port_id:
+                host_ip = utils.get_parent_port_ip(port_id)
+
+        if host_ip:
+            pod['status'] = {'hostIP': host_ip}
+
+        # If we failed to find host_ip we still allow cleanup to follow, we
+        # catch all exceptions from release_vif anyway.
         return pod
 
     def on_finalize(self, kuryrport_crd, *args, **kwargs):
