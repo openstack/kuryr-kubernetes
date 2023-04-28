@@ -501,8 +501,9 @@ def get_namespace_subnet_cidr(namespace):
     try:
         subnet_cidr = net_crd['status']['subnetCIDR']
     except KeyError:
-        LOG.exception('Namespace not yet ready')
-        raise k_exc.ResourceNotReady(namespace)
+        LOG.debug('Namespace not yet ready %s',
+                  namespace['metadata']['name'])
+        return None
     return subnet_cidr
 
 
