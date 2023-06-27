@@ -1,4 +1,4 @@
-# github.com/containernetworking/cni v0.8.0
+# github.com/containernetworking/cni v0.8.1
 ## explicit
 github.com/containernetworking/cni/pkg/skel
 github.com/containernetworking/cni/pkg/types
