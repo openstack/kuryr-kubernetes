@@ -68,7 +68,7 @@ function kubeadm_init {
     # TODO(gryf): take care of cri-o case aswell
     rm -f ${output_dir}/kubeadm-init.yaml
     cat >> ${output_dir}/kubeadm-init.yaml << EOF
-apiVersion: kubeadm.k8s.io/v1beta2
+apiVersion: kubeadm.k8s.io/v1beta3
 kind: ClusterConfiguration
 imageRepository: "${KURYR_KUBEADMIN_IMAGE_REPOSITORY}"
 etcd:
@@ -83,22 +83,19 @@ apiServer:
     min-request-timeout: "300"
     allow-privileged: "true"
     v: "$(get_k8s_log_level)"
-    logtostderr: "true"
 controllerManager:
   extraArgs:
     master: "$KURYR_K8S_API_URL"
     min-resync-period: "3m"
     v: "$(get_k8s_log_level)"
-    logtostderr: "true"
     leader-elect: "false"
 scheduler:
   extraArgs:
     master: "${KURYR_K8S_API_URL}"
     v: "$(get_k8s_log_level)"
-    logtostderr: "true"
     leader-elect: "false"
 ---
-apiVersion: kubeadm.k8s.io/v1beta2
+apiVersion: kubeadm.k8s.io/v1beta3
 kind: InitConfiguration
 bootstrapTokens:
 - token: "${KURYR_K8S_TOKEN}"
