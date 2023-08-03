@@ -85,7 +85,7 @@ enable_service o-hk
 enable_plugin devstack-plugin-container https://opendev.org/openstack/devstack-plugin-container
 # We are using CRI-O by default. The version should match K8s version:
 CONTAINER_ENGINE="crio"
-CRIO_VERSION="1.26"
+CRIO_VERSION="1.27"
 
 # Etcd
 # ====

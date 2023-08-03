@@ -163,7 +163,7 @@ function kubeadm_join {
     # TODO(gryf): take care of cri-o case aswell
     rm -f ${output_dir}/kubeadm-join.yaml
     cat >> ${output_dir}/kubeadm-join.yaml << EOF
-apiVersion: kubeadm.k8s.io/v1beta2
+apiVersion: kubeadm.k8s.io/v1beta3
 discovery:
   bootstrapToken:
     apiServerEndpoint: ${SERVICE_HOST}:${KURYR_K8S_API_PORT}
