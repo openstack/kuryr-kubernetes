@@ -11,7 +11,7 @@ Install ``kuryr-k8s-controller`` in a virtualenv:
 
    $ mkdir kuryr-k8s-controller
    $ cd kuryr-k8s-controller
-   $ virtualenv env
+   $ python3 -m venv env
    $ git clone https://opendev.org/openstack/kuryr-kubernetes
    $ . env/bin/activate
    $ pip install -e kuryr-kubernetes
@@ -27,7 +27,8 @@ Create ``/etc/kuryr/kuryr.conf``:
 
    $ cd kuryr-kubernetes
    $ ./tools/generate_config_file_samples.sh
-   $ cp etc/kuryr.conf.sample /etc/kuryr/kuryr.conf
+   $ sudo mkdir /etc/kuryr
+   $ sudo cp etc/kuryr.conf.sample /etc/kuryr/kuryr.conf
 
 Edit ``kuryr.conf``:
 
