@@ -1,7 +1,7 @@
 FROM quay.io/centos/centos:stream9
 LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redhat.com>"
 
-ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/master"
+ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/2023.2"
 
 RUN dnf upgrade -y \
     && dnf install -y epel-release \
