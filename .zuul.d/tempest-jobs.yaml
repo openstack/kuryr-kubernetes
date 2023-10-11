@@ -46,7 +46,7 @@
 - job:
     name: kuryr-kubernetes-tempest-defaults
     parent: kuryr-kubernetes-octavia-base
-    nodeset: kuryr-nested-virt-ubuntu-focal
+    nodeset: kuryr-nested-virt-ubuntu-jammy
     description: |
       Kuryr-Kubernetes tempest job running kuryr containerized with OVN,
       Octavias amphora, default set of handlers, default SG driver and default
@@ -85,7 +85,7 @@
 
 - job:
     name: kuryr-kubernetes-tempest-ipv6
-    nodeset: kuryr-nested-virt-ubuntu-focal
+    nodeset: kuryr-nested-virt-ubuntu-jammy
     parent: kuryr-kubernetes-octavia-base
     description: |
       Kuryr-Kubernetes tempest job running kuryr containerized with IPv6 pod
@@ -189,7 +189,7 @@
 - job:
     name: kuryr-kubernetes-tempest-amphora
     parent: kuryr-kubernetes-base-ovn
-    nodeset: kuryr-nested-virt-ubuntu-focal
+    nodeset: kuryr-nested-virt-ubuntu-jammy
     required-projects:
       - openstack/octavia
       - openstack/python-octaviaclient

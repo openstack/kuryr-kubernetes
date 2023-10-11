@@ -221,7 +221,7 @@
 - job:
     name: kuryr-kubernetes-octavia-base-ovs
     parent: kuryr-kubernetes-base-ovs
-    nodeset: kuryr-nested-virt-ubuntu-focal
+    nodeset: kuryr-nested-virt-ubuntu-jammy
     description: |
       Kuryr-Kubernetes tempest job using OVS and amphora driver for Octavia
     required-projects:

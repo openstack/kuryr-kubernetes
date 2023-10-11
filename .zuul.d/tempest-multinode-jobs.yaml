@@ -17,7 +17,7 @@
     parent: kuryr-kubernetes-octavia-base
     description: |
         Kuryr-Kubernetes tempest multinode job with OVN
-    nodeset: kuryr-nested-virt-two-node-focal
+    nodeset: kuryr-nested-virt-two-node-jammy
     host-vars:
       controller:
         devstack_plugins:
@@ -99,7 +99,7 @@
     parent: kuryr-kubernetes-octavia-base-ovs
     description: |
         Kuryr-Kubernetes tempest multinode job with OVS
-    nodeset: kuryr-nested-virt-two-node-focal
+    nodeset: kuryr-nested-virt-two-node-jammy
     group-vars:
       subnode:
         devstack_plugins:

@@ -23,22 +23,22 @@
           - controller
 
 - nodeset:
-    name: kuryr-nested-virt-ubuntu-focal
+    name: kuryr-nested-virt-ubuntu-jammy
     nodes:
       - name: controller
-        label: nested-virt-ubuntu-focal
+        label: nested-virt-ubuntu-jammy
     groups:
       - name: tempest
         nodes:
           - controller
 
 - nodeset:
-    name: kuryr-nested-virt-two-node-focal
+    name: kuryr-nested-virt-two-node-jammy
     nodes:
       - name: controller
-        label: nested-virt-ubuntu-focal
+        label: nested-virt-ubuntu-jammy
       - name: compute1
-        label: nested-virt-ubuntu-focal
+        label: nested-virt-ubuntu-jammy
     groups:
       # Node where tests are executed and test results collected
       - name: tempest
