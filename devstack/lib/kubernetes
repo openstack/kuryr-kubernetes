@@ -10,33 +10,53 @@ function get_k8s_log_level {
 }
 
 function kubeadm_install {
-
-    if ! is_ubuntu; then
+    if ! is_ubuntu && ! is_fedora; then
         (>&2 echo "WARNING: kubeadm installation is not supported in this \
 distribution.")
         return
     fi
 
-    apt_get install apt-transport-https
-    curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
-        sudo apt-key add -
-    sudo add-apt-repository -y \
-        "deb https://apt.kubernetes.io/ kubernetes-xenial main"
-    REPOS_UPDATED=False apt_get_update
+    if is_ubuntu; then
+        apt_get install apt-transport-https
+        curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
+            sudo apt-key add -
+        sudo add-apt-repository -y \
+            "deb https://apt.kubernetes.io/ kubernetes-xenial main"
+        REPOS_UPDATED=False apt_get_update
 
-    # NOTE(gryf): kubectl will be installed alongside with the kubeadm as
-    # a dependency, although let's pin it to the k8s version as well.
-    apt_get install \
-        kubelet="${KURYR_KUBERNETES_VERSION}-00" \
-        kubeadm="${KURYR_KUBERNETES_VERSION}-00" \
-        kubectl="${KURYR_KUBERNETES_VERSION}-00"
-    sudo apt-mark hold kubelet kubeadm kubectl
-    # NOTE(hongbin): This work-around an issue that kubelet pick a wrong
-    # IP address if the node has multiple network interfaces.
-    # See https://github.com/kubernetes/kubeadm/issues/203
-    echo "KUBELET_EXTRA_ARGS=--node-ip=$HOST_IP" | sudo tee -a \
-        /etc/default/kubelet
-    sudo systemctl daemon-reload && sudo systemctl restart kubelet
+        # NOTE(gryf): kubectl will be installed alongside with the kubeadm as
+        # a dependency, although let's pin it to the k8s version as well.
+        apt_get install \
+            kubelet="${KURYR_KUBERNETES_VERSION}-00" \
+            kubeadm="${KURYR_KUBERNETES_VERSION}-00" \
+            kubectl="${KURYR_KUBERNETES_VERSION}-00"
+        sudo apt-mark hold kubelet kubeadm kubectl
+        # NOTE(hongbin): This work-around an issue that kubelet pick a wrong
+        # IP address if the node has multiple network interfaces.
+        # See https://github.com/kubernetes/kubeadm/issues/203
+        echo "KUBELET_EXTRA_ARGS=--node-ip=$HOST_IP" | sudo tee -a \
+            /etc/default/kubelet
+        sudo systemctl daemon-reload && sudo systemctl restart kubelet
+    fi
+
+    if is_fedora; then
+        source /etc/os-release
+        os_VENDOR=$(echo $NAME | tr -d '[:space:]')
+        if [[ $os_VENDOR =~ "CentOS" ]]; then
+             cat <<EOF | sudo tee /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg \
+https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+             sudo chmod 755 /etc/yum.repos.d/kubernetes.repo
+             sudo dnf install kubeadm -y
+        fi
+    fi
 }
 
 function kubeadm_init {
