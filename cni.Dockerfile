@@ -10,7 +10,7 @@ LABEL authors="Antoni Segura Puimedon<toni@kuryr.org>, Michał Dulko<mdulko@redh
 
 ARG UPPER_CONSTRAINTS_FILE="https://releases.openstack.org/constraints/upper/master"
 ARG OSLO_LOCK_PATH=/var/kuryr-lock
-ARG RDO_REPO=https://repos.fedorapeople.org/repos/openstack/openstack-antelope/rdo-release-antelope-2.el9s.noarch.rpm
+ARG RDO_REPO=https://repos.fedorapeople.org/repos/openstack/archived/openstack-antelope/rdo-release-antelope-2.el9s.noarch.rpm
 
 RUN dnf upgrade -y && dnf install -y epel-release $RDO_REPO \
     && dnf install -y --setopt=tsflags=nodocs python3-pip openvswitch sudo iproute pciutils kmod-libs \
