@@ -1,0 +1,5 @@
+---
+upgrade:
+  - |
+    The deprecated ``[pod_vif_nested] worker_nodes_subnet`` option has been
+    removed. Use the ``[pod_vif_nested] worker_nodes_subnets`` option instead.

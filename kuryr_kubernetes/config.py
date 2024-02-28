@@ -290,9 +290,7 @@ cache_defaults = [
 nested_vif_driver_opts = [
     cfg.ListOpt('worker_nodes_subnets',
                 help=_("Neutron subnet IDs for k8s worker node VMs."),
-                default=[],
-                deprecated_name='worker_nodes_subnet',
-                deprecated_group='pod_vif_nested'),
+                default=[]),
     cfg.IntOpt('rev_update_attempts',
                help=_("How many time to try to re-update the neutron resource "
                       "when revision has been changed by other thread"),

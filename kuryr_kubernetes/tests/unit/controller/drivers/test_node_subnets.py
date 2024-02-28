@@ -34,14 +34,6 @@ class TestConfigNodesSubnetsDriver(test_base.TestCase):
 
         self.assertEqual(subnets, driver.get_nodes_subnets())
 
-    def test_get_nodes_subnets_alias(self):
-        subnet = 'subnet1'
-        cfg.CONF.set_override('worker_nodes_subnet', subnet,
-                              group='pod_vif_nested')
-        driver = node_subnets.ConfigNodesSubnets()
-
-        self.assertEqual([subnet], driver.get_nodes_subnets())
-
     def test_get_project_not_set_raise(self):
         cfg.CONF.set_override('worker_nodes_subnets', None,
                               group='pod_vif_nested')
