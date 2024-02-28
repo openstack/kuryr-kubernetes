@@ -24,7 +24,6 @@ import urllib3
 
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
-import pytz
 import requests
 from requests import adapters
 
@@ -418,7 +417,7 @@ class K8sClient(object):
 
         # This is needed for Event date, otherwise LAST SEEN/Age will be empty
         # and misleading.
-        now = datetime.datetime.utcnow().replace(tzinfo=pytz.UTC)
+        now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
         date_time = now.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         name = ".".join((resource['metadata']['name'],
