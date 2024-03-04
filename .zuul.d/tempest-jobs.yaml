@@ -178,15 +178,6 @@
     voting: true
 
 - job:
-    name: kuryr-kubernetes-tempest-docker
-    parent: kuryr-kubernetes-octavia-base
-    vars:
-      devstack_localrc:
-        CONTAINER_ENGINE: docker
-        KURYR_KUBERNETES_VERSION: 1.23.16
-    voting: true
-
-- job:
     name: kuryr-kubernetes-tempest-amphora
     parent: kuryr-kubernetes-base-ovn
     nodeset: kuryr-nested-virt-ubuntu-jammy

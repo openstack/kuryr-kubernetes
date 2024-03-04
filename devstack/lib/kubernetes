@@ -17,19 +17,22 @@ distribution.")
     fi
 
     if is_ubuntu; then
-        apt_get install apt-transport-https
-        curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
-            sudo apt-key add -
-        sudo add-apt-repository -y \
-            "deb https://apt.kubernetes.io/ kubernetes-xenial main"
+        apt_get install apt-transport-https gpg
+        sudo mkdir -p -m 755 /etc/apt/keyrings
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/v${KURYR_KUBERNETES_VERSION%.*}/deb/Release.key | \
+            sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v'${KURYR_KUBERNETES_VERSION%.*}'/deb/ /' | \
+            sudo tee /etc/apt/sources.list.d/kubernetes.list
+
         REPOS_UPDATED=False apt_get_update
 
         # NOTE(gryf): kubectl will be installed alongside with the kubeadm as
         # a dependency, although let's pin it to the k8s version as well.
+        kube_pkg_version=$(sudo apt-cache show kubeadm | grep "Version: $KURYR_KUBERNETES_VERSION-" | awk '{ print $2 }')
         apt_get install \
-            kubelet="${KURYR_KUBERNETES_VERSION}-00" \
-            kubeadm="${KURYR_KUBERNETES_VERSION}-00" \
-            kubectl="${KURYR_KUBERNETES_VERSION}-00"
+            kubelet="${kube_pkg_version}" \
+            kubeadm="${kube_pkg_version}" \
+            kubectl="${kube_pkg_version}"
         sudo apt-mark hold kubelet kubeadm kubectl
         # NOTE(hongbin): This work-around an issue that kubelet pick a wrong
         # IP address if the node has multiple network interfaces.
