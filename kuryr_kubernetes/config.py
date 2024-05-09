@@ -262,7 +262,7 @@ octavia_defaults = [
                        "of the caller resource"),
                 default=True),
     cfg.StrOpt('lb_algorithm',
-               help=_("The load-balancer algoritm that distributed traffic "
+               help=_("The load-balancer algorithm that distributed traffic "
                       "to the pool members. The options are: ROUND_ROBIN, "
                       "LEAST_CONNECTIONS, SOURCE_IP and SOURCE_IP_PORT."),
                default='ROUND_ROBIN'),
