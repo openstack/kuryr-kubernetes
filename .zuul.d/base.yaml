@@ -19,7 +19,6 @@
       Base Kuryr Kubernetes tempest job. There are neither Neutron nor Octavia
       services, its meant to be extended.
     required-projects:
-      - openstack/devstack-gate
       - openstack/devstack-plugin-container
       - openstack/kuryr-kubernetes
       - openstack/kuryr-tempest-plugin
@@ -131,7 +130,6 @@
     parent: kuryr-kubernetes-base
     description: Base kuryr-kubernetes-job with OVS
     required-projects:
-      - openstack/devstack-gate
       - openstack/devstack-plugin-container
       - openstack/kuryr-kubernetes
       - openstack/kuryr-tempest-plugin
