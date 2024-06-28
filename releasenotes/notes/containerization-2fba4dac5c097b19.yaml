@@ -1,6 +1,0 @@
----
-features:
-  - |
-    Kuryr can now be run in containers on top of K8s cluster it is providing
-    networking for. A tool to generate K8s resource definitions is provided.
-    More information can be found in the kuryr-kubernetes documentation.

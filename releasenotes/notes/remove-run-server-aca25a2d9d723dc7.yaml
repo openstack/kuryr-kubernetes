@@ -1,5 +1,0 @@
----
-deprecations:
-  - |
-    The scripts/run_server.py scripts gets removed as we no longer use it in
-    DevStack plugin.

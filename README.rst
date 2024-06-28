@@ -1,35 +1,10 @@
-========================
-Team and repository tags
-========================
+This project is no longer maintained.
 
-.. image:: https://governance.openstack.org/tc/badges/kuryr-kubernetes.svg
-   :target: https://governance.openstack.org/tc/reference/tags/index.html
+The contents of this repository are still available in the Git
+source code management system.  To see the contents of this
+repository before it reached its end of life, please check out the
+previous commit with "git checkout HEAD^1".
 
-.. Change things from this point on
-
-
-Project description
-===================
-
-Kubernetes integration with OpenStack networking
-
-The OpenStack Kuryr project enables native Neutron-based networking in
-Kubernetes. With Kuryr-Kubernetes it's now possible to choose to run both
-OpenStack VMs and Kubernetes Pods on the same Neutron network if your workloads
-require it or to use different segments and, for example, route between them.
-
-* Free software: Apache license
-* Documentation: https://docs.openstack.org/kuryr-kubernetes/latest
-* Source: https://opendev.org/openstack/kuryr-kubernetes
-* Bugs: https://bugs.launchpad.net/kuryr-kubernetes
-* Overview and demo: https://superuser.openstack.org/articles/networking-kubernetes-kuryr
-* Release notes: https://docs.openstack.org/releasenotes/kuryr-kubernetes/
-
-
-Contribution guidelines
------------------------
-
-For the process of new feature addition, refer to the `Kuryr Policy`_.
-
-
-.. _Kuryr Policy: https://wiki.openstack.org/wiki/Kuryr#Kuryr_Policies
+For any further questions, please email
+openstack-discuss@lists.openstack.org or join #openstack-dev on
+OFTC.

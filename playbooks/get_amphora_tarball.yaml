@@ -1,6 +1,0 @@
-- hosts: controller
-  tasks:
-    - name: Download amphora tarball
-      get_url:
-        url: "https://tarballs.openstack.org/octavia/test-images/test-only-amphora-x64-haproxy-ubuntu-focal.qcow2"
-        dest: /tmp/test-only-amphora-x64-haproxy-ubuntu-focal.qcow2

@@ -1,6 +1,0 @@
----
-upgrade:
-  - |
-    Before upgrading to T (0.7.x) run ``kuryr-k8s-status upgrade check`` to
-    check if upgrade is possible. In case of negative result refer to
-    kuryr-kubernetes documentation for mitigation steps.

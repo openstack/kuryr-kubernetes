@@ -1,4 +1,0 @@
-export OS_USERNAME=admin
-export OS_PASSWORD=pass
-export OS_PROJECT_NAME=admin
-export OS_AUTH_URL=http://127.0.0.1/identity
